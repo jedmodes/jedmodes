@@ -1,0 +1,1826 @@
+   Usage information for slgtk
+   Extracted from slgtk-0.5.9/src/gen/*glue.c
+gtk_plot_surface_set_color(GtkWidget,struct)
+gtk_plot_surface_set_shadow(GtkWidget,struct)
+gtk_plot_surface_set_grid_foreground(GtkWidget,struct)
+gtk_plot_surface_set_grid_background(GtkWidget,struct)
+gtk_plot_surface_set_grid_visible(GtkWidget,Int)
+gtk_plot_surface_get_grid_visible(GtkWidget); Int
+gtk_plot_surface_set_mesh_visible(GtkWidget,Int)
+gtk_plot_surface_get_mesh_visible(GtkWidget); Int
+gtk_plot_surface_set_light(GtkWidget,Double,Double,Double)
+gtk_plot_surface_set_ambient(GtkWidget,Double)
+gtk_plot_surface_use_height_gradient(GtkWidget,Int)
+gtk_plot_surface_use_amplitud(GtkWidget,Int)
+gtk_plot_surface_set_transparent(GtkWidget,Int)
+gtk_plot_surface_set_points(GtkWidget,array_or_ref,array_or_ref,array_or_ref,array_or_ref,array_or_ref,array_or_ref,Int,Int)
+gtk_plot_surface_set_x(GtkWidget,array_or_ref)
+gtk_plot_surface_set_y(GtkWidget,array_or_ref)
+gtk_plot_surface_set_z(GtkWidget,array_or_ref)
+gtk_plot_surface_set_dx(GtkWidget,array_or_ref)
+gtk_plot_surface_set_dy(GtkWidget,array_or_ref)
+gtk_plot_surface_set_dz(GtkWidget,array_or_ref)
+gtk_plot_surface_set_nx(GtkWidget,Int)
+gtk_plot_surface_set_ny(GtkWidget,Int)
+gtk_plot_surface_get_nx(GtkWidget); Int
+gtk_plot_surface_get_ny(GtkWidget); Int
+gtk_plot_surface_set_xstep(GtkWidget,Double)
+gtk_plot_surface_set_ystep(GtkWidget,Double)
+gtk_plot_surface_get_xstep(GtkWidget); Double
+gtk_plot_surface_get_ystep(GtkWidget); Double
+gtk_plot_surface_build_mesh(GtkWidget)
+gtk_plot_surface_recalc_nodes(GtkWidget)
+gtk_plot_export_ps(GtkWidget,String,Int,Int,Int); Int
+gtk_plot_export_ps_with_size(GtkWidget,String,Int,Int,Int,Int,Int); Int
+gtk_plot_canvas_export_ps(GtkWidget,String,Int,Int,Int); Int
+gtk_plot_canvas_export_ps_with_size(GtkWidget,String,Int,Int,Int,Int,Int); Int
+gtk_plot_canvas_new(Int,Int,Double); GtkWidget
+gtk_plot_canvas_construct(GtkWidget,Int,Int,Double)
+gtk_plot_canvas_set_pc(GtkWidget,GtkOpaque)
+gtk_plot_canvas_paint(GtkWidget)
+gtk_plot_canvas_refresh(GtkWidget)
+gtk_plot_canvas_freeze(GtkWidget)
+gtk_plot_canvas_thaw(GtkWidget)
+gtk_plot_canvas_grid_set_visible(GtkWidget,Int)
+gtk_plot_canvas_grid_set_step(GtkWidget,Double)
+gtk_plot_canvas_grid_set_attributes(GtkWidget,Int,Int,struct)
+gtk_plot_canvas_add_plot(GtkWidget,GtkWidget,Double,Double)
+gtk_plot_canvas_set_active_plot(GtkWidget,GtkWidget)
+gtk_plot_canvas_cancel_action(GtkWidget)
+gtk_plot_canvas_unselect(GtkWidget)
+gtk_plot_canvas_get_active_plot(GtkWidget); GtkWidget
+gtk_plot_canvas_get_active_data(GtkWidget); GtkOpaque
+gtk_plot_canvas_get_active_point(GtkWidget,array_or_ref,array_or_ref); Int
+gtk_plot_canvas_get_active_item(GtkWidget); GtkOpaque
+gtk_plot_canvas_set_size(GtkWidget,Int,Int)
+gtk_plot_canvas_set_magnification(GtkWidget,Double)
+gtk_plot_canvas_set_transparent(GtkWidget,Int)
+gtk_plot_canvas_transparent(GtkWidget); Int
+gtk_plot_canvas_set_background(GtkWidget,struct)
+gtk_plot_canvas_get_pixel(GtkWidget,Double,Double,array_or_ref,array_or_ref)
+gtk_plot_canvas_get_position(GtkWidget,Int,Int,array_or_ref,array_or_ref)
+gtk_plot_canvas_put_text(GtkWidget,Double,Double,String,Int,Int,struct,struct,Int,Int,String); GtkOpaque
+gtk_plot_canvas_remove_child(GtkWidget,GtkOpaque); Int
+gtk_plot_canvas_put_line(GtkWidget,Double,Double,Double,Double,Int,Float,struct,Int); GtkOpaque
+gtk_plot_canvas_put_rectangle(GtkWidget,Double,Double,Double,Double,Int,Float,struct,struct,Int,Int); GtkOpaque
+gtk_plot_canvas_put_ellipse(GtkWidget,Double,Double,Double,Double,Int,Float,struct,struct,Int); GtkOpaque
+gtk_plot_canvas_put_pixmap(GtkWidget,GdkDrawable,Double,Double); GtkOpaque
+gtk_plot_canvas_line_set_attributes(GtkOpaque,Int,Float,struct,Int)
+gtk_plot_canvas_rectangle_set_attributes(GtkOpaque,Int,Float,struct,struct,Int,Int)
+gtk_plot_canvas_ellipse_set_attributes(GtkOpaque,Int,Float,struct,struct,Int)
+gtk_plot_canvas_polygon_set_attributes(GtkOpaque,Int,Float,struct,struct,Int)
+gtk_plot_canvas_child_new(Int); GtkOpaque
+gtk_plot_canvas_put_child(GtkWidget,GtkOpaque,Double,Double,Double,Double)
+gtk_plot_canvas_child_move(GtkWidget,GtkOpaque,Double,Double)
+gtk_plot_canvas_child_move_resize(GtkWidget,GtkOpaque,Double,Double,Double,Double)
+gtk_plot_canvas_child_set_selection(GtkOpaque,Int)
+gtk_plot_canvas_child_set_selection_mode(GtkOpaque,Int)
+gtk_plot_canvas_get_child_position(GtkWidget,GtkOpaque,array_or_ref,array_or_ref,array_or_ref,array_or_ref); Int
+gtk_plot_canvas_get_child_data(GtkOpaque); GtkOpaque
+gtk_plot_canvas_get_child_type(GtkOpaque); Int
+gtk_plot_data_clone(GtkOpaque,GtkOpaque)
+gtk_plot_data_paint(GtkOpaque)
+gtk_plot_data_update(GtkOpaque)
+gtk_plot_data_draw_points(GtkOpaque,Int)
+gtk_plot_data_draw_symbol(GtkOpaque,Double,Double)
+gtk_plot_data_set_points(GtkOpaque,array_or_ref,array_or_ref,array_or_ref,array_or_ref,Int)
+gtk_plot_data_get_point(GtkOpaque,Int,array_or_ref,array_or_ref,array_or_ref,array_or_ref,array_or_ref,array_or_ref,array_or_ref,array_or_ref,array_or_ref,array_or_ref)
+gtk_plot_data_set_x(GtkOpaque,array_or_ref)
+gtk_plot_data_set_y(GtkOpaque,array_or_ref)
+gtk_plot_data_set_z(GtkOpaque,array_or_ref)
+gtk_plot_data_set_a(GtkOpaque,array_or_ref)
+gtk_plot_data_set_dx(GtkOpaque,array_or_ref)
+gtk_plot_data_set_dy(GtkOpaque,array_or_ref)
+gtk_plot_data_set_dz(GtkOpaque,array_or_ref)
+gtk_plot_data_set_da(GtkOpaque,array_or_ref)
+gtk_plot_data_set_a_scale(GtkOpaque,Double)
+gtk_plot_data_set_labels(GtkOpaque,array_or_ref)
+gtk_plot_data_get_a_scale(GtkOpaque); Double
+gtk_plot_data_show_labels(GtkOpaque,Int)
+gtk_plot_data_labels_set_attributes(GtkOpaque,String,Int,Int,struct,struct)
+gtk_plot_data_set_numpoints(GtkOpaque,Int)
+gtk_plot_data_get_numpoints(GtkOpaque); Int
+gtk_plot_data_set_symbol(GtkOpaque,Int,Int,Int,Float,struct,struct)
+gtk_plot_data_get_symbol(GtkOpaque,array_or_ref,array_or_ref,array_or_ref,array_or_ref,struct,struct)
+gtk_plot_data_set_connector(GtkOpaque,Int)
+gtk_plot_data_get_connector(GtkOpaque); Int
+gtk_plot_data_set_line_attributes(GtkOpaque,Int,Int,Int,Float,struct)
+gtk_plot_data_get_line_attributes(GtkOpaque,array_or_ref,array_or_ref,array_or_ref,array_or_ref,struct)
+gtk_plot_data_set_x_attributes(GtkOpaque,Int,Int,Int,Float,struct)
+gtk_plot_data_set_y_attributes(GtkOpaque,Int,Int,Int,Float,struct)
+gtk_plot_data_set_z_attributes(GtkOpaque,Int,Int,Int,Float,struct)
+gtk_plot_data_show_xerrbars(GtkOpaque)
+gtk_plot_data_show_yerrbars(GtkOpaque)
+gtk_plot_data_show_zerrbars(GtkOpaque)
+gtk_plot_data_hide_xerrbars(GtkOpaque)
+gtk_plot_data_hide_yerrbars(GtkOpaque)
+gtk_plot_data_hide_zerrbars(GtkOpaque)
+gtk_plot_data_fill_area(GtkOpaque,Int)
+gtk_plot_data_area_is_filled(GtkOpaque); Int
+gtk_plot_data_show_legend(GtkOpaque)
+gtk_plot_data_hide_legend(GtkOpaque)
+gtk_plot_data_set_legend(GtkOpaque,String)
+gtk_plot_data_set_legend_precision(GtkOpaque,Int)
+gtk_plot_data_get_legend_precision(GtkOpaque); Int
+gtk_plot_data_set_name(GtkOpaque,String)
+gtk_plot_data_reset_gradient(GtkOpaque)
+gtk_plot_data_reset_gradient_colors(GtkOpaque)
+gtk_plot_data_gradient_use_custom_colors(GtkOpaque,Int)
+gtk_plot_data_gradient_custom_colors(GtkOpaque); Int
+gtk_plot_data_set_gradient_mask(GtkOpaque,Int)
+gtk_plot_data_get_gradient_mask(GtkOpaque); Int
+gtk_plot_data_gradient_set_visible(GtkOpaque,Int)
+gtk_plot_data_gradient_visible(GtkOpaque); Int
+gtk_plot_data_draw_gradient(GtkOpaque,Int,Int)
+gtk_plot_data_gradient_autoscale_a(GtkOpaque)
+gtk_plot_data_gradient_autoscale_da(GtkOpaque)
+gtk_plot_data_gradient_autoscale_z(GtkOpaque)
+gtk_plot_data_set_gradient_colors(GtkOpaque,struct,struct)
+gtk_plot_data_get_gradient_colors(GtkOpaque,struct,struct)
+gtk_plot_data_set_gradient_nth_color(GtkOpaque,UInt,struct)
+gtk_plot_data_set_gradient_outer_colors(GtkOpaque,struct,struct)
+gtk_plot_data_get_gradient_outer_colors(GtkOpaque,struct,struct)
+gtk_plot_data_set_gradient(GtkOpaque,Double,Double,Int,Int)
+gtk_plot_data_get_gradient(GtkOpaque,array_or_ref,array_or_ref,array_or_ref,array_or_ref)
+gtk_plot_data_get_gradient_level(GtkOpaque,Double,struct)
+gtk_plot_data_gradient_set_style(GtkOpaque,Int,Int)
+gtk_plot_data_gradient_set_scale(GtkOpaque,Int)
+gtk_plot_data_set_link(GtkOpaque,GtkOpaque)
+gtk_plot_data_get_link(GtkOpaque); GtkOpaque
+gtk_plot_data_remove_link(GtkOpaque)
+gtk_plot_data_remove_markers(GtkOpaque)
+gtk_plot_data_show_markers(GtkOpaque,Int)
+gtk_plot_data_markers_visible(GtkOpaque); Int
+gtk_plot_pc_init(GtkOpaque); Int
+gtk_plot_pc_leave(GtkOpaque)
+gtk_plot_pc_set_viewport(GtkOpaque,Double,Double)
+gtk_plot_pc_gsave(GtkOpaque)
+gtk_plot_pc_grestore(GtkOpaque)
+gtk_plot_pc_clip(GtkOpaque,struct)
+gtk_plot_pc_clip_mask(GtkOpaque,Double,Double,GdkDrawable)
+gtk_plot_pc_set_color(GtkOpaque,struct)
+gtk_plot_pc_set_lineattr(GtkOpaque,Float,Int,Int,Int)
+gtk_plot_pc_set_dash(GtkOpaque,Double,array_or_ref,Int)
+gtk_plot_pc_draw_point(GtkOpaque,Double,Double)
+gtk_plot_pc_draw_line(GtkOpaque,Double,Double,Double,Double)
+gtk_plot_pc_draw_rectangle(GtkOpaque,Int,Double,Double,Double,Double)
+gtk_plot_pc_draw_ellipse(GtkOpaque,Int,Double,Double,Double,Double)
+gtk_plot_pc_draw_circle(GtkOpaque,Int,Double,Double,Double)
+gtk_plot_pc_draw_string(GtkOpaque,Int,Int,Int,struct,struct,Int,Int,Int,Int,Int,String,Int,Int,String)
+gtk_plot_pc_draw_pixmap(GtkOpaque,GdkDrawable,GdkDrawable,Int,Int,Int,Int,Int,Int,Double,Double)
+gtk_plot3d_new(GdkDrawable); GtkWidget
+gtk_plot3d_new_with_size(GdkDrawable,Double,Double); GtkWidget
+gtk_plot3d_construct(GtkWidget,GdkDrawable)
+gtk_plot3d_construct_with_size(GtkWidget,GdkDrawable,Double,Double)
+gtk_plot3d_autoscale(GtkWidget)
+gtk_plot3d_rotate(GtkWidget,Double,Double,Double)
+gtk_plot3d_reset_angles(GtkWidget)
+gtk_plot3d_rotate_x(GtkWidget,Double)
+gtk_plot3d_rotate_y(GtkWidget,Double)
+gtk_plot3d_rotate_z(GtkWidget,Double)
+gtk_plot3d_get_pixel(GtkWidget,Double,Double,Double,array_or_ref,array_or_ref,array_or_ref)
+gtk_plot3d_set_xrange(GtkWidget,Double,Double)
+gtk_plot3d_set_yrange(GtkWidget,Double,Double)
+gtk_plot3d_set_zrange(GtkWidget,Double,Double)
+gtk_plot3d_set_xfactor(GtkWidget,Double)
+gtk_plot3d_set_yfactor(GtkWidget,Double)
+gtk_plot3d_set_zfactor(GtkWidget,Double)
+gtk_plot3d_get_xfactor(GtkWidget); Double
+gtk_plot3d_get_yfactor(GtkWidget); Double
+gtk_plot3d_get_zfactor(GtkWidget); Double
+gtk_plot3d_plane_set_color(GtkWidget,Int,struct)
+gtk_plot3d_plane_set_visible(GtkWidget,Int,Int)
+gtk_plot3d_plane_visible(GtkWidget,Int); Int
+gtk_plot3d_corner_set_visible(GtkWidget,Int)
+gtk_plot3d_corner_visible(GtkWidget); Int
+gtk_plot3d_corner_set_attributes(GtkWidget,Int,Float,struct)
+gtk_plot3d_corner_get_attributes(GtkWidget,array_or_ref,array_or_ref,struct)
+gtk_plot3d_frame_set_attributes(GtkWidget,Int,Float,struct)
+gtk_plot3d_frame_get_attributes(GtkWidget,array_or_ref,array_or_ref,struct)
+gtk_plot3d_axis_show_major_ticks(GtkWidget,Int,Int)
+gtk_plot3d_axis_show_minor_ticks(GtkWidget,Int,Int)
+gtk_plot3d_axis_show_labels(GtkWidget,Int,Int)
+gtk_plot3d_axis_show_title(GtkWidget,Int)
+gtk_plot3d_axis_hide_title(GtkWidget,Int)
+gtk_plot3d_axis_set_ticks(GtkWidget,Int,Double,Int)
+gtk_plot3d_axis_set_major_ticks(GtkWidget,Int,Double)
+gtk_plot3d_axis_set_minor_ticks(GtkWidget,Int,Int)
+gtk_plot3d_axis_set_ticks_length(GtkWidget,Int,Int)
+gtk_plot3d_axis_set_ticks_width(GtkWidget,Int,Float)
+gtk_plot3d_axis_show_ticks(GtkWidget,Int,Int,Int)
+gtk_plot3d_set_titles_offset(GtkWidget,Int)
+gtk_plot3d_get_titles_offset(GtkWidget); Int
+gtk_plot3d_axis_set_scale(GtkWidget,Int,Int)
+gtk_plot3d_axis_get_scale(GtkWidget,Int); Int
+gtk_plot3d_major_grids_set_visible(GtkWidget,Int,Int,Int)
+gtk_plot3d_minor_grids_set_visible(GtkWidget,Int,Int,Int)
+gtk_plot3d_major_grids_visible(GtkWidget,array_or_ref,array_or_ref,array_or_ref)
+gtk_plot3d_minor_grids_visible(GtkWidget,array_or_ref,array_or_ref,array_or_ref)
+gtk_plot3d_major_zgrid_set_attributes(GtkWidget,Int,Float,struct)
+gtk_plot3d_major_zgrid_get_attributes(GtkWidget,array_or_ref,array_or_ref,struct)
+gtk_plot3d_minor_zgrid_set_attributes(GtkWidget,Int,Float,struct)
+gtk_plot3d_minor_zgrid_get_attributes(GtkWidget,array_or_ref,array_or_ref,struct)
+gtk_plot_new(GdkDrawable); GtkWidget
+gtk_plot_new_with_size(GdkDrawable,Double,Double); GtkWidget
+gtk_plot_construct(GtkWidget,GdkDrawable)
+gtk_plot_construct_with_size(GtkWidget,GdkDrawable,Double,Double)
+gtk_plot_set_drawable(GtkWidget,GdkDrawable)
+gtk_plot_get_drawable(GtkWidget); GdkDrawable
+gtk_plot_set_pc(GtkWidget,GtkOpaque)
+gtk_plot_set_background_pixmap(GtkWidget,GdkDrawable)
+gtk_plot_set_transparent(GtkWidget,Int)
+gtk_plot_is_transparent(GtkWidget); Int
+gtk_plot_get_position(GtkWidget,array_or_ref,array_or_ref)
+gtk_plot_get_size(GtkWidget,array_or_ref,array_or_ref)
+gtk_plot_set_background(GtkWidget,struct)
+gtk_plot_paint(GtkWidget)
+gtk_plot_refresh(GtkWidget,struct)
+gtk_plot_move(GtkWidget,Double,Double)
+gtk_plot_resize(GtkWidget,Double,Double)
+gtk_plot_set_magnification(GtkWidget,Double)
+gtk_plot_move_resize(GtkWidget,Double,Double,Double,Double)
+gtk_plot_get_pixel(GtkWidget,Double,Double,array_or_ref,array_or_ref)
+gtk_plot_get_point(GtkWidget,Int,Int,array_or_ref,array_or_ref)
+gtk_plot_clip_data(GtkWidget,Int)
+gtk_plot_set_xrange(GtkWidget,Double,Double)
+gtk_plot_set_yrange(GtkWidget,Double,Double)
+gtk_plot_set_range(GtkWidget,Double,Double,Double,Double)
+gtk_plot_autoscale(GtkWidget)
+gtk_plot_get_xrange(GtkWidget,array_or_ref,array_or_ref)
+gtk_plot_get_yrange(GtkWidget,array_or_ref,array_or_ref)
+gtk_plot_set_xscale(GtkWidget,Int)
+gtk_plot_set_yscale(GtkWidget,Int)
+gtk_plot_get_xscale(GtkWidget); Int
+gtk_plot_get_yscale(GtkWidget); Int
+gtk_plot_reflect_x(GtkWidget,Int)
+gtk_plot_reflect_y(GtkWidget,Int)
+gtk_plot_is_x_reflected(GtkWidget); Int
+gtk_plot_is_y_reflected(GtkWidget); Int
+gtk_plot_text_get_size(String,Int,String,Int,array_or_ref,array_or_ref,array_or_ref,array_or_ref)
+gtk_plot_text_get_area(String,Int,Int,String,Int,array_or_ref,array_or_ref,array_or_ref,array_or_ref)
+gtk_plot_axis_new(Int); GtkObject
+gtk_plot_axis_set_visible(GtkWidget,Int,Int)
+gtk_plot_axis_visible(GtkWidget,Int); Int
+gtk_plot_axis_set_title(GtkWidget,Int,String)
+gtk_plot_axis_show_title(GtkWidget,Int)
+gtk_plot_axis_hide_title(GtkWidget,Int)
+gtk_plot_axis_move_title(GtkWidget,Int,Int,Double,Double)
+gtk_plot_axis_justify_title(GtkWidget,Int,Int)
+gtk_plot_axis_set_attributes(GtkWidget,Int,Float,struct)
+gtk_plot_axis_get_attributes(GtkWidget,Int,array_or_ref,struct)
+gtk_plot_axis_set_ticks(GtkWidget,Int,Double,Int)
+gtk_plot_axis_set_major_ticks(GtkWidget,Int,Double)
+gtk_plot_axis_set_minor_ticks(GtkWidget,Int,Int)
+gtk_plot_axis_set_ticks_length(GtkWidget,Int,Int)
+gtk_plot_axis_set_ticks_width(GtkWidget,Int,Float)
+gtk_plot_axis_default_width(Float)
+gtk_plot_axis_default_tick_length(Int)
+gtk_plot_axis_default_tick_width(Float)
+gtk_plot_axis_show_ticks(GtkWidget,Int,Int,Int)
+gtk_plot_axis_set_ticks_limits(GtkWidget,Int,Double,Double)
+gtk_plot_axis_unset_ticks_limits(GtkWidget,Int)
+gtk_plot_axis_set_break(GtkWidget,Int,Double,Double,Double,Int,Int,Double)
+gtk_plot_axis_remove_break(GtkWidget,Int)
+gtk_plot_axis_show_labels(GtkWidget,Int,Int)
+gtk_plot_axis_title_set_attributes(GtkWidget,Int,String,Int,Int,struct,struct,Int,Int)
+gtk_plot_axis_set_labels_attributes(GtkWidget,Int,String,Int,Int,struct,struct,Int,Int)
+gtk_plot_axis_set_labels_style(GtkWidget,Int,Int,Int)
+gtk_plot_axis_set_labels_offset(GtkWidget,Int,Int)
+gtk_plot_axis_get_labels_offset(GtkWidget,Int); Int
+gtk_plot_axis_use_custom_tick_labels(GtkWidget,Int,Int)
+gtk_plot_axis_set_labels_suffix(GtkWidget,Int,String)
+gtk_plot_axis_set_labels_prefix(GtkWidget,Int,String)
+gtk_plot_axis_get_labels_suffix(GtkWidget,Int); String
+gtk_plot_axis_get_labels_prefix(GtkWidget,Int); String
+gtk_plot_x0_set_visible(GtkWidget,Int)
+gtk_plot_x0_visible(GtkWidget); Int
+gtk_plot_y0_set_visible(GtkWidget,Int)
+gtk_plot_y0_visible(GtkWidget); Int
+gtk_plot_grids_set_on_top(GtkWidget,Int)
+gtk_plot_grids_on_top(GtkWidget); Int
+gtk_plot_grids_set_visible(GtkWidget,Int,Int,Int,Int)
+gtk_plot_grids_visible(GtkWidget,array_or_ref,array_or_ref,array_or_ref,array_or_ref)
+gtk_plot_y0line_set_attributes(GtkWidget,Int,Float,struct)
+gtk_plot_x0line_set_attributes(GtkWidget,Int,Float,struct)
+gtk_plot_major_vgrid_set_attributes(GtkWidget,Int,Float,struct)
+gtk_plot_minor_vgrid_set_attributes(GtkWidget,Int,Float,struct)
+gtk_plot_major_hgrid_set_attributes(GtkWidget,Int,Float,struct)
+gtk_plot_minor_hgrid_set_attributes(GtkWidget,Int,Float,struct)
+gtk_plot_show_legends(GtkWidget)
+gtk_plot_hide_legends(GtkWidget)
+gtk_plot_set_legends_border(GtkWidget,Int,Int)
+gtk_plot_legends_move(GtkWidget,Double,Double)
+gtk_plot_legends_get_position(GtkWidget,array_or_ref,array_or_ref)
+gtk_plot_legends_set_attributes(GtkWidget,String,Int,struct,struct)
+gtk_plot_add_data(GtkWidget,GtkOpaque)
+gtk_plot_remove_data(GtkWidget,GtkOpaque); Int
+g_param_spec_ref(GtkOpaque); GtkOpaque
+g_param_spec_unref(GtkOpaque)
+g_param_spec_sink(GtkOpaque)
+g_param_value_set_default(GtkOpaque,GtkOpaque)
+g_param_value_defaults(GtkOpaque,GtkOpaque); Int
+g_param_value_validate(GtkOpaque,GtkOpaque); Int
+g_param_value_convert(GtkOpaque,GtkOpaque,GtkOpaque,Int); Int
+g_param_values_cmp(GtkOpaque,GtkOpaque,GtkOpaque); Int
+g_param_spec_get_name(GtkOpaque); String
+g_param_spec_get_nick(GtkOpaque); String
+g_param_spec_get_blurb(GtkOpaque); String
+g_value_set_param(GtkOpaque,GtkOpaque)
+g_value_get_param(GtkOpaque); GtkOpaque
+g_value_dup_param(GtkOpaque); GtkOpaque
+g_value_set_param_take_ownership(GtkOpaque,GtkOpaque)
+g_param_spec_internal(ULong,String,String,String,Int); GtkOpaque
+g_type_init_with_debug_flags(Int)
+g_type_name(ULong); String
+g_type_qname(ULong); UInt
+g_type_from_name(String); ULong
+g_type_parent(ULong); ULong
+g_type_depth(ULong); UInt
+g_type_next_base(ULong,ULong); ULong
+g_type_is_a(ULong,ULong); Int
+g_type_register_dynamic(ULong,String,GtkOpaque,Int); ULong
+g_type_add_interface_dynamic(ULong,ULong,GtkOpaque)
+g_type_interface_add_prerequisite(ULong,ULong)
+g_type_get_plugin(ULong); GtkOpaque
+g_type_interface_get_plugin(ULong,ULong); GtkOpaque
+g_type_fundamental(ULong); ULong
+g_type_create_instance(ULong); GtkOpaque
+g_type_free_instance(GtkOpaque)
+g_type_check_instance(GtkOpaque); Int
+g_type_check_instance_cast(GtkOpaque,ULong); GtkOpaque
+g_type_check_instance_is_a(GtkOpaque,ULong); Int
+g_type_check_class_cast(GtkOpaque,ULong); GtkOpaque
+g_type_check_class_is_a(GtkOpaque,ULong); Int
+g_type_check_is_value_type(ULong); Int
+g_type_check_value(GtkOpaque); Int
+g_type_check_value_holds(GtkOpaque,ULong); Int
+g_type_test_flags(ULong,UInt); Int
+g_type_name_from_instance(GtkOpaque); String
+g_type_name_from_class(GtkOpaque); String
+g_signal_emitv(GtkOpaque,UInt,UInt,GtkOpaque)
+g_signal_lookup(String,ULong); UInt
+g_signal_name(UInt); String
+g_signal_parse_name(String,ULong,array_or_ref,array_or_ref,Int); Int
+g_signal_stop_emission(GtkOpaque,UInt,UInt)
+g_signal_stop_emission_by_name(GtkOpaque,String)
+g_signal_remove_emission_hook(UInt,ULong)
+g_signal_has_handler_pending(GtkOpaque,UInt,UInt,Int); Int
+g_signal_connect_closure_by_id(GtkOpaque,UInt,UInt,GtkOpaque,Int); ULong
+g_signal_connect_closure(GtkOpaque,String,GtkOpaque,Int); ULong
+g_signal_handler_block(GtkOpaque,ULong)
+g_signal_handler_unblock(GtkOpaque,ULong)
+g_signal_handler_disconnect(GtkOpaque,ULong)
+g_signal_handler_is_connected(GtkOpaque,ULong); Int
+g_signal_handler_find(GtkOpaque,Int,UInt,UInt,GtkOpaque,GtkOpaque,GtkOpaque); ULong
+g_signal_handlers_block_matched(GtkOpaque,Int,UInt,UInt,GtkOpaque,GtkOpaque,GtkOpaque); UInt
+g_signal_handlers_unblock_matched(GtkOpaque,Int,UInt,UInt,GtkOpaque,GtkOpaque,GtkOpaque); UInt
+g_signal_handlers_disconnect_matched(GtkOpaque,Int,UInt,UInt,GtkOpaque,GtkOpaque,GtkOpaque); UInt
+g_signal_override_class_closure(UInt,ULong,GtkOpaque)
+g_signal_chain_from_overridden(GtkOpaque,GtkOpaque)
+g_signal_handlers_destroy(GtkOpaque)
+g_object_set_property(GObject,String,GtkOpaque)
+g_object_get_property(GObject,String,GtkOpaque)
+g_object_freeze_notify(GObject)
+g_object_notify(GObject,String)
+g_object_thaw_notify(GObject)
+g_object_ref(GtkOpaque); GtkOpaque
+g_object_unref(GtkOpaque)
+g_object_add_weak_pointer(GObject,array_or_ref)
+g_object_remove_weak_pointer(GObject,array_or_ref)
+g_object_get_qdata(GObject,UInt); GtkOpaque
+g_object_set_qdata(GObject,UInt,GtkOpaque)
+g_object_steal_qdata(GObject,UInt); GtkOpaque
+g_object_steal_data(GObject,String); GtkOpaque
+g_object_watch_closure(GObject,GtkOpaque)
+g_closure_new_object(UInt,GObject); GtkOpaque
+g_value_set_object(GtkOpaque,GtkOpaque)
+g_value_get_object(GtkOpaque); GtkOpaque
+g_value_dup_object(GtkOpaque); GObject
+g_object_run_dispose(GObject)
+g_value_set_object_take_ownership(GtkOpaque,GtkOpaque)
+g_quark_try_string(String); UInt
+g_quark_from_static_string(String); UInt
+g_quark_from_string(String); UInt
+g_quark_to_string(UInt); String
+g_slist_free(GtkOpaque)
+g_slist_free_1(GtkOpaque)
+g_slist_append(GtkOpaque,GtkOpaque); GtkOpaque
+g_slist_prepend(GtkOpaque,GtkOpaque); GtkOpaque
+g_slist_insert(GtkOpaque,GtkOpaque,Int); GtkOpaque
+g_slist_insert_before(GtkOpaque,GtkOpaque,GtkOpaque); GtkOpaque
+g_slist_concat(GtkOpaque,GtkOpaque); GtkOpaque
+g_slist_remove(GtkOpaque,GtkOpaque); GtkOpaque
+g_slist_remove_all(GtkOpaque,GtkOpaque); GtkOpaque
+g_slist_remove_link(GtkOpaque,GtkOpaque); GtkOpaque
+g_slist_delete_link(GtkOpaque,GtkOpaque); GtkOpaque
+g_slist_reverse(GtkOpaque); GtkOpaque
+g_slist_copy(GtkOpaque); GtkOpaque
+g_slist_nth(GtkOpaque,UInt); GtkOpaque
+g_slist_find(GtkOpaque,GtkOpaque); GtkOpaque
+g_slist_position(GtkOpaque,GtkOpaque); Int
+g_slist_index(GtkOpaque,GtkOpaque); Int
+g_slist_last(GtkOpaque); GtkOpaque
+g_slist_length(GtkOpaque); UInt
+g_slist_nth_data(GtkOpaque,UInt); GtkOpaque
+g_list_free(GtkOpaque)
+g_list_append(GtkOpaque,GtkOpaque); GtkOpaque
+g_list_prepend(GtkOpaque,GtkOpaque); GtkOpaque
+g_list_insert(GtkOpaque,GtkOpaque,Int); GtkOpaque
+g_list_insert_before(GtkOpaque,GtkOpaque,GtkOpaque); GtkOpaque
+g_list_concat(GtkOpaque,GtkOpaque); GtkOpaque
+g_list_remove(GtkOpaque,GtkOpaque); GtkOpaque
+g_list_remove_all(GtkOpaque,GtkOpaque); GtkOpaque
+g_list_delete_link(GtkOpaque,GtkOpaque); GtkOpaque
+g_list_reverse(GtkOpaque); GtkOpaque
+g_list_copy(GtkOpaque); GtkOpaque
+g_list_nth(GtkOpaque,UInt); GtkOpaque
+g_list_nth_prev(GtkOpaque,UInt); GtkOpaque
+g_list_find(GtkOpaque,GtkOpaque); GtkOpaque
+g_list_position(GtkOpaque,GtkOpaque); Int
+g_list_index(GtkOpaque,GtkOpaque); Int
+g_list_last(GtkOpaque); GtkOpaque
+g_list_first(GtkOpaque); GtkOpaque
+g_list_length(GtkOpaque); UInt
+g_list_nth_data(GtkOpaque,UInt); GtkOpaque
+gdk_window_destroy(GdkDrawable)
+gdk_window_get_window_type(GdkDrawable); Int
+gdk_window_at_pointer(array_or_ref,array_or_ref); GdkDrawable
+gdk_window_show(GdkDrawable)
+gdk_window_hide(GdkDrawable)
+gdk_window_withdraw(GdkDrawable)
+gdk_window_show_unraised(GdkDrawable)
+gdk_window_move(GdkDrawable,Int,Int)
+gdk_window_resize(GdkDrawable,Int,Int)
+gdk_window_move_resize(GdkDrawable,Int,Int,Int,Int)
+gdk_window_reparent(GdkDrawable,GdkDrawable,Int,Int)
+gdk_window_clear(GdkDrawable)
+gdk_window_clear_area(GdkDrawable,Int,Int,Int,Int)
+gdk_window_clear_area_e(GdkDrawable,Int,Int,Int,Int)
+gdk_window_raise(GdkDrawable)
+gdk_window_lower(GdkDrawable)
+gdk_window_focus(GdkDrawable,UInt)
+gdk_window_set_user_data(GdkDrawable,GtkOpaque)
+gdk_window_set_override_redirect(GdkDrawable,Int)
+gdk_window_scroll(GdkDrawable,Int,Int)
+gdk_window_shape_combine_mask(GdkDrawable,GdkDrawable,Int,Int)
+gdk_window_shape_combine_region(GdkDrawable,GdkRegion,Int,Int)
+gdk_window_set_child_shapes(GdkDrawable)
+gdk_window_merge_child_shapes(GdkDrawable)
+gdk_window_is_visible(GdkDrawable); Int
+gdk_window_is_viewable(GdkDrawable); Int
+gdk_window_get_state(GdkDrawable); Int
+gdk_window_set_static_gravities(GdkDrawable,Int); Int
+gdk_window_set_hints(GdkDrawable,Int,Int,Int,Int,Int,Int,Int)
+gdk_window_set_type_hint(GdkDrawable,Int)
+gdk_window_set_modal_hint(GdkDrawable,Int)
+gdk_set_sm_client_id(String)
+gdk_window_begin_paint_rect(GdkDrawable,struct)
+gdk_window_begin_paint_region(GdkDrawable,GdkRegion)
+gdk_window_end_paint(GdkDrawable)
+gdk_window_set_title(GdkDrawable,String)
+gdk_window_set_role(GdkDrawable,String)
+gdk_window_set_transient_for(GdkDrawable,GdkDrawable)
+gdk_window_set_background(GdkDrawable,struct)
+gdk_window_set_back_pixmap(GdkDrawable,GdkDrawable,Int)
+gdk_window_set_cursor(GdkDrawable,GdkCursor)
+gdk_window_get_user_data(GdkDrawable,array_or_ref)
+gdk_window_get_geometry(GdkDrawable,array_or_ref,array_or_ref,array_or_ref,array_or_ref,array_or_ref)
+gdk_window_get_position(GdkDrawable,array_or_ref,array_or_ref)
+gdk_window_get_origin(GdkDrawable,array_or_ref,array_or_ref); Int
+gdk_window_get_deskrelative_origin(GdkDrawable,array_or_ref,array_or_ref); Int
+gdk_window_get_root_origin(GdkDrawable,array_or_ref,array_or_ref)
+gdk_window_get_frame_extents(GdkDrawable,struct)
+gdk_window_get_pointer(GdkDrawable,array_or_ref,array_or_ref,array_or_ref); GdkDrawable
+gdk_window_get_parent(GdkDrawable); GdkDrawable
+gdk_window_get_toplevel(GdkDrawable); GdkDrawable
+gdk_window_get_children(GdkDrawable); GtkOpaque
+gdk_window_peek_children(GdkDrawable); GtkOpaque
+gdk_window_get_events(GdkDrawable); Int
+gdk_window_set_events(GdkDrawable,Int)
+gdk_window_set_icon_list(GdkDrawable,GtkOpaque)
+gdk_window_set_icon(GdkDrawable,GdkDrawable,GdkDrawable,GdkDrawable)
+gdk_window_set_icon_name(GdkDrawable,String)
+gdk_window_set_group(GdkDrawable,GdkDrawable)
+gdk_window_set_decorations(GdkDrawable,Int)
+gdk_window_get_decorations(GdkDrawable,array_or_ref); Int
+gdk_window_set_functions(GdkDrawable,Int)
+gdk_window_iconify(GdkDrawable)
+gdk_window_deiconify(GdkDrawable)
+gdk_window_stick(GdkDrawable)
+gdk_window_unstick(GdkDrawable)
+gdk_window_maximize(GdkDrawable)
+gdk_window_unmaximize(GdkDrawable)
+gdk_window_register_dnd(GdkDrawable)
+gdk_window_begin_resize_drag(GdkDrawable,Int,Int,Int,Int,UInt)
+gdk_window_begin_move_drag(GdkDrawable,Int,Int,Int,UInt)
+gdk_window_invalidate_rect(GdkDrawable,struct,Int)
+gdk_window_invalidate_region(GdkDrawable,GdkRegion,Int)
+gdk_window_get_update_area(GdkDrawable); GdkRegion
+gdk_window_freeze_updates(GdkDrawable)
+gdk_window_thaw_updates(GdkDrawable)
+gdk_window_process_updates(GdkDrawable,Int)
+gdk_window_set_debug_updates(Int)
+gdk_window_get_internal_paint_info(GdkDrawable,array_or_ref,array_or_ref,array_or_ref)
+gdk_rgb_xpixel_from_rgb(UInt); ULong
+gdk_rgb_gc_set_foreground(GdkGC,UInt)
+gdk_rgb_gc_set_background(GdkGC,UInt)
+gdk_rgb_find_color(GtkOpaque,struct)
+gdk_draw_rgb_image(GdkDrawable,GdkGC,Int,Int,Int,Int,Int,array_or_ref,Int)
+gdk_draw_rgb_image_dithalign(GdkDrawable,GdkGC,Int,Int,Int,Int,Int,array_or_ref,Int,Int,Int)
+gdk_draw_rgb_32_image(GdkDrawable,GdkGC,Int,Int,Int,Int,Int,array_or_ref,Int)
+gdk_draw_rgb_32_image_dithalign(GdkDrawable,GdkGC,Int,Int,Int,Int,Int,array_or_ref,Int,Int,Int)
+gdk_draw_gray_image(GdkDrawable,GdkGC,Int,Int,Int,Int,Int,array_or_ref,Int)
+gdk_rgb_set_verbose(Int)
+gdk_rgb_set_install(Int)
+gdk_rgb_set_min_colors(Int)
+gdk_region_copy(GdkRegion); GdkRegion
+gdk_region_rectangle(struct); GdkRegion
+gdk_region_destroy(GdkRegion)
+gdk_region_get_clipbox(GdkRegion,struct)
+gdk_region_empty(GdkRegion); Int
+gdk_region_equal(GdkRegion,GdkRegion); Int
+gdk_region_point_in(GdkRegion,Int,Int); Int
+gdk_region_rect_in(GdkRegion,struct); Int
+gdk_region_offset(GdkRegion,Int,Int)
+gdk_region_shrink(GdkRegion,Int,Int)
+gdk_region_union_with_rect(GdkRegion,struct)
+gdk_region_intersect(GdkRegion,GdkRegion)
+gdk_region_union(GdkRegion,GdkRegion)
+gdk_region_subtract(GdkRegion,GdkRegion)
+gdk_region_xor(GdkRegion,GdkRegion)
+gdk_pixmap_new(GdkDrawable,Int,Int,Int); GdkDrawable
+gdk_bitmap_create_from_data(GdkDrawable,String,Int,Int); GdkDrawable
+gdk_pixmap_create_from_data(GdkDrawable,String,Int,Int,Int,struct,struct); GdkDrawable
+gdk_pixbuf_render_threshold_alpha(GdkPixbuf,GdkDrawable,Int,Int,Int,Int,Int,Int,Int)
+gdk_pixbuf_render_to_drawable(GdkPixbuf,GdkDrawable,GdkGC,Int,Int,Int,Int,Int,Int,Int,Int,Int)
+gdk_pixbuf_render_to_drawable_alpha(GdkPixbuf,GdkDrawable,Int,Int,Int,Int,Int,Int,Int,Int,Int,Int,Int)
+gdk_pixbuf_render_pixmap_and_mask_for_colormap(GdkPixbuf,GtkOpaque,array_or_ref,array_or_ref,Int)
+gdk_pixbuf_render_pixmap_and_mask(GdkPixbuf,array_or_ref,array_or_ref,Int)
+gdk_pixbuf_get_from_drawable(GdkPixbuf,GdkDrawable,GtkOpaque,Int,Int,Int,Int,Int,Int); GdkPixbuf
+gdk_pixbuf_get_from_image(GdkPixbuf,GObject,GtkOpaque,Int,Int,Int,Int,Int,Int); GdkPixbuf
+gdk_image_new(Int,GtkOpaque,Int,Int); GObject
+gdk_image_get(GdkDrawable,Int,Int,Int,Int); GObject
+gdk_image_ref(GObject); GObject
+gdk_image_unref(GObject)
+gdk_image_put_pixel(GObject,Int,Int,UInt)
+gdk_image_get_pixel(GObject,Int,Int); UInt
+gdk_image_set_colormap(GObject,GtkOpaque)
+gdk_image_get_colormap(GObject); GtkOpaque
+gdk_gc_new(GdkDrawable); GdkGC
+gdk_gc_ref(GdkGC); GdkGC
+gdk_gc_unref(GdkGC)
+gdk_gc_set_foreground(GdkGC,struct)
+gdk_gc_set_background(GdkGC,struct)
+gdk_gc_set_font(GdkGC,GtkOpaque)
+gdk_gc_set_function(GdkGC,Int)
+gdk_gc_set_fill(GdkGC,Int)
+gdk_gc_set_tile(GdkGC,GdkDrawable)
+gdk_gc_set_stipple(GdkGC,GdkDrawable)
+gdk_gc_set_ts_origin(GdkGC,Int,Int)
+gdk_gc_set_clip_origin(GdkGC,Int,Int)
+gdk_gc_set_clip_mask(GdkGC,GdkDrawable)
+gdk_gc_set_clip_rectangle(GdkGC,struct)
+gdk_gc_set_clip_region(GdkGC,GdkRegion)
+gdk_gc_set_subwindow(GdkGC,Int)
+gdk_gc_set_exposures(GdkGC,Int)
+gdk_gc_set_line_attributes(GdkGC,Int,Int,Int,Int)
+gdk_gc_offset(GdkGC,Int,Int)
+gdk_gc_copy(GdkGC,GdkGC)
+gdk_gc_set_colormap(GdkGC,GtkOpaque)
+gdk_gc_get_colormap(GdkGC); GtkOpaque
+gdk_gc_set_rgb_fg_color(GdkGC,struct)
+gdk_gc_set_rgb_bg_color(GdkGC,struct)
+gdk_set_show_events(Int)
+gdk_setting_get(String,GtkOpaque); Int
+gdk_drawable_get_size(GdkDrawable,array_or_ref,array_or_ref)
+gdk_drawable_set_colormap(GdkDrawable,GtkOpaque)
+gdk_drawable_get_colormap(GdkDrawable); GtkOpaque
+gdk_drawable_get_visual(GdkDrawable); GtkOpaque
+gdk_drawable_get_depth(GdkDrawable); Int
+gdk_draw_point(GdkDrawable,GdkGC,Int,Int)
+gdk_draw_line(GdkDrawable,GdkGC,Int,Int,Int,Int)
+gdk_draw_rectangle(GdkDrawable,GdkGC,Int,Int,Int,Int,Int)
+gdk_draw_arc(GdkDrawable,GdkGC,Int,Int,Int,Int,Int,Int,Int)
+gdk_draw_polygon(GdkDrawable,GdkGC,Int,struct,Int)
+gdk_draw_string(GdkDrawable,GtkOpaque,GdkGC,Int,Int,String)
+gdk_draw_text(GdkDrawable,GtkOpaque,GdkGC,Int,Int,String,Int)
+gdk_draw_drawable(GdkDrawable,GdkGC,GdkDrawable,Int,Int,Int,Int,Int,Int)
+gdk_draw_image(GdkDrawable,GdkGC,GObject,Int,Int,Int,Int,Int,Int)
+gdk_draw_points(GdkDrawable,GdkGC,struct,Int)
+gdk_draw_lines(GdkDrawable,GdkGC,struct,Int)
+gdk_draw_layout(GdkDrawable,GdkGC,Int,Int,GtkOpaque)
+gdk_draw_layout_with_colors(GdkDrawable,GdkGC,Int,Int,GtkOpaque,struct,struct)
+gdk_drawable_get_image(GdkDrawable,Int,Int,Int,Int); GObject
+gdk_drawable_get_clip_region(GdkDrawable); GdkRegion
+gdk_drawable_get_visible_region(GdkDrawable); GdkRegion
+gdk_drag_context_ref(GObject)
+gdk_drag_context_unref(GObject)
+gdk_drag_status(GObject,Int,UInt)
+gdk_drop_reply(GObject,Int,UInt)
+gdk_drop_finish(GObject,Int,UInt)
+gdk_drag_get_selection(GObject); GtkOpaque
+gdk_drag_begin(GdkDrawable,GtkOpaque); GObject
+gdk_drag_get_protocol(UInt,array_or_ref); UInt
+gdk_drag_find_window(GObject,GdkDrawable,Int,Int,array_or_ref,array_or_ref)
+gdk_drag_motion(GObject,GdkDrawable,Int,Int,Int,Int,Int,UInt); Int
+gdk_drag_drop(GObject,UInt)
+gdk_drag_abort(GObject,UInt)
+gdk_cursor_new(Int); GdkCursor
+gdk_cursor_new_from_pixmap(GdkDrawable,GdkDrawable,struct,struct,Int,Int); GdkCursor
+gdk_cursor_ref(GdkCursor); GdkCursor
+gdk_cursor_unref(GdkCursor)
+gdk_colormap_new(GtkOpaque,Int); GtkOpaque
+gdk_colormap_alloc_colors(GtkOpaque,struct,Int,Int,Int,array_or_ref); Int
+gdk_colormap_alloc_color(GtkOpaque,struct,Int,Int); Int
+gdk_colormap_free_colors(GtkOpaque,struct,Int)
+gdk_colormap_query_color(GtkOpaque,ULong,struct)
+gdk_colormap_get_visual(GtkOpaque); GtkOpaque
+gdk_color_hash(struct); UInt
+gdk_color_equal(struct,struct); Int
+gdk_device_set_source(GObject,Int)
+gdk_device_set_mode(GObject,Int); Int
+gdk_device_set_key(GObject,UInt,UInt,Int)
+gdk_device_set_axis_use(GObject,UInt,Int)
+gdk_device_get_state(GObject,GdkDrawable,array_or_ref,array_or_ref)
+gdk_device_get_axis(GObject,array_or_ref,Int,array_or_ref); Int
+gdk_input_set_extension_events(GdkDrawable,Int,Int)
+gdk_exit(Int)
+gdk_set_program_class(String)
+gdk_set_use_xshm(Int)
+gdk_input_remove(Int)
+gdk_pointer_grab(GdkDrawable,Int,Int,GdkDrawable,GdkCursor,UInt); Int
+gdk_pointer_ungrab(UInt)
+gdk_keyboard_grab(GdkDrawable,Int,UInt); Int
+gdk_keyboard_ungrab(UInt)
+gdk_set_double_click_time(UInt)
+gdk_rectangle_intersect(struct,struct,struct); Int
+gdk_rectangle_union(struct,struct,struct)
+gdk_event_send_clientmessage_toall(GtkOpaque)
+gdk_event_send_client_message(GtkOpaque,UInt); Int
+gtk_type_class(ULong); GtkOpaque
+gtk_style_copy(GObject); GObject
+gtk_style_attach(GObject,GdkDrawable); GObject
+gtk_style_detach(GObject)
+gtk_style_set_background(GObject,GdkDrawable,Int)
+gtk_style_apply_default_background(GObject,GdkDrawable,Int,Int,struct,Int,Int,Int,Int)
+gtk_style_lookup_icon_set(GObject,String); GtkIconSet
+gtk_style_render_icon(GObject,GtkIconSource,Int,Int,Int,GtkWidget,String); GdkPixbuf
+gtk_paint_hline(GObject,GdkDrawable,Int,struct,GtkWidget,String,Int,Int,Int)
+gtk_paint_vline(GObject,GdkDrawable,Int,struct,GtkWidget,String,Int,Int,Int)
+gtk_paint_shadow(GObject,GdkDrawable,Int,Int,struct,GtkWidget,String,Int,Int,Int,Int)
+gtk_paint_polygon(GObject,GdkDrawable,Int,Int,struct,GtkWidget,String,struct,Int,Int)
+gtk_paint_arrow(GObject,GdkDrawable,Int,Int,struct,GtkWidget,String,Int,Int,Int,Int,Int,Int)
+gtk_paint_diamond(GObject,GdkDrawable,Int,Int,struct,GtkWidget,String,Int,Int,Int,Int)
+gtk_paint_box(GObject,GdkDrawable,Int,Int,struct,GtkWidget,String,Int,Int,Int,Int)
+gtk_paint_flat_box(GObject,GdkDrawable,Int,Int,struct,GtkWidget,String,Int,Int,Int,Int)
+gtk_paint_check(GObject,GdkDrawable,Int,Int,struct,GtkWidget,String,Int,Int,Int,Int)
+gtk_paint_option(GObject,GdkDrawable,Int,Int,struct,GtkWidget,String,Int,Int,Int,Int)
+gtk_paint_tab(GObject,GdkDrawable,Int,Int,struct,GtkWidget,String,Int,Int,Int,Int)
+gtk_paint_shadow_gap(GObject,GdkDrawable,Int,Int,struct,GtkWidget,String,Int,Int,Int,Int,Int,Int,Int)
+gtk_paint_box_gap(GObject,GdkDrawable,Int,Int,struct,GtkWidget,String,Int,Int,Int,Int,Int,Int,Int)
+gtk_paint_extension(GObject,GdkDrawable,Int,Int,struct,GtkWidget,String,Int,Int,Int,Int,Int)
+gtk_paint_focus(GObject,GdkDrawable,Int,struct,GtkWidget,String,Int,Int,Int,Int)
+gtk_paint_slider(GObject,GdkDrawable,Int,Int,struct,GtkWidget,String,Int,Int,Int,Int,Int)
+gtk_paint_handle(GObject,GdkDrawable,Int,Int,struct,GtkWidget,String,Int,Int,Int,Int,Int)
+gtk_paint_expander(GObject,GdkDrawable,Int,struct,GtkWidget,String,Int,Int,Int)
+gtk_paint_layout(GObject,GdkDrawable,Int,Int,struct,GtkWidget,String,Int,Int,GtkOpaque)
+gtk_paint_resize_grip(GObject,GdkDrawable,Int,struct,GtkWidget,String,Int,Int,Int,Int,Int)
+gtk_draw_string(GObject,GdkDrawable,Int,Int,Int,String)
+gtk_paint_string(GObject,GdkDrawable,Int,struct,GtkWidget,String,Int,Int,String)
+gtk_check_version(UInt,UInt,UInt); String
+gtk_main_do_event(GtkOpaque)
+gtk_main_iteration_do(Int); Int
+gtk_grab_add(GtkWidget)
+gtk_grab_remove(GtkWidget)
+gtk_quit_add_destroy(UInt,GtkObject)
+gtk_quit_remove(UInt)
+gtk_timeout_remove(UInt)
+gtk_idle_remove(UInt)
+gtk_key_snooper_remove(UInt)
+gtk_get_current_event_state(array_or_ref); Int
+gtk_get_event_widget(GtkOpaque); GtkWidget
+gtk_window_new(Int); GtkWidget
+gtk_window_set_title(GtkWidget,String)
+gtk_window_get_title(GtkWidget); String
+gtk_window_set_wmclass(GtkWidget,String,String)
+gtk_window_set_role(GtkWidget,String)
+gtk_window_get_role(GtkWidget); String
+gtk_window_add_accel_group(GtkWidget,GObject)
+gtk_window_remove_accel_group(GtkWidget,GObject)
+gtk_window_set_position(GtkWidget,Int)
+gtk_window_activate_focus(GtkWidget); Int
+gtk_window_set_focus(GtkWidget,GtkWidget)
+gtk_window_get_focus(GtkWidget); GtkWidget
+gtk_window_set_default(GtkWidget,GtkWidget)
+gtk_window_activate_default(GtkWidget); Int
+gtk_window_set_transient_for(GtkWidget,GtkWidget)
+gtk_window_get_transient_for(GtkWidget); GtkWidget
+gtk_window_set_type_hint(GtkWidget,Int)
+gtk_window_get_type_hint(GtkWidget); Int
+gtk_window_set_destroy_with_parent(GtkWidget,Int)
+gtk_window_get_destroy_with_parent(GtkWidget); Int
+gtk_window_set_resizable(GtkWidget,Int)
+gtk_window_get_resizable(GtkWidget); Int
+gtk_window_set_gravity(GtkWidget,Int)
+gtk_window_get_gravity(GtkWidget); Int
+gtk_window_set_has_frame(GtkWidget,Int)
+gtk_window_get_has_frame(GtkWidget); Int
+gtk_window_set_frame_dimensions(GtkWidget,Int,Int,Int,Int)
+gtk_window_get_frame_dimensions(GtkWidget,array_or_ref,array_or_ref,array_or_ref,array_or_ref)
+gtk_window_set_decorated(GtkWidget,Int)
+gtk_window_get_decorated(GtkWidget); Int
+gtk_window_set_icon_list(GtkWidget,GtkOpaque)
+gtk_window_get_icon_list(GtkWidget); GtkOpaque
+gtk_window_set_icon(GtkWidget,GdkPixbuf)
+gtk_window_get_icon(GtkWidget); GdkPixbuf
+gtk_window_set_default_icon_list(GtkOpaque)
+gtk_window_set_modal(GtkWidget,Int)
+gtk_window_get_modal(GtkWidget); Int
+gtk_window_add_mnemonic(GtkWidget,UInt,GtkWidget)
+gtk_window_remove_mnemonic(GtkWidget,UInt,GtkWidget)
+gtk_window_mnemonic_activate(GtkWidget,UInt,Int); Int
+gtk_window_set_mnemonic_modifier(GtkWidget,Int)
+gtk_window_get_mnemonic_modifier(GtkWidget); Int
+gtk_window_present(GtkWidget)
+gtk_window_iconify(GtkWidget)
+gtk_window_deiconify(GtkWidget)
+gtk_window_stick(GtkWidget)
+gtk_window_unstick(GtkWidget)
+gtk_window_maximize(GtkWidget)
+gtk_window_unmaximize(GtkWidget)
+gtk_window_begin_resize_drag(GtkWidget,Int,Int,Int,Int,UInt)
+gtk_window_begin_move_drag(GtkWidget,Int,Int,Int,UInt)
+gtk_window_set_default_size(GtkWidget,Int,Int)
+gtk_window_get_default_size(GtkWidget,array_or_ref,array_or_ref)
+gtk_window_resize(GtkWidget,Int,Int)
+gtk_window_get_size(GtkWidget,array_or_ref,array_or_ref)
+gtk_window_move(GtkWidget,Int,Int)
+gtk_window_get_position(GtkWidget,array_or_ref,array_or_ref)
+gtk_window_parse_geometry(GtkWidget,String); Int
+gtk_window_reshow_with_initial_size(GtkWidget)
+gtk_window_group_add_window(GObject,GtkWidget)
+gtk_window_group_remove_window(GObject,GtkWidget)
+gtk_widget_ref(GtkWidget); GtkWidget
+gtk_widget_unref(GtkWidget)
+gtk_widget_destroy(GtkWidget)
+gtk_widget_destroyed(GtkWidget,array_or_ref)
+gtk_widget_unparent(GtkWidget)
+gtk_widget_show(GtkWidget)
+gtk_widget_show_now(GtkWidget)
+gtk_widget_hide(GtkWidget)
+gtk_widget_show_all(GtkWidget)
+gtk_widget_hide_all(GtkWidget)
+gtk_widget_map(GtkWidget)
+gtk_widget_unmap(GtkWidget)
+gtk_widget_realize(GtkWidget)
+gtk_widget_unrealize(GtkWidget)
+gtk_widget_queue_draw(GtkWidget)
+gtk_widget_queue_draw_area(GtkWidget,Int,Int,Int,Int)
+gtk_widget_queue_clear(GtkWidget)
+gtk_widget_queue_clear_area(GtkWidget,Int,Int,Int,Int)
+gtk_widget_queue_resize(GtkWidget)
+gtk_widget_draw(GtkWidget,struct)
+gtk_widget_size_request(GtkWidget,GtkOpaque)
+gtk_widget_size_allocate(GtkWidget,struct)
+gtk_widget_get_child_requisition(GtkWidget,GtkOpaque)
+gtk_widget_add_accelerator(GtkWidget,String,GObject,UInt,Int,Int)
+gtk_widget_remove_accelerator(GtkWidget,GObject,UInt,Int); Int
+gtk_widget_set_accel_path(GtkWidget,String,GObject)
+gtk_widget_list_accel_closures(GtkWidget); GtkOpaque
+gtk_widget_mnemonic_activate(GtkWidget,Int); Int
+gtk_widget_event(GtkWidget,GtkOpaque); Int
+gtk_widget_send_expose(GtkWidget,GtkOpaque); Int
+gtk_widget_activate(GtkWidget); Int
+gtk_widget_set_scroll_adjustments(GtkWidget,GtkAdjustment,GtkAdjustment); Int
+gtk_widget_reparent(GtkWidget,GtkWidget)
+gtk_widget_intersect(GtkWidget,struct,struct); Int
+gtk_widget_region_intersect(GtkWidget,GdkRegion); GdkRegion
+gtk_widget_freeze_child_notify(GtkWidget)
+gtk_widget_child_notify(GtkWidget,String)
+gtk_widget_thaw_child_notify(GtkWidget)
+gtk_widget_is_focus(GtkWidget); Int
+gtk_widget_grab_focus(GtkWidget)
+gtk_widget_grab_default(GtkWidget)
+gtk_widget_set_name(GtkWidget,String)
+gtk_widget_get_name(GtkWidget); String
+gtk_widget_set_state(GtkWidget,Int)
+gtk_widget_set_sensitive(GtkWidget,Int)
+gtk_widget_set_app_paintable(GtkWidget,Int)
+gtk_widget_set_double_buffered(GtkWidget,Int)
+gtk_widget_set_redraw_on_allocate(GtkWidget,Int)
+gtk_widget_set_parent(GtkWidget,GtkWidget)
+gtk_widget_set_parent_window(GtkWidget,GdkDrawable)
+gtk_widget_set_child_visible(GtkWidget,Int)
+gtk_widget_get_child_visible(GtkWidget); Int
+gtk_widget_get_parent(GtkWidget); GtkWidget
+gtk_widget_get_parent_window(GtkWidget); GdkDrawable
+gtk_widget_child_focus(GtkWidget,Int); Int
+gtk_widget_set_size_request(GtkWidget,Int,Int)
+gtk_widget_get_size_request(GtkWidget,array_or_ref,array_or_ref)
+gtk_widget_set_uposition(GtkWidget,Int,Int)
+gtk_widget_set_usize(GtkWidget,Int,Int)
+gtk_widget_set_events(GtkWidget,Int)
+gtk_widget_add_events(GtkWidget,Int)
+gtk_widget_set_extension_events(GtkWidget,Int)
+gtk_widget_get_extension_events(GtkWidget); Int
+gtk_widget_get_toplevel(GtkWidget); GtkWidget
+gtk_widget_get_ancestor(GtkWidget,ULong); GtkWidget
+gtk_widget_get_colormap(GtkWidget); GtkOpaque
+gtk_widget_get_visual(GtkWidget); GtkOpaque
+gtk_widget_get_settings(GtkWidget); GObject
+gtk_widget_get_accessible(GtkWidget); GObject
+gtk_widget_set_colormap(GtkWidget,GtkOpaque)
+gtk_widget_get_events(GtkWidget); Int
+gtk_widget_get_pointer(GtkWidget,array_or_ref,array_or_ref)
+gtk_widget_is_ancestor(GtkWidget,GtkWidget); Int
+gtk_widget_translate_coordinates(GtkWidget,GtkWidget,Int,Int,array_or_ref,array_or_ref); Int
+gtk_widget_hide_on_delete(GtkWidget); Int
+gtk_widget_set_style(GtkWidget,GObject)
+gtk_widget_ensure_style(GtkWidget)
+gtk_widget_get_style(GtkWidget); GObject
+gtk_widget_modify_style(GtkWidget,GObject)
+gtk_widget_get_modifier_style(GtkWidget); GObject
+gtk_widget_modify_fg(GtkWidget,Int,struct)
+gtk_widget_modify_bg(GtkWidget,Int,struct)
+gtk_widget_modify_text(GtkWidget,Int,struct)
+gtk_widget_modify_base(GtkWidget,Int,struct)
+gtk_widget_modify_font(GtkWidget,GtkOpaque)
+gtk_widget_create_pango_context(GtkWidget); GtkOpaque
+gtk_widget_get_pango_context(GtkWidget); GtkOpaque
+gtk_widget_create_pango_layout(GtkWidget,String); GtkOpaque
+gtk_widget_render_icon(GtkWidget,String,Int,String); GdkPixbuf
+gtk_widget_set_composite_name(GtkWidget,String)
+gtk_widget_get_composite_name(GtkWidget); String
+gtk_widget_reset_rc_styles(GtkWidget)
+gtk_widget_push_colormap(GtkOpaque)
+gtk_widget_set_default_colormap(GtkOpaque)
+gtk_widget_set_direction(GtkWidget,Int)
+gtk_widget_get_direction(GtkWidget); Int
+gtk_widget_set_default_direction(Int)
+gtk_widget_shape_combine_mask(GtkWidget,GdkDrawable,Int,Int)
+gtk_widget_path(GtkWidget,array_or_ref,array_or_ref,array_or_ref)
+gtk_widget_class_path(GtkWidget,array_or_ref,array_or_ref,array_or_ref)
+gtk_requisition_free(GtkOpaque)
+gtk_vscrollbar_new(GtkAdjustment); GtkWidget
+gtk_vscale_new(GtkAdjustment); GtkWidget
+gtk_vscale_new_with_range(Double,Double,Double); GtkWidget
+gtk_viewport_new(GtkAdjustment,GtkAdjustment); GtkWidget
+gtk_viewport_get_hadjustment(GtkWidget); GtkAdjustment
+gtk_viewport_get_vadjustment(GtkWidget); GtkAdjustment
+gtk_viewport_set_hadjustment(GtkWidget,GtkAdjustment)
+gtk_viewport_set_vadjustment(GtkWidget,GtkAdjustment)
+gtk_viewport_set_shadow_type(GtkWidget,Int)
+gtk_viewport_get_shadow_type(GtkWidget); Int
+gtk_tree_view_column_pack_start(GtkTreeViewColumn,GtkCellRenderer,Int)
+gtk_tree_view_column_pack_end(GtkTreeViewColumn,GtkCellRenderer,Int)
+gtk_tree_view_column_clear(GtkTreeViewColumn)
+gtk_tree_view_column_get_cell_renderers(GtkTreeViewColumn); GtkOpaque
+gtk_tree_view_column_add_attribute(GtkTreeViewColumn,GtkCellRenderer,String,Int)
+gtk_tree_view_column_clear_attributes(GtkTreeViewColumn,GtkCellRenderer)
+gtk_tree_view_column_set_spacing(GtkTreeViewColumn,Int)
+gtk_tree_view_column_get_spacing(GtkTreeViewColumn); Int
+gtk_tree_view_column_set_visible(GtkTreeViewColumn,Int)
+gtk_tree_view_column_get_visible(GtkTreeViewColumn); Int
+gtk_tree_view_column_set_resizable(GtkTreeViewColumn,Int)
+gtk_tree_view_column_get_resizable(GtkTreeViewColumn); Int
+gtk_tree_view_column_set_sizing(GtkTreeViewColumn,Int)
+gtk_tree_view_column_get_sizing(GtkTreeViewColumn); Int
+gtk_tree_view_column_get_width(GtkTreeViewColumn); Int
+gtk_tree_view_column_get_fixed_width(GtkTreeViewColumn); Int
+gtk_tree_view_column_set_fixed_width(GtkTreeViewColumn,Int)
+gtk_tree_view_column_set_min_width(GtkTreeViewColumn,Int)
+gtk_tree_view_column_get_min_width(GtkTreeViewColumn); Int
+gtk_tree_view_column_set_max_width(GtkTreeViewColumn,Int)
+gtk_tree_view_column_get_max_width(GtkTreeViewColumn); Int
+gtk_tree_view_column_clicked(GtkTreeViewColumn)
+gtk_tree_view_column_set_title(GtkTreeViewColumn,String)
+gtk_tree_view_column_get_title(GtkTreeViewColumn); String
+gtk_tree_view_column_set_clickable(GtkTreeViewColumn,Int)
+gtk_tree_view_column_get_clickable(GtkTreeViewColumn); Int
+gtk_tree_view_column_set_widget(GtkTreeViewColumn,GtkWidget)
+gtk_tree_view_column_get_widget(GtkTreeViewColumn); GtkWidget
+gtk_tree_view_column_set_alignment(GtkTreeViewColumn,Float)
+gtk_tree_view_column_get_alignment(GtkTreeViewColumn); Float
+gtk_tree_view_column_set_reorderable(GtkTreeViewColumn,Int)
+gtk_tree_view_column_get_reorderable(GtkTreeViewColumn); Int
+gtk_tree_view_column_set_sort_column_id(GtkTreeViewColumn,Int)
+gtk_tree_view_column_get_sort_column_id(GtkTreeViewColumn); Int
+gtk_tree_view_column_set_sort_indicator(GtkTreeViewColumn,Int)
+gtk_tree_view_column_get_sort_indicator(GtkTreeViewColumn); Int
+gtk_tree_view_column_set_sort_order(GtkTreeViewColumn,Int)
+gtk_tree_view_column_get_sort_order(GtkTreeViewColumn); Int
+gtk_tree_view_column_cell_set_cell_data(GtkTreeViewColumn,GtkOpaque,GtkTreeIter,Int,Int)
+gtk_tree_view_column_cell_get_size(GtkTreeViewColumn,struct,array_or_ref,array_or_ref,array_or_ref,array_or_ref)
+gtk_tree_view_column_cell_is_visible(GtkTreeViewColumn); Int
+gtk_tree_view_new_with_model(GtkOpaque); GtkWidget
+gtk_tree_view_get_model(GtkWidget); GtkOpaque
+gtk_tree_view_set_model(GtkWidget,GtkOpaque)
+gtk_tree_view_get_selection(GtkWidget); GObject
+gtk_tree_view_get_hadjustment(GtkWidget); GtkAdjustment
+gtk_tree_view_set_hadjustment(GtkWidget,GtkAdjustment)
+gtk_tree_view_get_vadjustment(GtkWidget); GtkAdjustment
+gtk_tree_view_set_vadjustment(GtkWidget,GtkAdjustment)
+gtk_tree_view_get_headers_visible(GtkWidget); Int
+gtk_tree_view_set_headers_visible(GtkWidget,Int)
+gtk_tree_view_columns_autosize(GtkWidget)
+gtk_tree_view_set_headers_clickable(GtkWidget,Int)
+gtk_tree_view_set_rules_hint(GtkWidget,Int)
+gtk_tree_view_get_rules_hint(GtkWidget); Int
+gtk_tree_view_append_column(GtkWidget,GtkTreeViewColumn); Int
+gtk_tree_view_remove_column(GtkWidget,GtkTreeViewColumn); Int
+gtk_tree_view_insert_column(GtkWidget,GtkTreeViewColumn,Int); Int
+gtk_tree_view_get_column(GtkWidget,Int); GtkTreeViewColumn
+gtk_tree_view_get_columns(GtkWidget); GtkOpaque
+gtk_tree_view_move_column_after(GtkWidget,GtkTreeViewColumn,GtkTreeViewColumn)
+gtk_tree_view_set_expander_column(GtkWidget,GtkTreeViewColumn)
+gtk_tree_view_get_expander_column(GtkWidget); GtkTreeViewColumn
+gtk_tree_view_scroll_to_point(GtkWidget,Int,Int)
+gtk_tree_view_scroll_to_cell(GtkWidget,GtkTreePath,GtkTreeViewColumn,Int,Float,Float)
+gtk_tree_view_row_activated(GtkWidget,GtkTreePath,GtkTreeViewColumn)
+gtk_tree_view_expand_all(GtkWidget)
+gtk_tree_view_collapse_all(GtkWidget)
+gtk_tree_view_expand_row(GtkWidget,GtkTreePath,Int); Int
+gtk_tree_view_collapse_row(GtkWidget,GtkTreePath); Int
+gtk_tree_view_row_expanded(GtkWidget,GtkTreePath); Int
+gtk_tree_view_set_reorderable(GtkWidget,Int)
+gtk_tree_view_get_reorderable(GtkWidget); Int
+gtk_tree_view_set_cursor(GtkWidget,GtkTreePath,GtkTreeViewColumn,Int)
+gtk_tree_view_get_cursor(GtkWidget,array_or_ref,array_or_ref)
+gtk_tree_view_get_bin_window(GtkWidget); GdkDrawable
+gtk_tree_view_get_path_at_pos(GtkWidget,Int,Int,array_or_ref,array_or_ref,array_or_ref,array_or_ref); Int
+gtk_tree_view_get_cell_area(GtkWidget,GtkTreePath,GtkTreeViewColumn,struct)
+gtk_tree_view_get_background_area(GtkWidget,GtkTreePath,GtkTreeViewColumn,struct)
+gtk_tree_view_get_visible_rect(GtkWidget,struct)
+gtk_tree_view_widget_to_tree_coords(GtkWidget,Int,Int,array_or_ref,array_or_ref)
+gtk_tree_view_tree_to_widget_coords(GtkWidget,Int,Int,array_or_ref,array_or_ref)
+gtk_tree_view_unset_rows_drag_source(GtkWidget)
+gtk_tree_view_unset_rows_drag_dest(GtkWidget)
+gtk_tree_view_set_drag_dest_row(GtkWidget,GtkTreePath,Int)
+gtk_tree_view_get_drag_dest_row(GtkWidget,array_or_ref,array_or_ref)
+gtk_tree_view_get_dest_row_at_pos(GtkWidget,Int,Int,array_or_ref,array_or_ref); Int
+gtk_tree_view_create_row_drag_icon(GtkWidget,GtkTreePath); GdkDrawable
+gtk_tree_view_set_enable_search(GtkWidget,Int)
+gtk_tree_view_get_enable_search(GtkWidget); Int
+gtk_tree_view_get_search_column(GtkWidget); Int
+gtk_tree_view_set_search_column(GtkWidget,Int)
+gtk_tree_store_newv(Int,array_or_ref); GObject
+gtk_tree_store_set_column_types(GObject,Int,array_or_ref)
+gtk_tree_store_set_value(GObject,GtkTreeIter,Int,GtkOpaque)
+gtk_tree_store_remove(GObject,GtkTreeIter)
+gtk_tree_store_insert(GObject,GtkTreeIter,GtkTreeIter,Int)
+gtk_tree_store_insert_before(GObject,GtkTreeIter,GtkTreeIter,GtkTreeIter)
+gtk_tree_store_insert_after(GObject,GtkTreeIter,GtkTreeIter,GtkTreeIter)
+gtk_tree_store_prepend(GObject,GtkTreeIter,GtkTreeIter)
+gtk_tree_store_append(GObject,GtkTreeIter,GtkTreeIter)
+gtk_tree_store_is_ancestor(GObject,GtkTreeIter,GtkTreeIter); Int
+gtk_tree_store_iter_depth(GObject,GtkTreeIter); Int
+gtk_tree_store_clear(GObject)
+gtk_tree_selection_set_mode(GObject,Int)
+gtk_tree_selection_get_mode(GObject); Int
+gtk_tree_selection_get_user_data(GObject); GtkOpaque
+gtk_tree_selection_get_tree_view(GObject); GtkWidget
+gtk_tree_selection_get_selected(GObject,array_or_ref,GtkTreeIter); Int
+gtk_tree_selection_select_path(GObject,GtkTreePath)
+gtk_tree_selection_unselect_path(GObject,GtkTreePath)
+gtk_tree_selection_select_iter(GObject,GtkTreeIter)
+gtk_tree_selection_unselect_iter(GObject,GtkTreeIter)
+gtk_tree_selection_path_is_selected(GObject,GtkTreePath); Int
+gtk_tree_selection_iter_is_selected(GObject,GtkTreeIter); Int
+gtk_tree_selection_select_all(GObject)
+gtk_tree_selection_unselect_all(GObject)
+gtk_tree_selection_select_range(GObject,GtkTreePath,GtkTreePath)
+gtk_tree_model_sort_new_with_model(GtkOpaque); GtkOpaque
+gtk_tree_path_new_from_string(String); GtkTreePath
+gtk_tree_path_to_string(GtkTreePath); String
+gtk_tree_path_append_index(GtkTreePath,Int)
+gtk_tree_path_prepend_index(GtkTreePath,Int)
+gtk_tree_path_get_depth(GtkTreePath); Int
+array_or_ref = gtk_tree_path_get_indices(GtkTreePath)
+gtk_tree_path_free(GtkTreePath)
+gtk_tree_path_copy(GtkTreePath); GtkTreePath
+gtk_tree_path_compare(GtkTreePath,GtkTreePath); Int
+gtk_tree_path_next(GtkTreePath)
+gtk_tree_path_prev(GtkTreePath); Int
+gtk_tree_path_up(GtkTreePath); Int
+gtk_tree_path_down(GtkTreePath)
+gtk_tree_path_is_ancestor(GtkTreePath,GtkTreePath); Int
+gtk_tree_path_is_descendant(GtkTreePath,GtkTreePath); Int
+gtk_tree_row_reference_inserted(GObject,GtkTreePath)
+gtk_tree_row_reference_deleted(GObject,GtkTreePath)
+gtk_tree_row_reference_reordered(GObject,GtkTreePath,GtkTreeIter,array_or_ref)
+gtk_tree_iter_copy(GtkTreeIter); GtkTreeIter
+gtk_tree_iter_free(GtkTreeIter)
+gtk_tree_model_get_flags(GtkOpaque); Int
+gtk_tree_model_get_n_columns(GtkOpaque); Int
+gtk_tree_model_get_column_type(GtkOpaque,Int); ULong
+gtk_tree_model_get_iter(GtkOpaque,GtkTreeIter,GtkTreePath); Int
+gtk_tree_model_get_iter_from_string(GtkOpaque,GtkTreeIter,String); Int
+gtk_tree_model_get_iter_first(GtkOpaque,GtkTreeIter); Int
+gtk_tree_model_get_path(GtkOpaque,GtkTreeIter); GtkTreePath
+gtk_tree_model_get_value(GtkOpaque,GtkTreeIter,Int,GtkOpaque)
+gtk_tree_model_iter_next(GtkOpaque,GtkTreeIter); Int
+gtk_tree_model_iter_children(GtkOpaque,GtkTreeIter,GtkTreeIter); Int
+gtk_tree_model_iter_has_child(GtkOpaque,GtkTreeIter); Int
+gtk_tree_model_iter_n_children(GtkOpaque,GtkTreeIter); Int
+gtk_tree_model_iter_nth_child(GtkOpaque,GtkTreeIter,GtkTreeIter,Int); Int
+gtk_tree_model_iter_parent(GtkOpaque,GtkTreeIter,GtkTreeIter); Int
+gtk_tree_model_ref_node(GtkOpaque,GtkTreeIter)
+gtk_tree_model_unref_node(GtkOpaque,GtkTreeIter)
+gtk_tree_model_row_changed(GtkOpaque,GtkTreePath,GtkTreeIter)
+gtk_tree_model_row_inserted(GtkOpaque,GtkTreePath,GtkTreeIter)
+gtk_tree_model_row_has_child_toggled(GtkOpaque,GtkTreePath,GtkTreeIter)
+gtk_tree_model_row_deleted(GtkOpaque,GtkTreePath)
+gtk_tree_model_rows_reordered(GtkOpaque,GtkTreePath,GtkTreeIter,array_or_ref)
+gtk_tooltips_enable(GtkTooltips)
+gtk_tooltips_disable(GtkTooltips)
+gtk_tooltips_set_delay(GtkTooltips,UInt)
+gtk_tooltips_set_tip(GtkTooltips,GtkWidget,String,String)
+gtk_tooltips_force_window(GtkTooltips)
+gtk_toolbar_append_space(GtkWidget)
+gtk_toolbar_prepend_space(GtkWidget)
+gtk_toolbar_insert_space(GtkWidget,Int)
+gtk_toolbar_remove_space(GtkWidget,Int)
+gtk_toolbar_append_widget(GtkWidget,GtkWidget,String,String)
+gtk_toolbar_prepend_widget(GtkWidget,GtkWidget,String,String)
+gtk_toolbar_insert_widget(GtkWidget,GtkWidget,String,String,Int)
+gtk_toolbar_set_orientation(GtkWidget,Int)
+gtk_toolbar_set_style(GtkWidget,Int)
+gtk_toolbar_set_icon_size(GtkWidget,Int)
+gtk_toolbar_set_tooltips(GtkWidget,Int)
+gtk_toolbar_unset_style(GtkWidget)
+gtk_toolbar_unset_icon_size(GtkWidget)
+gtk_toolbar_get_orientation(GtkWidget); Int
+gtk_toolbar_get_style(GtkWidget); Int
+gtk_toolbar_get_icon_size(GtkWidget); Int
+gtk_toolbar_get_tooltips(GtkWidget); Int
+gtk_toggle_button_new_with_label(String); GtkWidget
+gtk_toggle_button_new_with_mnemonic(String); GtkWidget
+gtk_toggle_button_set_mode(GtkWidget,Int)
+gtk_toggle_button_get_mode(GtkWidget); Int
+gtk_toggle_button_set_active(GtkWidget,Int)
+gtk_toggle_button_get_active(GtkWidget); Int
+gtk_toggle_button_toggled(GtkWidget)
+gtk_toggle_button_set_inconsistent(GtkWidget,Int)
+gtk_toggle_button_get_inconsistent(GtkWidget); Int
+gtk_text_view_new_with_buffer(GObject); GtkWidget
+gtk_text_view_set_buffer(GtkWidget,GObject)
+gtk_text_view_get_buffer(GtkWidget); GObject
+gtk_text_view_scroll_to_iter(GtkWidget,GtkTextIter,Double,Int,Double,Double); Int
+gtk_text_view_scroll_to_mark(GtkWidget,GObject,Double,Int,Double,Double)
+gtk_text_view_scroll_mark_onscreen(GtkWidget,GObject)
+gtk_text_view_move_mark_onscreen(GtkWidget,GObject); Int
+gtk_text_view_place_cursor_onscreen(GtkWidget); Int
+gtk_text_view_get_visible_rect(GtkWidget,struct)
+gtk_text_view_set_cursor_visible(GtkWidget,Int)
+gtk_text_view_get_cursor_visible(GtkWidget); Int
+gtk_text_view_get_iter_location(GtkWidget,GtkTextIter,struct)
+gtk_text_view_get_iter_at_location(GtkWidget,GtkTextIter,Int,Int)
+gtk_text_view_get_line_yrange(GtkWidget,GtkTextIter,array_or_ref,array_or_ref)
+gtk_text_view_get_line_at_y(GtkWidget,GtkTextIter,Int,array_or_ref)
+gtk_text_view_buffer_to_window_coords(GtkWidget,Int,Int,Int,array_or_ref,array_or_ref)
+gtk_text_view_window_to_buffer_coords(GtkWidget,Int,Int,Int,array_or_ref,array_or_ref)
+gtk_text_view_get_window(GtkWidget,Int); GdkDrawable
+gtk_text_view_get_window_type(GtkWidget,GdkDrawable); Int
+gtk_text_view_set_border_window_size(GtkWidget,Int,Int)
+gtk_text_view_get_border_window_size(GtkWidget,Int); Int
+gtk_text_view_forward_display_line(GtkWidget,GtkTextIter); Int
+gtk_text_view_backward_display_line(GtkWidget,GtkTextIter); Int
+gtk_text_view_forward_display_line_end(GtkWidget,GtkTextIter); Int
+gtk_text_view_backward_display_line_start(GtkWidget,GtkTextIter); Int
+gtk_text_view_starts_display_line(GtkWidget,GtkTextIter); Int
+gtk_text_view_move_visually(GtkWidget,GtkTextIter,Int); Int
+gtk_text_view_add_child_at_anchor(GtkWidget,GtkWidget,GObject)
+gtk_text_view_add_child_in_window(GtkWidget,GtkWidget,Int,Int,Int)
+gtk_text_view_move_child(GtkWidget,GtkWidget,Int,Int)
+gtk_text_view_set_wrap_mode(GtkWidget,Int)
+gtk_text_view_get_wrap_mode(GtkWidget); Int
+gtk_text_view_set_editable(GtkWidget,Int)
+gtk_text_view_get_editable(GtkWidget); Int
+gtk_text_view_set_pixels_above_lines(GtkWidget,Int)
+gtk_text_view_get_pixels_above_lines(GtkWidget); Int
+gtk_text_view_set_pixels_below_lines(GtkWidget,Int)
+gtk_text_view_get_pixels_below_lines(GtkWidget); Int
+gtk_text_view_set_pixels_inside_wrap(GtkWidget,Int)
+gtk_text_view_get_pixels_inside_wrap(GtkWidget); Int
+gtk_text_view_set_justification(GtkWidget,Int)
+gtk_text_view_get_justification(GtkWidget); Int
+gtk_text_view_set_left_margin(GtkWidget,Int)
+gtk_text_view_get_left_margin(GtkWidget); Int
+gtk_text_view_set_right_margin(GtkWidget,Int)
+gtk_text_view_get_right_margin(GtkWidget); Int
+gtk_text_view_set_indent(GtkWidget,Int)
+gtk_text_view_get_indent(GtkWidget); Int
+gtk_text_tag_table_add(GObject,GObject)
+gtk_text_tag_table_remove(GObject,GObject)
+gtk_text_tag_table_lookup(GObject,String); GObject
+gtk_text_tag_table_get_size(GObject); Int
+gtk_text_tag_new(String); GObject
+gtk_text_tag_get_priority(GObject); Int
+gtk_text_tag_set_priority(GObject,Int)
+gtk_text_tag_event(GObject,GObject,GtkOpaque,GtkTextIter); Int
+gtk_text_mark_set_visible(GObject,Int)
+gtk_text_mark_get_visible(GObject); Int
+gtk_text_mark_get_name(GObject); String
+gtk_text_mark_get_deleted(GObject); Int
+gtk_text_mark_get_buffer(GObject); GObject
+gtk_text_mark_get_left_gravity(GObject); Int
+gtk_text_child_anchor_get_widgets(GObject); GtkOpaque
+gtk_text_child_anchor_get_deleted(GObject); Int
+gtk_text_buffer_new(GObject); GObject
+gtk_text_buffer_get_line_count(GObject); Int
+gtk_text_buffer_get_char_count(GObject); Int
+gtk_text_buffer_get_tag_table(GObject); GObject
+gtk_text_buffer_set_text(GObject,String,Int)
+gtk_text_buffer_insert(GObject,GtkTextIter,String,Int)
+gtk_text_buffer_insert_at_cursor(GObject,String,Int)
+gtk_text_buffer_insert_interactive(GObject,GtkTextIter,String,Int,Int); Int
+gtk_text_buffer_insert_interactive_at_cursor(GObject,String,Int,Int); Int
+gtk_text_buffer_insert_range(GObject,GtkTextIter,GtkTextIter,GtkTextIter)
+gtk_text_buffer_insert_range_interactive(GObject,GtkTextIter,GtkTextIter,GtkTextIter,Int); Int
+gtk_text_buffer_delete(GObject,GtkTextIter,GtkTextIter)
+gtk_text_buffer_delete_interactive(GObject,GtkTextIter,GtkTextIter,Int); Int
+gtk_text_buffer_get_text(GObject,GtkTextIter,GtkTextIter,Int); String
+gtk_text_buffer_get_slice(GObject,GtkTextIter,GtkTextIter,Int); String
+gtk_text_buffer_insert_pixbuf(GObject,GtkTextIter,GdkPixbuf)
+gtk_text_buffer_insert_child_anchor(GObject,GtkTextIter,GObject)
+gtk_text_buffer_create_child_anchor(GObject,GtkTextIter); GObject
+gtk_text_buffer_create_mark(GObject,String,GtkTextIter,Int); GObject
+gtk_text_buffer_move_mark(GObject,GObject,GtkTextIter)
+gtk_text_buffer_delete_mark(GObject,GObject)
+gtk_text_buffer_get_mark(GObject,String); GObject
+gtk_text_buffer_move_mark_by_name(GObject,String,GtkTextIter)
+gtk_text_buffer_delete_mark_by_name(GObject,String)
+gtk_text_buffer_get_insert(GObject); GObject
+gtk_text_buffer_get_selection_bound(GObject); GObject
+gtk_text_buffer_place_cursor(GObject,GtkTextIter)
+gtk_text_buffer_apply_tag(GObject,GObject,GtkTextIter,GtkTextIter)
+gtk_text_buffer_remove_tag(GObject,GObject,GtkTextIter,GtkTextIter)
+gtk_text_buffer_apply_tag_by_name(GObject,String,GtkTextIter,GtkTextIter)
+gtk_text_buffer_remove_tag_by_name(GObject,String,GtkTextIter,GtkTextIter)
+gtk_text_buffer_remove_all_tags(GObject,GtkTextIter,GtkTextIter)
+gtk_text_buffer_get_iter_at_line_index(GObject,GtkTextIter,Int,Int)
+gtk_text_buffer_get_bounds(GObject,GtkTextIter,GtkTextIter)
+gtk_text_buffer_get_iter_at_mark(GObject,GtkTextIter,GObject)
+gtk_text_buffer_get_iter_at_child_anchor(GObject,GtkTextIter,GObject)
+gtk_text_buffer_get_modified(GObject); Int
+gtk_text_buffer_set_modified(GObject,Int)
+gtk_text_buffer_get_selection_bounds(GObject,GtkTextIter,GtkTextIter); Int
+gtk_text_buffer_delete_selection(GObject,Int,Int); Int
+gtk_text_buffer_begin_user_action(GObject)
+gtk_text_buffer_end_user_action(GObject)
+gtk_table_new(UInt,UInt,Int); GtkWidget
+gtk_table_resize(GtkWidget,UInt,UInt)
+gtk_table_attach(GtkWidget,GtkWidget,UInt,UInt,UInt,UInt,Int,Int,UInt,UInt)
+gtk_table_attach_defaults(GtkWidget,GtkWidget,UInt,UInt,UInt,UInt)
+gtk_table_set_row_spacing(GtkWidget,UInt,UInt)
+gtk_table_get_row_spacing(GtkWidget,UInt); UInt
+gtk_table_set_col_spacing(GtkWidget,UInt,UInt)
+gtk_table_get_col_spacing(GtkWidget,UInt); UInt
+gtk_table_set_row_spacings(GtkWidget,UInt)
+gtk_table_get_default_row_spacing(GtkWidget); UInt
+gtk_table_set_col_spacings(GtkWidget,UInt)
+gtk_table_get_default_col_spacing(GtkWidget); UInt
+gtk_table_set_homogeneous(GtkWidget,Int)
+gtk_table_get_homogeneous(GtkWidget); Int
+gtk_statusbar_get_context_id(GtkWidget,String); UInt
+gtk_statusbar_push(GtkWidget,UInt,String); UInt
+gtk_statusbar_pop(GtkWidget,UInt)
+gtk_statusbar_remove(GtkWidget,UInt,UInt)
+gtk_statusbar_set_has_resize_grip(GtkWidget,Int)
+gtk_statusbar_get_has_resize_grip(GtkWidget); Int
+gtk_spin_button_configure(GtkWidget,GtkAdjustment,Double,UInt)
+gtk_spin_button_new(GtkAdjustment,Double,UInt); GtkWidget
+gtk_spin_button_new_with_range(Double,Double,Double); GtkWidget
+gtk_spin_button_set_adjustment(GtkWidget,GtkAdjustment)
+gtk_spin_button_get_adjustment(GtkWidget); GtkAdjustment
+gtk_spin_button_set_digits(GtkWidget,UInt)
+gtk_spin_button_get_digits(GtkWidget); UInt
+gtk_spin_button_set_increments(GtkWidget,Double,Double)
+gtk_spin_button_get_increments(GtkWidget,array_or_ref,array_or_ref)
+gtk_spin_button_set_range(GtkWidget,Double,Double)
+gtk_spin_button_get_range(GtkWidget,array_or_ref,array_or_ref)
+gtk_spin_button_get_value(GtkWidget); Double
+gtk_spin_button_get_value_as_int(GtkWidget); Int
+gtk_spin_button_set_value(GtkWidget,Double)
+gtk_spin_button_set_update_policy(GtkWidget,Int)
+gtk_spin_button_get_update_policy(GtkWidget); Int
+gtk_spin_button_set_numeric(GtkWidget,Int)
+gtk_spin_button_get_numeric(GtkWidget); Int
+gtk_spin_button_spin(GtkWidget,Int,Double)
+gtk_spin_button_set_wrap(GtkWidget,Int)
+gtk_spin_button_get_wrap(GtkWidget); Int
+gtk_spin_button_set_snap_to_ticks(GtkWidget,Int)
+gtk_spin_button_get_snap_to_ticks(GtkWidget); Int
+gtk_spin_button_update(GtkWidget)
+gtk_scrolled_window_new(GtkAdjustment,GtkAdjustment); GtkWidget
+gtk_scrolled_window_set_hadjustment(GtkWidget,GtkAdjustment)
+gtk_scrolled_window_set_vadjustment(GtkWidget,GtkAdjustment)
+gtk_scrolled_window_get_hadjustment(GtkWidget); GtkAdjustment
+gtk_scrolled_window_get_vadjustment(GtkWidget); GtkAdjustment
+gtk_scrolled_window_set_policy(GtkWidget,Int,Int)
+gtk_scrolled_window_get_policy(GtkWidget,array_or_ref,array_or_ref)
+gtk_scrolled_window_set_placement(GtkWidget,Int)
+gtk_scrolled_window_get_placement(GtkWidget); Int
+gtk_scrolled_window_set_shadow_type(GtkWidget,Int)
+gtk_scrolled_window_get_shadow_type(GtkWidget); Int
+gtk_scrolled_window_add_with_viewport(GtkWidget,GtkWidget)
+gtk_scale_set_digits(GtkWidget,Int)
+gtk_scale_get_digits(GtkWidget); Int
+gtk_scale_set_draw_value(GtkWidget,Int)
+gtk_scale_get_draw_value(GtkWidget); Int
+gtk_scale_set_value_pos(GtkWidget,Int)
+gtk_scale_get_value_pos(GtkWidget); Int
+gtk_ruler_set_metric(GtkWidget,Int)
+gtk_ruler_set_range(GtkWidget,Double,Double,Double,Double)
+gtk_ruler_draw_ticks(GtkWidget)
+gtk_ruler_draw_pos(GtkWidget)
+gtk_ruler_get_metric(GtkWidget); Int
+gtk_ruler_get_range(GtkWidget,array_or_ref,array_or_ref,array_or_ref,array_or_ref)
+gtk_rc_add_default_file(String)
+gtk_rc_set_default_files(array_or_ref)
+gtk_rc_get_style(GtkWidget); GObject
+gtk_rc_get_style_by_paths(GObject,String,String,ULong); GObject
+gtk_rc_reparse_all_for_settings(GObject,Int); Int
+gtk_rc_find_pixmap_in_path(GObject,GtkOpaque,String); String
+gtk_rc_parse(String)
+gtk_rc_parse_string(String)
+gtk_rc_add_widget_name_style(GObject,String)
+gtk_rc_add_widget_class_style(GObject,String)
+gtk_rc_add_class_style(GObject,String)
+gtk_rc_style_copy(GObject); GObject
+gtk_rc_style_ref(GObject)
+gtk_rc_style_unref(GObject)
+gtk_rc_find_module_in_path(String); String
+gtk_rc_parse_color(GtkOpaque,struct); UInt
+gtk_rc_parse_state(GtkOpaque,array_or_ref); UInt
+gtk_rc_parse_priority(GtkOpaque,array_or_ref); UInt
+gtk_range_set_update_policy(GtkWidget,Int)
+gtk_range_get_update_policy(GtkWidget); Int
+gtk_range_set_adjustment(GtkWidget,GtkAdjustment)
+gtk_range_get_adjustment(GtkWidget); GtkAdjustment
+gtk_range_set_inverted(GtkWidget,Int)
+gtk_range_get_inverted(GtkWidget); Int
+gtk_range_set_increments(GtkWidget,Double,Double)
+gtk_range_set_range(GtkWidget,Double,Double)
+gtk_range_set_value(GtkWidget,Double)
+gtk_range_get_value(GtkWidget); Double
+gtk_radio_menu_item_new(GtkOpaque); GtkWidget
+gtk_radio_menu_item_new_with_label(GtkOpaque,String); GtkWidget
+gtk_radio_menu_item_new_with_mnemonic(GtkOpaque,String); GtkWidget
+gtk_radio_menu_item_get_group(GtkWidget); GtkOpaque
+gtk_radio_menu_item_set_group(GtkWidget,GtkOpaque)
+gtk_radio_button_new(GtkOpaque); GtkWidget
+gtk_radio_button_new_from_widget(GtkWidget); GtkWidget
+gtk_radio_button_new_with_label(GtkOpaque,String); GtkWidget
+gtk_radio_button_new_with_label_from_widget(GtkWidget,String); GtkWidget
+gtk_radio_button_new_with_mnemonic(GtkOpaque,String); GtkWidget
+gtk_radio_button_new_with_mnemonic_from_widget(GtkWidget,String); GtkWidget
+gtk_radio_button_get_group(GtkWidget); GtkOpaque
+gtk_radio_button_set_group(GtkWidget,GtkOpaque)
+gtk_progress_bar_pulse(GtkWidget)
+gtk_progress_bar_set_text(GtkWidget,String)
+gtk_progress_bar_set_fraction(GtkWidget,Double)
+gtk_progress_bar_set_pulse_step(GtkWidget,Double)
+gtk_progress_bar_set_orientation(GtkWidget,Int)
+gtk_progress_bar_get_text(GtkWidget); String
+gtk_progress_bar_get_fraction(GtkWidget); Double
+gtk_progress_bar_get_pulse_step(GtkWidget); Double
+gtk_progress_bar_get_orientation(GtkWidget); Int
+gtk_progress_bar_new_with_adjustment(GtkAdjustment); GtkWidget
+gtk_progress_bar_set_bar_style(GtkWidget,Int)
+gtk_progress_bar_set_discrete_blocks(GtkWidget,UInt)
+gtk_progress_bar_set_activity_step(GtkWidget,UInt)
+gtk_progress_bar_set_activity_blocks(GtkWidget,UInt)
+gtk_progress_bar_update(GtkWidget,Double)
+gtk_paned_add1(GtkWidget,GtkWidget)
+gtk_paned_add2(GtkWidget,GtkWidget)
+gtk_paned_pack1(GtkWidget,GtkWidget,Int,Int)
+gtk_paned_pack2(GtkWidget,GtkWidget,Int,Int)
+gtk_paned_get_position(GtkWidget); Int
+gtk_paned_set_position(GtkWidget,Int)
+gtk_paned_compute_position(GtkWidget,Int,Int,Int)
+gtk_option_menu_get_menu(GtkWidget); GtkWidget
+gtk_option_menu_set_menu(GtkWidget,GtkWidget)
+gtk_option_menu_remove_menu(GtkWidget)
+gtk_option_menu_get_history(GtkWidget); Int
+gtk_option_menu_set_history(GtkWidget,UInt)
+gtk_object_sink(GtkObject)
+gtk_object_destroy(GtkObject)
+gtk_object_remove_no_notify_by_id(GtkObject,UInt)
+gtk_object_add_arg_type(String,ULong,UInt,UInt)
+gtk_notebook_append_page(GtkWidget,GtkWidget,GtkWidget)
+gtk_notebook_append_page_menu(GtkWidget,GtkWidget,GtkWidget,GtkWidget)
+gtk_notebook_prepend_page(GtkWidget,GtkWidget,GtkWidget)
+gtk_notebook_prepend_page_menu(GtkWidget,GtkWidget,GtkWidget,GtkWidget)
+gtk_notebook_insert_page(GtkWidget,GtkWidget,GtkWidget,Int)
+gtk_notebook_insert_page_menu(GtkWidget,GtkWidget,GtkWidget,GtkWidget,Int)
+gtk_notebook_remove_page(GtkWidget,Int)
+gtk_notebook_get_current_page(GtkWidget); Int
+gtk_notebook_get_nth_page(GtkWidget,Int); GtkWidget
+gtk_notebook_page_num(GtkWidget,GtkWidget); Int
+gtk_notebook_set_current_page(GtkWidget,Int)
+gtk_notebook_next_page(GtkWidget)
+gtk_notebook_prev_page(GtkWidget)
+gtk_notebook_set_show_border(GtkWidget,Int)
+gtk_notebook_get_show_border(GtkWidget); Int
+gtk_notebook_set_show_tabs(GtkWidget,Int)
+gtk_notebook_get_show_tabs(GtkWidget); Int
+gtk_notebook_set_tab_pos(GtkWidget,Int)
+gtk_notebook_get_tab_pos(GtkWidget); Int
+gtk_notebook_set_homogeneous_tabs(GtkWidget,Int)
+gtk_notebook_set_tab_border(GtkWidget,UInt)
+gtk_notebook_set_tab_hborder(GtkWidget,UInt)
+gtk_notebook_set_tab_vborder(GtkWidget,UInt)
+gtk_notebook_set_scrollable(GtkWidget,Int)
+gtk_notebook_get_scrollable(GtkWidget); Int
+gtk_notebook_popup_enable(GtkWidget)
+gtk_notebook_popup_disable(GtkWidget)
+gtk_notebook_get_tab_label(GtkWidget,GtkWidget); GtkWidget
+gtk_notebook_set_tab_label(GtkWidget,GtkWidget,GtkWidget)
+gtk_notebook_set_tab_label_text(GtkWidget,GtkWidget,String)
+gtk_notebook_get_tab_label_text(GtkWidget,GtkWidget); String
+gtk_notebook_get_menu_label(GtkWidget,GtkWidget); GtkWidget
+gtk_notebook_set_menu_label(GtkWidget,GtkWidget,GtkWidget)
+gtk_notebook_set_menu_label_text(GtkWidget,GtkWidget,String)
+gtk_notebook_get_menu_label_text(GtkWidget,GtkWidget); String
+gtk_notebook_query_tab_label_packing(GtkWidget,GtkWidget,array_or_ref,array_or_ref,array_or_ref)
+gtk_notebook_set_tab_label_packing(GtkWidget,GtkWidget,Int,Int,Int)
+gtk_notebook_reorder_child(GtkWidget,GtkWidget,Int)
+gtk_misc_set_alignment(GtkWidget,Float,Float)
+gtk_misc_get_alignment(GtkWidget,array_or_ref,array_or_ref)
+gtk_misc_set_padding(GtkWidget,Int,Int)
+gtk_misc_get_padding(GtkWidget,array_or_ref,array_or_ref)
+gtk_menu_shell_append(GtkWidget,GtkWidget)
+gtk_menu_shell_prepend(GtkWidget,GtkWidget)
+gtk_menu_shell_insert(GtkWidget,GtkWidget,Int)
+gtk_menu_shell_deactivate(GtkWidget)
+gtk_menu_shell_select_item(GtkWidget,GtkWidget)
+gtk_menu_shell_deselect(GtkWidget)
+gtk_menu_shell_activate_item(GtkWidget,GtkWidget,Int)
+gtk_menu_item_new_with_label(String); GtkWidget
+gtk_menu_item_new_with_mnemonic(String); GtkWidget
+gtk_menu_item_set_submenu(GtkWidget,GtkWidget)
+gtk_menu_item_get_submenu(GtkWidget); GtkWidget
+gtk_menu_item_remove_submenu(GtkWidget)
+gtk_menu_item_select(GtkWidget)
+gtk_menu_item_deselect(GtkWidget)
+gtk_menu_item_activate(GtkWidget)
+gtk_menu_item_toggle_size_request(GtkWidget,array_or_ref)
+gtk_menu_item_toggle_size_allocate(GtkWidget,Int)
+gtk_menu_item_set_right_justified(GtkWidget,Int)
+gtk_menu_item_get_right_justified(GtkWidget); Int
+gtk_menu_item_set_accel_path(GtkWidget,String)
+gtk_menu_reposition(GtkWidget)
+gtk_menu_popdown(GtkWidget)
+gtk_menu_get_active(GtkWidget); GtkWidget
+gtk_menu_set_active(GtkWidget,UInt)
+gtk_menu_set_accel_group(GtkWidget,GObject)
+gtk_menu_get_accel_group(GtkWidget); GObject
+gtk_menu_set_accel_path(GtkWidget,String)
+gtk_menu_detach(GtkWidget)
+gtk_menu_get_attach_widget(GtkWidget); GtkWidget
+gtk_menu_set_tearoff_state(GtkWidget,Int)
+gtk_menu_get_tearoff_state(GtkWidget); Int
+gtk_menu_set_title(GtkWidget,String)
+gtk_menu_get_title(GtkWidget); String
+gtk_menu_reorder_child(GtkWidget,GtkWidget,Int)
+gtk_list_store_newv(Int,array_or_ref); GObject
+gtk_list_store_set_column_types(GObject,Int,array_or_ref)
+gtk_list_store_remove(GObject,GtkTreeIter)
+gtk_list_store_insert(GObject,GtkTreeIter,Int)
+gtk_list_store_insert_before(GObject,GtkTreeIter,GtkTreeIter)
+gtk_list_store_insert_after(GObject,GtkTreeIter,GtkTreeIter)
+gtk_list_store_prepend(GObject,GtkTreeIter)
+gtk_list_store_append(GObject,GtkTreeIter)
+gtk_list_store_clear(GObject)
+gtk_layout_new(GtkAdjustment,GtkAdjustment); GtkWidget
+gtk_layout_put(GtkWidget,GtkWidget,Int,Int)
+gtk_layout_move(GtkWidget,GtkWidget,Int,Int)
+gtk_layout_set_size(GtkWidget,UInt,UInt)
+gtk_layout_get_size(GtkWidget,array_or_ref,array_or_ref)
+gtk_layout_get_hadjustment(GtkWidget); GtkAdjustment
+gtk_layout_get_vadjustment(GtkWidget); GtkAdjustment
+gtk_layout_set_hadjustment(GtkWidget,GtkAdjustment)
+gtk_layout_set_vadjustment(GtkWidget,GtkAdjustment)
+gtk_layout_freeze(GtkWidget)
+gtk_layout_thaw(GtkWidget)
+gtk_label_new(String); GtkWidget
+gtk_label_new_with_mnemonic(String); GtkWidget
+gtk_label_set_text(GtkWidget,String)
+gtk_label_get_text(GtkWidget); String
+gtk_label_set_attributes(GtkWidget,GtkOpaque)
+gtk_label_get_attributes(GtkWidget); GtkOpaque
+gtk_label_set_label(GtkWidget,String)
+gtk_label_get_label(GtkWidget); String
+gtk_label_set_markup(GtkWidget,String)
+gtk_label_set_use_markup(GtkWidget,Int)
+gtk_label_get_use_markup(GtkWidget); Int
+gtk_label_set_use_underline(GtkWidget,Int)
+gtk_label_get_use_underline(GtkWidget); Int
+gtk_label_set_markup_with_mnemonic(GtkWidget,String)
+gtk_label_get_mnemonic_keyval(GtkWidget); UInt
+gtk_label_set_mnemonic_widget(GtkWidget,GtkWidget)
+gtk_label_get_mnemonic_widget(GtkWidget); GtkWidget
+gtk_label_set_text_with_mnemonic(GtkWidget,String)
+gtk_label_set_justify(GtkWidget,Int)
+gtk_label_get_justify(GtkWidget); Int
+gtk_label_set_pattern(GtkWidget,String)
+gtk_label_set_line_wrap(GtkWidget,Int)
+gtk_label_get_line_wrap(GtkWidget); Int
+gtk_label_set_selectable(GtkWidget,Int)
+gtk_label_get_selectable(GtkWidget); Int
+gtk_label_select_region(GtkWidget,Int,Int)
+gtk_label_get_selection_bounds(GtkWidget,array_or_ref,array_or_ref); Int
+gtk_label_get_layout(GtkWidget); GtkOpaque
+gtk_label_get_layout_offsets(GtkWidget,array_or_ref,array_or_ref)
+gtk_label_parse_uline(GtkWidget,String); UInt
+gtk_item_factory_new(ULong,String,GObject); GtkItemFactory
+gtk_item_factory_construct(GtkItemFactory,ULong,String,GObject)
+gtk_item_factory_add_foreign(GtkWidget,String,GObject,UInt,Int)
+gtk_item_factory_from_widget(GtkWidget); GtkItemFactory
+gtk_item_factory_path_from_widget(GtkWidget); String
+gtk_item_factory_get_item(GtkItemFactory,String); GtkWidget
+gtk_item_factory_get_widget(GtkItemFactory,String); GtkWidget
+gtk_item_factory_get_widget_by_action(GtkItemFactory,UInt); GtkWidget
+gtk_item_factory_get_item_by_action(GtkItemFactory,UInt); GtkWidget
+gtk_item_factory_delete_item(GtkItemFactory,String)
+gtk_item_factory_popup(GtkItemFactory,UInt,UInt,UInt,UInt)
+gtk_item_factory_popup_data(GtkItemFactory); GtkOpaque
+gtk_item_factory_popup_data_from_widget(GtkWidget); GtkOpaque
+gtk_item_factory_from_path(String); GtkItemFactory
+gtk_item_factories_path_delete(String,String)
+gtk_item_select(GtkWidget)
+gtk_item_deselect(GtkWidget)
+gtk_item_toggle(GtkWidget)
+gtk_image_menu_item_new_with_label(String); GtkWidget
+gtk_image_menu_item_new_with_mnemonic(String); GtkWidget
+gtk_image_menu_item_new_from_stock(String,GObject); GtkWidget
+gtk_image_menu_item_set_image(GtkWidget,GtkWidget)
+gtk_image_menu_item_get_image(GtkWidget); GtkWidget
+gtk_image_new_from_pixmap(GdkDrawable,GdkDrawable); GtkWidget
+gtk_image_new_from_image(GObject,GdkDrawable); GtkWidget
+gtk_image_new_from_file(String); GtkWidget
+gtk_image_new_from_pixbuf(GdkPixbuf); GtkWidget
+gtk_image_new_from_stock(String,Int); GtkWidget
+gtk_image_new_from_icon_set(GtkIconSet,Int); GtkWidget
+gtk_image_new_from_animation(GObject); GtkWidget
+gtk_image_set_from_pixmap(GtkWidget,GdkDrawable,GdkDrawable)
+gtk_image_set_from_image(GtkWidget,GObject,GdkDrawable)
+gtk_image_set_from_file(GtkWidget,String)
+gtk_image_set_from_pixbuf(GtkWidget,GdkPixbuf)
+gtk_image_set_from_stock(GtkWidget,String,Int)
+gtk_image_set_from_icon_set(GtkWidget,GtkIconSet,Int)
+gtk_image_set_from_animation(GtkWidget,GObject)
+gtk_image_get_storage_type(GtkWidget); Int
+gtk_image_get_pixmap(GtkWidget,array_or_ref,array_or_ref)
+gtk_image_get_image(GtkWidget,array_or_ref,array_or_ref)
+gtk_image_get_pixbuf(GtkWidget); GdkPixbuf
+gtk_image_get_stock(GtkWidget,array_or_ref,array_or_ref)
+gtk_image_get_icon_set(GtkWidget,array_or_ref,array_or_ref)
+gtk_image_get_animation(GtkWidget); GObject
+gtk_icon_factory_add(GObject,String,GtkIconSet)
+gtk_icon_factory_lookup(GObject,String); GtkIconSet
+gtk_icon_factory_add_default(GObject)
+gtk_icon_factory_remove_default(GObject)
+gtk_icon_factory_lookup_default(String); GtkIconSet
+gtk_icon_size_lookup(Int,array_or_ref,array_or_ref); Int
+gtk_icon_size_register(String,Int,Int); Int
+gtk_icon_size_register_alias(String,Int)
+gtk_icon_size_from_name(String); Int
+gtk_icon_size_get_name(Int); String
+gtk_icon_set_new_from_pixbuf(GdkPixbuf); GtkIconSet
+gtk_icon_set_ref(GtkIconSet); GtkIconSet
+gtk_icon_set_unref(GtkIconSet)
+gtk_icon_set_copy(GtkIconSet); GtkIconSet
+gtk_icon_set_render_icon(GtkIconSet,GObject,Int,Int,Int,GtkWidget,String); GdkPixbuf
+gtk_icon_set_add_source(GtkIconSet,GtkIconSource)
+gtk_icon_source_copy(GtkIconSource); GtkIconSource
+gtk_icon_source_free(GtkIconSource)
+gtk_icon_source_set_filename(GtkIconSource,String)
+gtk_icon_source_set_pixbuf(GtkIconSource,GdkPixbuf)
+gtk_icon_source_get_filename(GtkIconSource); String
+gtk_icon_source_get_pixbuf(GtkIconSource); GdkPixbuf
+gtk_icon_source_set_direction_wildcarded(GtkIconSource,Int)
+gtk_icon_source_set_state_wildcarded(GtkIconSource,Int)
+gtk_icon_source_set_size_wildcarded(GtkIconSource,Int)
+gtk_icon_source_get_size_wildcarded(GtkIconSource); Int
+gtk_icon_source_get_state_wildcarded(GtkIconSource); Int
+gtk_icon_source_get_direction_wildcarded(GtkIconSource); Int
+gtk_icon_source_set_direction(GtkIconSource,Int)
+gtk_icon_source_set_state(GtkIconSource,Int)
+gtk_icon_source_set_size(GtkIconSource,Int)
+gtk_icon_source_get_direction(GtkIconSource); Int
+gtk_icon_source_get_state(GtkIconSource); Int
+gtk_icon_source_get_size(GtkIconSource); Int
+gtk_hscrollbar_new(GtkAdjustment); GtkWidget
+gtk_hscale_new(GtkAdjustment); GtkWidget
+gtk_hscale_new_with_range(Double,Double,Double); GtkWidget
+gtk_handle_box_set_shadow_type(GtkWidget,Int)
+gtk_handle_box_get_shadow_type(GtkWidget); Int
+gtk_handle_box_set_handle_position(GtkWidget,Int)
+gtk_handle_box_get_handle_position(GtkWidget); Int
+gtk_handle_box_set_snap_edge(GtkWidget,Int)
+gtk_handle_box_get_snap_edge(GtkWidget); Int
+gtk_frame_new(String); GtkWidget
+gtk_frame_set_label(GtkWidget,String)
+gtk_frame_get_label(GtkWidget); String
+gtk_frame_set_label_widget(GtkWidget,GtkWidget)
+gtk_frame_get_label_widget(GtkWidget); GtkWidget
+gtk_frame_set_label_align(GtkWidget,Float,Float)
+gtk_frame_get_label_align(GtkWidget,array_or_ref,array_or_ref)
+gtk_frame_set_shadow_type(GtkWidget,Int)
+gtk_frame_get_shadow_type(GtkWidget); Int
+gtk_font_selection_get_font_name(GtkWidget); String
+gtk_font_selection_get_font(GtkWidget); GtkOpaque
+gtk_font_selection_set_font_name(GtkWidget,String); Int
+gtk_font_selection_get_preview_text(GtkWidget); String
+gtk_font_selection_set_preview_text(GtkWidget,String)
+gtk_font_selection_dialog_new(String); GtkWidget
+gtk_font_selection_dialog_get_font_name(GtkWidget); String
+gtk_font_selection_dialog_get_font(GtkWidget); GtkOpaque
+gtk_font_selection_dialog_set_font_name(GtkWidget,String); Int
+gtk_font_selection_dialog_get_preview_text(GtkWidget); String
+gtk_font_selection_dialog_set_preview_text(GtkWidget,String)
+gtk_fixed_put(GtkWidget,GtkWidget,Int,Int)
+gtk_fixed_move(GtkWidget,GtkWidget,Int,Int)
+gtk_fixed_set_has_window(GtkWidget,Int)
+gtk_fixed_get_has_window(GtkWidget); Int
+gtk_file_selection_new(String); GtkWidget
+gtk_file_selection_set_filename(GtkWidget,String)
+gtk_file_selection_get_filename(GtkWidget); String
+gtk_file_selection_complete(GtkWidget,String)
+gtk_file_selection_show_fileop_buttons(GtkWidget)
+gtk_file_selection_hide_fileop_buttons(GtkWidget)
+gtk_file_selection_set_select_multiple(GtkWidget,Int)
+gtk_file_selection_get_select_multiple(GtkWidget); Int
+gtk_entry_set_visibility(GtkWidget,Int)
+gtk_entry_get_visibility(GtkWidget); Int
+gtk_entry_set_invisible_char(GtkWidget,UInt)
+gtk_entry_get_invisible_char(GtkWidget); UInt
+gtk_entry_set_has_frame(GtkWidget,Int)
+gtk_entry_get_has_frame(GtkWidget); Int
+gtk_entry_set_max_length(GtkWidget,Int)
+gtk_entry_get_max_length(GtkWidget); Int
+gtk_entry_set_activates_default(GtkWidget,Int)
+gtk_entry_get_activates_default(GtkWidget); Int
+gtk_entry_set_width_chars(GtkWidget,Int)
+gtk_entry_get_width_chars(GtkWidget); Int
+gtk_entry_set_text(GtkWidget,String)
+gtk_entry_get_text(GtkWidget); String
+gtk_entry_get_layout(GtkWidget); GtkOpaque
+gtk_entry_get_layout_offsets(GtkWidget,array_or_ref,array_or_ref)
+gtk_entry_new_with_max_length(Int); GtkWidget
+gtk_entry_append_text(GtkWidget,String)
+gtk_entry_prepend_text(GtkWidget,String)
+gtk_entry_set_position(GtkWidget,Int)
+gtk_entry_select_region(GtkWidget,Int,Int)
+gtk_entry_set_editable(GtkWidget,Int)
+gtk_editable_select_region(GtkWidget,Int,Int)
+gtk_editable_get_selection_bounds(GtkWidget,array_or_ref,array_or_ref); Int
+gtk_editable_insert_text(GtkWidget,String,Int,array_or_ref)
+gtk_editable_delete_text(GtkWidget,Int,Int)
+gtk_editable_get_chars(GtkWidget,Int,Int); String
+gtk_editable_cut_clipboard(GtkWidget)
+gtk_editable_copy_clipboard(GtkWidget)
+gtk_editable_paste_clipboard(GtkWidget)
+gtk_editable_delete_selection(GtkWidget)
+gtk_editable_set_position(GtkWidget,Int)
+gtk_editable_get_position(GtkWidget); Int
+gtk_editable_set_editable(GtkWidget,Int)
+gtk_editable_get_editable(GtkWidget); Int
+gtk_drawing_area_size(GtkWidget,Int,Int)
+gtk_dialog_add_action_widget(GtkWidget,GtkWidget,Int)
+gtk_dialog_add_button(GtkWidget,String,Int); GtkWidget
+gtk_dialog_set_response_sensitive(GtkWidget,Int,Int)
+gtk_dialog_set_default_response(GtkWidget,Int)
+gtk_dialog_set_has_separator(GtkWidget,Int)
+gtk_dialog_get_has_separator(GtkWidget); Int
+gtk_dialog_response(GtkWidget,Int)
+gtk_dialog_run(GtkWidget); Int
+gtk_curve_reset(GtkWidget)
+gtk_curve_set_gamma(GtkWidget,Float)
+gtk_curve_set_range(GtkWidget,Float,Float,Float,Float)
+gtk_curve_get_vector(GtkWidget,Int,array)
+gtk_curve_set_vector(GtkWidget,Int,array)
+gtk_curve_set_curve_type(GtkWidget,Int)
+gtk_container_set_border_width(GtkWidget,UInt)
+gtk_container_get_border_width(GtkWidget); UInt
+gtk_container_add(GtkWidget,GtkWidget)
+gtk_container_remove(GtkWidget,GtkWidget)
+gtk_container_set_resize_mode(GtkWidget,Int)
+gtk_container_get_resize_mode(GtkWidget); Int
+gtk_container_check_resize(GtkWidget)
+gtk_container_get_children(GtkWidget); GtkOpaque
+gtk_container_unset_focus_chain(GtkWidget)
+gtk_container_set_reallocate_redraws(GtkWidget,Int)
+gtk_container_set_focus_child(GtkWidget,GtkWidget)
+gtk_container_set_focus_vadjustment(GtkWidget,GtkAdjustment)
+gtk_container_get_focus_vadjustment(GtkWidget); GtkAdjustment
+gtk_container_set_focus_hadjustment(GtkWidget,GtkAdjustment)
+gtk_container_get_focus_hadjustment(GtkWidget); GtkAdjustment
+gtk_container_resize_children(GtkWidget)
+gtk_container_child_type(GtkWidget); ULong
+gtk_color_selection_dialog_new(String); GtkWidget
+gtk_color_selection_get_has_opacity_control(GtkWidget); Int
+gtk_color_selection_set_has_opacity_control(GtkWidget,Int)
+gtk_color_selection_get_has_palette(GtkWidget); Int
+gtk_color_selection_set_has_palette(GtkWidget,Int)
+gtk_color_selection_set_current_color(GtkWidget,struct)
+gtk_color_selection_set_current_alpha(GtkWidget,UShort)
+gtk_color_selection_get_current_alpha(GtkWidget); UShort
+gtk_color_selection_set_previous_color(GtkWidget,struct)
+gtk_color_selection_set_previous_alpha(GtkWidget,UShort)
+gtk_color_selection_get_previous_color(GtkWidget,struct)
+gtk_color_selection_get_previous_alpha(GtkWidget); UShort
+gtk_color_selection_is_adjusting(GtkWidget); Int
+gtk_color_selection_set_update_policy(GtkWidget,Int)
+gtk_check_menu_item_new_with_label(String); GtkWidget
+gtk_check_menu_item_new_with_mnemonic(String); GtkWidget
+gtk_check_menu_item_set_active(GtkWidget,Int)
+gtk_check_menu_item_get_active(GtkWidget); Int
+gtk_check_menu_item_toggled(GtkWidget)
+gtk_check_menu_item_set_inconsistent(GtkWidget,Int)
+gtk_check_menu_item_get_inconsistent(GtkWidget); Int
+gtk_check_menu_item_set_show_toggle(GtkWidget,Int)
+gtk_check_button_new_with_label(String); GtkWidget
+gtk_check_button_new_with_mnemonic(String); GtkWidget
+gtk_cell_renderer_toggle_get_radio(GtkCellRendererToggle); Int
+gtk_cell_renderer_toggle_set_radio(GtkCellRendererToggle,Int)
+gtk_cell_renderer_toggle_get_active(GtkCellRendererToggle); Int
+gtk_cell_renderer_toggle_set_active(GtkCellRendererToggle,Int)
+gtk_cell_renderer_text_set_fixed_height_from_font(GtkCellRendererText,Int)
+gtk_cell_renderer_get_size(GtkCellRenderer,GtkWidget,struct,array_or_ref,array_or_ref,array_or_ref,array_or_ref)
+gtk_cell_renderer_render(GtkCellRenderer,GdkDrawable,GtkWidget,struct,struct,struct,Int)
+gtk_cell_renderer_activate(GtkCellRenderer,GtkOpaque,GtkWidget,String,struct,struct,Int); Int
+gtk_cell_renderer_set_fixed_size(GtkCellRenderer,Int,Int)
+gtk_cell_renderer_get_fixed_size(GtkCellRenderer,array_or_ref,array_or_ref)
+gtk_calendar_select_month(GtkWidget,UInt,UInt); Int
+gtk_calendar_select_day(GtkWidget,UInt)
+gtk_calendar_mark_day(GtkWidget,UInt); Int
+gtk_calendar_unmark_day(GtkWidget,UInt); Int
+gtk_calendar_clear_marks(GtkWidget)
+gtk_calendar_display_options(GtkWidget,Int)
+gtk_calendar_get_date(GtkWidget,array_or_ref,array_or_ref,array_or_ref)
+gtk_calendar_freeze(GtkWidget)
+gtk_calendar_thaw(GtkWidget)
+gtk_vbutton_box_set_spacing_default(Int)
+gtk_vbutton_box_set_layout_default(Int)
+gtk_hbutton_box_set_spacing_default(Int)
+gtk_hbutton_box_set_layout_default(Int)
+gtk_button_box_get_layout(GtkWidget); Int
+gtk_button_box_set_layout(GtkWidget,Int)
+gtk_button_box_set_child_secondary(GtkWidget,GtkWidget,Int)
+gtk_button_box_set_child_size(GtkWidget,Int,Int)
+gtk_button_box_set_child_ipadding(GtkWidget,Int,Int)
+gtk_button_box_get_child_size(GtkWidget,array_or_ref,array_or_ref)
+gtk_button_box_get_child_ipadding(GtkWidget,array_or_ref,array_or_ref)
+gtk_button_new_with_label(String); GtkWidget
+gtk_button_new_from_stock(String); GtkWidget
+gtk_button_new_with_mnemonic(String); GtkWidget
+gtk_button_pressed(GtkWidget)
+gtk_button_released(GtkWidget)
+gtk_button_clicked(GtkWidget)
+gtk_button_enter(GtkWidget)
+gtk_button_leave(GtkWidget)
+gtk_button_set_relief(GtkWidget,Int)
+gtk_button_get_relief(GtkWidget); Int
+gtk_button_set_label(GtkWidget,String)
+gtk_button_get_label(GtkWidget); String
+gtk_button_set_use_underline(GtkWidget,Int)
+gtk_button_get_use_underline(GtkWidget); Int
+gtk_button_set_use_stock(GtkWidget,Int)
+gtk_button_get_use_stock(GtkWidget); Int
+gtk_vbox_new(Int,Int); GtkWidget
+gtk_hbox_new(Int,Int); GtkWidget
+gtk_box_pack_start(GtkWidget,GtkWidget,Int,Int,UInt)
+gtk_box_pack_end(GtkWidget,GtkWidget,Int,Int,UInt)
+gtk_box_pack_start_defaults(GtkWidget,GtkWidget)
+gtk_box_pack_end_defaults(GtkWidget,GtkWidget)
+gtk_box_set_homogeneous(GtkWidget,Int)
+gtk_box_get_homogeneous(GtkWidget); Int
+gtk_box_set_spacing(GtkWidget,Int)
+gtk_box_get_spacing(GtkWidget); Int
+gtk_box_reorder_child(GtkWidget,GtkWidget,Int)
+gtk_box_query_child_packing(GtkWidget,GtkWidget,array_or_ref,array_or_ref,array_or_ref,array_or_ref)
+gtk_box_set_child_packing(GtkWidget,GtkWidget,Int,Int,UInt,Int)
+gtk_bin_get_child(GtkWidget); GtkWidget
+gtk_aspect_frame_new(String,Float,Float,Float,Int); GtkWidget
+gtk_aspect_frame_set(GtkWidget,Float,Float,Float,Int)
+gtk_arrow_new(Int,Int); GtkWidget
+gtk_arrow_set(GtkWidget,Int,Int)
+gtk_alignment_new(Float,Float,Float,Float); GtkWidget
+gtk_alignment_set(GtkWidget,Float,Float,Float,Float)
+gtk_adjustment_new(Double,Double,Double,Double,Double,Double); GtkObject
+gtk_adjustment_changed(GtkAdjustment)
+gtk_adjustment_value_changed(GtkAdjustment)
+gtk_adjustment_clamp_page(GtkAdjustment,Double,Double)
+gtk_adjustment_set_value(GtkAdjustment,Double)
+gtk_accessible_connect_widget_destroyed(GObject)
+gtk_accel_label_new(String); GtkWidget
+gtk_accel_label_get_accel_widget(GtkWidget); GtkWidget
+gtk_accel_label_get_accel_width(GtkWidget); UInt
+gtk_accel_label_set_accel_widget(GtkWidget,GtkWidget)
+gtk_accel_label_set_accel_closure(GtkWidget,GtkOpaque)
+gtk_accel_label_refetch(GtkWidget); Int
+gtk_accel_group_lock(GObject)
+gtk_accel_group_unlock(GObject)
+gtk_accel_group_connect(GObject,UInt,Int,Int,GtkOpaque)
+gtk_accel_group_connect_by_path(GObject,String,GtkOpaque)
+gtk_accel_group_disconnect(GObject,GtkOpaque); Int
+gtk_accel_group_disconnect_key(GObject,UInt,Int); Int
+gtk_accel_groups_activate(GObject,UInt,Int); Int
+gtk_accel_group_from_accel_closure(GtkOpaque); GObject
+gtk_accelerator_valid(UInt,Int); Int
+gtk_accelerator_parse(String,array_or_ref,array_or_ref)
+gtk_accelerator_name(UInt,Int); String
+gtk_accelerator_set_default_mod_mask(Int)
+gdk_pixbuf_get_colorspace(GdkPixbuf); Int
+gdk_pixbuf_get_n_channels(GdkPixbuf); Int
+gdk_pixbuf_get_has_alpha(GdkPixbuf); Int
+gdk_pixbuf_get_bits_per_sample(GdkPixbuf); Int
+array_or_ref = gdk_pixbuf_get_pixels(GdkPixbuf)
+gdk_pixbuf_get_width(GdkPixbuf); Int
+gdk_pixbuf_get_height(GdkPixbuf); Int
+gdk_pixbuf_get_rowstride(GdkPixbuf); Int
+gdk_pixbuf_new(Int,Int,Int,Int,Int); GdkPixbuf
+gdk_pixbuf_copy(GdkPixbuf); GdkPixbuf
+gdk_pixbuf_new_subpixbuf(GdkPixbuf,Int,Int,Int,Int); GdkPixbuf
+gdk_pixbuf_fill(GdkPixbuf,UInt)
+gdk_pixbuf_add_alpha(GdkPixbuf,Int,UChar,UChar,UChar); GdkPixbuf
+gdk_pixbuf_copy_area(GdkPixbuf,Int,Int,Int,Int,GdkPixbuf,Int,Int)
+gdk_pixbuf_saturate_and_pixelate(GdkPixbuf,GdkPixbuf,Float,Int)
+gdk_pixbuf_scale(GdkPixbuf,GdkPixbuf,Int,Int,Int,Int,Double,Double,Double,Double,Int)
+gdk_pixbuf_composite(GdkPixbuf,GdkPixbuf,Int,Int,Int,Int,Double,Double,Double,Double,Int,Int)
+gdk_pixbuf_composite_color(GdkPixbuf,GdkPixbuf,Int,Int,Int,Int,Double,Double,Double,Double,Int,Int,Int,Int,Int,UInt,UInt)
+gdk_pixbuf_scale_simple(GdkPixbuf,Int,Int,Int); GdkPixbuf
+gdk_pixbuf_composite_color_simple(GdkPixbuf,Int,Int,Int,Int,Int,UInt,UInt); GdkPixbuf
+gdk_pixbuf_animation_ref(GObject); GObject
+gdk_pixbuf_animation_unref(GObject)
+gdk_pixbuf_animation_get_width(GObject); Int
+gdk_pixbuf_animation_get_height(GObject); Int
+gdk_pixbuf_animation_is_static_image(GObject); Int
+gdk_pixbuf_animation_get_static_image(GObject); GdkPixbuf
+gdk_pixbuf_get_option(GdkPixbuf,String); String
+pango_layout_new(GtkOpaque); GtkOpaque
+pango_layout_copy(GtkOpaque); GtkOpaque
+pango_layout_get_context(GtkOpaque); GtkOpaque
+pango_layout_set_attributes(GtkOpaque,GtkOpaque)
+pango_layout_get_attributes(GtkOpaque); GtkOpaque
+pango_layout_set_text(GtkOpaque,String,Int)
+pango_layout_get_text(GtkOpaque); String
+pango_layout_set_markup(GtkOpaque,String,Int)
+pango_layout_set_markup_with_accel(GtkOpaque,String,Int,UInt,array_or_ref)
+pango_layout_set_font_description(GtkOpaque,GtkOpaque)
+pango_layout_set_width(GtkOpaque,Int)
+pango_layout_get_width(GtkOpaque); Int
+pango_layout_set_wrap(GtkOpaque,Int)
+pango_layout_get_wrap(GtkOpaque); Int
+pango_layout_set_indent(GtkOpaque,Int)
+pango_layout_get_indent(GtkOpaque); Int
+pango_layout_set_spacing(GtkOpaque,Int)
+pango_layout_get_spacing(GtkOpaque); Int
+pango_layout_set_justify(GtkOpaque,Int)
+pango_layout_get_justify(GtkOpaque); Int
+pango_layout_set_alignment(GtkOpaque,Int)
+pango_layout_get_alignment(GtkOpaque); Int
+pango_layout_set_single_paragraph_mode(GtkOpaque,Int)
+pango_layout_get_single_paragraph_mode(GtkOpaque); Int
+pango_layout_context_changed(GtkOpaque)
+pango_layout_move_cursor_visually(GtkOpaque,Int,Int,Int,Int,array_or_ref,array_or_ref)
+pango_layout_xy_to_index(GtkOpaque,Int,Int,array_or_ref,array_or_ref); Int
+pango_layout_get_size(GtkOpaque,array_or_ref,array_or_ref)
+pango_layout_get_pixel_size(GtkOpaque,array_or_ref,array_or_ref)
+pango_layout_get_line_count(GtkOpaque); Int
+pango_layout_get_lines(GtkOpaque); GtkOpaque
+pango_font_description_copy(GtkOpaque); GtkOpaque
+pango_font_description_copy_static(GtkOpaque); GtkOpaque
+pango_font_description_hash(GtkOpaque); UInt
+pango_font_description_equal(GtkOpaque,GtkOpaque); Int
+pango_font_description_free(GtkOpaque)
+pango_font_descriptions_free(array_or_ref,Int)
+pango_font_description_set_family(GtkOpaque,String)
+pango_font_description_set_family_static(GtkOpaque,String)
+pango_font_description_get_family(GtkOpaque); String
+pango_font_description_set_style(GtkOpaque,Int)
+pango_font_description_get_style(GtkOpaque); Int
+pango_font_description_set_variant(GtkOpaque,Int)
+pango_font_description_get_variant(GtkOpaque); Int
+pango_font_description_set_weight(GtkOpaque,Int)
+pango_font_description_get_weight(GtkOpaque); Int
+pango_font_description_set_stretch(GtkOpaque,Int)
+pango_font_description_get_stretch(GtkOpaque); Int
+pango_font_description_set_size(GtkOpaque,Int)
+pango_font_description_get_size(GtkOpaque); Int
+pango_font_description_get_set_fields(GtkOpaque); Int
+pango_font_description_unset_fields(GtkOpaque,Int)
+pango_font_description_merge(GtkOpaque,GtkOpaque,Int)
+pango_font_description_merge_static(GtkOpaque,GtkOpaque,Int)
+pango_font_description_better_match(GtkOpaque,GtkOpaque,GtkOpaque); Int
+pango_font_description_from_string(String); GtkOpaque
+pango_font_description_to_string(GtkOpaque); String
+pango_font_description_to_filename(GtkOpaque); String
+pango_attr_type_register(String); Int
+pango_attr_list_ref(GtkOpaque)
+pango_attr_list_unref(GtkOpaque)
+pango_attr_list_copy(GtkOpaque); GtkOpaque
+pango_attr_list_splice(GtkOpaque,GtkOpaque,Int,Int)
