@@ -12,6 +12,7 @@
 %
 % Versions:
 % 1.1 2004-10-18  initial attempt
+% 1.2 2004-12-23  removed dependency on view mode (called by runhooks now)
 
 % For debugging purposes:
 % _debug_info = 1;
@@ -24,27 +25,45 @@ implements(mode);
 %!%+
 %\variable{Rst2Html_Cmd}
 %\synopsis{ReStructured Text to Html converter}
-%\usage{String_Type Rst2Html_Cmd = "/usr/share/python-docutils/html.py"}
+%\usage{String_Type Rst2Html_Cmd = "rst2html.py"}
 %\description
 %  Path to the ReStructured Text to Html converter
 %\notes
 %  The default works with the Debian package python-docutils.deb  
 %\seealso{rst_mode}
 %!%-
-custom_variable("Rst2Html_Cmd", "/usr/share/python-docutils/rst2html.py");
+custom_variable("Rst2Html_Cmd", "rst2html.py");
+% for a Debian default setup, choose
+% custom_variable("Rst2Html_Cmd", "rst2latex.py");
+% for simple Html without css stylesheets try the docarticle.py contribution
+% custom_variable("Rst2Html_Cmd", "docarticle.py");
 
-% custom_variable("Rst2Html_Options", "--output-encoding=latin-1");
-custom_variable("Rst2Html_Options", "");
+% custom_variable("Rst_Export_Options", "--output-encoding=latin-1");
+custom_variable("Rst_Export_Options", "");
 
-% --- Requirements (find them at http://jedmodes.sf.net/mode/<modename>)
-require("structured_text");  % text_mode_hook for lists formatting
+%!%+
+%\variable{Rst2Latex_Cmd}
+%\synopsis{ReStructured Text to Html converter}
+%\usage{String_Type Rst2Latex_Cmd = "/usr/share/python-docutils/html.py"}
+%\description
+%  Path to the ReStructured Text to Html converter
+%\notes
+%  The default works with the Debian package python-docutils.deb  
+%\seealso{rst_mode}
+%!%-
+custom_variable("Rst2Latex_Cmd", "rst2latex.py");
+
+% --- Requirements (find them at http://jedmodes.sf.net/mode/)
+require("structured_text");          % text_mode_hook for lists formatting
 autoload("view_url", "browse_url");
 autoload("browse_url", "browse_url");
 autoload("bufsubfile", "bufutils");
 autoload("insert_markup", "txtutils");   % >= 2.3
 autoload("insert_block_markup", "txtutils");   % >= 2.3
+autoload("string_repeat", "strutils");
 autoload("save_buffer_as", "cuamisc");
-require("comments"); % standard library file
+autoload("shell_cmd_on_region", "ishell"); % >= 1.6
+require("comments"); 
 
 set_comment_info(mode, ".. ", "", 0);
 
@@ -85,28 +104,35 @@ Markup_Tags["substitution"]       = ["\n.. |", "|"];
 % convert the buffer/region to html
 public define rst_run()
 {
-   shell_cmd_on_region(Rst2Html_Cmd+" "+Rst2Html_Options,
-      path_sans_extname(whatbuf())+".html");
+   variable outbuf = path_sans_extname(whatbuf())+".html";
+   if (bufferp(outbuf))
+     delbuf(outbuf);
+   shell_cmd_on_region(Rst2Html_Cmd+" "+Rst_Export_Options,
+      outbuf);
    html_mode();
 }
 
-% convert the buffer/region to html
-public define rst2html()
+% export the buffer/region using cmd
+public define rst_export(cmd)
 {
-   shell_cmd_on_region(Rst2Html_Cmd+" "+Rst2Html_Options,
-      path_sans_extname(whatbuf())+".html");
-   save_buffer_as();
-   close_buffer();
+   variable output_file, extension = "";
+   switch (cmd)
+     { case Rst2Html_Cmd: extension = ".html"; }
+     { case Rst2Latex_Cmd: extension = ".tex"; }
+   buffer_keystring(path_sans_extname(whatbuf())+extension);
+   output_file = read_file_from_mini("Output File:");
+   shell_cmd_on_region(cmd + " " + Rst_Export_Options, 
+      "*rst_export output*", output_file);
 }
 
-static define rst2html_help()
+static define rst_export_help()
 {
-   do_shell_cmd(Rst2Html_Cmd + " --help", "*rst2html help*");
-   view_mode();
+   do_shell_cmd(Rst2Html_Cmd + " --help");
+   runhooks("view_mode");
 }
 
-static define set_rst2html_options()
-{ Rst2Html_Options = read_mini("Rst2Html_Options:", "", Rst2Html_Options); }
+static define set_rst_export_options()
+{ Rst_Export_Options = read_mini("Rst_Export_Options:", "", Rst_Export_Options); }
   
 % Browse the html conversion of the current buffer in an external browser
 public define rst_browse() % (browser=NULL)
@@ -118,12 +144,39 @@ public define rst_browse() % (browser=NULL)
 }
 
 % insert a markup
-define markup(type)
+static define markup(type)
 { insert_markup(Markup_Tags[type][0], Markup_Tags[type][1]); }
 
-define block_markup(type)
+static define block_markup(type)
 { insert_block_markup(Markup_Tags[type][0], Markup_Tags[type][1]); }
 
+% underline the current line
+% if there is already underlining, adapt it to the lenght of the line
+static define section_markup()
+{
+   eol_trim();
+   variable len = what_column(), ch, line_del=0, underline_chars="~'`=_-";
+   
+   if (len == 0)
+     len = 20;   % transition
+   !if(right(1))
+     newline;
+   foreach (underline_chars)
+     {
+	ch = char();
+	if (looking_at(string_repeat(ch, 3)))
+	  {
+	     line_del = 1;
+	     break;
+	  }
+     }
+   ch = read_mini(sprintf("Underline character [%s]:", underline_chars),
+      ch, "");
+   if (line_del)
+     delete_line();
+   insert(string_repeat(ch, len-1)+ "\n");
+}
+     
 
 % --- Create and initialize the syntax tables.
 create_syntax_table (mode);
@@ -242,6 +295,7 @@ static define rst_menu(menu)
    variable popup;
    popup = new_popup(menu, "&Layout");
    % ^CP...  Paragraph styles, etc. (<p>, <br>, <hr>, <address>, etc.)
+   menu_append_item(popup, "&Section", "rst->section_markup");
    menu_append_item(popup, "P&reformatted", &block_markup, "preformatted");
    % ^CS...  Character styles (<em>, <strong>, <b>, <i>, etc.)
    menu_append_item(popup, "&Emphasis", &markup, "emphasis");
@@ -265,10 +319,18 @@ static define rst_menu(menu)
    menu_append_item(popup, "&Citation", &markup, "citation");
    menu_append_item(popup, "&Directive", &markup, "directive");
    menu_append_item(popup, "&Substitution", &markup, "substitution");
-   
+   % Export to a target file
+   popup = new_popup(menu, "&Export");
+   menu_append_item(popup, "&Html", &rst_export, Rst2Html_Cmd);
+   menu_append_item(popup, "&Latex", &rst_export, Rst2Latex_Cmd);
+   menu_append_item(popup, "Set Rst Export &Options", "rst->set_rst_export_options");
+   % Help commands
+   popup = new_popup(menu, "&Help");
+   menu_append_item(popup, "Rst2&Html Help", &rst_export_help, Rst2Html_Cmd);
+   menu_append_item(popup, "Rst2&Latex Help", &rst_export_help, Rst2Latex_Cmd);
+
    menu_append_item(menu, "&Comment", "comment_region_or_line");
-   menu_append_item(menu, "Rst2Html& Help", "rst->rst2html_help");
-   menu_append_item(menu, "&Set Rst2Html Options", "rst->set_rst2html_options");
+   
    menu_append_separator(menu);
    menu_append_item(menu, "&Run Buffer", "rst_run");
    menu_append_item(menu, "&Browse Html", "rst_browse");
@@ -290,5 +352,3 @@ public define rst_mode()
 }
 
 provide(mode);
-
-
