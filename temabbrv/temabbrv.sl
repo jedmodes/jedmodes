@@ -1,9 +1,14 @@
 %%----temabbrv.sl--------------------------------------------------------
-%%  Author: Marko Mahnich <marko.mahnic@....si>
-%%  Version: 0.97
+%%  Author: Marko Mahnic <marko.mahnic@....si>
+%%  Version: 0.99
 %%     
 %%-----------------------------------------------------------------------     
 %% History:
+%%   0.99 December 2004
+%%     * $(variable) inserts the value of a variable 
+%%       or "?" if not is_defined(variable)
+%%   0.98 Jul 2004
+%%     * Custom variable TEMABBRV_EOL_ONLY
 %%   0.97 Nov 2003
 %%     * A list of possible template tags is displayed when the
 %%       word on the left of the cursor is too short.
@@ -31,7 +36,8 @@
 %% Some simple postprocessing of expanded text is supported:
 %%    - indentation
 %%    - parameter replacement ($1, $2, ...)
-%%    - cursor positioning ($_)
+%%    - cursor positioning with $_
+%%    - variable insetion with $(varanme)
 %%    
 %% You can define arbitrary templates in template files (.tem).
 %% For example, templates for SLang mode are in slang.tem.
@@ -97,6 +103,10 @@ custom_variable ("TEMABBRV_DEFAULT_ACTION", "");
 
 %% A comma separated list of directories to search for templates
 custom_variable ("TEMABBRV_TEMPLATE_DIRS", NULL);
+
+%% temabbrv active on EOL only
+custom_variable ("TEMABBRV_EOL_ONLY", 1);
+
 
 static variable temLastToken = "";
 static variable temExpBegin_point = NULL;
@@ -391,6 +401,68 @@ define tem_find_possible_tokens(prefix)
    return toklist;
 }
 
+static define tem_eval_variables()
+{
+   bob();
+   while (fsearch ("$("))
+   {
+      push_mark();
+      go_right(2);
+      push_mark();
+      if ( not ffind(")"))
+      {
+         pop_mark(1);
+         pop_mark(0);
+      }
+      else
+      {
+         variable var = bufsubstr();
+         variable res;
+         go_right(1);
+         del_region();
+         
+         ERROR_BLOCK
+         {
+            _clear_error();
+         }
+         
+         if (not is_defined(var))
+            insert ("?");
+         else
+         {
+            res = eval(var);
+            insert(string(res));
+         }
+      }
+   }
+}
+
+static define tem_expand_parameters(OptArray)
+{
+   bob();
+   while (re_fsearch ("\\$[1-9]"))
+   {
+      push_mark ();
+      go_right (2);
+      variable param = bufsubstr();
+      variable prompt = param, repl = "";
+      variable i;
+
+      for (i = 0; i < length (OptArray); i++)
+      {
+         if (1 == is_substr (OptArray[i], param))
+         {
+            prompt = OptArray[i];
+            break;
+         }
+      }
+
+      repl = read_mini (prompt + ":", "", "");
+      bob ();
+      replace (param, repl);
+   }
+}
+
 %!%+
 %\function{tem_expand_template}
 %\synopsis{Integer_Type tem_expand_template (token)}
@@ -469,6 +541,7 @@ static define tem_expand_template (token)
    insert (expand);
    temExpEnd_point = create_user_mark();
    narrow_to_region ();
+   tem_eval_variables();
    bob ();
 
    bExpandArgs = 0;
@@ -490,27 +563,7 @@ static define tem_expand_template (token)
    %% Expand parameters
    if (bExpandArgs)
    {
-      bob();
-      while (re_fsearch ("\\$[1-9]"))
-      {
-         push_mark ();
-         go_right (2);
-         variable param = bufsubstr();
-         variable prompt = param, repl = "";
-
-         for (i = 0; i < length (OptArray); i++)
-         {
-            if (1 == is_substr (OptArray[i], param))
-            {
-               prompt = OptArray[i];
-               break;
-            }
-         }
-
-         repl = read_mini (prompt + ":", "", "");
-         bob ();
-         replace (param, repl);
-      }
+      tem_expand_parameters(OptArray);
    }
    
    %% Place the cursor to the marked position or eob
@@ -574,7 +627,7 @@ define temabbrev()
    temExpBegin_point = NULL;
    temExpEnd_point = NULL;
    
-   if (eolp ()) 
+   if (eolp () or (not eolp() and not TEMABBRV_EOL_ONLY)) 
    {
       push_spot();
       push_mark();
