@@ -6,10 +6,11 @@
 % 
 % A set of macros to make lists of keywords for language modes more manageable.
 % 
-% There is no need to worry about the size and order of keywords when creating
-% a keyword list. Keywords are separated by whitespace so it is easier to spot them.
-% Also lists of keywords might be grouped by their type (control kwds, type kwds, 
-% function names, constants, ...) and joined later with add_keywords.
+% Create keyword lists to be used in define_keywords_n.
+% You can add keywords to the keyword lists in multiple
+% steps. Keywords are separated by whitespace.
+% You can mix words of different sizes. The sort order of
+% keywords is not important.
 %
 % Very helpful when you define syntaxes for similar languages or language variants.
 % (SQL: sql92, postgresql, mysql, oracle, mssql; some keywords are
