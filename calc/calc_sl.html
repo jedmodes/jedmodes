@@ -1,0 +1,120 @@
+<html>
+<head>
+   <meta http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <meta http-equiv="Author" content="Marko Mahnic">
+   <style>
+     PRE.code { background-color: #eeeeee; }
+     PRE.template  { background-color: #eeeeee; }
+   </style>
+   <title>JED Macro: calc.sl</title>
+</head>
+<body>
+
+<h2>calc.sl</h2>
+
+A simple calculator that takes a SLang expression, evaluates
+it and prints the result in the form of a comment after the
+expression.
+
+<p>
+If you use it with two windows, one window (Calculator) is used
+to edit expressions, in the other one (*calcres*) the results 
+are displayed.
+
+<p>
+The evaluation is started with <code>calc_make_calculation()</code> (^C^A if ^C is 
+your _Reserved_Key_Prefix).
+
+Use the calc_mode_hook to define your own bindings e.g. in your .jedrc:
+
+<pre class='code'>
+   define calc_mode_hook ()
+   {
+      local_setkey ("calc_make_calculation", "^[^M");  % Alt-Return
+   }
+</pre>
+
+  
+The result of an expression is everything that is left on the
+SLang stack after the expression is evaluated. 
+The result of evaluation of
+
+<pre class='code'>
+   1+1; 2+2;
+</pre>
+
+would be
+
+<pre class='code'>
+   2
+   4
+</pre>
+
+but only 4 is written into the expression buffer. The other
+results can be found in the result buffer using <code>calc_result_window()</code> (^C^W).
+
+<p>
+An expression can be any valid SLang code. Multiple expressions
+can be divided by a tag with <code>calc_next_expression()</code> (^C^N).
+
+<p>
+There are 25 predefined variables ([a-z]) that can be used without 
+declaration and displayed with <code>calc_display_variables()</code> (^C^V).
+
+<p>
+Use <code>calc_help()</code> (^C^H) (or look at the mode menu) for help on keys.
+
+
+<h3>Other operations</h3>
+
+Expressions can be saved (^C^S) to a file and loaded (^C^R) later. 
+
+<p>
+The display format for integer and float results can be changed from the
+mode menu. The combined mode displays integer results in dec, oct, hex and
+bin format.
+
+<h3>Installation</h3>
+
+Put 
+<pre class='code'>
+   autoload ("calc", "calc", "calc2");
+</pre>
+in your .jedrc file.
+
+<p>
+Then you can invoke the calculator with <code>M-x calc</code>
+or <code>M-x calc2</code> for two-window mode.
+
+<p>
+To get a Calc menu entry insert in your .jedrc:
+
+<p>
+if you have jed 99.13:
+
+<pre class='code'>
+     static define load_popups_hook (menubar)
+     {
+        %
+        menu_insert_item (3, "Global.S&ystem", "Ca&lculate", "calc");
+     }            
+     variable Menu_Load_Popups_Hook = &load_popups_hook;
+</pre>
+    
+if you have a newer version than jed 99.13:
+
+<pre class='code'>
+     define calc_load_popup_hook (menubar)
+     {
+        menu_insert_item (7, "Global.S&ystem", "Ca&lculate", "calc");
+     }
+     append_to_hook ("load_popup_hooks", &calc_load_popup_hook);
+</pre>
+
+or insert the <code>menu_insert_item()</code> function to an already defined
+<code>_load_popup_hook</code>.
+
+
+
+</body>
+</html>
