@@ -1,0 +1,110 @@
+* The JED calendar	-*- mode: outline -*-
+* installing
+  put cal.sl, calmisc.sl and diary.sl in your path before the original
+  cal.sl and add
+  #v+
+  autoload("diary", "diary");
+  #v-
+  to your .jedrc. If you want to view your appointments for the day on
+  starting JED, add
+  #v+
+  diary();
+  #v-
+  to your .jedrc.
+** ncal
+   Ncal redefines some functions to provide a calendar in the columnar
+   layout some of you may have seen at work. The weekday names are shown on
+   the left, and below are the ISO week numbers. It should look like this:
+   #v+
+   Apr 2004              May 2004              Jun 2004          
+      5 12 19 26            3 10 17 24 31         7 14 21 28      Monday
+      6 13 20 27            4 11 18 25         1  8 15 22 29      Tuesday
+      7 14 21 28            5 12 19 26         2  9 16 23 30      Wednesday
+   1  8 15 22 29            6 13 20 27         3 10 17 24         Thursday
+   2  9 16 23 30            7 14 21 28         4 11 18 25         Friday
+   3 10 17 24            1  8 15 22 29         5 12 19 26         Saturday
+   4 11 18 25            2  9 16 23 30         6 13 20 27         Sunday
+   
+   14 15 16 17 18        18 19 20 21 22 23     23 24 25 26 27     week
+   #v-
+   This assumes the weeks start on Monday, otherwise the week numbers
+   wouldn't make sense. To use this instead of the standard calendar, add
+   #v+
+   autoload("calendar", "ncal");
+   #v-
+   to .jedrc  
+** installing calendar.sl
+   You can use calendar.sl as a replacement for BSD calendar to remind
+   you of your appointments when you log in. It should be useful for
+   Europeans, since BSD calendar does not support the European date
+   format. You need slsh and the pcre module. Put custom.sl in your slsh
+   load path (/usr/share/slsh/local-packages/ might be a good place),
+   put calendar.sl anywhere, make it executable and call it from
+   .bashrc. Calendar.sl should support the same date patterns as cal.sl.
+* using
+  See the tm documentation in the source for the keybindings. Or look at
+  the mode menu.
+* the diary
+  The format of the diary is similar to that used by Emacs and the calendar
+  program, but to keep the diary functions simple, cal.sl is stricter about
+  date patterns.
+  -date patterns must end with a tab
+  -we only recognise
+   -mm/dd/yyyy (not July 10 2003)
+   -mm/dd (not the variant mm/dd/*)
+   -*/dd (dd/* for Europeans)
+   -Sunday etc. (not Sun, but you can set the customvar CalWeekdays 
+    if you want)
+   -Sunday+1 for first Sunday of every month. etc. (but not Sunday-1)
+  If you have DiaryEuropeanFormat set to 1, exchange the mm and the dd.
+  If you make your appointments from within calendar, you'll stand the
+  best chance that they will show up. To help spot problems with your
+  diary, the diary file has a higlighting scheme that should highlight
+  only dates I can understand.
+  
+  You can also use the function view_diary_entries, which uses the BSD
+  calendar program to display diary entries. This may be useful for
+  Americans, since it can include system diary files to remind you
+  of holidays etc., but as I said BSD calendar does not support the
+  European date format, so I don't use it.
+* hooks
+  -calendar_mode_hook: this hook is run when you start the calendar. Use it
+   to set keybindings, to mark diary entries, show diary entries, whatever.
+  -calendar_today_visible_hook: run when the calendar is drawn and the current 
+   day is/becomes visible in one of the three months. As an example
+   #v+
+   define calendar_today_visible_hook()
+   {
+       mark_diary_entries;
+   }
+   #v-
+   will mark your diary entries when the current date becomes visible.
+  -calendar_today_invisible_hook: run when the calendar is drawn and the
+   current day is/becomes invisible. To always have your appointments
+   marked, use both hooks, if you only want them marked when the date is
+   invisible use just the invisible hook.
+  -calendar_move_hook: run when you move to another day. Example
+   #v+
+   define calendar_move_hook()
+   { 
+      show_diary_entries(1);
+   }
+   #v-
+** using static functions and variables in hooks
+   Say, you want calendar to show your appointments, but only if the current
+   month is visible. I have a variable today_visible but that's static. You
+   could try
+   #v+
+   define calendar_move_hook()
+   {
+      if (calendar->today_visible)
+        show_diary_entries(1);
+   }
+   #v-
+   but placing this in your .jedrc would not work because that is
+   evaluated before cal.sl. Place the calendar_move_hook in a separate
+   file, calhooks.sl say, and add
+   #v+
+   autoload ("calendar_move_hook", "calhooks");
+   #v-
+   to your .jedrc.
