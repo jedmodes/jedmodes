@@ -1,14 +1,4 @@
-% vi.sl vi emulation mode
-% 
-% Copyright (c) 2001 Kyle Wheeler
-% Released under the terms of the GNU General Public License (ver. 2 or later)
-% 
-% USAGE
-% put in the jed library path and evaluate from your jed.rc (or .jedrc)
-
-
 Help_File = "vi.hlp";
-_Jed_Emulation = "vi";
 
 % While starting off in command mode is more vi-like,
 % because of the way JED does things, it's difficult to make perfect
