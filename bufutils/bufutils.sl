@@ -28,6 +28,8 @@
 %	  1.5.1 (2004-03-23)
 %	        bugfix: spurious ";" in delete_temp_files() 
 %	        (helper for bufsubfile)
+%	  1.6   moved untab_buffer from recode.sl here
+%	  1.6.1 small bugfix in bufsubfile()
 
 % --- Requirements ----------------------------------------------------
 
@@ -165,7 +167,7 @@ public define run_buffer()
 %   the function might not work as desired.
 %\seealso{fit_window, enlargewin, onewindow}
 %!%-
-public define window_set_rows(rows)
+define window_set_rows(rows)
 {
    if (rows == 0)
      	call("delete_window");
@@ -350,22 +352,24 @@ define popup_buffer() % (buf, max_rows = Max_Popup_Size)
    variable buf, max_rows;
    (buf, max_rows) = push_defaults(whatbuf(), Max_Popup_Size, _NARGS);
 
-   variable open_windows = nwindows - MINIBUFFER_ACTIVE; % open windows
-%   variable calling_buf = whatbuf();
+   variable replaced_buf,
+     open_windows = nwindows - MINIBUFFER_ACTIVE;
+   %   variable calling_buf = whatbuf();
    % Open/go_to the buffer, store the replaced buffers name
-   define_blocal_var ("replaced_buf", pop2buf_whatbuf(buf));
+   replaced_buf = pop2buf_whatbuf(buf);
    % find out if we can savely fit the window
    if (open_windows > 1)
      {
-	sw2buf(get_blocal_var("replaced_buf"));
+	sw2buf(replaced_buf);
 	if (get_blocal("is_popup", 0) == 0)
 	  max_rows = 0;
 	sw2buf(buf);
      }
    define_blocal_var("is_popup", max_rows);
+   define_blocal_var ("replaced_buf", replaced_buf);
    define_blocal_var("close_buffer_hook", &popup_close_buffer_hook);
-%    if(get_blocal("calling_buf", whatbuf) != whatbuf)
-%       define_blocal_var ("calling_buf", calling_buf);
+   %    if(get_blocal("calling_buf", whatbuf) != whatbuf)
+   %       define_blocal_var ("calling_buf", calling_buf);
 }
 
 % --- push_keymap/pop_keymap --- (turn on/off a minor mode) ----------------
@@ -535,16 +539,18 @@ define bufsubfile() % (delete=0)
    variable delete = push_defaults(0, _NARGS);
    variable file, i=1, base;
 
-   push_spot ();
 
    if (buffer_filename == "" or is_visible_mark())
      {
+	push_spot ();
 	!if (is_visible_mark)
 	  mark_buffer;
 	if (delete)
 	  () = dupmark();
 	% write region/buffer to temporary input file
-	base = path_concat(Jed_Temp_Dir, path_sans_extname(whatbuf()));
+	base = str_delete_chars(whatbuf(), "*+<> ");
+	base = path_sans_extname(path_basename(base));
+	base = path_concat(Jed_Temp_Dir, base);
 	loop (1000)
 	  {
 	     file = sprintf ("%s%d%s", base, i, path_extname(whatbuf));
@@ -559,6 +565,7 @@ define bufsubfile() % (delete=0)
 	  del_region();
 	% delete the file at exit
 	Temp_Files += "\n" + file;
+	pop_spot();
      }
    else
      {
@@ -573,10 +580,28 @@ define bufsubfile() % (delete=0)
 	     del_region();
 	  }
      }
-
-   pop_spot();
    % show("bufsubfile:", file, Temp_Files);
    return file;
 }
+
+%!%+
+%\function{untab_buffer}
+%\synopsis{Untab the whole buffer}
+%\usage{Void untab_buffer()}
+%\description
+%  Converse all existing tabs in the current buffer into spaces
+%\notes
+%  The variables TAB and USE_TABS define, whether Tabs will be used
+%  for editing
+%\seealso{untab, TAB, USE_TABS}
+%!%-
+public define untab_buffer ()
+{
+   push_spot();
+   mark_buffer();
+   untab ();
+   pop_spot();
+}
+
 
 provide("bufutils");
