@@ -230,13 +230,15 @@ public define jedmodes_new_version()
    % prepare the upload via ishell
    ishell();
    eob;
-   insert("\n\n#upload the mode sources\ncd " + mode_dir);
-   % upload with scp
-   vinsert("\nscp -pr %s %s", buf, to);
+   % insert("\n\n#upload the mode sources\ncd " + mode_dir);
+   % % upload with scp
+   % vinsert("\nscp -pr %s %s", buf, to);
    % cvs update
-   vinsert("\n\n cd %s", path_dirname(mode_dir));
+   insert("\n\n#commit to cvs");
+   vinsert("\n\ncd %s", path_dirname(mode_dir));
    variable comment = read_mini("CVS Comment:", "", "");
    vinsert("\ncvs commit -m '%s' %s", comment, path_basename(mode_dir));
+   go_up_1();
 }
 
 % Add a new mode from the personal library
@@ -268,7 +270,10 @@ public define jedmodes_new_mode()
    vinsert("\nscp -pr %s %s", ".", to);
    sw2buf(buf);
    jedmodes_new_version();
-   insert("\n\n#add to cvs\ncvs add .");
+   vinsert("\n\n#commit to cvs \n\ncd %s", path_dirname(mode_dir));
+   vinsert("\ncvs add %s %s", path_basename(mode_dir), path_concat(path_basename(mode_dir), buf));
+   variable comment = read_mini("CVS Comment:", "", "");
+   vinsert("\ncvs commit -m '%s' %s", comment, path_basename(mode_dir));
    sw2buf("dcdata.txt");
 }
 
