@@ -32,9 +32,12 @@
 %                * added tm documentation for public functions and variables
 %                * provisions for a section with custom code in ini.sl
 % 2004-11-26 2.2 * code cleanup (hopefully without introducing bugs)
-% 	         * look for a <INITIALIZATION> </INITIALIZATION> block 
-
-
+% 	         * look for a <INITIALIZATION> </INITIALIZATION> block
+% 	           Use this for custom initialization code (menu addings, etc)
+% 	           If such a block is found, no search for functions is done!
+% 2005-03-18 2.3 * bugfix: documentation comments did not work.
+%                          list_slang_files() did only work, if 
+%                          dir == current working dir (report Dino Sangoi)
 % _debug_info=1;
 
 autoload("get_word", "txtutils");
@@ -135,7 +138,7 @@ static define add_autoload_fun(mode)
 
 %!%+
 %\function{make_ini_look_for_functions}
-%\synopsis{Insert initialisatin code for a slang file (mode)}
+%\synopsis{Insert initialisation code for a slang file}
 %\usage{Str = make_ini_look_for_functions(file)}
 %\description
 %  Browse file and insert 
@@ -184,6 +187,7 @@ define make_ini_look_for_functions(file)
    set_buffer_modified_flag(0);
 
    % global comment
+   bob();
    loop(Make_ini_Verbose)  % max as many lines as Make_ini_Verbose indicates
      {
 	!if (looking_at("%"))
@@ -199,8 +203,8 @@ define make_ini_look_for_functions(file)
 	  push_mark_eol();
 	  str += "% " + bufsubstr() + "\n";
        }
-   bob;
    % find out if the mode defines/uses a namespace
+   bob();
    if (andelse{bol_fsearch("implements")}
 	{bol_fsearch("use_namespace")}
       )
@@ -208,9 +212,9 @@ define make_ini_look_for_functions(file)
 	named_namespace = 1;
         str += "% private namespace: " + line_as_string + "\n";
      }
-   bob;
 
    % Look for an <INITIALIZATION> </INITIALIZATION> block
+   bob();
    if (fsearch("<INITIALIZATION>"), bol() and looking_at_char('#'))
      {
 	go_down_1(); bol();
@@ -252,11 +256,12 @@ define make_ini_look_for_functions(file)
 
 static define list_slang_files(dir)
 {
-   variable ex, files = listdir(dir);
-   % Skip files that are  no slang-source
+   variable ex, full_files, files = listdir(dir);
+   % Skip files that are  no slang-source (test for extension ".sl")
    files = files[where(array_map(String_Type, &path_extname, files) == ".sl")];
    % Skip unaccessible files
-   files = files[where(array_map(Int_Type, &file_status, files) == 1)];
+   full_files = array_map(String_Type, &path_concat, dir, files);
+   files = files[where(array_map(Int_Type, &file_status, full_files) == 1)];
    % Skip files from the exclusion list
    foreach (Make_ini_Exclusion_List)
      {
@@ -270,17 +275,17 @@ static define list_slang_files(dir)
 %!%+
 %\function{make_ini}
 %\synopsis{}
-%\usage{ make_ini(dir=NULL)}
+%\usage{ make_ini([dir])}
 %\description
 %   Scan all slang files in \var{dir} for function definitions and
 %   place autoload commands in a buffer ini.sl.
 %   After customizing, it can be saved and serve as an initialization
-%   for a slang-library. The home-lib mode at jedmodes.sf.net will let
+%   for a slang-library. The home-lib mode at jedmodes.sf.net will
 %   automatically evaluate this ini.sl files at startup, making the 
 %   installation of additional modes easy.
 %\seealso{update_ini, Make_ini_Scope, Make_ini_Exclusion_List, Make_ini_Verbose}
 %!%-
-public define make_ini() % (dir=NULL)
+public define make_ini() % ([dir])
 {
    % get optional argument
    variable dir;
@@ -289,7 +294,7 @@ public define make_ini() % (dir=NULL)
    else 
      dir = read_file_from_mini("Make ini.sl for:");
 
-   variable files = list_slang_files(dir), file="", is_open;
+   variable files = list_slang_files(dir), file = "", is_open;
 
    () = chdir(dir);
 
