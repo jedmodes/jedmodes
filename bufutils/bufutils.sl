@@ -3,33 +3,36 @@
 % Copyright (c) 2003 Günter Milde
 % Released under the terms% of the GNU General Public License (version 2 or later).
 %
-% Version 1.0   first public version
-%         1.1   bugfix: restore_buffer now resets the "changed on disk" flag
-%         1.2   new: "blocal_hooks"
-%         1.2.2 "outsourcing" of window_set_rows (hint by Thomas Clausen)
-%	  1.3   moved most often used programming helpers to sl_utils.sl
-%	        new: (key_prefix="") argument to rebind, rebind_reserved
-%	             (hint and bugfix Paul Boekholt)
-%	        rework of popup_buffer
-%	          - do not reuse popups
-%	          - reload old buffer when closing (Paul Boekholt)
-%	  1.4   new: help_message(): Give mode-dependend help message
-%	             arrayread_file(name): read file to array (P. Boekholt)
-%	        changed: close_buffer calls blocal_hook
-%	                 popup_buffer uses this
-%	  	moved next_buffer() to cuamisc.sl
-%	  	renamed restore_buffer to reload_buffer (this is what it does)
-%	  1.4.1 bugfix popup_buffer/close_buffer/popup_close_buffer_hook
-%	        bugfix reload_buffer() reset "changed on disk" flag
-%	                               before reloading,
-%	                               reset buffer_modified flag
-%	  1.5   (2004-03-17)
-%	        new function bufsubfile() (save region|buffer to a tmp-file)
-%	  1.5.1 (2004-03-23)
-%	        bugfix: spurious ";" in delete_temp_files() 
-%	        (helper for bufsubfile)
-%	  1.6   moved untab_buffer from recode.sl here
-%	  1.6.1 small bugfix in bufsubfile()
+% Version    1.0   first public version
+%            1.1   bugfix: restore_buffer now resets the "changed on disk" flag
+%            1.2   new: "blocal_hooks"
+%            1.2.2 "outsourcing" of window_set_rows (hint by Thomas Clausen)
+%	     1.3   moved most often used programming helpers to sl_utils.sl
+%	           new: (key_prefix="") argument to rebind, rebind_reserved
+%	                (hint and bugfix Paul Boekholt)
+%	           rework of popup_buffer
+%	             - do not reuse popups
+%	             - reload old buffer when closing (Paul Boekholt)
+%	     1.4   new: help_message(): Give mode-dependend help message
+%	                arrayread_file(name): read file to array (P. Boekholt)
+%	           changed: close_buffer calls blocal_hook
+%	                    popup_buffer uses this
+%	     	moved next_buffer() to cuamisc.sl
+%	     	renamed restore_buffer() to reload_buffer() (this is what it does)
+%	     1.4.1 bugfix popup_buffer/close_buffer/popup_close_buffer_hook
+%	           bugfix reload_buffer() reset "changed on disk" flag
+%	                                  before reloading,
+%	                                  reset buffer_modified flag
+%	     1.5   (2004-03-17)
+%	           new function bufsubfile() (save region|buffer to a tmp-file)
+%	     1.5.1 (2004-03-23)
+%	           bugfix: spurious ";" in delete_temp_files() 
+%	           (helper for bufsubfile)
+%	     1.6   moved untab_buffer from recode.sl here
+%	     1.6.1 small bugfix in bufsubfile()
+% 2005-03-24 1.7   bufsubfile() now always writes a temp-file (hint P. Boekholt)
+%	  	   (-> more consistency, no asking)
+%	  	   removed custom var Bufsubfile_Save_Ask)
 
 % --- Requirements ----------------------------------------------------
 
@@ -484,20 +487,13 @@ public define reload_buffer()
 }
 
 % ------- Write the region to a file and return its name. -----------------
-%
-% (if there is no region, save the buffer)
-% Helper for interaction with system commands that expect a file to work on.
-% Used e.g. in shell_cmd_on_region...
 
 % Directory for temporary files
-custom_variable("Jed_Temp_Dir", getenv("TEMP"));
+ custom_variable("Jed_Temp_Dir", getenv("TEMP"));
 if (Jed_Temp_Dir == NULL)
   Jed_Temp_Dir = getenv("TMP");
 if (Jed_Temp_Dir == NULL)
   Jed_Temp_Dir = "/tmp";
-
-% Ask before saving a changed buffer?
-custom_variable("Bufsubfile_Save_Ask", 1);
 
 % list of files to delete at exit 
 % (defined with custom_variable, so a reevaluation of bufutils will not
@@ -520,68 +516,58 @@ add_to_hook("_jed_exit_hooks", &delete_temp_files);
 
 %!%+
 %\function{bufsubfile}
-%\synopsis{Write the region to a temporary file and return its name. }
-%\usage{String = bufsubfile(delete=0)}
+%\synopsis{Write region|buffer to a temporary file and return its name.}
+%\usage{String = bufsubfile(delete=0, base=NULL)}
 %\description
 %   Write the region to a file. If no region is defined, write the buffer.
 %   If \var{delete} != 0, delete the region/buffer after writing.
-%   If there is already file associated to the buffer, and no region defined,
-%   just save the buffer. Return the filename
+%   If \var{base} == NULL (default), the buffer-name is taken as basename
+%   Return the filename.
+%   
+%   The temporary file will be deleted at exit of jed (if the calling 
+%   function doesnot delete it earlier).
+%   
 %\notes
-%   This bufsubfile enables shell commands working on files
+%   bufsubfile() enables shell commands working on files
 %   to act on the current buffer and return the command output.
-%   (run_shell_cmd returns output but doesnot take input from jed,
-%    while pipe_region only takes input but outputs to stdout)
+%    * run_shell_cmd() returns output but doesnot take input from jed,
+%    * pipe_region() only takes input but outputs to stdout, but
+%    * shell_cmd_on_region() uses bufsubfile() and run_shell_cmd() for 
+%      bidirectioal interaction
 %\seealso{system, run_shell_cmd, shell_cmd_on_region, pipe_region}
 %!%-
-define bufsubfile() % (delete=0)
+define bufsubfile() % (delete=0, base=NULL)
 {
-   variable delete = push_defaults(0, _NARGS);
-   variable file, i=1, base;
-
-
-   if (buffer_filename == "" or is_visible_mark())
+   variable filename, i, i_max=1000, delete, base, extension;
+   (delete, base) = push_defaults(0, NULL, _NARGS);
+   push_spot ();
+   !if (is_visible_mark)
+     mark_buffer();
+   if (delete)
+     () = dupmark();
+   % create a unique filename (keeping the extension
+   if (base == NULL)
+     base = str_delete_chars(whatbuf(), "*+<> ");
+   extension = path_extname(base);
+   base = path_concat(Jed_Temp_Dir, path_sans_extname(base));
+   for (i=1; i<=i_max; i++)
      {
-	push_spot ();
-	!if (is_visible_mark)
-	  mark_buffer;
-	if (delete)
-	  () = dupmark();
-	% write region/buffer to temporary input file
-	base = str_delete_chars(whatbuf(), "*+<> ");
-	base = path_sans_extname(path_basename(base));
-	base = path_concat(Jed_Temp_Dir, base);
-	loop (1000)
-	  {
-	     file = sprintf ("%s%d%s", base, i, path_extname(whatbuf));
-	     !if (file_status(file))
-	       break;
-	     i++;
-	  }
-	if (i >= 1000)
-	  error ("Unable to create a tmp file!");
-	() = write_region_to_file(file);
-   	if (delete)
-	  del_region();
-	% delete the file at exit
-	Temp_Files += "\n" + file;
-	pop_spot();
+	filename = sprintf ("%s%d%s", base, i, extension);
+	!if (file_status(filename))
+	  break;
      }
-   else
-     {
-	if (buffer_modified())
-	  if (orelse{not(Bufsubfile_Save_Ask)}{get_y_or_n("Save Buffer")})
-	    save_buffer();
-	file = buffer_filename();
-	if (delete)
-	  {
-	     % erase_buffer();  % prevents undo operation
-	     mark_buffer();
-	     del_region();
-	  }
-     }
-   % show("bufsubfile:", file, Temp_Files);
-   return file;
+   if (i >= 1000)
+     error ("Unable to create a tmp file!");
+   % write region/buffer to temporary input file
+   () = write_region_to_file(filename);
+   if (delete)
+     del_region();
+   % delete the file at exit
+   Temp_Files += "\n" + filename;
+   pop_spot();
+   
+   % show("bufsubfile:", filename, Temp_Files);
+   return filename;
 }
 
 %!%+
