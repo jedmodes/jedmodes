@@ -1,0 +1,221 @@
+<html>
+<head>
+   <meta http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <meta http-equiv="Author" content="Marko Mahnic">
+   <style>
+     PRE.code { background-color: #eeeeee; }
+     PRE.template  { background-color: #eeeeee; }
+   </style>
+   <title>JED Macro: custmode.sl</title>
+</head>
+<body>
+
+<h2>custmode.sl</h2>
+
+Have you ever needed to syntax highlight a file but you did not have the
+appropriate mode for it? With this set of macros you can define a custom
+syntax in the highlighted file.
+
+<h3>Example</h3>
+
+You have a simple text file. You decide that you want to higlight the
+<b>words</b>: @Title, @Author, @Date. You would also like to see the
+<b>numbers</b> in a different color. Also the strings should be
+highlighted. You put this at the beginning of your file:
+
+<pre class='code'>
+
+  ;; -*- mode: custom; -*-
+  ;; ### %words= @0-9a-zA-Z_
+  ;; ### %keywords1= @Title @Author @Date
+  ;; ### %numbers= -+0-9.
+  ;; ### %string1= '
+  ;; ### %string2= "
+  
+</pre>
+
+When you save the file and reopen it, you will see the desired effect.
+
+<h3>Syntax</h3>
+
+The first thing to do is to add the modeline:
+
+<pre class='code'>
+
+  ;; -*- mode: custom; -*-
+
+</pre>
+
+The syntax definition must follow the modeline immediately. Each line must
+start with an optional comment symbol followed by <code>###</code>. Then
+there can be an arbitrary number of spaces and a tag: <code>%tagname=</code>.
+
+<pre class='code'>
+
+  ;; ### %tagname= values
+
+</pre>
+
+The syntax definition ends at the first line without <code>###</code>.
+
+<h3>Known tags</h3>
+
+<table border=1 cellspacing=0 cellpadding=2>
+  <tr>
+     <th><code>Tag</code></th>
+     <th>Type</th>
+     <th>Description</th>
+     <th>Value example</th>
+  </tr>
+  <tr>
+     <td><code>%keywords1=</code></td>
+     <td>list of keywords</td>
+     <td>List of keywords to be highlited; if the list is too long it can
+     be split into multiple lines beginning with <code>%keywords1=</code></td>
+     <td><code>if then else</code></td>
+  </tr>
+  <tr>
+     <td><code>%keywords2=</code></td>
+     <td>list of keywords</td>
+     <td>Defines the second set of keywords (see <code>%keywords1=</code>)</td>
+     <td><code>sin cos tan</code></td>
+  </tr>
+  <tr>
+     <td><code>%words=</code></td>
+     <td>set of characters</td>
+     <td>Defines the characters that compose a word</td>
+     <td><code>a-zA-Z_0-9</code></td>
+  </tr>
+  <tr>
+     <td><code>%numbers=</code></td>
+     <td>set of characters</td>
+     <td>Defines the characters that compose a number</td>
+     <td><code>-+0-9.</code></td>
+  </tr>
+  <tr>
+     <td><code>%string1=</code></td>
+     <td>character</td>
+     <td>Defines the single quote character</td>
+     <td><code>'</code></td>
+  </tr>
+  <tr>
+     <td><code>%string2=</code></td>
+     <td>character</td>
+     <td>Defines the double quote character</td>
+     <td><code>"</code></td>
+  </tr>
+  <tr>
+     <td><code>%commenteol=</code></td>
+     <td>string</td>
+     <td>Defines the end-of-line comment marker</td>
+     <td><code>//</code></td>
+  </tr>
+  <tr>
+     <td><code>%preprocessor=</code></td>
+     <td>character</td>
+     <td>Defines the preprocessor character</td>
+     <td><code>#</code></td>
+  </tr>
+  <tr>
+     <td><code>%quote=</code></td>
+     <td>character</td>
+     <td>Defines the 'Escape' character</td>
+     <td><code>\</code></td>
+  </tr>
+  <tr>
+     <td><code>%parens=</code></td>
+     <td>string</td>
+     <td>Defines the matching parenthesis</td>
+     <td><code>[({])}</code></td>
+  </tr>
+  <tr>
+     <td><code>%modeflags=</code></td>
+     <td>list of flags</td>
+     <td>Defines the flags for the mode (see a separate table for the list
+     of possible flags)</td>
+     <td><code>language&nbsp;fortran</code></td>
+  </tr>
+  <tr>
+     <td><code>%syntaxflags=</code></td>
+     <td>list of flags</td>
+     <td>Defines the flags for the syntax (see a separate table for the list
+     of possible flags)</td>
+     <td><code>tex&nbsp;nocase</code></td>
+  </tr>
+</table>
+See also <code>define_syntax()</code>.
+
+<p>
+List of flags for <code>%modeflags=</code>:
+
+<p>
+<table border=1 cellspacing=0 cellpadding=2>
+  <tr>
+     <td><code>wrap</code></td>
+     <td>0x01</td>
+  </tr>
+  <tr>
+     <td><code>c</code></td>
+     <td>0x02</td>
+  </tr>
+  <tr>
+     <td><code>language</code></td>
+     <td>0x04</td>
+  </tr>
+  <tr>
+     <td><code>slang</code></td>
+     <td>0x08</td>
+  </tr>
+  <tr>
+     <td><code>fortran</code></td>
+     <td>0x10</td>
+  </tr>
+  <tr>
+     <td><code>tex</code></td>
+     <td>0x20</td>
+  </tr>
+</table>
+See also <code>set_mode()</code>.
+
+<p>
+List of flags for <code>%syntaxflags=</code>: 
+
+<p>
+<table border=1 cellspacing=0 cellpadding=2>
+  <tr>
+     <td><code>nocase</code></td>
+     <td>0x01</td>
+  </tr>
+  <tr>
+     <td><code>comfortran</code></td>
+     <td>0x02</td>
+  </tr>
+  <tr>
+     <td><code>nocmodeldspc</code></td>
+     <td>0x04</td>
+  </tr>
+  <tr>
+     <td><code>tex</code></td>
+     <td>0x08</td>
+  </tr>
+  <tr>
+     <td><code>comeolspc</code></td>
+     <td>0x10</td>
+  </tr>
+  <tr>
+     <td><code>preprocline</code></td>
+     <td>0x20</td>
+  </tr>
+  <tr>
+     <td><code>preprocldspc</code></td>
+     <td>0x40</td>
+  </tr>
+  <tr>
+     <td><code>nostrspan</code></td>
+     <td>0x80</td>
+  </tr>
+</table>
+See also <code>set_syntax_flags()</code>.
+
+</body>
+</html>
