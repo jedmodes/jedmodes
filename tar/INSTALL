@@ -1,0 +1,49 @@
+Tar-mode is a JED interface to GNU tar.  It was written by Paul Boekholt
+<p.boekholt@hetnet.nl>.  To install, place tar.sl, tarlib.sl and tarhook.sl
+in your jed_library_path and add
+
+require("tarhook");
+to .jedrc. 
+If you want want tar archives to be opened automatically in tar-mode, add
+
+add_to_hook("_jed_find_file_before_hooks", &check_for_tar_hook);
+otherwise add
+
+autoload("tar", "tar.sl");
+and if you prefer dired- to MC-bindings add
+
+variable FileList_KeyBindings = "dired";
+
+The read-only argument to tar() needs some explanation.
+
+Users who open a tar-archive with ^X ^F might assume that changes do not
+become permanent until they do ^X ^S.  This is the way Emacs' tar-mode works
+but not JED's tar-mode.  To protect these users, the check_for_tar_hook
+always opens tar archives in read-only mode.
+
+Users who open a tar archive from filelist.sl may be assumed to be assuming
+a filemanager model, so it's opened read-write (if the tar is not
+compressed; GNU tar can't delete from a compressed archive).
+
+Users who open archives with M-x tar are assumed to be grown-ups.
+
+If you open a tar with JED from within a MUA, it should be done read-only,
+so if you have added the tarhook you can simply add
+application/x-gtar;   jed '%s';
+application/x-tar-gz; jed '%s';
+to your .mailcap, otherwise try something like
+application/x-gtar;   jed -f 'tar("%s", 1)';
+application/x-tar-gz; jed -f 'tar("%s", 1)';
+
+If you want to open tar archives read-write from e.g. Midnight Commander (MC
+has it's own tar viewer, but it's read-only) open HOME/.mc/bindings, look
+for the entry
+
+# .tar
+shell/.tar
+	Open=%cd %p#utar
+	Extract=tar xf %f
+	...
+	
+ and add
+ 	Edit=jed -f 'tar("%f", 0)'

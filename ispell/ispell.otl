@@ -1,0 +1,130 @@
+ispell mode
+* news
+  Some more bugfixes:
+** ispell_init
+   Ispell_Dictionary was used before it was defined
+** flyspell
+   Flyspell_region didn't work when flyspell had not started and the
+   dictionary was changed.
+* installation
+  Simply put it all in your load path, add
+  require ("ispell_init");
+  to your .jedrc, and any keybindings you want.  And set up your dictionaries.
+* dictionaries
+  On Debian the dictionaries should be automatically initialised by the
+  (next version of the) dictionaries_common package.  On other systems,
+  use ispell_add_dictionary().
+  
+hash_name: the name by which ispell knows the language (a .hash file in
+  /usr/lib/ispell)
+
+letters: letters that constitute words.  For latin1 languages, the default
+  should be all right.
+
+otherchars: chars that may appear inside words, or outside words.  In
+  English it's "'", in other languages it may be "-'".  Old versions of
+  dictionaries_common don't provide this argument, so you have to update.
+
+ext_char: something that's put in the ispell command line after a "-T" flag
+  and should match a stringtype defined in /usr/lib/ispell/(language).aff.
+  So it's not the same as Emacs ispell's extended-character-mode or
+  character-set.  If you're European try latin1.  Dutch doesn't seem to
+  need it but in German an 'ä' will be turned into an '"a' without it.
+
+options: any other args you want to pass.
+
+wordlist: just needed for ispell_complete, it would be annoying to have to
+  set the language for ispell AND a wordlist for completions.  For Debian
+  users, this one is not automatically filled in.
+
+I have ispell 3.1.20.
+
+* using (i|fly)spell with other modes
+** checking TeX
+   When in TeX mode, ispell_region() will tell the ispell process to switch
+   to TeX mode.  Ispell will not check the markup.  However, when a word is
+   misspelled, the rest of the line is again sent to ispell like this:
+
+   check out this fomrula $ A^2 +
+   B^2 = C^2 $
+   
+   First it will stop at fomrula, then "formula $ A^2 +" will be sent
+   again to re-check the correction and check the rest of the line (much
+   easier to program that way).  The problem is that in TeX, "$" starts
+   and ends a math environment which ispell does not check, and ispell
+   does not see its input as unrelated lines, but tries to keep track of
+   the environment.  The first "$" is seen twice, so the third "$" will
+   start a new math environment for ispell, and the rest of the buffer
+   will not be checked.  I don't know how much of a problem this is, since
+   I don't use TeX.  BTW I read somewhere that the `$' to delimit math
+   environments is deprecated.
+*** flyspelling TeX
+    To flyspell TeX while keeping your syntax highlighting use a hook
+    like this:
+   
+    define latex_mode_hook()
+    {
+    	define_blocal_var("flyspell_syntax_table", "TeX-Mode");	
+    }
+    This probably doesn't work in non-standard Tex modes that use DFA
+    highlighting.
+** checking html
+   Doesn't work.  Since ispell does not have an interactive command for
+   turning html parsing on, you would have to create a dictionary entry
+   for html:
+   
+   ispell_add_dictionary("html", "british", NULL, "-'",
+   "/home/paul/htmlwords.txt", " -h");
+   
+   Htmlwords.txt would be a list of html keywords for word-completion.
+   
+   You can set this in the html mode hook:
+   define html_mode_hook()
+   {
+    ispell_change_local_dictionary("html");
+    define_blocal_var("flyspell_syntax_table", "html");
+   }
+   
+   This could be expected to have the same shortcomings as [checking TeX].  If
+   you'd check
+   
+   get more kool jedmodez from <a
+   href="http://jedmodes.sf.net">
+   
+   you could expect it to complain about "kool" but skip over "jedmodez"
+   since it would think this is part of a HTML tag.  As it turns out, html
+   parsing works differently between a full-screen ispell and ispell -a,
+   at least in ispell 3.1.20.  The full-screen ispell deals correctly with
+   tags that span lines, but ispell -a will echo the lines between the
+   opening and closing bracket without an empty line to indicate it has
+   finished processing the line.  Ispell.sl does not know how to deal with
+   this and crashes.  Aspell -a does not seem to understand multiline tags
+   at all, but full-screen aspell does.  Don't use ispell.sl for html, use
+   vispell or flyspell instead.
+** checking email
+   The new email.sl has an ispell_message() function that will check
+   the body of the message, and an ispell_region_hook that will skip
+   past quoted text.  Get it from http://jedmodes.sf.net/mode/email
+* look.sl
+  To bind ispell_complete to M-tab:
+  setkey ("ispell_complete", "\e\t");
+* FAQ
+** ispell crashes with "ispell:  unrecognized formatter type '-C'"
+   Are you using Debian with dictionaries-common? Get the latest version.
+   Old versions had an ispell_add_dictionary() without an 'otherchars'
+   argument.  When we added the otherchars, we foolishly did not append it
+   to the existing arguments but placed it before the 'extchar' argument,
+   so the new ispell_add_dictionary() sees '-C' where it expects the
+   extchar to be and passes it to ispell with the '-T' argument.
+** ispell crashes randomly
+   get a faster computer, or try to increase the "sleep" time in
+   start_ispell_process() / flyspell_init_process().  If the problem
+   persists, fix it and send me the patch :-)
+** Undefined Name: ispell_region: Function did not autoload
+   You installed ispell.sl in jed's lib/ directory and didn't remove
+   ispell.slc. Put non-standard modes in their own directory.
+* license
+  This package is GPL'ed.  No warranty.
+  You can get the latest version at http://jedmodes.sf.net/mode/ispell
+* thanks
+  Kudos to Günter Milde, Rafael Laboissiere, Agustin Martin and JED.
