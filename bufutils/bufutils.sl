@@ -475,7 +475,18 @@ define arrayread_file(name)
    () = fclose (fp);
 }
 
-% Read a file and return it as string
+
+%!%+
+%\function{strread_file}
+%\synopsis{Read a file and return as (binary) string}
+%\usage{BString strread_file(String name)}
+%\description
+%   Read a file and return as string (\var{BString_Type}).
+%\notes
+%   If the file size exceeds the internal limit (currently 5MB),
+%   an error is returned.
+%\seealso{arrayread_file, find_file, fread, fread_bytes}
+%!%-
 define strread_file(name)
 {
    variable size_limit = 5000000; % this should be a custom var
