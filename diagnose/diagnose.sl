@@ -1,42 +1,63 @@
-% Diagnostic functions
+% Diagnostic functions for SLang programmers
 % show the value of variables (nice for debugging)
 % 
-% Copyright (c) 2003 Günter Milde, released without any warranty under
-% the terms of the GNU General Public License (version 2 or later).
+% Copyright (c) 2003 Günter Milde
+% Released under the terms of the GNU General Public License (ver. 2 or later)
 % 
-% Version 1.0 9.7. 2003  * first public version
+% Version 1.0 2003-07-09  * first public version
+% Version 1.1 2005-03-21  * added tm documentation to public functions
 
 
 autoload("popup_buffer", "bufutils");
 autoload("view_mode", "view");
 require("sprint_var");
 
-% where shall the output go?
+%!%+
+%\variable{Diagnose_Buffer}
+%\synopsis{Name of the buffer used by show() and related diagnostic functions}
+%\description
+%   The show* diagnostic functions show their output in a special popup 
+%   buffer. Diagnose_Buffer sets the name of this buffer (defaulting to
+%   "*debug*").
+%\seealso{show_string, show, vshow, show_object, show_stack, show_eval}
+%!%-
 custom_variable("Diagnose_Buffer", "*debug*");
-% popup the diagnose buffer with n lines (0 for don't popup)
+
+% popup the diagnose buffer with n lines / using n+100 percent of space
+% (set to 0 for don't fit)
 custom_variable("Diagnose_Popup", 0.3);
 
-
-% define empty_stack()
-% {
-%    _pop_n(_stkdepth);
-% }
-
+%!%+
+%\function{show_string}
+%\synopsis{Insert the argument at the end of the Diagnose_Buffer}
+%\usage{show_string(Str str)}
+%\description
+%   Open a popup buffer and insert \var{str}.
+%\seealso{pop2buf, show, Diagnose_Buffer}
+%!%-
 public define show_string(str)
 {
-   variable curbuf= whatbuf();
-   setbuf(Diagnose_Buffer);
+   variable calling_buf = whatbuf();
+   popup_buffer(Diagnose_Buffer, Diagnose_Popup);
    set_readonly(0);
    eob;
    insert(strcat("\n", str, "\n"));
    set_buffer_modified_flag (0);
-   if (Diagnose_Popup != 0)
-     popup_buffer(Diagnose_Buffer, Diagnose_Popup);
    view_mode();
-   pop2buf(curbuf);
+   fit_window(get_blocal_var("is_popup"));
+   pop2buf(calling_buf);
 }
 
-% return a formatted string of the arguments
+
+%!%+
+%\function{sprint_args}
+%\synopsis{Return a formatted string of the argument list}
+%\usage{Str sprint_args(args)}
+%\description
+%   Take a variable number of arguments, convert to a strings with
+%   \var{sprint_variable()} and return the concatenated strings.
+%\seealso{show, mshow}
+%!%-
 public define sprint_args() % args
 {
    variable arg, n=_NARGS, sep=" ", strarray = String_Type[n];
@@ -51,14 +72,62 @@ public define sprint_args() % args
    return strjoin(strarray, sep) + sep;
 }
 
-% show the content of the arguments in the diagnose buffer
+
+%!%+
+%\function{show}
+%\synopsis{Show the content of the argument list in the \var{Diagnose_Buffer}.}
+%\usage{show(args)}
+%\description
+%   Take a variable number of arguments, convert to strings with
+%   sprint_variable() and show in the \var{Diagnose_Buffer}.
+%\example
+%#v+
+%   show(TAB, [1, 2, 3, 4])
+%#v-
+%\notes
+%   This is my basic debugging tool. show_object() shows even more info, 
+%   but in most cases show() will suffice.
+%   
+%   Using sprint_variable() instead of string for the "anything -> string"
+%   conversion results in the verbose representation of composite variables
+%   (arrays, associative-arrays, etc).
+%   
+%\seealso{show_string, vshow, mshow, show_object, show_stack, show_eval}
+%!%-
 public define show() % args
 {
    variable args = __pop_args(_NARGS);
    show_string(sprint_args(__push_args(args)));
 }
 
-% show the content of the arguments in the minibuffer
+%!%+
+%\function{vshow}
+%\synopsis{Show a sprintf style argument list in the diagnose buffer}
+%\usage{vshow(args)}
+%\description
+%   Convert the argument list to a string using sprintf() and show it
+%   in the \var{Diagnose_Buffer} using show_string().
+%\seealso{sprintf, vmessage, verror, show_string}
+%!%-
+public define vshow() % args
+{
+   variable args = __pop_args(_NARGS);
+   show_string(sprintf(__push_args(args)));
+}
+
+
+%!%+
+%\function{mshow}
+%\synopsis{Show the content of the argument list in the minibuffer}
+%\usage{mshow(args)}
+%\description
+%   Convert the arguments to a string with sprint_args() and 
+%   show as message in the minibuffer.
+%\notes
+%   For output that spans several lines and for a more permanent record use
+%   show() instead of mshow()
+%\seealso{show, sprint_args, message}
+%!%-
 public define mshow() % args
 {
    variable args = __pop_args(_NARGS);
@@ -100,17 +169,17 @@ public define mshow() % args
 %       for static variables or functions and function-local variables.
 %       blocal variables need to be given as strings.
 %        
-%\seealso{}
+%\seealso{show, vshow}
 %!%-
-public define show_object () % (object, [hint= ""])
+public define show_object() % (object, [hint= ""])
 {
    % get arguments
    variable hint = "";         % optional second argument
    variable object;              % name of object to output info about
    if (_NARGS > 1)
      {
-	variable args = __pop_args (_NARGS-1);
-	hint = sprintf (__push_args (args));
+	variable args = __pop_args(_NARGS-1);
+	hint = sprintf (__push_args(args));
      }
    object = ();  % take 1st arg from stack (might be String or Reference)  
    
@@ -126,7 +195,7 @@ public define show_object () % (object, [hint= ""])
      }
 
    % Get String_Type object and Ref_Type ref
-   if (typeof (object) == Ref_Type) % Reference given, convert to a string
+   if (typeof(object) == Ref_Type) % Reference given, convert to a string
      {
 	ref = object;
 	object = string(object)[[1:]];  % without leading '&'
@@ -136,7 +205,7 @@ public define show_object () % (object, [hint= ""])
    else % object is already a string
      {
 	object = string(object);
-	ref = __get_reference (object);
+	ref = __get_reference(object);
      }
    
    % determine type of object
@@ -172,7 +241,18 @@ public define show_object () % (object, [hint= ""])
    str += value;
 }
 
-% print a listing of the stack to the diagnose buffer, emptying the stack 
+
+%!%+
+%\function{show_stack}
+%\synopsis{Show a listing of the stack, emptying the stack }
+%\usage{show_stack()}
+%\description
+%   Pop all items from the stack and show them in the Diagnose_Buffer.
+%\notes
+%   This is a nice tool to find out about functions leaving rubbish on 
+%   the stack.
+%\seealso{show, _pop_n, _stkdepth, pop, stack_check}
+%!%-
 public define show_stack()
 {
    variable element;
@@ -189,7 +269,24 @@ public define show_stack()
      show_string("Stack empty");
 }
 
-% Show the (string) argument and the result of its evaluation
+
+%!%+
+%\function{show_eval}
+%\synopsis{Show the (String_Type) argument(s) and the result of their evaluation.}
+%\usage{show_eval(String args)}
+%\description
+%   Take a variable number of strings and show the string and the result of
+%   its evaluation in the Diagnose_Buffer
+%\example
+%#v+
+%   show_eval("TAB", "WRAP")
+%#v-
+%\notes
+%   The string will be evaluated in the global namespace, so static
+%   variables and functions are only accessible in a "named namespace"
+%   via the usual "namespace_name->variable_name" notation.
+%\seealso{show, vshow, mshow}
+%!%-
 public define show_eval() % args
 {
    variable arg;
@@ -200,5 +297,27 @@ public define show_eval() % args
 	show(arg, eval(arg));
      }
 }
+
+
+static variable last_stkdepth = 0;
+
+% modus: 0 set, 1 warn, 2 error
+define stack_check(modus)
+{
+   variable str, change = _stkdepth - last_stkdepth;
+   if (modus == 0)
+     { 
+	last_stkdepth = _stkdepth(); 
+	return; 
+     }
    
+   str = sprintf("stackcheck: Stack changed by %d", change);
+   
+   if (modus == 1)
+     message(str);
+   else if (modus == 2 and (_stkdepth() != last_stkdepth))
+     error(str);
+}
+   
+
 provide("diagnose");
