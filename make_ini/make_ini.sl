@@ -39,10 +39,16 @@
 %                          list_slang_files() did only work, if 
 %                          dir == current working dir (report Dino Sangoi)
 %                          "%" in vinsert needs to be doubled (Dino Sangoi)
-%                  removed the need for a chdir() alltogether.        
+%                  removed the need for a chdir() alltogether.
+%                  removed make_libfun_doc() (now in tm.sl as tm_make_ascii_doc())
 % _debug_info=1;
 
 autoload("get_word", "txtutils");
+if(expand_jedlib_file("tm.sl") != "")
+  autoload("tm_make_ascii_doc", "tm.sl");
+else
+  variable Make_ini_Extract_Documentation = 0;
+
 
 % --- Settings -----------------------------------------------------------
 
@@ -116,10 +122,6 @@ custom_variable("Make_ini_Exclusion_List", ["ini.sl"]);
 %\seealso{}
 %!%-
 custom_variable("Make_ini_Extract_Documentation", 1);
-if(expand_jedlib_file("tm.sl") != "")
-  autoload("tm_parse_file", "tm.sl");
-else
-  Make_ini_Extract_Documentation = 0;
 
 
 % valid chars in function and variable definitions
@@ -127,7 +129,6 @@ static variable Slang_word = "A-Za-z0-9_";
 static variable Ini_File = "ini.sl";
 static variable Parsing_Buffer = "*make_ini tmp*";
 static variable Tm_Doc_File = "libfuns.txt";
-static variable Tm_Doc_Buffer = "*libfuns doc*";
 
 % --- functions ---------------------------------------------------
 
@@ -330,34 +331,6 @@ public define make_ini() % ([dir])
      }
 }
 
-%!%+
-%\function{make_libfun_doc}
-%\synopsis{extract tm documentation}
-%\usage{ make_libfun_doc([dir])}
-%\description
-%  Extract tm documentation for all Slang file in \var{dir}, 
-%  convert to ascii format and insert in a buffer.
-%\notes
-%  requires tm.sl (jedmodes.sf.net/mode/tm/) 
-%\seealso{update_ini, Make_ini_Extract_Documentation}
-%!%-
-public define make_libfun_doc() % ([dir])
-{
-   % get optional argument
-   variable dir, filename_pattern;
-   if (_NARGS)
-     dir = ();
-   else
-     {
-	(, dir, , ) = getbuf_info (); % default
-	dir = read_file_from_mini("Extract tm Documentation from dir:");
-     }
-   filename_pattern = path_concat(dir, "*.sl");
-   sw2buf(Tm_Doc_Buffer);
-   flush("extracting documentation");
-   insert(runhooks("tm_parse_file", filename_pattern));
-   message("done");
-}
 
 %!%+
 %\function{update_ini}
@@ -396,7 +369,7 @@ public define update_ini() % (directory=buffer_dir())
    % extract the documentation and put in file libfuns.txt
    if(Make_ini_Extract_Documentation)
      {
-	make_libfun_doc(dir);
+	runhooks("tm_make_ascii_doc", path_concat(dir, "*.sl"));
 	% there is no associated filename to the buffer
 	() = write_buffer(path_concat(dir, Tm_Doc_File));
 	delbuf(whatbuf);
