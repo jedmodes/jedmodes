@@ -36,9 +36,15 @@
 %   1.3.1 - bugfix in grep_definition()
 %   1.4   - str = extract_mini_doc(str) now takes a string argument
 %   	    instead of working on a buffer
-%   1.4.1 - added provide("hyperhelp"), so other modes depending on this
+%   1.4.1 - added provide("hyperhelp"), so other modes depending on the
 %           "hyperhelp"-version of help.sl can do require("hyperhelp")
-%
+%   1.4.2 - window-bugfix in grep-definition: the w32 subshell needs an
+%           additional set of \\ to escape the quotes (Thomas Koeckritz)
+%           (TODO: how is this on DOS?)
+%   1.4.3 - grep_definition adapted to new grep command
+%   	    (needs grep.sl >= 0.9.4)
+%   1.4.4 2004-11-09  grep_definition() expanded for variables (experimental)
+%           	      corrected typo Help_file -> Help_File
 % ------------------------------------------------------------------------
 % USAGE:
 %
@@ -80,6 +86,9 @@
 %
 % ------------------------------------------------------------------------
 
+% for debugging:
+% _debug_info = 1;
+
 % give it a name
 static variable mode = "help";
 
@@ -97,7 +106,7 @@ custom_variable("Help_message_for_one_liners", 0);
 % Do you want full- or mini-help with help_for_word_at_point?
 custom_variable("Help_mini_help_for_word_at_point", 0);
 % The standard help file to display with help().
-custom_variable("Help_file", "generic.hlp");
+custom_variable("Help_File", "generic.hlp");
 
 % --- Requirements ---------------------------------------------------------
 
@@ -197,7 +206,7 @@ static variable Keywords=[
 % --- auxiliary functions --------------------------------
 
 % dummy definitions for recursive use (the real ones are at the end of file)
-public define help_mode() {}
+ public define help_mode() {}
 define help_for_object() {}
 
 static define read_object_from_mini(prompt, default, flags)
@@ -230,12 +239,12 @@ if(Help_with_history)
   static variable Help_History =
     runhooks("create_circ", Array_Type, 30, "linear");
 
-public define help_previous_topic()
+define previous_topic()
 {
    ()= run_function(push_array(runhooks("circ_previous", Help_History)));
 }
 
-public define help_next_topic()
+define next_topic()
 {
    ()= run_function(push_array(runhooks("circ_next", Help_History)));
 }
@@ -295,7 +304,7 @@ public define help() % (help_file=Help_File)
 % Displays help.hlp in the help buffer.
 %\seealso{help, help_mode}
 %!%-
-public define help_for_help() {help("help.hlp");}
+define help_for_help() {help("help.hlp");}
 
 %!%+
 %\function{apropos}
@@ -461,7 +470,8 @@ public define where_is ()
    if (cmd == "")
      {
 	if (MINIBUFFER_ACTIVE) return;
-	cmd = read_function_from_mini("Where is command:", bget_word(Slang_word_chars));
+	cmd = read_function_from_mini("Where is command:",
+	      			       bget_word(Slang_word_chars));
      }
 
    variable n, help_str = cmd + " is on ";
@@ -478,7 +488,7 @@ public define where_is ()
 }
 
 % which key is the word under cursor on
-public define where_is_word_at_point()
+ public define where_is_word_at_point()
 {
    variable obj = bget_word(Slang_word_chars);
    if (is_defined(obj) > 0)
@@ -671,60 +681,66 @@ public define describe_bindings() % (keymap=what_keymap())
 %\usage{Void grep_definition([function])}
 %\description
 %   If the util grep.sl is installed, grep_definition does a
-%   grep for the function definition in all directories of the
+%   grep for a function/variable definition in all directories of the
 %   jed_library_path.
 %\notes
 %   Needs the grep.sl mode and the grep system command
 %
 %\seealso{describe_function, grep, get_jed_library_path}
 %!%-
-public define grep_definition() % ([fun])
+public define grep_definition() % ([obj])
 {
    if (strlen(expand_jedlib_file("grep.sl")) == 0)
        error("grep_definition needs grep.sl");
    % optional argument, ask if not given
-   variable fun;
+   variable obj;
    if (_NARGS)
-     fun = ();
+     obj = ();
    else
-     fun = read_function_from_mini("Grep Definition:", bget_word(Slang_word_chars));
-
-   if (is_defined(fun) != 2)
-     if (get_y_or_n(fun + ": not a library function. Grep anyway?") != 1)
+     obj = read_object_from_mini("Grep Definition:",
+	   			 bget_word(Slang_word_chars), 0xF);
+   variable type = is_defined(obj);
+   if (abs(type) != 2)
+     if (get_y_or_n(obj + ": not a library function|variable. Grep anyway?")
+	!= 1)
        return;
 
+   variable what, lib, files, results, grep_buf = "*grep_output*";
+
+   if (type >= 0) % function or undefined
+	what = sprintf("-s 'define %s[ (]'",  obj );
+   else % variable
+	what = sprintf("-s 'variable *(*\"*%s[\" ,=]'",  obj );
+
    % build the search string and filename mask
-   variable lib,
-     what = " \"define " + fun + "[ (]\" ",
-     where = "";
-   foreach (strchop(get_jed_library_path, ',', 0))
-     {
-	lib = ();
-	if (lib == ".")
-	  lib = buffer_dirname();
-	lib = path_concat(lib, "*.sl ");
-	!if (is_substr(where, lib)) % don't add a path twice
-	    where += lib;
-     }
-   % run the grep command
-   runhooks("grep", what, where);
+   files = strchop(get_jed_library_path, ',', 0);
+   files = array_map(String_Type, &path_concat, files, "*.sl");
+   variable i = where(files != path_concat(buffer_dirname(), "*.sl"));
+   files = strjoin(files[i], " ");
+   runhooks("grep", what, files);
 
-   % find number of output lines
-   variable results;
-   eob; results = what_line(); bob;
-   if(looking_at("No results"))
+   % find number of hits
+   !if (bufferp(grep_buf))
      results = 0;
-
+   else
+     {
+	eob;
+	results = what_line;
+	bob;
+     }
+   % if there is a unique find, go there directly
    if(results == 1)
-     runhooks("filelist_open_file");
-   if(results < 2)
-     close_buffer("*grep_output*");
-   message(sprintf("Grep for \"%s\": %d definition(s) found", fun, results));
+     {
+	define_blocal_var("FileList_Cleanup", 1);
+	runhooks("filelist_open_file");
+	close_buffer(grep_buf);
+     }
+   message(sprintf("Grep for \"%s\": %d definition(s) found", obj, results));
 }
 
 % grep a function definition,
 % defaults to the word under cursor or the current help topic
-public define help_grep_definition()
+define grep_current_definition()
 {
    variable obj = bget_word(Slang_word_chars);
    if (is_defined(obj) == 2) % library function
@@ -873,14 +889,19 @@ public define mini_help_for_object(obj)
 %!%+
 %\function{help_for_word_at_point}
 %\synopsis{Give (mode dependend) help for word under cursor}
-%\usage{Void help_for_word_at_point ()}
+%\usage{Void help_for_word_at_point()}
 %\description
-%   Find the word under the cursor and give mode-dependend help.
-%\seealso{describe_function, describe_variable}
+%   Find the word under the cursor and give mode-dependend help using the
+%   function defined in the blocal variable "help_for_word_hook".
+%\notes
+%   If a mode needs a different set of word_chars (like including the point
+%   for object help in python), its help_for_word_hook can simply discard
+%   the provided word and call bget_word("mode_word_chars").
+%\seealso{describe_function, describe_variable, context_help}
 %!%-
-public define help_for_word_at_point ()
+public define help_for_word_at_point()
 {
-   variable word_at_point = bget_word(Slang_word_chars);
+   variable word_at_point = bget_word();
    if (word_at_point == "")
      error("don't know what to give help for");
    () = run_function(get_blocal("help_for_word_hook", &describe_function),
@@ -894,14 +915,14 @@ public define help_for_word_at_point ()
 %\description
 %   Give a mode-dependend help for the current context, e.g.
 %   find the word under the cursor and give mode-dependend help.
-%\seealso{describe_function, describe_variable}
+%\seealso{describe_function, describe_variable, help_for_word_at_point}
 %!%-
-public define context_help ()
+public define context_help()
 {
    () = run_function(get_blocal("context_help_hook", &help_for_word_at_point));
 }
 
-public define help_2click_hook (line, col, but, shift)
+ public define help_2click_hook (line, col, but, shift)
 {
    help_for_word_at_point();
    return(0);
@@ -910,7 +931,7 @@ public define help_2click_hook (line, col, but, shift)
 % --- fast moving in the help buffer (link to link skipping)
 
 % goto next word that is a defined function or variable
-public define help_goto_next_object ()
+define goto_next_object ()
 {
    variable current_word;
    variable circled = 0;  % prevent infinite loops
@@ -932,7 +953,7 @@ public define help_goto_next_object ()
 }
 
 % goto previous word that is a defined function or variable
-public define help_goto_prev_object ()
+define goto_prev_object ()
 {
    variable current_word;
    variable circled = 0;  % prevent infinite loops
@@ -988,10 +1009,10 @@ static define help_mark_keywords()
 !if (keymap_p (mode))
   copy_keymap (mode, "view");
 definekey("help_for_word_at_point",     "^M",          mode); % Return
-definekey("help_goto_next_object",      "^I",          mode); % Tab
-definekey("help_goto_prev_object",      Key_Shift_Tab, mode);
+definekey("help->goto_next_object",     "^I",          mode); % Tab
+definekey("help->goto_prev_object",     Key_Shift_Tab, mode);
 definekey("apropos",                    "a",           mode);
-definekey("help_grep_definition",       "d",           mode);
+definekey("help->grep_current_definition", "d",           mode);
 definekey("describe_function",          "f",           mode);
 definekey("close_and_insert_word",      "i",           mode);
 definekey("close_and_replace_word",     "r",           mode);
@@ -1003,10 +1024,10 @@ definekey("describe_variable",          "v",           mode);
 definekey("where_is_word_at_point",     "w",           mode);
 if(Help_with_history)
 {
-   definekey ("help_next_topic",       Key_Alt_Right, mode); % Browser-like
-   definekey ("help_previous_topic",   Key_Alt_Left,  mode); % Browser-like
-   definekey ("help_next_topic",       ".", mode); % dillo-like
-   definekey ("help_previous_topic",   ",", mode); % dillo-like
+   definekey ("help->next_topic",       Key_Alt_Right, mode); % Browser-like
+   definekey ("help->previous_topic",   Key_Alt_Left,  mode); % Browser-like
+   definekey ("help->next_topic",       ".", mode); % dillo-like
+   definekey ("help->previous_topic",   ",", mode); % dillo-like
 }
 
 public define help_mode()
