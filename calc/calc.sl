@@ -24,11 +24,15 @@
 %%     * First release to the public at jed-users@yahoogroups.com
 %%-------------------------------------------------------------
 %%
-%% Usage:  autoload ("calc", "calc", "calc2");
-%%         M-x calc
-%%      or   
-%%         M-x calc2
-%%      for two-window mode.
+%% To install put in .jedrc:  
+%%     autoload ("calc", "calc.sl");
+%%     autoload ("calc2", "calc.sl");
+%%     
+%% Usage:
+%%     M-x calc
+%%       or   
+%%     M-x calc2
+%%       for two-window mode.
 %%
 %% To get a Calc menu entry insert in your .jedrc:
 %% 

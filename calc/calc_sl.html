@@ -5,6 +5,8 @@
    <style>
      PRE.code { background-color: #eeeeee; }
      PRE.template  { background-color: #eeeeee; }
+     PRE.screen { background-color: white; color: black; border: thin solid black; }
+     SPAN.inverse { background-color: blue; color: white; }
    </style>
    <title>JED Macro: calc.sl</title>
 </head>
@@ -20,6 +22,32 @@ expression.
 If you use it with two windows, one window (Calculator) is used
 to edit expressions, in the other one (*calcres*) the results 
 are displayed.
+
+<pre class='screen' style='width: 45em;'>
+<span class='inverse'> File   Edit   Mode   Search   Buffers   Windows   System   Help </span>
+ R(E1):
+         45
+ 
+ R(E2):
+         "0: 0"
+         "1: 1"
+         "2: 4"
+ 
+ [EOB]
+<span class='inverse'> -**-----|V0.99.16| *calcres* () | 9/9,1------------------------- </span>
+ %-------------- :-)   E1
+ a=0; for (i=0; i&lt;10; i++) a+=i;
+ a;
+         %R:  45
+ 
+ %-------------- :-)   E2
+ for (i=0; i&lt;3; i++) sprintf ("%d: %d", i, i*i);
+         %R:  "2: 4"
+ 
+ %-------------- :-)   E3
+ [EOB]
+<span class='inverse'> -**-----|V0.99.16| Calculator (SLangCalc) | 11/11,1------------- </span>
+</pre>
 
 <p>
 The evaluation is started with <code>calc_make_calculation()</code> (^C^A if ^C is 
@@ -76,9 +104,10 @@ bin format.
 
 <h3>Installation</h3>
 
-Put 
+Put the file somewhere on your jed_library_path and
 <pre class='code'>
-   autoload ("calc", "calc", "calc2");
+   autoload ("calc", "calc.sl");
+   autoload ("calc2", "calc.sl");
 </pre>
 in your .jedrc file.
 
