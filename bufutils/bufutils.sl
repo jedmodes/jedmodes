@@ -34,7 +34,8 @@
 %	  	   (-> more consistency, no asking)
 %	  	   removed custom var Bufsubfile_Save_Ask)
 %	  	   bufsubfile() take a second optional argument `base`
-% 2005-03-31 1.7.1 made slang-2 proof: A[[0:-2]] --> A[[:-2]]   
+% 2005-03-31 1.7.1 made slang-2 proof: A[[0:-2]] --> A[[:-2]]
+% 2005-04-01 1.8   fast strread_file() (Paul Boekholt)
 
 % --- Requirements ----------------------------------------------------
 
@@ -477,8 +478,19 @@ define arrayread_file(name)
 % Read a file and return it as string
 define strread_file(name)
 {
-   strjoin(arrayread_file(name), "");
+   variable size_limit = 5000000; % this should be a custom var
+   variable fp = fopen(name, "r"), str;
+#if (_slang_version < 20000)
+   if (-1 == fread(&str, Char_Type, size_limit, fp))
+#else
+   if (-1 == fread_bytes(&str, size_limit, fp))
+#endif
+     error("could not read file");
+   !if (feof(fp)) 
+     verror("file exceedes limit (%d bytes)", size_limit);
+   return str;
 }
+
 
 % restore (or update, if file changed on disk) a buffer to the file version
 public define reload_buffer()
