@@ -480,6 +480,8 @@ define strread_file(name)
 {
    variable size_limit = 5000000; % this should be a custom var
    variable fp = fopen(name, "r"), str;
+   if (fp == NULL)
+     verror ("Failed to open \"%s\"", name);
 #if (_slang_version < 20000)
    if (-1 == fread(&str, Char_Type, size_limit, fp))
 #else
