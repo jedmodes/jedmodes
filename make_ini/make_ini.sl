@@ -38,6 +38,7 @@
 % 2005-03-18 2.3 * bugfix: documentation comments did not work.
 %                          list_slang_files() did only work, if 
 %                          dir == current working dir (report Dino Sangoi)
+%                  removed the need for a chdir() in make_ini()
 % _debug_info=1;
 
 autoload("get_word", "txtutils");
@@ -119,10 +120,13 @@ if(expand_jedlib_file("tm.sl") != "")
 else
   Make_ini_Extract_Documentation = 0;
 
+
 % valid chars in function and variable definitions
 static variable Slang_word = "A-Za-z0-9_";
-static variable ini_file = "ini.sl";
+static variable Ini_File = "ini.sl";
 static variable Parsing_Buffer = "*make_ini tmp*";
+static variable Tm_Doc_File = "libfuns.txt";
+static variable Tm_Doc_Buffer = "*libfuns doc*";
 
 % --- functions ---------------------------------------------------
 
@@ -256,18 +260,23 @@ define make_ini_look_for_functions(file)
 
 static define list_slang_files(dir)
 {
-   variable ex, full_files, files = listdir(dir);
+   variable ex, files = listdir(dir);
    % Skip files that are  no slang-source (test for extension ".sl")
    files = files[where(array_map(String_Type, &path_extname, files) == ".sl")];
-   % Skip unaccessible files
-   full_files = array_map(String_Type, &path_concat, dir, files);
-   files = files[where(array_map(Int_Type, &file_status, full_files) == 1)];
    % Skip files from the exclusion list
    foreach (Make_ini_Exclusion_List)
      {
 	ex = ();
 	files = files[where(files != ex)];
      }
+   % array_map on an empty arry will error anyway, so give a more
+   % informative error message
+   !if (length(files))
+     verror("no SLang files found in %s", dir);
+   % Prepend the directory to the path
+   files = array_map(String_Type, &path_concat, dir, files);
+   % Skip unaccessible files
+   files = files[where(array_map(Int_Type, &file_status, files) == 1)];
    % Sort alphabetically and return
    return files[array_sort(files)];
 }
@@ -294,12 +303,9 @@ public define make_ini() % ([dir])
    else 
      dir = read_file_from_mini("Make ini.sl for:");
 
-   variable files = list_slang_files(dir), file = "", is_open;
-
-   () = chdir(dir);
-
+   variable files = list_slang_files(dir), file = "";
    % find old ini file 
-   () = find_file(path_concat(dir, ini_file));
+   () = find_file(path_concat(dir, Ini_File));
    slang_mode();
    bob();
    % skip customized part, write header
@@ -326,16 +332,15 @@ public define make_ini() % ([dir])
 %!%+
 %\function{make_libfun_doc}
 %\synopsis{extract tm documentation}
-%\usage{ make_libfun_doc(dir=Ask)}
+%\usage{ make_libfun_doc([dir])}
 %\description
-%  Extract tm documentation, 
-%  convert to ascii format and 
-%  insert in a buffer "libfuns.txt".
+%  Extract tm documentation for all Slang file in \var{dir}, 
+%  convert to ascii format and insert in a buffer.
 %\notes
 %  requires tm.sl (jedmodes.sf.net/mode/tm/) 
 %\seealso{update_ini, Make_ini_Extract_Documentation}
 %!%-
-public define make_libfun_doc() % (dir=Ask)
+public define make_libfun_doc() % ([dir])
 {
    % get optional argument
    variable dir, filename_pattern;
@@ -344,10 +349,10 @@ public define make_libfun_doc() % (dir=Ask)
    else
      {
 	(, dir, , ) = getbuf_info (); % default
-	dir = read_file_from_mini("Extract Documentation from dir:");
+	dir = read_file_from_mini("Extract tm Documentation from dir:");
      }
    filename_pattern = path_concat(dir, "*.sl");
-   sw2buf("libfuns.txt");
+   sw2buf(Tm_Doc_Buffer);
    flush("extracting documentation");
    insert(runhooks("tm_parse_file", filename_pattern));
    message("done");
@@ -367,16 +372,16 @@ public define make_libfun_doc() % (dir=Ask)
 public define update_ini() % (directory=buffer_dir())
 {
 
-   variable file, dir, name, flags;
+   variable file, dir, name, flags, buf = whatbuf();
    if (_NARGS)
      dir = ();
    else
 	(, dir, , ) = getbuf_info (); % default
 
    make_ini(dir);
-   ()= write_buffer(whatbuf);
+   save_buffer();
    delbuf(whatbuf);
-   % bytecompile the ini-file as well
+   % bytecompile (the ini-file as well)
    if(Make_ini_Bytecompile)
      {
 	flush("byte compiling files");
@@ -385,15 +390,17 @@ public define update_ini() % (directory=buffer_dir())
 	     file = ();
 	     byte_compile_file(file, 0);
 	  }
-	byte_compile_file (ini_file, 0);
+	byte_compile_file(path_concat(dir, Ini_File), 0);
      }
    % extract the documentation and put in file libfuns.txt
    if(Make_ini_Extract_Documentation)
      {
 	make_libfun_doc(dir);
-	()= write_buffer(whatbuf);
+	% there is no associated filename to the buffer
+	() = write_buffer(path_concat(dir, Tm_Doc_File));
 	delbuf(whatbuf);
      }
+   setbuf(buf);
    message("update_ini completed");
 }
 
