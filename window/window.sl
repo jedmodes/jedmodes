@@ -567,6 +567,4 @@ Test();
 
 #endif
 
-vmessage("%d", what_window());
-
 provide("window");
