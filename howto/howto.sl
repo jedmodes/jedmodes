@@ -1,6 +1,6 @@
 % howto.sl
 % 
-% $Id: howto.sl,v 1.1.1.1 2004/10/28 08:16:21 milde Exp $
+% $Id: howto.sl,v 1.4 2003/09/16 22:12:41 paul Exp paul $
 % Keyword: docs, outlines
 % 
 % Copyright (c) 2003 Paul Boekholt.

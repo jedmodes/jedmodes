@@ -2,7 +2,7 @@
 % history.sl
 % Store/Recall mini-buffer lines
 %
-% $Id: history.sl,v 1.1.1.1 2004/10/28 08:16:21 milde Exp $
+% $Id: history.sl,v 1.16 2000/09/10 15:39:32 rocher Exp $
 %
 
 static variable Max_Num_Lines = 32; % The same as in 'mini.sl'

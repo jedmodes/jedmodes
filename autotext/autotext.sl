@@ -1,6 +1,6 @@
 % File:          autotext.sl      -*- mode: SLang; mode: fold -*-
 %
-% $Id: autotext.sl,v 1.1.1.1 2004/10/28 08:16:17 milde Exp $
+% $Id: autotext.sl,v 1.20 2003/09/16 12:46:22 paul Exp paul $
 % 
 % Copyright (c) 2002, 2003 Paul Boekholt.
 % Released under the terms of the GNU GPL (version 2 or later).

@@ -1,7 +1,7 @@
 % yodl.sl	-*- mode: Slang; mode: Fold -*-
 % mode for editing yodl documents
 % 
-% $Id: yodl.sl,v 1.1.1.1 2004/10/28 08:16:27 milde Exp $
+% $Id: yodl.sl,v 1.1 2004/02/28 09:18:50 paul Exp paul $
 % Keywords: wp
 %
 % Copyright (c) 2004 Paul Boekholt.

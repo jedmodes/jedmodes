@@ -1,7 +1,7 @@
 % info.sl      -*- mode: SLang; mode: fold -*-
 % Info reader for JED
 %
-% $Id: info.sl,v 1.1.1.1 2004/10/28 08:16:22 milde Exp $
+% $Id: info.sl,v 1.9 2003/11/03 13:25:45 paul Exp paul $
 % Keywords: help
 % 
 % Copyright (c) 2000-2003 JED, Paul Boekholt

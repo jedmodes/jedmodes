@@ -1,6 +1,6 @@
 % ffap.sl  -*- mode: SLang; mode: fold -*-
 % 
-% $Id: ffap.sl,v 1.1.1.1 2004/10/28 08:16:20 milde Exp $
+% $Id: ffap.sl,v 1.4 2003/09/15 07:00:18 paul Exp paul $
 % Keywords: files, hypermedia, convenience
 % 
 % Copyright (c) 2003 Paul Boekholt.

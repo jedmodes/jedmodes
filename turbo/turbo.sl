@@ -1,7 +1,7 @@
 % turbo.sl  -*- mode: SLang; mode: Fold -*-
 % dynamic word completion
 % 
-% $Id: turbo.sl,v 1.1.1.1 2004/10/28 08:16:27 milde Exp $
+% $Id: turbo.sl,v 1.1 2003/09/24 19:12:40 paul Exp paul $
 % Keywords: abbrev, convenience
 % 
 % Copyright (c) 2003 Paul Boekholt.

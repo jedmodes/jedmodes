@@ -1,7 +1,7 @@
 % a2ps.sl	-*- mode: Slang; mode: Fold -*-
 % mode for editing a2ps stylesheets
 % 
-% $Id: a2ps.sl,v 1.1.1.1 2004/10/28 08:16:13 milde Exp $
+% $Id: a2ps.sl,v 1.1 2004/02/20 09:31:32 paul Exp paul $
 % Keywords: languages
 %
 % Copyright (c) 2003 Paul Boekholt.

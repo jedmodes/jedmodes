@@ -1,7 +1,7 @@
 % outlinemisc.sl
 % autoloaded functions for outlines
 %
-% $Id: outlinemisc.sl,v 1.1.1.1 2004/10/28 08:16:24 milde Exp $
+% $Id: outlinemisc.sl,v 1.2 2004/03/07 13:06:04 paul Exp paul $
 % 
 % Copyright (c) 2003, 2004 Paul Boekholt.
 % Released under the terms of the GNU GPL (version 2 or later).

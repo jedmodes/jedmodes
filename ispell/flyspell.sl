@@ -1,6 +1,6 @@
 % flyspell.sl  -*- mode: SLang; mode: Fold -*-
 %
-% $Id: flyspell.sl,v 1.1.1.1 2004/10/28 08:16:22 milde Exp $
+% $Id: flyspell.sl,v 1.15 2004/03/25 16:31:03 paul Exp paul $
 % 
 % Copyright (c) 2003,2004 Paul Boekholt.
 % Released under the terms of the GNU GPL (version 2 or later).
