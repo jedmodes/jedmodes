@@ -1,0 +1,78 @@
+
+<html>
+<head>
+   <meta http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <meta http-equiv="Author" content="Marko Mahnic">
+   <style>
+     PRE.code { background-color: #eeeeee; }
+     PRE.template  { background-color: #eeeeee; }
+   </style>
+   <title>JED Macro: sql.sl</title>
+   
+</head>
+<body>
+
+<h2>sql.sl</h2>
+creates syntax tables for SQL language. It supports most of the keywords
+defined in the following SQL variants: Sql92, Sql99, PostgreSql, MySql, MS
+SQL, Oracle PL/SQL. Each language variant has it's own set of keywords.
+
+<p>
+The comments are highlighted the same in all SQL variants:
+<pre class='code'>
+ 
+  /* 
+    Multiline Comment
+  */
+  
+  -- End Of Line comment
+  
+</pre>
+
+<i> If a mode should support different comments, please report. </i>
+
+<h3>Installation</h3>
+
+Put the file somewhere on your jed_library_path and
+<pre class='code'>
+   autoload ("sql_mode", "sql");
+   autoload ("sql92_mode", "sql");
+   autoload ("sql99_mode", "sql");
+   autoload ("mssql_mode", "sql");
+   autoload ("mysql_mode", "sql");
+   autoload ("pgsql_mode", "sql");
+   autoload ("orsql_mode", "sql");
+   add_mode_for_extension ("sql", "sql");
+</pre>
+in your .jedrc file.
+
+<p>
+When you open a file with the <code>.sql</code> extension, the function
+<code>sql_mode()</code> will be called which defaults to "sql92". If you
+wish to use a different default mode you can define the custom variable
+<code>sql_default_mode</code> in the .jedrc file:
+
+<pre class='code'>
+
+   custom_variable("sql_default_mode", "mysql");
+   
+</pre>
+
+Now all files with the <code>.sql</code> extension (and without a mode
+defined in the 'modeline') will be treated as MySql files.
+
+<p>
+If you edit a file that has a syntax different than the default, you can
+use the <b>modeline</b> (a comment at the beginning of the file) to select the
+appropriate mode:
+
+<pre class='code'>
+
+  -- -*- mode: pgsql; -*- 
+  
+</pre>
+
+The file will be treated as a PostgreSql file.
+
+</body>
+</html>

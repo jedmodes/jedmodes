@@ -19,9 +19,10 @@ syntax in the highlighted file.
 <h3>Example</h3>
 
 You have a simple text file. You decide that you want to higlight the
-<b>words</b>: @Title, @Author, @Date. You would also like to see the
-<b>numbers</b> in a different color. Also the strings should be
-highlighted. You put this at the beginning of your file:
+<b>words</b>: @Title, @Author, @Date. The <b>case</b> of the words does
+not matter. You would also like to see the <b>numbers</b> in a different
+color. Also the <b>strings</b> should be highlighted. You put this at the
+beginning of your file: 
 
 <pre class='code'>
 
@@ -31,6 +32,7 @@ highlighted. You put this at the beginning of your file:
   ;; ### %numbers= -+0-9.
   ;; ### %string1= '
   ;; ### %string2= "
+  ;; ### %syntaxflags= nocase
   
 </pre>
 
@@ -62,7 +64,7 @@ The syntax definition ends at the first line without <code>###</code>.
 
 <table border=1 cellspacing=0 cellpadding=2>
   <tr>
-     <th><code>Tag</code></th>
+     <th>Tag</th>
      <th>Type</th>
      <th>Description</th>
      <th>Value example</th>
@@ -146,7 +148,7 @@ The syntax definition ends at the first line without <code>###</code>.
 See also <code>define_syntax()</code>.
 
 <p>
-List of flags for <code>%modeflags=</code>:
+<b>List of flags for <code>%modeflags=</code></b>
 
 <p>
 <table border=1 cellspacing=0 cellpadding=2>
@@ -178,7 +180,7 @@ List of flags for <code>%modeflags=</code>:
 See also <code>set_mode()</code>.
 
 <p>
-List of flags for <code>%syntaxflags=</code>: 
+<b>List of flags for <code>%syntaxflags=</code></b>
 
 <p>
 <table border=1 cellspacing=0 cellpadding=2>
