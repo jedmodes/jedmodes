@@ -47,127 +47,163 @@ static define CreateSyntaxTable(sqlmode)
 
 
 static variable kwds_common =
-   "some distinct desc int current_time group inner then grant not with when delete varchar " +
-   "nchar join float timestamp in is cross as order by right to read real authorization " +
-   "of or option on drop close end fetch values declare cascade into alter null primary " +
-   "begin cursor except smallint case schema outer precision current_timestamp where " +
-   "check current_date double union restrict else intersect rollback execute create foreign " +
-   "update revoke having set references decimal commit from key column procedure full " +
-   "char default between transaction any and asc exists bit escape all constraint user " +
-   "add left table select for view numeric insert unique like ";
+   "having case null when cascade order user from float procedure table close commit " +
+   "only decimal create grant primary rows double delete rollback then authorization " +
+   "set foreign by constraints at as escape read execute real group of language else " +
+   "not or on level is alter in exists fetch session to key constraint char using unique " +
+   "insert write with time declare some asc option union add any and distinct revoke " +
+   "all end where dec natural transaction view schema between like character begin for " +
+   "desc cursor references int update smallint check numeric work varchar column select " +
+   "values drop default into integer next intersect privileges except precision ";
 
-static variable kwds_sqlpgmy9992 =
-   "time local rows level unknown natural privileges last type trim next at month relative " +
-   "first no constraints dec isolation only language integer absolute character usage " +
-   "substring second minute domain year using work write both day session prepare hour ";
+static variable kwds_9299 =
+   "temporary table_name more c open schema_name lower cast collation collation_catalog " +
+   "row_count constraint_catalog scale varying whenever scroll catalog_name goto returned_length " +
+   "subclass_origin pascal output condition_number found character_set_schema diagnostics " +
+   "count match datetime_interval_precision connection_name unnamed indicator names current " +
+   "translation cursor_name global uncommitted sql insensitive message_octet_length input " +
+   "pad number cobol character_length trailing action go pli octet_length allocate timezone_hour " +
+   "section connect length system_user upper disconnect national bit_length min convert " +
+   "avg server_name repeatable preserve are public data date nullif size external overlaps " +
+   "column_name immediate ada exec sqlstate cascaded exception identity end-exec value " +
+   "deferrable leading returned_sqlstate module datetime_interval_code session_user prior " +
+   "assertion mumps position space collate connection command_function describe continue " +
+   "class_origin deferred name fortran message_length serializable translate get max " +
+   "partial char_length committed zone returned_octet_length dynamic_function corresponding " +
+   "sum message_text character_set_name collation_schema extract constraint_schema nullable " +
+   "collation_name character_set_catalog coalesce interval initially deallocate current_user " +
+   "descriptor timezone_minute catalog constraint_name ";
 
-static variable kwds_sql9992 =
-   "uncommitted descriptor collation_schema connection_name leading initially subclass_origin " +
-   "column_name c diagnostics end-exec whenever interval unnamed pascal length current " +
-   "dynamic_function fortran character_set_name session_user names pli match size found " +
-   "cascaded table_name national command_function character_set_catalog external go scroll " +
-   "pad number count lower message_length exec connect position public indicator action " +
-   "nullif constraint_catalog sum sqlstate cursor_name collation_name translation disconnect " +
-   "returned_length committed datetime_interval_precision catalog_name collation char_length " +
-   "section cobol system_user current_user open more deferred value returned_sqlstate " +
-   "mumps space deferrable partial prior describe data date message_octet_length repeatable " +
-   "class_origin character_length module schema_name cast returned_octet_length extract " +
-   "zone assertion exception translate constraint_name global bit_length immediate serializable " +
-   "sql timezone_hour corresponding max name datetime_interval_code upper timezone_minute " +
-   "identity trailing character_set_schema deallocate octet_length continue constraint_schema " +
-   "server_name min output goto avg preserve collation_catalog overlaps temporary insensitive " +
-   "connection are allocate row_count message_text ada nullable collate varying catalog " +
-   "coalesce get input scale condition_number convert ";
+static variable kwds_99 =
+   "free blob breadth parameter_name g k m called localtime static implementation call " +
+   "trigger_name transforms ignore routine completion scope transactions_rolled_back " +
+   "each method system user_defined_type_catalog parameter_mode referencing transaction_active " +
+   "final array user_defined_type_schema source rollup dispatch deterministic cycle checked " +
+   "routine_name overriding before routine_schema current_path nclob parameter large " +
+   "path invoker parameters granted than binary key_type modify sqlexception simple parameter_specific_name " +
+   "hold every constructor host similar alias ordinality row contains clob infix sublist " +
+   "deref reads class security ref inout without specifictype role sets atomic limit " +
+   "off modifies parameter_ordinal_position depth variable preorder new mod specific_name " +
+   "transactions_committed self out operation parameter_specific_catalog overlay old " +
+   "assignment none locator cardinality style generated object iterate start trigger_catalog " +
+   "key_member savepoint instantiable state dynamic_function_code unnest abs options " +
+   "aggregate defined definer postfix search existing treat asensitive localtimestamp " +
+   "structure routine_catalog trigger under grouping destroy symmetric sequence initialize " +
+   "boolean specific prefix destructor sensitive command_function_code current_role hierarchy " +
+   "statement less dynamic admin transform map dictionary user_defined_type_name result " +
+   "instance function chain bitvar after general terminate cube equals parameter_specific_schema " +
+   "return asymmetric returns sqlwarning lateral recursive trigger_schema ";
 
-static variable kwds_sql92 =
-   "sqlerror sqlcode ";
+static variable kwds_92 =
+   "sqlcode sqlerror ";
 
-static variable kwds_sql99 =
-   "asensitive terminate bitvar specific_name g k m than limit recursive modify inout " +
-   "trigger granted symmetric cardinality variable nclob user_defined_type_catalog sequence " +
-   "defined overriding without definer sqlexception each current_role breadth infix new " +
-   "every large before hold method mod source binary existing instantiable out parameter " +
-   "key_member simple old user_defined_type_schema deterministic boolean trigger_name " +
-   "transactions_rolled_back routine cycle trigger_catalog result function checked options " +
-   "scope off cube destroy blob none initialize localtimestamp dispatch postfix final " +
-   "array called deref class ordinality savepoint dynamic assignment depth iterate sqlwarning " +
-   "chain routine_catalog key_type similar parameter_mode grouping transactions_committed " +
-   "destructor implementation admin transaction_active parameter_ordinal_position dictionary " +
-   "operation general object less current_path ignore sublist contains lateral under " +
-   "overlay constructor alias transforms self after call locator hierarchy start search " +
-   "generated clob treat aggregate completion rollup security state specifictype transform " +
-   "user_defined_type_name preorder return trigger_schema statement routine_schema prefix " +
-   "returns routine_name asymmetric map row atomic style sensitive parameter_name ref " +
-   "structure static free unnest parameters localtime specific parameter_specific_name " +
-   "parameter_specific_catalog command_function_code system abs path equals invoker parameter_specific_schema " +
-   "modifies dynamic_function_code instance role reads sets referencing host ";
+static variable kwds_My =
+   "nosort seconds append longfile selectivity atan disable java diagnose buffer rfill " +
+   "locate open dbproc backup_pages wait sapr3 tablespace lower static selupd call ucase " +
+   "asin ignore resource nolog pipe cosh vargraphic timezone reject snapshot synonym " +
+   "indexname optimistic dayname tabid parse fversion whenever beginload minus ifnull " +
+   "range degree subtime dayofmonth logfull label sysdba microsecond costlimit writer " +
+   "usergroup variance page save initrans bufferpool week least verify maxtrans nominvalue " +
+   "validproc log10 sqlmode curdate inproc volume lcase next_day address switch pages " +
+   "error radians alterin modify floor count fixed toidentifier sinh defaultcode dsetpass " +
+   "makedate tan indicator flush event sin current lfill instr get_schema sign format " +
+   "alpha hours false raw autosave weekofyear nls_date_format container psm param minutes " +
+   "tape shutdown clear costwarning monthname restore freepage number proc percent initcap " +
+   "standby break pi role norewind adddate same now compute ln greatest unicode editproc " +
+   "atan2 ascii if nls_sort dbprocedure zoned mod block nextval expand high pctused sqrt " +
+   "months_between prev trunc pos stop decode overwrite timeout num connect obid length " +
+   "hextoraw upper nvl optimize true priv migrate serverdb packed substr file vsize ceiling " +
+   "topic nocycle min package soundex rowno userid replication extended addtime log subpages " +
+   "jis object archive nls_date_language vtrace avg to_number ceil rtrim iso days currval " +
+   "subtrans savepoint public identified state data sqlid date stat cachelimit noround " +
+   "rowid round db_above_limit dayofweek rownum device bad abs curtime power unload lpad " +
+   "medium add_months auto concat release to_char sysdate startpos stamp while dropin " +
+   "bwhierarchy div cos cot synchronize blocksize quick oracle years trace monitor mapchar " +
+   "pctfree ltrim value duplicates degrees acos log_above_limit db2 beginproc ansi reuse " +
+   "dba chr explicit nowait dimension medianame long caches createin mbcs list subdate " +
+   "nocache estimate space normal last_day serial timediff describe to_date get_objectname " +
+   "continue endload unused nlssort remove db_below_limit name utcdiff months init hex " +
+   "register fact tanh dynamic exp byte translate get max new_time digits rpad low internal " +
+   "instance resume stddev endproc graphic try sum info uid catch dayofyear eur standard " +
+   "enable remote debug rawtohex suspend nomaxvalue usa sounds parseid nls_language cancel " +
+   "varchar2 microseconds config utcdate maketime sample current_schema return datediff " +
+   "ping unlock catalog logwriter takeover recursive noorder ";
 
-static variable kwds_pgsql =
-   "leading initially lock comment load interval limit inout trigger sequence without " +
-   "definer copy each vacuum session_user names truncate index force new match before " +
-   "hold cluster notnull binary handler national out simple ilike temp old characteristics " +
-   "external valid boolean scroll lancompiler excluding cycle function reset off do share " +
-   "backward version unencrypted storage position template unlisten none action nullif " +
-   "localtimestamp array called committed cache inherits mode class validator explain " +
-   "assignment verbose recheck placing move increment access notify including bigint " +
-   "oids implicit show forward chain current_user similar deferred location pendant delimiter " +
-   "setof maxvalue exclusive abort encoding statistics immutable procedural deferrable " +
-   "partial prior toast createdb overlay after cast owner delimiters start stdin stable " +
-   "extract zone assertion treat aggregate isnull security nocreateuser listen nocreatedb " +
-   "freeze password trusted analyze analyse global checkpoint immediate serializable " +
-   "statement returns operator row rename until trailing deallocate createuser conversion " +
-   "volatile reindex sysid stdout instead database preserve overlaps minvalue restart " +
-   "temporary offset insensitive localtime rule strict replace path defaults collate " +
-   "varying encrypted invoker coalesce nothing input convert ";
+static variable kwds_Ms =
+   "isdate nvarchar substring atan kill top money right lower cast rowguidcol collation " +
+   "month bigint atn2 asin disk parsename second setuser unknown join getansinull domain " +
+   "openquery varying newid isolation scroll over save nocheck distributed host_name " +
+   "current_timestamp raiserror cross inner pascal output log10 first binary radians " +
+   "last app_name image freetext diagnostics floor dummy both match identitycol tan datetime " +
+   "hour nchar contains sin names rule translation getutcdate sign global insensitive " +
+   "input shutdown datename restore pad proc openxml percent local break no character_length " +
+   "compute getdate trailing action patindex bulk octet_length sqrt offsets readtext " +
+   "timezone_hour host_id system_user upper permissions rand textvalid disconnect current_date " +
+   "national bit_length include lineno ceiling tran text containstable trim replication " +
+   "prepare log convert timestamp minute relative preserve year textsize are charindex " +
+   "bit errlvl nullif round external overlaps freetexttable usage fillfactor ada abs " +
+   "holdlock power dbcc uniqueidentifier stats_date opendatasource formatmessage sqlca " +
+   "outer cos cascaded cot tsequal identity clustered identity_insert ntext value deferrable " +
+   "leading absolute degrees acos waitfor left session_user smallmoney day isnull print " +
+   "assertion load position collate openrowset connection user_name describe reconfigure " +
+   "nonclustered restrict deny deferred checksum updatetext writetext rowcount varbinary " +
+   "exp translate get partial smalldatetime ident_seed char_length browse dateadd zone " +
+   "current_time corresponding tinyint square extract coalesce interval initially deallocate " +
+   "current_user descriptor full textptr datediff datalength sqlwarning timezone_minute " +
+   "catalog ident_incr isnumeric ";
 
-static variable kwds_mssql =
-   "percent load deny trigger current smalldatetime datetime session_user bulk distributed " +
-   "truncate dummy index disk identity_insert tran raiseerror binary reconfigure national " +
-   "nocheck compute over go text if offsets smallmoney function image off count exit " +
-   "lower tinyint proc freetext exec use fillfactor public money nullif clustered sum " +
-   "top holdlock sysname backup plan bigint break system_user textsize current_user open " +
-   "ntext openquery statistics identitycol print rowguidcol math contains shutdown sql_variant " +
-   "uniqueidentifier while errlvl opendatasource updatetext nvarchar replication tsequal " +
-   "dump openxml return checkpoint file varbinary max identity browse deallocate kill " +
-   "continue freetexttable readtext min goto containstable save database avg dbcc openrowset " +
-   "rule abs waitfor collate varying rowcount setuser nonclustered coalesce lineno restore " +
-   "convert ";
+static variable kwds_Pg =
+   "nocreateuser temporary encoding unlisten called localtime cast trusted bigint oids " +
+   "reset copy move each stable vacuum varying scroll excluding array inherits instead " +
+   "procedural stdout path invoker simple freeze match offset similar ilike defaults " +
+   "encrypted names listen rule global insensitive class security notnull input without " +
+   "nothing recheck limit trailing action strict overlay old sysid handler assignment " +
+   "national delimiter convert volatile stdin preserve reindex characteristics nullif " +
+   "validator external overlaps immediate aggregate definer forward treat localtimestamp " +
+   "owner pendant toast placing deferrable leading setof valid session_user isnull prior " +
+   "assertion notify position createdb conversion collate template analyse statement " +
+   "deferred backward immutable serializable abort unencrypted partial committed zone " +
+   "lancompiler chain delimiters extract nocreatedb createuser coalesce interval initially " +
+   "location verbose deallocate current_user operator access including ";
 
-static variable kwds_mysql =
-   "true fact sysdate vtrace format instr long serverdb months mbcs percent lock comment " +
-   "load whenever standard endproc logwriter radians recursive modify inout param enable " +
-   "hextoraw timezone trigger selupd autosave medium costwarning packed length current " +
-   "explicit hex sinh pctused stop eur sequence beginload curdate dropin tablespace cosh " +
-   "week log10 flush event lfill truncate append dimension index force new pos address " +
-   "inproc to_number sqlmode archive remove next_day before hold now pages optimistic " +
-   "error mod cluster binary diagnose device num byte tan utcdate suspend nvl maketime " +
-   "minutes container nls_date_format initcap out get_objectname rawtohex degree temp " +
-   "stat compute concat nls_date_language ltrim fversion identified get_schema monthname " +
-   "lcase boolean db_above_limit migrate if info subtime ln cycle least config months_between " +
-   "nolog function resume number floor validproc off count fixed do lower share version " +
-   "sqrt ucase prev extended storage proc priv microseconds editproc connect pi obid " +
-   "atan sapr3 usergroup usa high public indicator rfill db_below_limit none nls_sort " +
-   "initrans buffer takeover caches uid optimize medianame nlssort last_day try sum init " +
-   "label div cos cot noorder userid cache indexname ping alpha false mode pctfree subpages " +
-   "block savepoint dynamic explain norewind varchar2 timediff pipe cancel variance nominvalue " +
-   "atan2 dayofyear increment ascii ceiling longfile break tape implicit microsecond " +
-   "sysdba show catch adddate to_char startpos open reuse datediff writer overwrite nocycle " +
-   "vargraphic value synchronize maxvalue exclusive statistics rpad space digits tanh " +
-   "acos describe clear object data date power degrees createin ignore dayofweek current_schema " +
-   "lpad unlock ceil days quick years trace resource to_date shutdown synonym while defaultcode " +
-   "nocache after call debug wait start decode maxtrans asin add_months dsetpass stamp " +
-   "nosort alterin replication snapshot topic greatest utcdiff dbprocedure rowno mapchar " +
-   "duplicates state sqlid translate sounds nextval rowid round makedate freepage estimate " +
-   "rtrim return password currval analyze blocksize checkpoint reject nowait ansi stddev " +
-   "soundex addtime raw auto noround ifnull nls_language file returns sin selectivity " +
-   "curtime weekofyear max name row package upper low seconds sample rename log until " +
-   "volume switch verify bwhierarchy parseid standby trunc vsize subdate cachelimit jis " +
-   "continue backup_pages unicode psm log_above_limit min new_time static internal release " +
-   "iso save database avg db2 minvalue dba disable unload chr restart oracle logfull " +
-   "same costlimit monitor expand beginproc bufferpool bad unused timeout locate sign " +
-   "replace abs java rownum zoned register graphic catalog endload remote subtrans minus " +
-   "range dayofmonth page instance toidentifier exp list role dbproc get hours serial " +
-   "dayname substr tabid parse restore normal nomaxvalue ";
+static variable kwds_Or =
+   "minvalue nosort increment maxlogmembers minextents groups online disable columns " +
+   "thread tablespace share logfile colauth maxlogfiles resource manage mount each snapshot " +
+   "synonym successful restricted system raise lists minus crash range referencing array " +
+   "pragma resetlogs variance tabauth initrans maxextents rowlabel cycle dismount before " +
+   "force maxtrans nominvalue maxloghistory initial base_table switch explain elsif subtype " +
+   "modify triggers noresetlogs noarchivelog assert entry archivelog layer extent flush " +
+   "row run limited delay body do rowtype raw delta controlfile partition remr exception_init " +
+   "statement_id number change task scn cobol role assign storage pli cluster clusters " +
+   "new mod block nextval out pctused compile offline audit stop own manual comment validate " +
+   "old until reverse externally record nocycle package debugoff sqlerrm archive quota " +
+   "start tables currval savepoint identified rowid exclusive rownum sort optimal mlslabel " +
+   "roles compress unlimited release debugon sysdate maxinstances views under segment " +
+   "nocompress pctfree form maxdatafiles pctincrease sequence binary_integer profile " +
+   "number_base boolean reuse dba nowait long loop freelists parallel char_base nocache " +
+   "link lock events normal cache analyze type positive dispose others datafile statement " +
+   "recover freelist shared sqlbuf abort admin notfound constant digits generic maxvalue " +
+   "instance stddev contents noaudit uid indexes become enable after separate nomaxvalue " +
+   "xor tracing terminate exceptions cancel mode private varchar2 definition rename data_base " +
+   "accept access including arraylen noorder ";
+
+static variable kwds_9299PgMy =
+   "substring right month second unknown join domain isolation current_timestamp cross " +
+   "inner first last both hour nchar local no current_date trim prepare timestamp minute " +
+   "relative year bit usage outer absolute left day type restrict current_time full ";
+
+static variable kwds_PgMy =
+   "minvalue increment share cycle before index force restart explain binary password " +
+   "hold statistics row do version inout show off storage cluster new out comment until " +
+   "none start temp exclusive replace implicit trigger database sequence boolean lock " +
+   "load cache analyze maxvalue checkpoint function after truncate mode rename returns ";
+
+static variable kwds_MsOr =
+   "temporary open plan sqlcode whenever goto sqlerror index found count statistics indicator " +
+   "current false sql off dump go if allocate section connect true none file min avg " +
+   "public date size immediate exec exit sqlstate while trigger exception database module " +
+   "prior space continue backup fortran max checkpoint sum function use truncate return ";
+
 
 define sql92_mode ()
 {
@@ -179,13 +215,13 @@ define sql92_mode ()
       
       K = keywords->new_keyword_list();
       keywords->add_keywords(K, kwds_common);
-      keywords->add_keywords(K, kwds_sqlpgmy9992);
-      keywords->add_keywords(K, kwds_sql9992);
+      keywords->add_keywords(K, kwds_9299PgMy);
+      keywords->add_keywords(K, kwds_9299);
       keywords->sort_keywords(K);
       keywords->define_keywords(K, sql, 0);
       
       K = keywords->new_keyword_list();
-      keywords->add_keywords(K, kwds_sql92);
+      keywords->add_keywords(K, kwds_92);
       keywords->sort_keywords(K);
       keywords->define_keywords(K, sql, 1);
       
@@ -206,13 +242,13 @@ define sql99_mode ()
       
       K = keywords->new_keyword_list();
       keywords->add_keywords(K, kwds_common);
-      keywords->add_keywords(K, kwds_sqlpgmy9992);
-      keywords->add_keywords(K, kwds_sql9992);
+      keywords->add_keywords(K, kwds_9299PgMy);
+      keywords->add_keywords(K, kwds_9299);
       keywords->sort_keywords(K);
       keywords->define_keywords(K, sql, 0);
       
       K = keywords->new_keyword_list();
-      keywords->add_keywords(K, kwds_sql99);
+      keywords->add_keywords(K, kwds_99);
       keywords->sort_keywords(K);
       keywords->define_keywords(K, sql, 1);
       
@@ -222,33 +258,6 @@ define sql99_mode ()
    set_mode(sql, 4);
    use_syntax_table(sql);
 }
-
-% MS SQL mode
-define mssql_mode ()
-{
-   variable sql = "mssql";
-   !if (keywords->check_language(sql))
-   {
-      variable K;
-      CreateSyntaxTable(sql);
-      
-      K = keywords->new_keyword_list();
-      keywords->add_keywords(K, kwds_common);
-      keywords->sort_keywords(K);
-      keywords->define_keywords(K, sql, 0);
-      
-      K = keywords->new_keyword_list();
-      keywords->add_keywords(K, kwds_mssql);
-      keywords->sort_keywords(K);
-      keywords->define_keywords(K, sql, 1);
-      
-      keywords->add_language(sql);
-   }
-
-   set_mode(sql, 4);
-   use_syntax_table(sql);
-}
-
 
 % PostgreSql
 define pgsql_mode ()
@@ -261,12 +270,13 @@ define pgsql_mode ()
       
       K = keywords->new_keyword_list();
       keywords->add_keywords(K, kwds_common);
-      keywords->add_keywords(K, kwds_sqlpgmy9992);
+      keywords->add_keywords(K, kwds_9299PgMy);
+      keywords->add_keywords(K, kwds_PgMy);
       keywords->sort_keywords(K);
       keywords->define_keywords(K, sql, 0);
       
       K = keywords->new_keyword_list();
-      keywords->add_keywords(K, kwds_pgsql);
+      keywords->add_keywords(K, kwds_Pg);
       keywords->sort_keywords(K);
       keywords->define_keywords(K, sql, 1);
       
@@ -288,12 +298,40 @@ define mysql_mode ()
       
       K = keywords->new_keyword_list();
       keywords->add_keywords(K, kwds_common);
-      keywords->add_keywords(K, kwds_sqlpgmy9992);
+      keywords->add_keywords(K, kwds_9299PgMy);
+      keywords->add_keywords(K, kwds_PgMy);
       keywords->sort_keywords(K);
       keywords->define_keywords(K, sql, 0);
       
       K = keywords->new_keyword_list();
-      keywords->add_keywords(K, kwds_mysql);
+      keywords->add_keywords(K, kwds_My);
+      keywords->sort_keywords(K);
+      keywords->define_keywords(K, sql, 1);
+      
+      keywords->add_language(sql);
+   }
+
+   set_mode(sql, 4);
+   use_syntax_table(sql);
+}
+
+% MS SQL mode
+define mssql_mode ()
+{
+   variable sql = "mssql";
+   !if (keywords->check_language(sql))
+   {
+      variable K;
+      CreateSyntaxTable(sql);
+      
+      K = keywords->new_keyword_list();
+      keywords->add_keywords(K, kwds_common);
+      keywords->add_keywords(K, kwds_MsOr);
+      keywords->sort_keywords(K);
+      keywords->define_keywords(K, sql, 0);
+      
+      K = keywords->new_keyword_list();
+      keywords->add_keywords(K, kwds_Ms);
       keywords->sort_keywords(K);
       keywords->define_keywords(K, sql, 1);
       
@@ -307,7 +345,28 @@ define mysql_mode ()
 % Oracle
 define orsql_mode ()
 {
-   sql92_mode();
+   variable sql = "orsql";
+   !if (keywords->check_language(sql))
+   {
+      variable K;
+      CreateSyntaxTable(sql);
+      
+      K = keywords->new_keyword_list();
+      keywords->add_keywords(K, kwds_common);
+      keywords->add_keywords(K, kwds_MsOr);
+      keywords->sort_keywords(K);
+      keywords->define_keywords(K, sql, 0);
+      
+      K = keywords->new_keyword_list();
+      keywords->add_keywords(K, kwds_Or);
+      keywords->sort_keywords(K);
+      keywords->define_keywords(K, sql, 1);
+      
+      keywords->add_language(sql);
+   }
+
+   set_mode(sql, 4);
+   use_syntax_table(sql);
 }
 
 define sql_mode ()
