@@ -1,0 +1,150 @@
+<html>
+<head>
+   <meta http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <meta http-equiv="Author" content="Marko Mahnic">
+   <style>
+     PRE.code { background-color: #eeeeee; }
+     PRE.template  { background-color: #eeeeee; }
+     PRE.screen { background-color: white; color: black; border: thin
+         solid black; font-size: 80%
+        }
+     SPAN.inverse { background-color: blue; color: white; }
+   </style>
+   <title>JED Macro: window.sl</title>
+</head>
+<body>
+
+<h2>window.sl</h2>
+Window management routines for programmers.
+
+<h3>Installation</h3>
+
+Put the file somewhere on your jed_library_path and
+
+<pre class='code'>
+
+   autoload ("save_windows_cmd", "window.sl");
+   autoload ("restore_windows_cmd", "window.sl");
+   
+</pre>
+in your .jedrc file.
+
+<p>
+If you need to use the functions in your modes, use
+<pre class='code'>
+
+  require("window");
+  
+</pre>
+
+<h3>create_windows(Integer_Type s0, Integer_Type s1 [, ...])</h3>
+
+Create a configuration of windows with the desired sizes. 
+Window sizes are defined top to bottom (first param is for topmost window).
+
+<p>
+The first window with a desired size of 0 will be 'elastic' - 
+it's size will shrink or grow so that other windows.
+If none of the parameters is 0, the bottom window will be 
+elastic.
+If the screen is too small, the function may fail.
+
+<p>
+<b>Example:</b>
+<pre class='code'>
+
+   create_windows(4, 0, 2) 
+   
+</pre>
+  will create 3 windows: 
+
+<pre class='screen' style='width: 45em'>
+<span class='inverse'> File   Edit   Mode   Search   Buffers   Windows   System   Help </span>
+ [EOB]
+ 
+ 
+ 
+<span class='inverse'> -**-----|V0.99.16| Buffer1 () | 1/9,1------------------------- </span>
+
+
+
+ 
+<span class='inverse'> -**-----|V0.99.16| Buffer1 () | 9/9,1------------------------- </span>
+ [EOB]
+ 
+<span class='inverse'> -**-----|V0.99.16| Buffer1 () | 9/9,1------------------------- </span>
+
+</pre>
+
+The top one has 4 lines, the bottom one 2 lines and the middle has the rest.
+
+
+<h3>create_windows_rel(Integer_Type s0, Integer_Type s1 [, ...])</h3>
+Create a configuration of windows with the desired relative sizes. All sizes
+must be equal or greater than 1.
+ 
+<p>
+<b>Example:</b>
+<pre class='code'>
+
+   create_windows(40, 60) 
+   
+</pre>
+  will create 2 windows: 
+  
+<pre class='screen' style='width: 45em'>
+<span class='inverse'> File   Edit   Mode   Search   Buffers   Windows   System   Help </span>
+ [EOB]
+ 
+ 
+<span class='inverse'> -**-----|V0.99.16| Buffer1 () | 9/9,1------------------------- </span>
+
+
+ [EOB]
+ 
+ 
+
+<span class='inverse'> -**-----|V0.99.16| Buffer1 () | 9/9,1------------------------- </span>
+
+</pre>
+
+  
+The top one is 40% of total height, the bottom one will is 60% of total height.
+
+<h3>WindowInfo_Type save_windows ()</h3>
+Save window configuration with buffer positions.
+
+<p>Returns a linked list of window information (WindowInfo_Type).
+
+<h3>restore_windows(WindowInfo_Type list)</h3>
+Restore a configuration of windows that was previously stored
+with save_windows().
+
+<h3>save_windows_cmd()</h3>
+Save window configuration with buffer positions into a local variable.
+
+<p>
+Suitable for a menu entry.
+
+<h3>restore_windows_cmd()</h3>
+Restore a previously saved configuration of windows. The configuration
+must have been stored with save_windows_cmd().
+
+<p>
+Suitable for a menu entry.
+
+<h3>select_top_window()</h3>
+Select the window at the top of the screen.
+
+<h3>select_bottom_window()</h3>
+Select the window at the bottom of the screen. 
+The minibuffer is never selected even if it is active.
+
+<h3>select_next_window()</h3>
+Select the next window. Same as otherwindow().
+
+<h3>select_prev_window()</h3>
+Select the previous window.
+
+</body>
+</html>
