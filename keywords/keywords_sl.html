@@ -1,0 +1,154 @@
+
+<html>
+<head>
+   <meta http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <meta http-equiv="Author" content="Marko Mahnic">
+   <style>
+     PRE.code { background-color: #eeeeee; }
+     PRE.template  { background-color: #eeeeee; }
+   </style>
+   <title>JED Macro: keywords.sl</title>
+</head>
+<body>
+
+<h2>keywords.sl</h2>
+
+A set of macros to make lists of keywords for language modes more manageable.
+
+<p>
+There is no need to worry about the size and order of keywords when creating
+a keyword list. Keywords are separated by whitespace so it is easier to spot them.
+Also lists of keywords might be grouped by their type (control kwds, type kwds, 
+function names, constants, ...) and joined later with <code>add_keywords</code>.
+
+<p>
+Very helpful when you define syntaxes for similar languages or language variants.
+(SQL: sql92, postgresql, mysql, oracle, mssql; some keywords are
+the same in all variants, but some are dbms-specific)
+
+<h3>Installation</h3>
+  Put the file somewhere on your <code>jed_library_path</code>. See the example below.
+  
+<h3>Remark</h3>
+  Use of this system is slower than use of <code>define_keywords_n</code> calls,
+  but the difference might be noticeable only when first using a
+  mode in a session.
+  You can also use <code>write_keywords</code> to prepare a list of
+  <code>define_keywords_n</code>
+  calls.
+  
+
+<h3>Examples of use</h3>
+
+<b>Example 1</b>: A "simple" mode with simple set of keywords
+
+<pre class="code">
+ % ----- file: simplemode.sl -----
+ require("keywords");
+
+ define simple_mode(mode)
+ {
+    K = keywords->new_keyword_list();
+    keywords->add_keywords(K, "if then else while do until");
+    keywords->add_keywords(K, "cos sin tan acos asin atan");
+    keywords->sort_keywords(K);
+    keywords->define_keywords(K, "simple", 0);
+
+    set_mode("simple", 2 | 8);
+    use_syntax_table ("simple");
+ }
+</pre> 
+
+<b>Example 2</b>: Prepare define_keywords_n calls for "simple" mode and
+write them into buffer "temp_buffer":
+
+<pre class="code">
+ % ----- file: prep_simplemode.sl -----
+ require("keywords");
+
+ K = keywords->new_keyword_list();
+ keywords->add_keywords(K, "if then else while do until");
+ keywords->add_keywords(K, "cos sin tan acos asin atan");
+ keywords->sort_keywords(K);
+ 
+ write_keywords(K, "simple", 0, "temp_buffer");
+</pre> 
+
+
+
+
+<b>Example 3</b>: SLang mode with 2 alternative color sets.
+<p>
+Notice: keyword-set might also be extended using runhooks ("xxx_define_keyword_hook").
+
+
+<pre class="code">
+ % ----- file: slangmode.sl -----
+ require("keywords");
+ 
+ % size and order of keywords in a string are irrelevant
+ 
+ static variable kwds_control = 
+    "if else loop do while for _for foreach using forever switch case " +
+    "orelse andelse break return continue";                              
+ static variable kwds_struct  = "define variable struct typedef public private static";
+ static variable kwds_logic   = "or and not xor";                                        
+ static variable kwds_math    = "chs mod shl shr sqr mul2 sign";                         
+ static variable kwds_stack   = "pop exch";                                              
+ static variable kwds_block   = "EXIT_BLOCK ERROR_BLOCK EXECUTE_ERROR_BLOCK";            
+ static variable kwds_other   = "NULL __tmp";                                            
+                                                                         
+ define create_mode(mode)
+ {
+    variable mode;
+    !if (keywords->check_language(mode))
+    {
+       variable K;
+       % CreateSyntaxTable();
+     
+       K = keywords->new_keyword_list();
+       keywords->add_keywords(K, kwds_control);
+       keywords->add_keywords(K, kwds_struct);
+       keywords->add_keywords(K, kwds_logic);
+       % runhooks("slang_define_keyword_hook", K, 0); %% User could add more keywords!
+       keywords->sort_keywords(K);
+       keywords->define_keywords(K, mode, 0);
+
+       K = keywords->new_keyword_list();
+       keywords->add_keywords(K, kwds_math);
+       keywords->add_keywords(K, kwds_stack);
+       if (mode == "SLANG")
+       {
+          keywords->add_keywords(K, kwds_block);
+          keywords->add_keywords(K, kwds_other);
+       }
+       % runhooks("slang_define_keyword_hook", K, 1);
+       keywords->sort_keywords(K);
+       keywords->define_keywords(K, mode, 1);
+       
+       if (mode == "SLANG2")
+       {
+          K = keywords->new_keyword_list();
+          keywords->add_keywords(K, kwds_block);
+          keywords->add_keywords(K, kwds_other);
+          % runhooks("slang_define_keyword_hook", K, 2);
+          keywords->sort_keywords(K);
+          keywords->define_keywords(K, mode, 2);
+       }
+       
+       keywords->add_language(mode);
+    }
+    
+    set_mode("SLang", 2 | 8);
+    c_mode_common ();
+    use_syntax_table (mode);
+    mode_set_mode_info ("SLang", "fold_info", "%{{{\r%}}}\r\r");
+    run_mode_hooks("slang_mode_hook");
+ }
+ 
+ define slang_mode ()  { create_mode ("SLANG", 0); }
+ define slang2_mode () { create_mode ("SLANG2", 1); }
+</pre> 
+
+</body>
+</html>

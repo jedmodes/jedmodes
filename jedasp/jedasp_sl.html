@@ -1,0 +1,92 @@
+
+<html>
+<head>
+   <meta http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <meta http-equiv="Author" content="Marko Mahnic">
+   <style>
+     PRE.code { background-color: #eeeeee; }
+     PRE.template  { background-color: #eeeeee; }
+   </style>
+   <title>JED Macro: jedasp.sl</title>
+   
+</head>
+<body>
+
+<h2>jedasp.sl</h2>
+tries to simulate Active Server Pages (MS IIS). The function
+asp_run_scripts searches for SLang code declared between arbitrary tags
+and executes it. It allways searches from the beginning of the buffer for
+the first occurence of tagged code and executes it.
+
+<h3>Scripts</h3>
+
+The script is defined with arbitrary BEGIN and END tag, they are both
+passed to the asp_run_scripts function:
+
+<pre class='code'>
+  asp_run_scripts ("&lt;%", "%&gt;")
+</pre>
+
+<p>
+The scripts are executed while there are any in the file.
+
+<p>
+If you need to insert raw text into the buffer within the script, use the
+%T comment. You can use SLang escape sequences in raw text. To insert the
+value of some SLang variable into raw text, you can do it using the <code>(%F,
+X%)</code> format, where F is the format, X is an arbitrary expression whose
+result has a valid type for F. The expression X may not contain string
+constants.
+
+<h3>Example</h3>
+
+The file that we want to process:
+
+<pre class='code'>
+    HTML table &lt;BR&gt;
+    &lt;% 
+       % SLang comment inside script
+       %T &lt;TABLE BORDER="2"&gt; \n
+       variable i;
+       for (i = 0; i &lt; 3; i++) {
+          %T &lt;TR&gt;
+          %T &lt;TD&gt; (%d, i %) * (%d, i %) &lt;/TD&gt;&lt;TD&gt; (%05d, i*i %) &lt;/TD&gt;
+          if (i mod 2 == 0) {
+             %T &lt;TD&gt; (%d, i%) mod 2 is "0" &lt;/TD&gt;
+          }
+          else {
+             %T &lt;TD&gt; (%d, i%) mod 2 is "not 0" &lt;/TD&gt;
+          }
+          %T &lt;/TR&gt; \n
+       }
+       %T &lt;/TABLE&gt;
+    %&gt;
+</pre>
+
+When we call asp_run_scripts ("&lt;%", "%&gt;"), the file is transformed
+into:
+
+<pre class='code'>
+    HTML table &lt;BR&gt;
+    &lt;TABLE BORDER="2"&gt; 
+ &lt;TR&gt;&lt;TD&gt; 0 * 0 &lt;/TD&gt;&lt;TD&gt; 00000 &lt;/TD&gt;&lt;TD&gt; 0 mod 2 is "0" &lt;/TD&gt;&lt;/TR&gt; 
+ &lt;TR&gt;&lt;TD&gt; 1 * 1 &lt;/TD&gt;&lt;TD&gt; 00001 &lt;/TD&gt;&lt;TD&gt; 1 mod 2 is "not 0" &lt;/TD&gt;&lt;/TR&gt; 
+ &lt;TR&gt;&lt;TD&gt; 2 * 2 &lt;/TD&gt;&lt;TD&gt; 00004 &lt;/TD&gt;&lt;TD&gt; 2 mod 2 is "0" &lt;/TD&gt;&lt;/TR&gt; 
+ &lt;/TABLE&gt;
+</pre>
+
+and the final result looks like this:
+
+<p>
+
+<blockquote>
+    HTML table <BR>
+    <TABLE BORDER="2"> 
+<TR><TD> 0 * 0 </TD><TD> 00000 </TD><TD> 0 mod 2 is "0" </TD></TR> 
+<TR><TD> 1 * 1 </TD><TD> 00001 </TD><TD> 1 mod 2 is "not 0" </TD></TR> 
+<TR><TD> 2 * 2 </TD><TD> 00004 </TD><TD> 2 mod 2 is "0" </TD></TR> 
+</TABLE>
+</blockquote>
+
+</body>
+</html>

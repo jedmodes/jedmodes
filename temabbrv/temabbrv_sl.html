@@ -1,0 +1,308 @@
+
+<html>
+<head>
+   <meta http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <meta http-equiv="Author" content="Marko Mahnic">
+   <style>
+     PRE.code { background-color: #eeeeee; }
+     PRE.template  { background-color: #eeeeee; }
+   </style>
+   
+   <title>JED Macro: temabbrv.sl</title>
+</head>
+<body>
+
+<h2>temabbrv.sl</h2>
+
+provides a function that takes the word before the cursor and expands it
+if that word is defined in a template file. It works much like dabbrev.
+The function can be bound to any key. For example when you type
+
+<PRE>
+   if
+</PRE>
+
+at end of line and press TAB (and the function <code>temabbrev</code> is
+bound to that key), the result is
+
+<PRE>
+   if (_) {
+   }
+</PRE>
+
+and it is correctly indented (_ marks the position of the cursor).
+
+
+<h2>JED temabbrv mode</h2>
+
+This mode provides a function that takes the word before the cursor and
+expands it if that word is defined in a template file. It works much like
+dabbrev. The function can be bound to any key. For example when you type
+
+<PRE class="code">
+   if
+</PRE>
+
+at end of line and press TAB (and the function <code>temabbrev</code> is
+bound to that key), the result is
+
+<PRE class="code">
+   if (_) {
+   }
+</PRE>
+
+and it is correctly indented (_ marks the position of the cursor).
+
+<P> In this case the word <b>if</b> was defined in a template file:
+
+<PRE class="template">
+@@[if]
+if ($_) {
+}
+@@:I+
+</PRE>
+
+where <code>$_</code> denotes the position of the cursor after expansion.
+
+<P> The same word can have multiple definitions. When you press TAB again, 
+<code>temabbrev</code> searches for the next definition of <b>if</b> and
+you get:
+
+<PRE class="code">
+   if ($_) {
+   }
+   else
+   {
+   }
+</PRE>
+
+<P> The whole template file looks like this:
+
+<PRE class="template">
+@@[if]
+if ($_) {
+}
+@@:I+
+
+@@[if]
+if ($_) {
+}
+else
+{
+}
+@@:I+
+</PRE>
+
+<P>
+You can also add parameters (<code>$1</code> - <code>$9</code> and
+<code>$_</code>) to macros:
+
+<PRE class="template">
+@@[class]
+class $1$_
+{
+private:
+protected:
+public:
+  $1 ();
+  ~$1 ();
+};
+@@:I+,$1 Class name
+</PRE>
+
+<P> In this case when you press TAB (at eol after word
+<code>class</code>), <code>temabbrev</code> displays
+
+<PRE class="code">
+class $1$_
+{
+private:
+protected:
+public:
+  $1 ();
+  ~$1 ();
+};
+</PRE>
+
+and waits for 5 seconds for te user to press '!' or any other key. If the
+user presses '!', <code>temabbrev</code> asks for the value of each
+parameter and replaces its tag with its definition. In the former case
+<code>temabbrev</code> would display (in minibuffer):
+
+<PRE class="code">
+$1 Class name:
+</PRE>
+
+If the user enters CMyClass, the overall result is:
+
+<PRE class="code">
+class CMyClass_
+{
+private:
+protected:
+public:
+  CMyClass ();
+  ~CMyClass ();
+};
+</PRE>
+
+
+<P> If the user does not press '!', <code>temabbrev</code> leaves the
+inserted text as displayed or finds another expansion for
+<code>class</code> if the user pressed TAB.
+
+
+
+<h2>Templates</h2>
+
+A template is defined with an opening tag (<code>@@[...]</code>) and a closing 
+tag (<code>@@:</code>). Both tags must be at the beginning of line.
+The opening tag contains the word to be expanded:
+
+<PRE class="template">
+@@[if]
+</PRE>
+
+The closing tag may contain a comma separated list of flags and prompts
+for parameter replacement:
+
+<PRE class="template">
+@@:I+,$1 Class name
+</PRE>
+
+<P>Possible flags:
+<ul>
+   <li><code>I+</code> Indent all lines after inserting the expansion
+   <li><code>I-</code> Do not Indent lines after inserting the expansion
+   (default)
+</ul>
+
+<P>
+Each prompt for parameter replacement must contain the tag of the parameter
+to be replaced. An expansion may have up to 9 different parameters with
+tags <code>$1</code> - <code>$9</code>:
+
+<PRE class="template">
+$1 Class name
+</PRE>
+
+means: Read the value of paramater $1 from minibuffer with prompt string
+"Class name".
+
+<P>
+You can put arbitrary text between the opening/closing tags. You can use
+the following 'macros' in the body:
+
+<P>
+<table border=1 cellspacing=0 cellpadding=2>
+   <tr><td><code>$1 - $9</code></td><td>Replace with the value of
+   parameter $N</td> 
+   </tr>
+   <tr><td><code>$_</code></td><td>Leave the cursor at this position after
+   expansion</td>
+   </tr>
+   <tr><td><code>$(varname)</code></td><td>Replace with the value of SLang
+   variable or with '?' if the variable is not defined</td>
+   </tr>
+</table>
+
+<P>
+<code>$(varname)</code> also works for functions without parameters that
+leave a value on the stack.
+
+<h2>Template files</h2>
+
+A template file can contain any number of templates. A template file can
+include another template file with the <code>@@#INCLUDE</code> directive.
+
+<PRE class="template">
+@@#INCLUDE cslang.inc
+</PRE>
+
+<p>The template file for a certain mode must have the same name as the
+mode that uses it with all characters in lower-case and with '.tem'
+suffix. For example in "SLang" mode <code>temabbrev</code> will search for
+the file named "slang.tem".
+
+<p>An included file can have an arbitrary name.
+
+<h3>Locations for template files</h3>
+
+<p>By default, template files are stored in a directory named 'template'
+which is in any directory in <code>get_jed_library_path()</code>
+or in the Jed home directory (variable <code>Jed_Home_Directory</code>).
+
+<p>You can add more directories with <code>tem_add_template_dir()</code> in
+your .jedrc.
+
+<p>For example, if the following are the default directories:
+
+<pre class="code">
+   get_jed_library_path():         '/usr/local/jed/lib'
+   Jed_Home_Directory:             '~/jed'
+</pre>
+
+and you put this code in .jedrc:
+
+<pre class="code">
+   tem_add_template_dir('~/mytemplates/jed')
+</pre>
+
+the resulting list of directories to search for template files will be:
+
+<pre class="code">
+  '~/mytemplates/jed'
+  '~/jed/template'             
+  '/usr/local/jed/lib/template'
+</pre>
+
+<p>When <code>temabbrev</code> searches for the mode template file it will
+stop searching at the first file it finds. The order of direcories to
+search is:
+<ol>
+   <li> directories added with <code>tem_add_template_dir()</code>, in
+   reverse order
+   <li> Jed_Home_Directory
+   <li> directories from <code>get_jed_library_path()</code>
+</ol>
+
+The same is true for the files that you include with the <code>@@#INCLUDE</code>
+directive, if the filename does not include any path specifications. You
+can also include files with realtive and absolute paths and you can also
+use environment variables to secify the root path. Examples:
+
+<blockquote>
+<pre class="template">
+@@#INCLUDE cslang.inc
+</pre>
+
+will search all the directories for the first occurence of
+<code>cslang.inc</code>,
+
+<pre class="template">
+@@#INCLUDE .\cslang.inc
+</pre>
+
+will search for <code>cslang.inc</code> in the directory of the file that includes it,
+
+<pre class="template">
+@@#INCLUDE ~/jed/template/cslang.inc
+</pre>
+
+will search for <code>~/jed/template/cslang.inc</code>, and
+
+<pre class="template">
+@@#INCLUDE $JED_ROOT/lib/template/slang.tem
+</pre>
+
+will search for <code>/usr/local/jed/lib/template/slang.tem</code> if the
+environment variable <code>JED_ROOT</code> is
+<code>'/usr/local/jed'</code>. This way you can put your own templates for
+SLang in a template file in your home directory, and still use the templates
+that are defined in <code>/usr/local/jed/lib/template/slang.tem</code>.
+
+</blockquote>
+
+
+</body>
+</html>
