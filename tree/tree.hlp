@@ -1,0 +1,12 @@
+= TREE v1.97 ======.=== SHOW TREE ====.===== FILES =====.====== FOLDING ======:
+ Up    prev. node  | ..   show parent | e Edit          | P    toggle padding |
+ Down  next  node  | /    new tree    | v View          | F    fold matching  |
+ Tab   node        | Ret. enter node  | V piped View    | ^C^X fold           |
+ f     First child | D    dired node  | o open with ... | ^C^S unfold         |
+ l     Last  child | ^XD  dired mode  | x exclude       | ^C^W fold level     |
+ c     next  Child | =    abs. path   | m match         | ^C^O unfold level   |
+ C     prev. Child | r    refresh     | s case-sens     :======= HELP ========:
+ p     parent      :===== DEPTH ======: g,G,u Group     | ? help line         |
+ n     next dir    | +,- in/decrement :== SHOW FILES ===: H show/hide this    |
+ N     prev. dir   | L   (un)Limited  | a,h,d  toggle   |        help screen  |
+ q ____Quit________|_1-9 set depth____|All, Hidden, Dirs|_M describe Mode_____|

@@ -1,0 +1,8 @@
+Moving around:			| Hypertext functions:
+--------------------------------+-------------------------------
+Tab	Next link		| Return	follow reference
+P	Previous Header		| L		Previous man page
+N	Next header		| ;		Next man page
+S	goto Section		| M, G, U	other man page
+/	Search forward		| I, A		Apropos
+SPACE	Page Down		| W		Whatis

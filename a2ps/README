@@ -1,0 +1,54 @@
+This is the JED a2ps suite.  A2ps is a text-to-postscript converter.
+It can pretty print sources in lots of programming languages through
+the use of style sheets.  The home page is
+(http://www.inf.enst.fr/~demaille/a2ps).
+
+Files:
+* README: this file
+* a2ps.sl: a mode for editing a2ps style sheets.
+* slang.ssh: an a2ps style sheet for pretty printing S-Lang source.
+* slangtm.ssh: for pretty printing tm documentation.
+
+Todo:
+* Send this stuff to the a2ps maintainers.
+* Function for pretty-printing a buffer from JED.
+* Maybe switch to GNU enscript, which has an AWK-like stylesheet language
+  that should even be able to prettify tm comments INSIDE the source.
+
+How to use this:
+
+Put slang.ssh and slangtm.ssh in the sheets directory, and add the lines
+
+ slangtm: /*.tm/
+ slang: /*.sl/
+
+to sheet.map. To prettify a2ps.sl, simply type
+
+ a2ps -o a2ps.ps a2ps.sl
+
+To get pretty tm documentation, you need a tm file.  TM files for
+JED should be in jed-source-dir/doc/tm/rtl, for slrn they are in
+slrn-src-dir/doc/tm/slrnfuns.  For JMR modes, extract the tm yourself
+with sl2tm (in the S-Lang package).
+
+
+Notes: 
+* If the printed output looks terrible, don't ask me - it looks
+  great in gv.
+
+md5 sums:
+-----BEGIN PGP SIGNED MESSAGE-----
+Hash: SHA1
+
+
+dc77ed46300ec5bbfaf5ed06818356d8  slang.ssh
+608b3ceb949c817832253ecfda2e72a4  slangtm.ssh
+80ba4ad5f8fb21e544babfdd046e0c33  a2ps.sl
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.0.6 (GNU/Linux)
+Comment: processed by gpg.sl <http://jedmodes.sf.net>
+
+iEYEARECAAYFAkA11SUACgkQ1RTqFUe7bzNKdgCdGmqGcZ9ACMjLYewr7NZYwK9w
+rQUAn2w5FzsbSSQ7ZYhu7OPNCp7GR3fg
+=R7M5
+-----END PGP SIGNATURE-----
