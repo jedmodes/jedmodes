@@ -122,12 +122,14 @@ static define prepare_syntax_table(modename)
    if (kwds1 != NULL) 
    {
       keywords->sort_keywords(kwds1);
+      if (syntax & 0x01) keywords->strlow_keywords(kwds1);
       keywords->define_keywords(kwds1, modename, 0);
    }
 
    if (kwds2 != NULL) 
    {
       keywords->sort_keywords(kwds2);
+      if (syntax & 0x01) keywords->strlow_keywords(kwds1);
       keywords->define_keywords(kwds2, modename, 1);
    }
 

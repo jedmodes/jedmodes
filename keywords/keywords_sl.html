@@ -48,17 +48,23 @@ the same in all variants, but some are dbms-specific)
 
  define simple_mode(mode)
  {
-    K = keywords->new_keyword_list();
-    keywords->add_keywords(K, "if then else while do until");
-    keywords->add_keywords(K, "cos sin tan acos asin atan");
-    keywords->sort_keywords(K);
-    keywords->define_keywords(K, "simple", 0);
+    K = keywords-&gt;new_keyword_list();
+    keywords-&gt;add_keywords(K, "if then else while do until");
+    keywords-&gt;add_keywords(K, "cos sin tan acos asin atan");
+    keywords-&gt;sort_keywords(K);
+    keywords-&gt;strlow_keywords(K);
+    keywords-&gt;define_keywords(K, "simple", 0);
 
     set_mode("simple", 2 | 8);
     use_syntax_table ("simple");
  }
 </pre> 
 
+If the mode is case-insensitive (<code>set_syntax_flags</code>, flag
+0x01), all the keywords <b>must</b> be in lower-case. We can obtain this
+by calling <code>keywords-&gt;strlow_keywords(K)</code>. 
+
+<p>
 <b>Example 2</b>: Prepare define_keywords_n calls for "simple" mode and
 write them into buffer "temp_buffer":
 
@@ -66,10 +72,10 @@ write them into buffer "temp_buffer":
  % ----- file: prep_simplemode.sl -----
  require("keywords");
 
- K = keywords->new_keyword_list();
- keywords->add_keywords(K, "if then else while do until");
- keywords->add_keywords(K, "cos sin tan acos asin atan");
- keywords->sort_keywords(K);
+ K = keywords-&gt;new_keyword_list();
+ keywords-&gt;add_keywords(K, "if then else while do until");
+ keywords-&gt;add_keywords(K, "cos sin tan acos asin atan");
+ keywords-&gt;sort_keywords(K);
  
  write_keywords(K, "simple", 0, "temp_buffer");
 </pre> 
@@ -101,42 +107,42 @@ Notice: keyword-set might also be extended using runhooks ("xxx_define_keyword_h
  define create_mode(mode)
  {
     variable mode;
-    !if (keywords->check_language(mode))
+    !if (keywords-&gt;check_language(mode))
     {
        variable K;
        % CreateSyntaxTable();
      
-       K = keywords->new_keyword_list();
-       keywords->add_keywords(K, kwds_control);
-       keywords->add_keywords(K, kwds_struct);
-       keywords->add_keywords(K, kwds_logic);
+       K = keywords-&gt;new_keyword_list();
+       keywords-&gt;add_keywords(K, kwds_control);
+       keywords-&gt;add_keywords(K, kwds_struct);
+       keywords-&gt;add_keywords(K, kwds_logic);
        % runhooks("slang_define_keyword_hook", K, 0); %% User could add more keywords!
-       keywords->sort_keywords(K);
-       keywords->define_keywords(K, mode, 0);
+       keywords-&gt;sort_keywords(K);
+       keywords-&gt;define_keywords(K, mode, 0);
 
-       K = keywords->new_keyword_list();
-       keywords->add_keywords(K, kwds_math);
-       keywords->add_keywords(K, kwds_stack);
+       K = keywords-&gt;new_keyword_list();
+       keywords-&gt;add_keywords(K, kwds_math);
+       keywords-&gt;add_keywords(K, kwds_stack);
        if (mode == "SLANG")
        {
-          keywords->add_keywords(K, kwds_block);
-          keywords->add_keywords(K, kwds_other);
+          keywords-&gt;add_keywords(K, kwds_block);
+          keywords-&gt;add_keywords(K, kwds_other);
        }
        % runhooks("slang_define_keyword_hook", K, 1);
-       keywords->sort_keywords(K);
-       keywords->define_keywords(K, mode, 1);
+       keywords-&gt;sort_keywords(K);
+       keywords-&gt;define_keywords(K, mode, 1);
        
        if (mode == "SLANG2")
        {
-          K = keywords->new_keyword_list();
-          keywords->add_keywords(K, kwds_block);
-          keywords->add_keywords(K, kwds_other);
+          K = keywords-&gt;new_keyword_list();
+          keywords-&gt;add_keywords(K, kwds_block);
+          keywords-&gt;add_keywords(K, kwds_other);
           % runhooks("slang_define_keyword_hook", K, 2);
-          keywords->sort_keywords(K);
-          keywords->define_keywords(K, mode, 2);
+          keywords-&gt;sort_keywords(K);
+          keywords-&gt;define_keywords(K, mode, 2);
        }
        
-       keywords->add_language(mode);
+       keywords-&gt;add_language(mode);
     }
     
     set_mode("SLang", 2 | 8);

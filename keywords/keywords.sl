@@ -123,6 +123,20 @@ define sort_keywords (kwdlst)
    }
 }
 
+% Convert all keywords to lower case - for case insensitive syntaxes
+define strlow_keywords (kwdlst)
+{
+   variable i;
+   for (i = length(kwdlst.keywords) - 1; i >= 0; i--)
+   {
+      if (kwdlst.keywords[i] != "")
+      {
+         kwdlst.keywords[i] = strlow(kwdlst.keywords[i]);
+      }
+   }
+}
+
+
 % Merge two structures into a third one and return it.
 define merge_keywords (akwd, bkwd)
 {
