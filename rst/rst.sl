@@ -11,8 +11,10 @@
 % 	      file:/usr/share/doc/python-docutils/rst/quickref.html
 %
 % Versions:
-% 1.1 2004-10-18  initial attempt
-% 1.2 2004-12-23  removed dependency on view mode (called by runhooks now)
+% 1.1 2004-10-18   initial attempt
+% 1.2 2004-12-23   removed dependency on view mode (called by runhooks now)
+% 1.2.1 2005-03-11 bugfix in Mode>Layout>Hrule
+%                  bugfix remove spurious ":" from anonymous target markup
 
 % For debugging purposes:
 % _debug_info = 1;
@@ -91,7 +93,7 @@ Markup_Tags["substitution_mark"]       = ["|", "|"];
 
 % Targets
 Markup_Tags["crossref"]           = ["\n.. _", ":"];   % URL, crossreference
-Markup_Tags["anonymous_crossref"] = ["__ ", ":"];
+Markup_Tags["anonymous_crossref"] = ["__ ", ""];
 Markup_Tags["numeric_footnote"]   = ["\n.. [#]", ""];   % automatic  numbering
 Markup_Tags["symbolic_footnote"]  = ["\n.. [*]", ""];   % automatic  numbering
 Markup_Tags["citation"]           = ["\n.. [", "]"];
@@ -100,17 +102,6 @@ Markup_Tags["substitution"]       = ["\n.. |", "|"];
 
 
 % ----------------------------- Functions --------------------------------
-
-% convert the buffer/region to html
-public define rst_run()
-{
-   variable outbuf = path_sans_extname(whatbuf())+".html";
-   if (bufferp(outbuf))
-     delbuf(outbuf);
-   shell_cmd_on_region(Rst2Html_Cmd+" "+Rst_Export_Options,
-      outbuf);
-   html_mode();
-}
 
 % export the buffer/region using cmd
 public define rst_export(cmd)
@@ -123,6 +114,15 @@ public define rst_export(cmd)
    output_file = read_file_from_mini("Output File:");
    shell_cmd_on_region(cmd + " " + Rst_Export_Options, 
       "*rst_export output*", output_file);
+   message("exported to " + output_file);
+}
+
+% export and view the buffer to html
+public define rst_run()
+{
+   variable html_file = path_sans_extname(whatbuf())+".html";
+   rst_export(Rst2Html_Cmd);
+   find_file(html_file);
 }
 
 static define rst_export_help()
@@ -139,7 +139,7 @@ public define rst_browse() % (browser=NULL)
 { 
    variable args = __pop_args(_NARGS);
    rst_run();
-   browse_url(bufsubfile, __push_args(args));
+   html_browse(__push_args(args));
    close_buffer();
 }
 
@@ -301,7 +301,7 @@ static define rst_menu(menu)
    menu_append_item(popup, "&Emphasis", &markup, "emphasis");
    menu_append_item(popup, "&Bold", &markup , "bold");
    menu_append_item(popup, "&Literal", &markup, "literal");
-   menu_append_item(popup, "&Hrule", &markup, "rst_rule");    
+   menu_append_item(popup, "&Hrule", &markup, "hrule");    
    % Crossref Marks (outgoing links)
    popup = new_popup(menu, "Crossref &Marks");
    menu_append_item(popup, "&Reference (link)", &markup, "crossref_mark");
