@@ -1,7 +1,7 @@
 % snake.sl
 % Eat the apples and stay away from the walls
 % 
-% $Id: snake.sl,v 1.1.1.1 2004/10/28 08:16:26 milde Exp $
+% $Id: snake.sl,v 1.1 2004/03/11 10:09:51 paul Exp paul $
 % Keywords: games
 %
 % Copyright (c) 2004 Paul Boekholt.

@@ -1,6 +1,6 @@
 % jedscape.sl -*- mode: Slang; mode: Fold -*-
 %
-% $Id: jedscape.sl,v 1.1.1.1 2004/10/28 08:16:23 milde Exp $
+% $Id: jedscape.sl,v 1.2 2004/01/25 17:36:17 paul Exp paul $
 % keywords: www, help, hypermedia
 %
 % Copyright (c) 2003 Paul Boekholt.
@@ -65,7 +65,7 @@ custom_variable("Jedscape_Emulation", "w3");
 static variable mode="jedscape";
 
 static variable
-  version="$Revision: 1.1.1.1 $",
+  version="$Revision: 1.2 $",
   title,
   this_href_mark, last_href_mark, % check if tags don't overlap
   url_file ="",			       %  the source, luke!

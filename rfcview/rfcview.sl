@@ -1,7 +1,7 @@
 % rfcview.sl	-*- mode: Slang; mode: Fold -*-
 % RFC viewer
 % 
-% $Id: rfcview.sl,v 1.1.1.1 2004/10/28 08:16:25 milde Exp $
+% $Id: rfcview.sl,v 1.2 2004/01/18 09:55:57 paul Exp paul $
 % Keywords: docs
 %
 % Copyright (c) 2003 Paul Boekholt.

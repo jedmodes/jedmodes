@@ -1,7 +1,7 @@
 % fileview.sl	-*- mode: Slang; mode: Fold -*-
 % configurable file viewing function
 % 
-% $Id: fileview.sl,v 1.1.1.1 2004/10/28 08:16:20 milde Exp $
+% $Id: fileview.sl,v 1.1 2004/02/25 21:41:57 paul Exp paul $
 % Keywords: slang
 %
 % Copyright (c) 1997 Francesc Rocher; (c) 2004 Paul Boekholt.

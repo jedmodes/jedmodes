@@ -1,6 +1,6 @@
 % email.sl -*- mode: SLang; mode: Fold -*-
 % 
-% $Id: email.sl,v 1.1.1.1 2004/10/28 08:16:20 milde Exp $
+% $Id: email.sl,v 1.1 2003/11/16 19:54:45 paul Exp paul $
 % Keywords: mail
 % 
 % This file was written by the following people:

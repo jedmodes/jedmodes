@@ -2,7 +2,7 @@
 %
 % Author:        Paul Boekholt
 %
-% $Id: look.sl,v 1.1.1.1 2004/10/28 08:16:22 milde Exp $
+% $Id: look.sl,v 1.7 2003/09/23 09:41:47 paul Exp $
 % 
 % Copyright (c) 2003 Paul Boekholt.
 % Released under the terms of the GNU GPL (version 2 or later).

@@ -1,6 +1,6 @@
 % jedscapemisc.sl	-*- mode: Slang; mode: Fold -*-
 % 
-% $Id: jedscapemisc.sl,v 1.1.1.1 2004/10/28 08:16:23 milde Exp $
+% $Id: jedscapemisc.sl,v 1.1 2004/01/25 17:36:17 paul Exp paul $
 % Keywords: www, help, hypermedia
 %
 % Copyright (c) 2003 Paul Boekholt.

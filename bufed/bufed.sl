@@ -2,7 +2,7 @@
 %
 % Simple JED `bufed' mode by Mark Olesen <olesen@me.QueensU.CA>
 %
-% $Id: bufed.sl,v 1.1.1.1 2004/10/28 08:16:18 milde Exp $
+% $Id: bufed.sl,v 1.3 2003/05/10 17:47:19 paul Exp paul $
 %
 % Bufed is a simple buffer manager -- patterned somewhat after dired.
 % Provides easy, interactive switching, saving and killing of buffers.

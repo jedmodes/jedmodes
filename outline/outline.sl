@@ -1,6 +1,6 @@
 % outline.sl      -*- mode: SLang; mode: Fold -*-
 %
-% $Id: outline.sl,v 1.1.1.1 2004/10/28 08:16:24 milde Exp $
+% $Id: outline.sl,v 1.8 2004/03/07 13:06:04 paul Exp paul $
 % Keywords: outlines, Emacs
 % 
 % Copyright (c) 2003 Paul Boekholt

@@ -1,7 +1,7 @@
 % info_look.sl
 % mode-sensitive Info index lookup facility.
 % 
-% $Id: info_look.sl,v 1.1.1.1 2004/10/28 08:16:22 milde Exp $
+% $Id: info_look.sl,v 1.1 2003/08/03 20:08:13 paul Exp paul $
 % Keywords: help languages
 % 
 % Copyright (c) 2003 Paul Boekholt <p.boekholt@hetnet.nl>

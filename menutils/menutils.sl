@@ -1,7 +1,7 @@
 % menutils.sl	-*- mode: Slang; mode: Fold -*-
 % popup menu extensions
 % 
-% $Id: menutils.sl,v 1.1.1.1 2004/10/28 08:16:24 milde Exp $
+% $Id: menutils.sl,v 1.1 2004/02/25 21:41:57 paul Exp paul $
 % Keywords: slang, ui
 %
 % Copyright (c) 2004 Paul Boekholt.

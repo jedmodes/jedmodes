@@ -2,7 +2,7 @@
 %
 % Author:	Paul Boekholt
 %
-% $Id: ispell_init.sl,v 1.1.1.1 2004/10/28 08:16:22 milde Exp $
+% $Id: ispell_init.sl,v 1.7 2004/03/25 16:30:23 paul Exp paul $
 %
 % Copyright (c) 2003 Paul Boekholt.
 % Released under the terms of the GNU GPL (version 2 or later).
