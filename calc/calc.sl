@@ -557,11 +557,11 @@ static define calc_start ()
       onewindow();
       splitwindow();
    
-      % Top window: results
-      if (window_info('t') != 1) otherwindow();
+      % Bottom window: results
+      if (window_info('t') == 1) otherwindow();
       sw2buf (buf_result);
    
-      % Bottom window: expressions
+      % Top window: expressions
    }
    
    pop2buf (buf_expr);
