@@ -9,18 +9,20 @@
 %               string_get_last_match (suggested as string_nth_match by PB)
 %         1.1   new functions get_keystring() and unget_string(str)
 %         1.2   removed unget_string() after learning about buffer_keystring()
+%         1.3   new function str_re_replace_all()
 %
 % (projects for further functions in projects/str_utils.sl)
+
 autoload("array_append", "datutils");
 
 % debug information, comment these out when ready
-_debug_info = 1;
-_traceback=1;
+ % _debug_info = 1;
 
 % Return the (nth) substring of the last call to string_match
 define string_get_last_match(str, n)
 {
    variable pos, len;
+   ERROR_BLOCK { _clear_error(); pop; return ""; }
    (pos, len) = string_match_nth(n);
    return substr(str, pos+1, len);
 }
@@ -39,6 +41,40 @@ define string_get_match() % (str, pat, start=1, n=0)
      return string_get_last_match(str, n);
    else
      return "";
+}
+
+% Regexp replace max_n occurences of 'pattern' with 'rep'
+% Currently, rep may contain 1 backref '\1'
+% TODO: allow up to 9 expansions
+define str_re_replace(str, pattern, rep, max_n)
+{
+   variable n, pos, len, outstr="", match, backref, x_rep;
+   
+   for(n = 0; n < max_n; n++)
+     {
+	!if (string_match(str, pattern, 1))
+	  break;
+	% get the backref, i.e. the part matching pattern in \( \)
+	backref = string_get_last_match(str, 1);
+	% split the string in 3 parts (outstr, match, str)
+	(pos, len) = string_match_nth(0);
+	outstr += substr(str, 1, pos);
+	pos++;
+	match = substr(str, pos, len);
+	str = substr(str, pos+len, -1);
+	% expand replacement pattern
+	(x_rep, ) = strreplace(rep, "\\1", backref, 1);
+	% append expanded replacement
+	outstr += x_rep;
+     }
+   return (outstr+str, n);
+}
+
+% Regexp replace all occurences of 'pattern' with 'rep'
+define str_re_replace_all(str, pattern, rep)
+{
+   (str, ) = str_re_replace(str, pattern, rep, strlen(str));
+   return str;
 }
 
 % Capitalize a string
