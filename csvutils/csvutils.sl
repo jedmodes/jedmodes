@@ -1,7 +1,8 @@
 % Utilities to work with comma (or tabulator) separated values (csv files)
 % We will call such a 2d-array of values a table
 %
-% Version 1.0 First public version
+% Version    1.0 First public version
+% 2005-03-31 1.1 made slang-2 proof: A[[0:-2]] --> A[[:-2]]   
 
 % requirements
 autoload("push_defaults", "sl_utils");
@@ -69,7 +70,7 @@ public define get_lines() % (kill=0)
    variable str = get_buffer(kill);
    % remove last "\n" if present
    if (str[-1] == '\n')
-     str = str[[0:-2]];
+     str = str[[:-2]];
    return strchop(str, '\n', 0);
 }
 
@@ -104,8 +105,8 @@ public define spaces2tab()
 %!%+
 %\function{strchop2d}
 %\synopsis{Chop a string into a 2d-array (lines and columns)}
-%\usage{Array strchop2d(str, col_sep='\t', line_sep='\n', quote=0)}
-%\usage{Array strchop2d(String str, String col_sep, line_sep='\n')}
+%\usage{Array strchop2d(str, col_sep='\t', line_sep='\n', quote=0)
+%       Array strchop2d(String str, String col_sep, line_sep='\n')}
 %\description
 %  The 2d equivalent to strchop and strtok. Split the string first into
 %  lines (or equivalent with line_sep != '\n') and then into fields.
@@ -173,7 +174,7 @@ public define get_table() % (col_sep=NULL, kill=0)
    str = get_buffer(kill);
    % remove last newline, if present
    if (str[-1] == '\n')
-     str = str[[0:-2]];
+     str = str[[:-2]];
 
    if (typeof(col_sep) == String_Type)
      {

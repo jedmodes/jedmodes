@@ -30,9 +30,11 @@
 %	           (helper for bufsubfile)
 %	     1.6   moved untab_buffer from recode.sl here
 %	     1.6.1 small bugfix in bufsubfile()
-% 2005-03-24 1.7   bufsubfile() now always writes a temp-file (hint P. Boekholt)
+% 2005-03-24 1.7   bufsubfile() always writes a temp-file (hint P. Boekholt)
 %	  	   (-> more consistency, no asking)
 %	  	   removed custom var Bufsubfile_Save_Ask)
+%	  	   bufsubfile() take a second optional argument `base`
+% 2005-03-31 1.7.1 made slang-2 proof: A[[0:-2]] --> A[[:-2]]   
 
 % --- Requirements ----------------------------------------------------
 
@@ -404,7 +406,7 @@ define pop_keymap ()
 
    variable mode, flag;
    (mode, flag) = what_mode();
-   set_mode(mode[[0:-(strlen(what_keymap)+4)]], flag);
+   set_mode(mode[[:-(strlen(what_keymap)+4)]], flag);
    use_keymap(oldmap);
    set_blocal_var(kstack[[strlen(oldmap)+1:]], stack_name);
   %Test show("keymap stack is:", get_blocal_var(stack_name));
@@ -450,8 +452,20 @@ define buffer_dirname()
    return dir;
 }
 
-% Read a file and return it as array of lines. Newlines are preserved.
-% Note: To get rid of the newlines, you can do strchop(strread_file(name), '\n', 0);
+%!%+
+%\function{arrayread_file}
+%\synopsis{Read a file and return it as array of lines.}
+%\usage{Array[String] arrayread_file(name)}
+%\description
+%   Read a file and return it as a String_Type array of lines. 
+%   Newlines are preserved.
+%\notes
+% To get rid of the newlines, you can do 
+%#v+
+% strchop(strread_file(name), '\n', 0);
+%#v-
+%\seealso{strread_file, fgetslines}
+%!%-
 define arrayread_file(name)
 {
    variable fp = fopen (name, "r");
@@ -489,7 +503,7 @@ public define reload_buffer()
 % ------- Write the region to a file and return its name. -----------------
 
 % Directory for temporary files
- custom_variable("Jed_Temp_Dir", getenv("TEMP"));
+custom_variable("Jed_Temp_Dir", getenv("TEMP"));
 if (Jed_Temp_Dir == NULL)
   Jed_Temp_Dir = getenv("TMP");
 if (Jed_Temp_Dir == NULL)
@@ -498,13 +512,13 @@ if (Jed_Temp_Dir == NULL)
 % list of files to delete at exit 
 % (defined with custom_variable, so a reevaluation of bufutils will not
 %  delete the existing list.)
-custom_variable("Temp_Files", "");
+ custom_variable("Bufsubfile_Temp_Files", "");
 
 % cleanup at exit
 static define delete_temp_files()
 {
    variable file;
-   foreach (strchop(strtrim_beg(Temp_Files), '\n', 0))
+   foreach (strchop(strtrim_beg(Bufsubfile_Temp_Files), '\n', 0))
      {
 	file = ();
 	if (file_status(file) == 1)
@@ -519,10 +533,14 @@ add_to_hook("_jed_exit_hooks", &delete_temp_files);
 %\synopsis{Write region|buffer to a temporary file and return its name.}
 %\usage{String = bufsubfile(delete=0, base=NULL)}
 %\description
-%   Write the region to a file. If no region is defined, write the buffer.
+%   Write the region to a temporary file. If no region is defined, 
+%   write the buffer.
 %   If \var{delete} != 0, delete the region/buffer after writing.
 %   If \var{base} == NULL (default), the buffer-name is taken as basename
-%   Return the filename.
+%   If the \var{base} is not absolute, the file is written to the
+%   \var{Jed_Temp_Dir}.
+%   
+%   Return the full filename.
 %   
 %   The temporary file will be deleted at exit of jed (if the calling 
 %   function doesnot delete it earlier).
@@ -534,13 +552,34 @@ add_to_hook("_jed_exit_hooks", &delete_temp_files);
 %    * pipe_region() only takes input but outputs to stdout, but
 %    * shell_cmd_on_region() uses bufsubfile() and run_shell_cmd() for 
 %      bidirectioal interaction
-%\seealso{system, run_shell_cmd, shell_cmd_on_region, pipe_region}
+%\seealso{system, run_shell_cmd, shell_cmd_on_region, pipe_region, Jed_Temp_Dir}
 %!%-
 define bufsubfile() % (delete=0, base=NULL)
 {
    variable filename, i, i_max=1000, delete, base, extension;
    (delete, base) = push_defaults(0, NULL, _NARGS);
    push_spot ();
+   
+   % % just return the filename if this will do
+   %   --> saves some ressources, but introduces an inconsistency:
+   %       What happens, if a command called on the file changes
+   %       the (assumed temporary) file??
+   % if (base != NULL)
+   %   base = expand_filename(base);
+   % if (andelse{buffer_filename() == ""}
+   % 	{not(is_visible_mark())}
+   % 	{not(buffer_modified())}
+   % 	{base == NULL or base == path_basename(buffer_filename())}
+   %    )
+   %   {
+   % 	if (delete) {
+   % 	   !if (is_visible_mark)
+   % 	     mark_buffer();
+   % 	   del_region();
+   % 	}
+   % 	return buffer_filename();
+   %   }
+   % % else write to temp file and return filename
    !if (is_visible_mark)
      mark_buffer();
    if (delete)
@@ -563,10 +602,10 @@ define bufsubfile() % (delete=0, base=NULL)
    if (delete)
      del_region();
    % delete the file at exit
-   Temp_Files += "\n" + filename;
+   Bufsubfile_Temp_Files += "\n" + filename;
    pop_spot();
    
-   % show("bufsubfile:", filename, Temp_Files);
+   % show("bufsubfile:", filename, Bufsubfile_Temp_Files);
    return filename;
 }
 

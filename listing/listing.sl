@@ -4,18 +4,21 @@
 % Copyright (c) 2003 Dino Sangoi, Günter Milde
 % Released under the terms of the GNU General Public License (ver. 2 or later)
 % 
-% Version 0.1   Dino Sangoi   first version
-% 	  0.9   Günter Milde
-%               * "outsourcing" of the linklist datatype
-%               * Tags list is now buffer-local
-%         0.9.1 * Tags list implemented as array
-%         0.9.2 * Use array_map for most mappings
-%               * introduced the scope-argument
-%         0.9.3 * Mode menu, more keybindings
-%             	* new functions: edit, listing_list_tags
-%         0.9.4 * replaced use of obsolete function array_concat
-%         0.9.5 * optional argument "default" for get_confirmation()
-
+% Version    0.1   Dino Sangoi   first version
+% 	     0.9   Günter Milde
+%                  * "outsourcing" of the linklist datatype
+%                  * Tags list is now buffer-local
+%            0.9.1 * Tags list implemented as array
+%            0.9.2 * Use array_map for most mappings
+%                  * introduced the scope-argument
+%            0.9.3 * Mode menu, more keybindings
+%                	* new functions: edit, listing_list_tags
+%            0.9.4 * replaced use of obsolete function array_concat
+%            0.9.5 * optional argument "default" for get_confirmation()
+% 2004-02-05 0.9.6 * bugfix: listing_mode no longer tries to delete
+%                    empty lines (P. Boekholt)
+% 2005-03-31 1.9.7 * made slang-2 proof: A[[0:-2]] --> A[[:-2]]   
+%                    
 % TODO:  * Shift-Click tags from point to Mousepoint
 %          may be also: right-drag tags lines
 %        
@@ -245,7 +248,7 @@ static define tag_all() % (how = 1)
      }
    while (down_1());
    if (how) 
-     set_blocal_var(tags[[0:i-1]], "Tags");
+     set_blocal_var(tags[[:i-1]], "Tags");
    else
      set_blocal_var(Mark_Type[0], "Tags");
      
@@ -306,7 +309,7 @@ static define edit()
 %
 %\seealso{listing_mode, tag, list_tags}
 %!%-
-public define listing_map() % (scope, fun, [args])
+ public define listing_map() % (scope, fun, [args])
 {
    % get arguments
    variable scope, fun, args, buf = whatbuf();
@@ -362,7 +365,7 @@ public define listing_map() % (scope, fun, [args])
 %  For a discussion of the scope parameter see \var{listing_map}
 %\seealso{listing_map, listing_mode, tag, tags_length}
 %!%-
-public define listing_list_tags() % (scope=2, untag=0)
+ public define listing_list_tags() % (scope=2, untag=0)
 {
    variable scope, untag;
    (scope, untag) = push_defaults(2, 0, _NARGS);
@@ -412,12 +415,12 @@ static define listing_menu (menu)
 
 public define listing_mode ()
 {
-   % delete last empty line
-   push_spot();
-   eob();
-   if (bolp and  eolp)
-     call("backward_delete_char");
-   pop_spot();
+   % % delete last empty line
+   % push_spot();
+   % eob();
+   % if (bolp and  eolp)
+   %   call("backward_delete_char");
+   % pop_spot();
    
    set_buffer_modified_flag (0); % so delbuf doesnot ask whether to save first
    set_readonly(1);
