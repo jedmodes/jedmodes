@@ -15,10 +15,12 @@
 %          http://www.w3.org/Addressing/schemes.html
 %          
 % % Versions:
-% 1.0   first pubic version
-% 1.1   outsourced the definition of services to the services.sl file
-%       (for faster startup)
-%       added the provide("uri")
+% 1.0             first pubic version
+% 1.1             outsourced the definition of services to the services.sl 
+% 		  file (for faster startup)
+%       	  added the provide("uri")
+% 1.2  2004-11-25 bugfix: find_uri returned a value if the uri did not 
+%      		  contain a scheme: part
 % 
 % USAGE:
 % 
@@ -28,24 +30,24 @@
 %     autoload("find_uri", "uri");
 %     autoload("write_uri", "uri");    
 %   
-%   either bind to keys of your choice or use rebind from bufutils.sl
+%   bind to keys of your choice or use rebind from bufutils.sl
 %     rebind("find_file", "find_uri");
 %     rebind("save_buffer", "write_uri");
 %  
 % * if you want find_file and related functions to be URI-aware
 %   (e.g. to be able to start jed with 'jed locate:foo.sl')
-%     require("uri");
+%     autoload("find_uri_hook", "uri");
+%     autoload("write_uri_hook", "uri");    
 %     add_to_hook("_jed_write_region_hooks", &write_uri_hook);
 %     add_to_hook("_jed_find_file_before_hooks", &find_uri_hook);
-%   or (to check other write|find-file-hoos first)  
+%   or (to check other write|find-file-hooks first)  
 %     append_to_hook("_jed_write_region_hooks", &write_uri_hook);
 %     append_to_hook("_jed_find_file_before_hooks", &find_uri_hook);
 %     
-% Problem: 
-%   Currently, a relative filename is expanded before passing 
+%   Problem: Currently, a relative filename is expanded before passing 
 %   it to the _jed_find_file_before_hooks, with the sideeffect of 
-%   "http://jedmodes.sf.net" becoming "/jedmodes.sf.net"
-%   -> also with the hooks, find_file will not work for http|ftp :-(
+%   "http://host.domain" becoming "/host.domain"
+%   -> find_file doesnot work for http/ftp, 
 %
 %   If you want to be able to start jed with e.g.
 %      jed http://jedmodes.sf.net/mode/uri/
@@ -117,6 +119,7 @@ define find_uri_hook(uri)
 {
    variable scheme, path;
    (scheme, path) = parse_uri(uri);
+   % show("find_uri_hook", scheme, path);
    % call a scheme_uri_hook with the path argument
    return run_function(scheme + "_uri_hook", path);
 }
@@ -134,10 +137,16 @@ define find_uri_hook(uri)
 %   If no matching <scheme>_uri_hook is found, a warning message is given.
 %   If the argument doesnot contain a colon (i.e. is no URI), it is assumed 
 %   to be a filename and handed to find_file().
+%
+%\notes
+%   find_uri() does not return a value, so it can be bound to a key easily.
 %   
+%   While the intrinsic find_file returns an integer (success or not), 
+%   the internal find_file (as called from setkey()) has no return value.
+%         
 %\seealso{find_uri_hook, find_file, run_function, runhooks}
 %!%-
-define find_uri() % (uri=ask)
+public define find_uri() % (uri=ask)
 {
    variable uri;
    if (_NARGS)
@@ -149,7 +158,7 @@ define find_uri() % (uri=ask)
      message("No scheme found to open URI " + uri);
    % fallback
    !if(is_substr(uri, ":"))
-     find_file(uri);
+     () = find_file(uri);
 }
 
 
@@ -169,8 +178,9 @@ define write_uri_hook(uri)
 {
    variable scheme, path;
    (scheme, path) = parse_uri(uri);
-   % show("save", scheme, path);
+   % show("write_uri_hook", uri, scheme, path);
    % call scheme_write_uri_hook with the path argument
+   % show("run_function", scheme + "_write_uri_hook", path);
    return run_function(scheme + "_write_uri_hook", path);
 }
 
@@ -182,7 +192,7 @@ define write_uri_hook(uri)
 %  Analogon to find_uri.
 %\seealso{find_uri_hook, write_region, write_region_to_file}
 %!%-
-define write_uri() % (uri=ask)
+public define write_uri() % (uri=ask)
 {
    variable uri;
    if (_NARGS)
