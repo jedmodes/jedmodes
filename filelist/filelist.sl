@@ -25,6 +25,7 @@
 %                     (empty) directories. (PB)
 % 2004-07-07  1.0 * if a file ends in .gz, check for another extension
 % 2004-10-11  1.1 * bugfix in filelist_list_base_dir()
+% 2004-11-22  1.2 * FileList_Trash_Bin now defaults to "" (delete files)
 %
 % TODO: * more bindings of actions: filelist_cua_bindings
 % 	* detailed directory listing (ls -l)
@@ -94,8 +95,9 @@ custom_variable("FileList_Cleanup", 1);
 custom_variable("FileList_max_window_size", 1.0);  % my default is full screen
 
 % A directory, where deleted files are moved to.
-% Set \verb{variable FileList_Trash_Bin = ""} if you want real deleting.
-custom_variable("FileList_Trash_Bin", "~/Desktop/Trash/");
+% The default "" means real deleting. KDE users might want to set this to
+% "~/Desktop/Trash"
+custom_variable("FileList_Trash_Bin", "");
 if (FileList_Trash_Bin != "")
    FileList_Trash_Bin = expand_filename(FileList_Trash_Bin);
 % note: the Trash_Bin will be checked for existence in filelist_delete_tagged,
