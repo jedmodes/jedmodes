@@ -3,7 +3,7 @@
 % Versions
 %   1 May 1994       Adrian Savage (afs@jumper.mcc.ac.uk)
 %              	     Extensively modified by JED
-%   2.0 2003-05-01   rewrite by G.Milde <g.milde@web.de>
+%   2.0 2003-05-01   rewrite by G.Milde <g.milde web.de>
 %        	     added support for scanning in a list of buffers
 %   2.1 	     added customizability
 %   2.2      	     look at last finding first
@@ -19,6 +19,10 @@
 %                    (hints by J. E. Davis)
 %   2.4.1 2004-03-30 new custom var Dabbrev_Case_Search
 %   	  	     added documentation for custom vars and get_buflist
+%   2.4.2 2004-04-05 bugfix (code cleanup) in check_mark.
+%   	  	     dabbrev accepts integer argument and uses get_buflist
+%   	  	     to convert to a buffer list. (actual change in dab_reset)
+%   	  	     get_buflist becomes static
 %
 % USAGE:
 % Put in path und bind to a key, e.g.
@@ -94,7 +98,6 @@ custom_variable("Dabbrev_Look_in_Folds", 1);
 %\usage{Int_Type Dabbrev_Case_Search = 1}
 %\description
 %  Should dabbrev consider the case of words when looking for expansions?
-%  Will be overridden by a blocal variable "Dabbrev_Case_Search".
 %\seealso{dabbrev}
 %!%-
 custom_variable("Dabbrev_Case_Search", 1);
@@ -134,7 +137,7 @@ static variable
 %#v-
 %\seealso{dabbrev, Dabbrev_Default_Buflist}
 %!%-
-public define get_buflist(scope)
+static define get_buflist(scope)
 {
    !if(scope)
      return whatbuf;
@@ -165,8 +168,8 @@ static define check_mark(markp)
    ERROR_BLOCK
      {
 	@markp = create_user_mark();
-	"";
 	_clear_error;
+	return;
      }
    () = (@markp).buffer_name; % dummy call to test mark validity
 }
@@ -214,7 +217,11 @@ static define dab_reset() % (buflist = whatbuf())
 {
    % List of buffers to scan for completions
    if (_NARGS)
-     BufList =();
+     {
+	BufList = ();
+	if (typeof(BufList) != String_Type)
+	  BufList = get_buflist(BufList);
+     }
    else
      {
 	variable buflist_scope = prefix_argument(-1);
@@ -257,10 +264,7 @@ static define dab_search()
 {
    variable found;
    variable old_case_search = CASE_SEARCH;
-   if (blocal_var_exists("Dabbrev_Case_Search"))
-     CASE_SEARCH = get_blocal_var("Dabbrev_Case_Search");
-   else
-     CASE_SEARCH = Dabbrev_Case_Search;
+   CASE_SEARCH = Dabbrev_Case_Search;
    ERROR_BLOCK {CASE_SEARCH = old_case_search;}
    do
      {
