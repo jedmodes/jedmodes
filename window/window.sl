@@ -4,6 +4,20 @@
 % Released under the terms of the GNU General Public License (ver. 2 or later)
 % 
 
+
+%!%+
+%\variable{WindowInfo_Type}
+%\synopsis{struct WindowInfo_Type}
+%\usage{list = @WindowInfo_Type}
+%\description
+% A linked list that describes each window.
+% 
+% The head element describes the screen (the biggest window). 
+% Each 'line' of the screen represents a window.
+% 
+% The following elements describe the windows in top-down order.
+% The minibuffer is not included in the list.
+%!%-
 !if (is_defined ("WindowInfo_Type"))
 {
    typedef struct
@@ -95,7 +109,47 @@ define select_prev_window()
    for (i = nwindows() - 1; i > 0; i--) otherwindow();
 }
 
+%!%+
+%\function{select_window}
+%\synopsis{Select the nth. window from top}
+%\usage{}
+%\description
+% Select the nth. window from top. 
+% The top window is #1.
+% 
+% \seealso{what_window, nwindows}
+%!%-
+define select_window(n)
+{
+   if (n < 1) n = 1;
+   n = (n - 1) mod nwindows();
+   select_top_window();
+   loop(n) otherwindow();
+}
 
+%!%+
+%\function{what_window}
+%\synopsis{Return the number of the current window}
+%\usage{Integer_Type what_window()}
+%\description
+% Return the number of the current window. Windows are numbered
+% from 1 to nwindows(). The top window is #1.
+% 
+% \seealso{select_window, nwindows}
+%!%-
+define what_window()
+{
+   variable curwin = window_info('t');
+   variable n = 1;
+   select_top_window();
+   while (window_info('t') != curwin)
+   {
+      otherwindow();
+      n++;
+   }
+   
+   return n;
+}
 
 %!%+
 %\function{save_windows}
@@ -113,11 +167,16 @@ define save_windows ()
    variable curwin = window_info('t');
    variable list, pwin;
 
-   select_top_window();
+   % Save screen
    list = @WindowInfo_Type;
-
+   list.height = SCREEN_HEIGHT;
+   list.line = what_window();
+   list.next = @WindowInfo_Type;
+   
+   select_top_window();
+   
    % Save first window
-   pwin = list;
+   pwin = list.next;
    pwin.next = NULL;
    pwin.height = window_info('r');
    pwin.buffer = whatbuf();
@@ -171,11 +230,16 @@ define save_windows ()
 define restore_windows(list)
 {
    if (list == NULL) return;
+   if (list.next == NULL)
+   {
+      onewindow();
+      return;
+   }
    
    variable pwin;
    variable i, diff;
    
-   pwin = list;
+   pwin = list.next;
 
    % create all windows
    onewindow();
@@ -191,7 +255,7 @@ define restore_windows(list)
 
    % restore window state
    select_top_window();
-   pwin = list;
+   pwin = list.next;
    
    while (pwin != NULL)
    {
@@ -209,6 +273,9 @@ define restore_windows(list)
       otherwindow();
       pwin = pwin.next;
    }
+   
+   % Restore active window
+   select_window(list.line);
 }
 
 %!%+
@@ -499,5 +566,7 @@ define Test()
 Test();
 
 #endif
- 
+
+vmessage("%d", what_window());
+
 provide("window");
