@@ -6,7 +6,7 @@
 % Version:
 % 1.0.1. by Guido Gonzato, <ggonza@tin.it>
 %
-% 2.0    by Guenter Milde <g.milde@web.de>
+% 2.0    by Guenter Milde <g.milde web.de>
 %        *  Use a circular array -> no hidden recent buffer
 %        *  Save to file only at exit -> less writing
 %        *  Save last cursor position when saving a file
@@ -42,6 +42,8 @@
 %           (renamed Local_Recent_List to Recent_Use_Local_Cache)
 %        *  new menu option "Clear Cache"
 %        *  empty cache files will be deleted (if permitted)
+% 3.1    2005-03-34
+%        *  made slang-2 proof: A[[0:-2]] --> A[[:-2]] (P. Boekholt)
 %
 % USAGE:
 %
@@ -61,13 +63,12 @@
 % TODO: proper (tm) documentation of public functions and variables
 %       think about synchronizing for different jed runs
 
-_debug_info=1;
+% _debug_info=1;
 
 implements("recent");
 
 autoload("what_line_if_wide", "sl_utils");
 autoload("contract_filename", "sl_utils");
-autoload("fold_open_fold", "folding");  % standard library function
 autoload("buffer_dirname", "bufutils");
 autoload("strread_file", "bufutils");
 
@@ -95,7 +96,7 @@ custom_variable("Recent_Max_Cached_Files", 15);
 % Give a regexp pattern that is matched to the full filename.
 custom_variable("Recent_Files_Exclude_Pattern", "/tmp");
 
-% Do you want to reopen the buffers that where open the last session?
+% Do you want to reopen the buffers that were open the last session?
 %    0 no, 
 %    1 yes, 
 %    2 only files in working directory, 
@@ -134,7 +135,7 @@ static define get_entry_filename(entry)
    if (length(entry) < 4) % Backwards compatibility / error save ...
      return strjoin(entry,":");
    else
-     return strjoin(entry[[0:-4]],":");
+     return strjoin(entry[[:-4]],":");
 }
 
 % Return the recent files as an array (last saved file first)
@@ -152,7 +153,7 @@ static define parse_cache_entry(entry)
    if (length(entry) < 4) % Backwards compatibility / error save ...
      return [strjoin(entry,":"),""];
    else
-     return [strjoin(entry[[0:-4]],":"), strjoin(entry[[-3:]],":")];
+     return [strjoin(entry[[:-4]],":"), strjoin(entry[[-3:]],":")];
 }
 
 % load a file from the recent_files_cache list and goto right position
@@ -168,9 +169,12 @@ public define recent_load_file(filemark)
    goto_line(integer(flags[0]));
    () = goto_column_best_try(integer(flags[1]));
    % open folds
-   loop(count_narrows) % while (is_line_hidden) might cause an infinite loop!
-     if(is_line_hidden)
-       fold_open_fold();
+   loop(10) % while (is_line_hidden) might cause an infinite loop!
+     {
+	!if(is_line_hidden) 
+	  break;
+	runhooks("fold_open_fold");
+     }
 }
 
 % reopen the files that were open in the last exited session of jed
@@ -193,7 +197,7 @@ static define restore_session()
 
 % Return a cache entry for the current buffer (see getbuf_info)
 % (empty string if file matches Exclude Pattern or no file 
-% associated to buffer)
+% associated with buffer)
 static define getbuf_filemark()
 {
    variable entry = buffer_filename(); 
