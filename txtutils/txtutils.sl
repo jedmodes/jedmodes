@@ -1,26 +1,24 @@
 % Tools for text processing (marking, string processing, formatting)
-% Günter Milde <g.milde at web.de>
+% Günter Milde <g.milde web.de>
 %
-% Version 2.0  * get_word(), bget_word() now "region aware"
-%              * new functions mark_line(), get_line(), autoinsert()
-%              * bugfix for indent_region_or_line() (used to leave stuff
-%                on stack)
-%         2.1  * mark_word(), bmark_word() test for buffer local variable
-%                "Word_Chars" (using get_blocal from sl_utils.sl)
-%         2.2  May 2003
-%              * removed indent_region_or_line() (now in cuamisc.sl)
-%              * changed mark_/get_word: added 2nd opt arg skip
-%                           -1 skip backward, if not in a word
-%                            0 don't skip
-%                            1 skip forward, if not in a word
-%                Attention: get_word now returns last word, if the point is
-%                just behind a word (that is the normal way jed treats 
-%                word boundaries)
+% VERSIONS
+%  2.0             * get_word(), bget_word() now "region aware"
+%                  * new functions mark_line(), get_line(), autoinsert()
+%                  * bugfix for indent_region_or_line() (used to leave stuff
+%                    on stack)
+%  2.1      	   * mark_word(), bmark_word() test for buffer local variable
+%                    "Word_Chars" (using get_blocal from sl_utils.sl)
+%  2.2  2003-11    * removed indent_region_or_line() (now in cuamisc.sl)
+%                  * changed mark_/get_word: added 2nd opt arg skip
+%                               -1 skip backward, if not in a word
+%                                0 don't skip
+%                                1 skip forward, if not in a word
+%                    Attention: get_word now returns last word, if the point is
+%                    just behind a word (that is the normal way jed treats 
+%                    word boundaries)
+%  2.3  2004-11-24 * New function insert_markup(beg_tag, end_tag)
 
-% debug information, comment these out when ready
-_debug_info = 1;
-_traceback=1;
-
+% _debug_info = 1;
 
 % --- Requirements ---
 
@@ -29,15 +27,24 @@ autoload("push_defaults", "sl_utils");
 
 %--- marking and regions ---------------------------------------------
 
-% Mark a word.
-% Get the idea of what a word is made of from
-%   the optional argument,
-%   the blocal variable "Word_Chars" or
-%   get_word_chars().
-% If the second argument defaults to zero, it means
+
+%!%+
+%\function{mark_word}
+%\synopsis{Mark a word}
+%\usage{ mark_word([word_chars], skip=0)}
+%\description
+% Mark a word as region. 
+% Get the idea of the characters a word is made of from either
+%    * the optional argument,
+%    * the blocal variable "Word_Chars" or
+%    * get_word_chars().
+% The second (optional) argument can have the values
 %   -1 skip backward, if not in a word
 %    0 don't skip
 %    1 skip forward, if not in a word
+% It defaults to zero.
+%\seealso{mark_line, get_word, bget_word}
+%!%-
 public define mark_word() % ([word_chars], skip=0)
 {
    variable word_chars, skip;
@@ -164,7 +171,8 @@ public define number_lines ()
    pop_spot;
 }
 
-% Insert the content of the first line into a rectangle defined by point and mark
+% Insert the content of the first line into a rectangle defined by 
+% point and mark
 public define autoinsert()
 {
    () = dupmark();
@@ -183,5 +191,42 @@ public define autoinsert()
      }
    widen;
 }
+
+%!%+
+%\function{insert_markup}
+%\synopsis{Insert markup around region or work}
+%\usage{Void insert_markup(Str beg_tag, Str end_tag)}
+%\description
+%   Inserts beg_tag and end_tag around the region or current word.
+%\example
+%  Marking a region and 
+%#v+
+%   insert_markup("<b>", "</b>");
+%#v-
+%  will highlight the word as bold in html, while
+%#v+
+%   insert_markup("{\textbf{", "}");
+%#v-
+%  will do the same for LaTeX.
+%\seealso{mark_word,}
+%!%-
+define insert_markup(beg_tag, end_tag)
+{
+   !if (is_visible_mark)
+     mark_word ();
+   variable region = bufsubstr_delete();
+   insert(beg_tag + region);
+   push_spot();
+   insert(end_tag);
+   pop_spot();
+}
+
+define insert_block_markup(beg_tag, end_tag)
+{ 
+   () = dupmark();
+   insert_markup(beg_tag, end_tag);
+   indent_region_or_line();
+}
+
 
 provide("txtutils");
