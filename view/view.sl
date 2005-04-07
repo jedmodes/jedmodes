@@ -6,6 +6,7 @@
 % Versions: 
 %            1.0 first public release
 % 2005-04-05 1.1 merge of GM and PB versions, bugfix in enable edit
+% 2005-04-07 1.2 bugfix: added require("keydefs") (Rafael Laboissiere)
 %
 % CUSTOMIZATION
 % 
@@ -31,6 +32,8 @@ autoload("set_help_message", "bufutils");
 autoload("help_message", "bufutils");
 autoload("close_and_insert_word", "bufutils");
 autoload("close_and_replace_word", "bufutils");
+
+require("keydefs");  % in stadandard library but not loaded by all emulations
 
 % customization
 % Ask before going to edit mode?
