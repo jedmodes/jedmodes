@@ -1,8 +1,9 @@
 % Ding dictionary lookup
 % inspired by the tcl/tk program "ding" for german-english translation
 % Günter Milde <g.milde web.de>
-% Version 0.8   first draft
-% Version 1     Adapted to the new format of the ding dictionary
+% Version    0.8   first draft
+% Version    1     Adapted to the new format of the ding dictionary
+% 2005-04-07 1.1   bugfix: added missing autoloads
 % 
 % REQUIREMENTS
 % * A bilingual wordlist in ASCII format (e.g. the one that comes
@@ -36,7 +37,11 @@ _debug_info = 1;
 % give it a name
 static variable mode = "ding";
 
-implements(mode);
+if (_featurep(mode))
+  use_namespace(mode);
+else
+  implements(mode);
+provide(mode);
 
 % --- requirements ---
 
@@ -50,7 +55,10 @@ autoload("popup_buffer", "bufutils");
 autoload("close_and_insert_word", "bufutils");
 autoload("close_and_replace_word", "bufutils");
 autoload("get_word", "txtutils");
+autoload("bget_word", "txtutils");
 autoload("array", "datutils");
+autoload("get_table", "csvutils");
+autoload("insert_table", "csvutils");
 
 % --- custom variables
 
@@ -331,4 +339,3 @@ define ding_mode()
    message(help_string);
 }
 
-provide(mode);
