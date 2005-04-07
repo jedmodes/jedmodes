@@ -58,8 +58,10 @@
 % 1.5.3 2004-09-17
 %     * bugfix: do not set blocal_var run_buffer, as this will not work with
 %               push_mode()/pop_mode()
-% 1.6   20004-11-30
+% 1.6   2004-11-30
 %     * added new optional argument "postfile_args" to shell_cmd_on_region
+% 1.6.1 2005-04-07
+%     * bugfix: autoload for view_mode
 %
 % USAGE ishell()              opens a shell in a buffer on its own
 %  	ishell_mode([cmd])    attaches an interactive process to the
@@ -107,6 +109,7 @@ autoload("get_blocal", "sl_utils");
 autoload("push_defaults", "sl_utils");
 autoload("run_blocal_hook", "bufutils");
 autoload("bufsubfile", "bufutils");
+autoload("view_mode", "view");
 % autoload("strbreak", "strutils");
 
 % ------------------ custom variables ---------------------------------
@@ -123,7 +126,7 @@ custom_variable("Ishell_default_output_placement", ">");
 custom_variable("Ishell_logout_string", ""); % default is Ctrl-D
 
 % maximal size for resizing the ishell output buffer (if external)
-custom_variable("Ishell_Max_Popup_Size", 5);
+custom_variable("Ishell_Max_Popup_Size", 10);
 
 % the default shell and interactive-shell:
 %
@@ -173,7 +176,7 @@ static define initialize_process_handle()
 }
 
 % send region or current line to attached process
-define ishell_send_input ()
+define ishell_send_input()
 {
    variable str, handle = get_blocal_var("Ishell_Handle");
    push_spot();
@@ -521,7 +524,21 @@ public define filter_region() % (cmd=NULL)
    shell_cmd_on_region(2);
 }
 
-public define shell_cmd2string(cmd)
+
+%!%+
+%\function{shell_cmd2string}
+%\synopsis{Rund a shell cmd and return the output}
+%\usage{String shell_cmd2string(String cmd)}
+%\description
+%   Rund a shell cmd and return the output as a string.
+%\example
+%#v+
+%   insert(shell_cmd2string(date));
+%#v-
+%   woult insert the current date as returned by the `date` command
+%\seealso{run_shell_cmd, shell_cmd_on_region}
+%!%-
+define shell_cmd2string(cmd)
 {
    variable status, output, buf = whatbuf(), outbuf = "*scratch*";
 
