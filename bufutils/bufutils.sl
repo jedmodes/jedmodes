@@ -36,8 +36,8 @@
 %	  	   bufsubfile() take a second optional argument `base`
 % 2005-03-31 1.7.1 made slang-2 proof: A[[0:-2]] --> A[[:-2]]
 % 2005-04-01 1.8   fast strread_file() (Paul Boekholt)
-% 2005-04-01 1.8.1 bug workaround in strread_file: made preparsing proof
-
+% 2005-04-08 1.8.1 made preparse-proof 
+% 	     	   "#if (_slang_version < 2000)" cannot be preparsed
 % _debug_info = 1;
 
 % --- Requirements ----------------------------------------------------
@@ -503,10 +503,10 @@ define strread_file(name)
    variable fp = fopen(name, "r"), str;
    if (fp == NULL)
      verror ("Failed to open \"%s\"", name);
-#ifexists _slang_utf8_ok
-   if (-1 == fread(&str, Char_Type, size_limit, fp))
-#else
+#ifexists _slang_utf8_ok   % slang 2
    if (-1 == fread_bytes(&str, size_limit, fp))
+#else
+   if (-1 == fread(&str, Char_Type, size_limit, fp))
 #endif
      error("could not read file");
    !if (feof(fp)) 
