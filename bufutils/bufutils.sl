@@ -36,6 +36,9 @@
 %	  	   bufsubfile() take a second optional argument `base`
 % 2005-03-31 1.7.1 made slang-2 proof: A[[0:-2]] --> A[[:-2]]
 % 2005-04-01 1.8   fast strread_file() (Paul Boekholt)
+% 2005-04-01 1.8.1 bug workaround in strread_file: made preparsing proof
+
+% _debug_info = 1;
 
 % --- Requirements ----------------------------------------------------
 
@@ -55,11 +58,11 @@ variable Help_Message = Assoc_Type[String_Type, "no help available"];
 
 % Convert the modename to a canonic form (the donwcased first part)
 % This can be used for mode-dependend help, variables, ...
-define normalized_modename() % (mode=get_mode_name)
+define normalized_modename() % (mode=get_mode_name())
 {
    variable mode;
    mode = push_defaults(get_mode_name, _NARGS);
-   mode = extract_element (mode, 0, ' ');
+   mode = extract_element(mode, 0, ' ');
    if (mode == "")
      mode = "no";
    return strlow (mode);
@@ -68,8 +71,12 @@ define normalized_modename() % (mode=get_mode_name)
 % Set the mode-dependend string with help (e.g. on keybindings)
 define set_help_message() % (str, mode=normalized_modename())
 {
-   variable str, mode;
-   (str, mode) = push_defaults( , normalized_modename(), _NARGS);
+   variable str, mode; % optional argument
+   if (_NARGS == 2)
+     mode = ();
+   else
+     mode = normalized_modename();
+   str = ();
    Help_Message[mode] = str;
 }
 
@@ -269,6 +276,8 @@ define close_other_buffer ()
 }
 
 % Close buffer, insert current word in calling buffer
+% This doesnot always work, as it is generally undefined which buffer will
+% be active after closing a buffer.
 define close_and_insert_word()
 {
    variable word = get_word();
@@ -277,6 +286,8 @@ define close_and_insert_word()
 }
 
 % Close buffer, replace current word in calling buffer with current word
+% This doesnot always work, as it is generally undefined which buffer will
+% be active after closing a buffer.
 define close_and_replace_word()
 {
    variable word = get_word();
@@ -321,7 +332,7 @@ define popup_close_buffer_hook(buf)
 	     % resize popup windows
 	     fit_window(get_blocal("is_popup", 0));
 	  }
-	otherwindow();
+	% otherwindow();
 %         variable calling_buf = get_blocal("calling_buf", "");
 %    if (bufferp(calling_buf))
 %      sw2buf(calling_buf);
@@ -358,9 +369,8 @@ define popup_buffer() % (buf, max_rows = Max_Popup_Size)
    variable buf, max_rows;
    (buf, max_rows) = push_defaults(whatbuf(), Max_Popup_Size, _NARGS);
 
-   variable replaced_buf,
+   variable replaced_buf, calling_buf = whatbuf(),
      open_windows = nwindows - MINIBUFFER_ACTIVE;
-   %   variable calling_buf = whatbuf();
    % Open/go_to the buffer, store the replaced buffers name
    replaced_buf = pop2buf_whatbuf(buf);
    % find out if we can savely fit the window
@@ -372,10 +382,9 @@ define popup_buffer() % (buf, max_rows = Max_Popup_Size)
 	sw2buf(buf);
      }
    define_blocal_var("is_popup", max_rows);
-   define_blocal_var ("replaced_buf", replaced_buf);
    define_blocal_var("close_buffer_hook", &popup_close_buffer_hook);
-   %    if(get_blocal("calling_buf", whatbuf) != whatbuf)
-   %       define_blocal_var ("calling_buf", calling_buf);
+   if(replaced_buf != whatbuf())
+     define_blocal_var ("replaced_buf", replaced_buf);
 }
 
 % --- push_keymap/pop_keymap --- (turn on/off a minor mode) ----------------
@@ -463,7 +472,7 @@ define buffer_dirname()
 %\notes
 % To get rid of the newlines, you can do 
 %#v+
-% strchop(strread_file(name), '\n', 0);
+%  result = array_map(String_Type, &strtrim_end, arrayread_file(name), "\n");
 %#v-
 %\seealso{strread_file, fgetslines}
 %!%-
@@ -489,11 +498,12 @@ define arrayread_file(name)
 %!%-
 define strread_file(name)
 {
+   % return strjoin(arrayread_file(name), "");
    variable size_limit = 5000000; % this should be a custom var
    variable fp = fopen(name, "r"), str;
    if (fp == NULL)
      verror ("Failed to open \"%s\"", name);
-#if (_slang_version < 20000)
+#ifexists _slang_utf8_ok
    if (-1 == fread(&str, Char_Type, size_limit, fp))
 #else
    if (-1 == fread_bytes(&str, size_limit, fp))
@@ -652,6 +662,5 @@ public define untab_buffer ()
    untab ();
    pop_spot();
 }
-
 
 provide("bufutils");
