@@ -1,33 +1,92 @@
 % --- Formatted info about variable values ---
 % 
-% Copyright (c) 2003 Günter Milde, released without any warranty under
-% the terms of the GNU General Public License (version 2 or later).
+% Copyright (c) 2003 Günter Milde
+% Released under the terms of the GNU General Public License (ver. 2 or later)
+% 
+% Provides the function sprint_variable() that can handle complex variables 
+% such as arrays, associative arrays, and structures.
+%
+% USAGE
+% 
+% Place in your jed library path and do things like
+% message(sprint_variable([1, 2, 3, 5]));
+% 
+% NOTES
+%
+% The latest snapshot of slang 2 has a print.sl library file that does many
+% of the things sprint_var.sl does:
+% 
+% print.sl		sprint_var.sl
+% ========		=============
+% struct_to_string	sprint_struct
+% print_array		sprint_array
+% print			sprint_variable
+%
+%
+% VERSIONS
+% 1.0             first public version
+% 1.1 2005-04-20  print user defined data types as struct 
+%     		  (test with is_struct_type that also works for structures of
+%     		   types other than Struct_Type)
+%     		  added tm documentation
+
 
 autoload("array_product", "datutils");
 autoload("array_repeat", "datutils");
 
-% How much shall a listing indent?
-% indendation per step (give as literal string of spaces!)
+%!%+
+%\variable{Sprint_Indent}
+%\synopsis{Indendation string used by sprint_variable() for complex variables}
+%\usage{String_Type Sprint_Indent = "   "}
+%\description
+% How much shall a sub-list be indented in a variable listing with
+% \var{sprint_variable}?
+% 
+% Set as literal string of spaces.
+%\seealso{sprint_variable}
+%!%-
 custom_variable("Sprint_Indent", "   ");
 
 % newline + absolute indendation (used/set by sprint_...)
 static variable Sprint_NL = "\n";
 
-% a more verbose variant of string(var) that recurses into elements
-% of compound data types
+% dummy definition
+define sprint_struct() {}
+
+%!%+
+%\function{sprint_variable}
+%\synopsis{Print a variable to a string (verbosely)}
+%\usage{String_Type sprint_variable(var)}
+%\description
+% A more verbose variant of \var{string} that recurses into elements
+% of compound data types.
+%\notes
+% The latest snapshot of slang 2 has a print.sl library file that does many
+% of the things sprint_var.sl does:
+% 
+% print.sl		sprint_var.sl
+% ========		=============
+% struct_to_string	sprint_struct
+% print_array		sprint_array
+% print			sprint_variable
+%\seealso{show, shoe_message, Sprint_Indent, print}
+%!%-
 public define sprint_variable(var)
 {
-   variable str, type, sprint_hook;
+   variable type, sprint_hook;
    type = extract_element(string(typeof(var)), 0, '_');
    sprint_hook = __get_reference("sprint_"+strlow(type));
    if (sprint_hook != NULL)
      {
         % show_string("printing using sprint_"+strlow(type));
-	str = @sprint_hook(var);
+	return @sprint_hook(var);
      }
-   else
-     str = string(var);
-   return(str);
+   
+   % Test for user defined types (struct-like)
+   if (is_struct_type(var))
+     return sprint_struct(var);
+
+   return string(var);
 }
 
 % Return a 1d array of indices for multidim-array with dimensions dims
@@ -115,7 +174,7 @@ define sprint_struct(s)
    foreach (get_struct_field_names(s))
      {
 	field = ();
-	value = get_struct_field (s, field);
+	value = get_struct_field(s, field);
 	str += Sprint_NL + "." + field + "\t" + sprint_variable(value);
      }
    Sprint_NL = Sprint_NL[[:-1-strlen(Sprint_Indent)]];
