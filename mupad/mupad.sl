@@ -1,16 +1,21 @@
-%  mupad.sl			-*- SLang -*-
+% Mode for editing Mupad files. 
+% (MuPad is a computer algebra system, see http://www.mupad.de)
+% 
+% Copyright (c) 2003 Günter Milde
+% Released under the terms of the GNU General Public License (ver. 2 or later)
 %
-%  This file provides a mode for editing Mupad files.
-%
-%  Based on Guido Gonzatos matlab.sl  <guido@ibogeo.df.unibo.it>
-%  Very simple, but it works.
-%  Last updated: 19 May 1999
+% Based on Guido Gonzatos matlab.sl  <guido@ibogeo.df.unibo.it>
+% Enables interactive work using ishell.sl
+%  
+% 19 May 1999 first public version
+% 2005-04-25  bugfix to work with SLang2  (report Jörg Sommer)
 
 % requirements
 require("comments");
-autoload ("do_shell_cmd_on_region", "ishell.sl");
+autoload ("ishell_send_input", "ishell.sl");
 autoload ("ishell_mode", "ishell.sl");
 
+  
 static variable modename = "Mupad";
 
 custom_variable ("Mupad_Command", "mupad");
@@ -115,7 +120,8 @@ define mupad_indent ()
   bol_skip_white ();
   ch = char(what_char());
   bol_trim ();
-  insert_spaces (goal--, goal);
+  goal--;
+  insert_spaces (goal);
   pop_spot ();
   skip_white ();
 
@@ -136,11 +142,26 @@ define mupad_newline ()
 }
 
 % interactive MuPad session with the actual document as template
-
 define mupad_shell ()
 {
    ishell_mode(Mupad_Command);
-   set_mode("ishell (MuPAD)", 4);
+}
+
+define mupad_help()
+{
+   !if(is_substr(get_mode_name(), "ishell"))
+     error("Currently help only works in mupad-shell mode");
+
+   variable topic = "";
+   if (_NARGS)
+     topic = ();
+   
+   if (topic == "")
+     topic = read_mini("Gnuplot Help for: ", "", "");
+   
+   set_blocal_var("o", "IShell_output_placement");
+   % closing NL needed by send_process
+   send_process(get_blocal_var("IShell_Id"), "?" + topic + "\n");
 }
 
 % --- the mode dependend menu
@@ -149,12 +170,12 @@ static define init_menu (menu)
 {
 %   menu_append_item (menu, "&Evaluate Region/Buffer", "mupad_run");
    menu_append_item (menu, "Mupad &Shell", "mupad_shell");
-%   menu_append_item (menu, "Mupad &Help", "mupad_help");
+   menu_append_item (menu, "Mupad &Help", "mupad_help");
 
 }
 
 % --- keybindings
-!if (keymap_p (modename)) make_keymap (modename);
+%!if (keymap_p (modename)) make_keymap (modename);
 % TODO
 
 %!%+
@@ -166,17 +187,20 @@ static define init_menu (menu)
 % Mupad language files.  
 % Hooks: \var{mupad_mode_hook}
 %!%-
-define mupad_mode ()
+public define mupad_mode ()
 {
-  set_mode(modename, 2);
-  use_keymap(modename);
-  use_syntax_table (modename);
-  set_buffer_hook ("indent_hook", "mupad_indent");
-  set_buffer_hook ("newline_indent_hook", "mupad_newline");
-  mode_set_mode_info (modename, "init_mode_menu", &init_menu);
-  run_mode_hooks("mupad_mode_hook");
+   set_mode(modename, 2);
+%   use_keymap(modename);
+   use_syntax_table (modename);
+   set_buffer_hook ("indent_hook", "mupad_indent");
+   set_buffer_hook ("newline_indent_hook", "mupad_newline");
+   mode_set_mode_info (modename, "init_mode_menu", &init_menu);
+   define_blocal_var("help_for_word_hook", "mupad_help");
+   run_mode_hooks("mupad_mode_hook");
 }
 
 provide("mupad");
+
+
 
 % --- End of file mupad.sl ---
