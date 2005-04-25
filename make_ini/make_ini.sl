@@ -35,20 +35,22 @@
 % 	         * look for a <INITIALIZATION> </INITIALIZATION> block
 % 	           Use this for custom initialization code (menu addings, etc)
 % 	           If such a block is found, no search for functions is done!
-% 2005-03-18 2.3 * bugfix: documentation comments did not work.
-%                          list_slang_files() did only work, if 
-%                          dir == current working dir (report Dino Sangoi)
-%                          "%" in vinsert needs to be doubled (Dino Sangoi)
-%                  removed the need for a chdir() alltogether.
-%                  removed make_libfun_doc() (now in tm.sl as tm_make_ascii_doc())
-% _debug_info=1;
+% 2005-03-18 2.3 * bugfixes: list_slang_files() did only work, if 
+%                            dir == current working dir (report Dino Sangoi)
+%                            "%" in vinsert needs to be doubled (Dino Sangoi)
+%                            documentation comments did not work
+%                  removed the need for a chdir() alltogether
+% 2005-03-31 2.4 * windows bugfix: quote backslashes in add_autoload_fun() (Dino)
+% 	         * bugfix in list_slang_files(): skip jed lock files
+% 2005-04-01 2.5 * cleanup in make_ini_look_for_functions(): do not insert
+% 	     	   library path in autoload commands
+% 2005-04-07 2.6 * provide add_completion commands (with Make_ini_Add_Completions)
+% 2005-04-25 2.7 * bugfix: added missing autoload for push_array()
+
+_debug_info=1;
 
 autoload("get_word", "txtutils");
-if(expand_jedlib_file("tm.sl") != "")
-  autoload("tm_make_ascii_doc", "tm.sl");
-else
-  variable Make_ini_Extract_Documentation = 0;
-
+autoload("push_array", "sl_utils");
 
 % --- Settings -----------------------------------------------------------
 
@@ -122,7 +124,21 @@ custom_variable("Make_ini_Exclusion_List", ["ini.sl"]);
 %\seealso{}
 %!%-
 custom_variable("Make_ini_Extract_Documentation", 1);
+if(expand_jedlib_file("tm.sl") != "")
+  autoload("tm_parse_file", "tm.sl");
+else
+  Make_ini_Extract_Documentation = 0;
 
+
+%!%+
+%\variable{Make_ini_Add_Completions}
+%\synopsis{Insert add_completion commands into ini.sl}
+%\usage{Int_Type Make_ini_Add_Completions = 0}
+%\description
+%  Should make_ini() insert add_completion commands into ini.sl?
+%\seealso{Make_ini_Bytecompile, Make_ini_Extract_Documentation, Make_ini_Verbose}
+%!%-
+custom_variable("Make_ini_Add_Completions", 0);
 
 % valid chars in function and variable definitions
 static variable Slang_word = "A-Za-z0-9_";
@@ -132,14 +148,13 @@ static variable Tm_Doc_File = "libfuns.txt";
 
 % --- functions ---------------------------------------------------
 
-static define add_autoload_fun(mode)
+static define _get_function_name()
 {
+   variable str, fun;
    !if (ffind("define"))
      return "";
    skip_word();
-   variable fun = get_word(Slang_word, 1);
-   variable str = sprintf("\"%s\", \"%s\";\n", fun, mode);
-   return str;
+   return get_word(Slang_word, 1);  % (Slang_word, skip=True)
 }
 
 %!%+
@@ -179,7 +194,7 @@ static define add_autoload_fun(mode)
 define make_ini_look_for_functions(file)
 {
    variable str = "",
-     funs = "", no_of_funs,
+     funs = "", no_of_funs, funs_n_files,
      named_namespace = 0,
      currbuf = whatbuf();
 
@@ -191,6 +206,16 @@ define make_ini_look_for_functions(file)
    erase_buffer(); % paranoia
    () = insert_file(file);
    set_buffer_modified_flag(0);
+   
+   % if `file' is in the jed-library-path, remove the library-path from it
+   variable dir, libdirs = strchop(get_jed_library_path, ',' , 0);
+   libdirs = libdirs[where(libdirs != ".")]; % filter the current dir
+   foreach (libdirs)
+     {
+	dir = ();
+	if (is_substr(file, dir) == 1)
+	  file = file[[strlen(dir)+1:]];
+     }
 
    % global comment
    bob();
@@ -211,9 +236,7 @@ define make_ini_look_for_functions(file)
        }
    % find out if the mode defines/uses a namespace
    bob();
-   if (andelse{bol_fsearch("implements")}
-	{bol_fsearch("use_namespace")}
-      )
+   if (andelse{bol_fsearch("implements")} {bol_fsearch("use_namespace")})
      {
 	named_namespace = 1;
         str += "% private namespace: " + line_as_string + "\n";
@@ -242,17 +265,29 @@ define make_ini_look_for_functions(file)
 	% 1. explicitly public definitions
 	if (Make_ini_Scope)
 	  while (bol_fsearch("public define "))
-	    funs += add_autoload_fun(file);
+	    funs += _get_function_name() + "\n";
 	bob;
 	% 2. "normal" (i.e. unspecified) definitions
 	if (Make_ini_Scope - named_namespace > 1)
 	  while (bol_fsearch("define "))
-	    funs += add_autoload_fun(file);
-	
-	no_of_funs = length(strtok(funs, "\n")); 
-	% (strchop would return an empty element because of the trailing \n)
+	    funs += _get_function_name() + "\n";
+	% convert to Array 
+	% (strchop would append an empty element because of the trailing \n)
+	funs = strtok(funs, "\n");
+	no_of_funs = length(funs); 
 	if (no_of_funs)
-	  str += funs + sprintf("_autoload(%d);\n", no_of_funs);
+	  {
+	     funs = "\"" + funs + "\"";
+	     funs_n_files = funs + sprintf(", \"%s\";", 
+					   str_quote_string(file, "", '\\'));
+	     % autoloads
+	     str += strjoin(funs_n_files, "\n") 
+	       + sprintf("\n_autoload(%d);\n", no_of_funs);
+	     % add_completions
+	     if (Make_ini_Add_Completions)
+	     str += "\n" + strjoin(funs, ";\n") 
+		 + sprintf(";\n_add_completion(%d);\n", no_of_funs);
+	  }
      }
    % cleanup
    delbuf(Parsing_Buffer);
@@ -262,23 +297,23 @@ define make_ini_look_for_functions(file)
 
 static define list_slang_files(dir)
 {
-   variable ex, files = listdir(dir);
+   variable xfile, files = listdir(dir);
    % Skip files that are  no slang-source (test for extension ".sl")
    files = files[where(array_map(String_Type, &path_extname, files) == ".sl")];
+   % Skip jed lock files
+   files = files[where(array_map(Integer_Type, &is_substr, files, ".#") != 1)];
    % Skip files from the exclusion list
    foreach (Make_ini_Exclusion_List)
      {
-	ex = ();
-	files = files[where(files != ex)];
+	xfile = ();
+	files = files[where(files != xfile)];
      }
-   % array_map on an empty arry will error anyway, so give a more
-   % informative error message
+   % array_map() on an empty arry will error anyway. 
+   % Give a more informative error message
    !if (length(files))
      verror("no SLang files found in %s", dir);
    % Prepend the directory to the path
    files = array_map(String_Type, &path_concat, dir, files);
-   % Skip unaccessible files
-   files = files[where(array_map(Int_Type, &file_status, files) == 1)];
    % Sort alphabetically and return
    return files[array_sort(files)];
 }
@@ -326,11 +361,44 @@ public define make_ini() % ([dir])
      {
 	file = ();
 	% show(file, file_type(file), file_status(file));
-	insert("\n% " + file + "\n");
+	insert("\n% " + path_basename(file) + "\n");
 	make_ini_look_for_functions(file);
      }
 }
 
+%!%+
+%\function{make_libfun_doc}
+%\synopsis{Write tm documentation in dir to "libfuns.txt"}
+%\usage{ make_libfun_doc([dir])}
+%\description
+%  Extract tm documentation for all Slang files in \var{dir}, 
+%  convert to ascii format and write to file "libfuns.txt".
+%\notes
+%  requires tm.sl (jedmodes.sf.net/mode/tm/) 
+%\seealso{update_ini, Make_ini_Extract_Documentation}
+%!%-
+public define make_libfun_doc() % ([dir])
+{
+   !if (is_defined("tm_view"))
+     error("make_libfun_doc needs a current version of tm.sl");
+   % get optional argument
+   variable dir;
+   if (_NARGS)
+     dir = ();
+   else
+     {
+	(, dir, , ) = getbuf_info (); % default
+	dir = read_file_from_mini("Extract tm Documentation from dir:");
+     }
+   
+   variable buf = whatbuf(), files = list_slang_files(dir);
+   % extract tm documentation blocks 
+   runhooks("tm_view", push_array(files));
+   % there is no associated filename to the buffer
+   () = write_buffer(path_concat(dir, Tm_Doc_File));
+   delbuf(whatbuf);
+   sw2buf(buf);
+}
 
 %!%+
 %\function{update_ini}
@@ -368,13 +436,8 @@ public define update_ini() % (directory=buffer_dir())
      }
    % extract the documentation and put in file libfuns.txt
    if(Make_ini_Extract_Documentation)
-     {
-	runhooks("tm_make_ascii_doc", path_concat(dir, "*.sl"));
-	% there is no associated filename to the buffer
-	() = write_buffer(path_concat(dir, Tm_Doc_File));
-	delbuf(whatbuf);
-     }
-   setbuf(buf);
+	make_libfun_doc(dir);
+   sw2buf(buf);
    message("update_ini completed");
 }
 
