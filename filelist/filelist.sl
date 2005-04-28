@@ -23,36 +23,54 @@
 %                 * new functions for regexp-rename, tar and grep bindings
 % 2004-02-19  0.9.4 * bugfix: filelist_delete_file now deletes also
 %                     (empty) directories. (PB)
-% 2004-07-07  1.0 * if a file ends in .gz, check for another extension
-% 2004-10-11  1.1 * bugfix in filelist_list_base_dir()
-% 2004-11-22  1.2 * FileList_Trash_Bin now defaults to "" (delete files)
+% 2004-07-07  1.0   if a file ends in .gz, check for another extension
+% 2004-10-11  1.1   bugfix in filelist_list_base_dir()
+% 2004-11-22  1.2   FileList_Trash_Bin now defaults to "" (delete files)
+% 2005-03-18  1.2.1 added definition of filelist_find_file_hook() (was in doc)
+% 2005-04-28  1.3   moved definition and call of filelist_find_file_hook() to
+% 	      	    INITALIZATION block, i.e. with make_ini and home-lib
+% 	      	    modes you will have this hook as default.
+% 	      	    bugfix: extract_line_no gave error with filenames like
+% 	      	    	    00debian.sl.
 %
 % TODO: * more bindings of actions: filelist_cua_bindings
 % 	* detailed directory listing (ls -l)
-% 	* transparent working with floppies under Unix ("a:" in path
-% 	  triggers mount, action, unmount)?
 % 	* quoting of special file names
 % 	* give error reason with errno/errno_string (if not automatically done)
 %
 % USAGE:
 % * Place filelist.sl, listing.sl and bufutils.sl in your library path.
+
 % * Use filelist_list_dir() to open a directory in the "jed-file-manager"
-% * If you intend to use the filelist-mode regularely:
-%   - either bind filelist_list_dir() to a key, or insert the following into
-%     your .jedrc/jed.rc to automatically open a file as filelist, if it
-%     is a directory.
-%
-% public define filelist_find_file_hook(filename)
-% {
-%    if (file_status(filename) == 2)
-%      {
-% 	filelist_list_dir(filename);
-% 	return 1; % abort hook chain, do not use the function actually called
-%      }
-%    return 0;  % try other hooks or use opening function
-% }
-% append_to_hook("_jed_find_file_before_hooks",
-%                  &filelist_find_file_hook);
+
+% * To make file finding functions list the directory contents 
+%   if called with a directory path as argument (instead of reporting an 
+%   error), insert the INITALIZATION block into your .jedrc (or jed.rc)
+%   (or use the "make_ini" and "home-lib" modes from jedmodes.sf.net)
+
+#iffalse %<INITIALIZATION>
+"filelist_list_dir", "filelist.sl";
+"filelist_mode", "filelist.sl";
+"locate", "filelist.sl";
+_autoload(3);
+_add_completion("locate", "filelist_mode", 2);
+
+define filelist_find_file_hook(filename)
+{
+   if (file_status(filename) == 2)
+     {
+	filelist_list_dir(filename);
+	return 1; % abort hook chain, do not use the function actually called
+     }
+   return 0;  % try other hooks or use opening function
+}
+append_to_hook("_jed_find_file_before_hooks",
+	       &filelist_find_file_hook);
+
+#endif %</INITIALIZATION>
+
+_debug_info = 1;
+
 
 % --- Requirements ------------------------------------------------------
 
@@ -64,16 +82,22 @@ _autoload("get_blocal", "sl_utils",
 	  "buffer_dirname", "bufutils",
 	  "close_buffer", "bufutils",
 	  "popup_buffer", "bufutils",
+	  "string_get_match", "strutils",
 	  "grep", "grep",
-	  "string_get_match", "strutils", 9);
-_autoload("filelist_do_rename_regexp", "filelistmsc",
-	  "filelist_do_tar", "filelistmsc", 2);
-% autoload("format_table", "csvutils"); % depends on bufutils, datutils
+	  9);
+% optional extensions
+if(strlen(expand_jedlib_file("filelistmsc")))
+  _autoload("filelist_do_rename_regexp", "filelistmsc",
+	    "filelist_do_tar", "filelistmsc", 2);
 
 % --- Declare modename and namespace -------------------------------------
 %
-implements("filelist");
 static variable mode = "filelist";
+if (_featurep(mode))
+  use_namespace(mode);
+else
+  implements(mode);
+provide(mode);
 
 % --- Custom Variables ----------------------------------------------------
 
@@ -183,12 +207,16 @@ static define list_tagged_files() % (scope, untag)
 % Extract the line number out of a string (with position given as blocal-var)
 static define extract_line_no(str)
 {
-   variable np = get_blocal("line_no_position", 0);
-   variable delimiter = get_blocal("delimiter", ' ');
-   variable a = strchop(str, delimiter, 0);
-   if (length(a) >= np) % be safe
-     return integer(a[np]);
-   return 0;
+   variable np = get_blocal("line_no_position", -1);
+   variable nr_str = extract_element(str, np, get_blocal("delimiter", ' '));
+   if (nr_str == NULL)
+     return 0;
+   ERROR_BLOCK 
+     {
+	_clear_error();
+	return 0;
+     }
+   return integer(nr_str);
 }
 
 % Move file/files
@@ -298,7 +326,7 @@ static define filelist_delete_file(line)
 }
 
 % listing of files in dir
-public define filelist_list_dir() % ([dir], ls_cmd="listdir")
+ public define filelist_list_dir() % ([dir], ls_cmd="listdir")
 {
    % get optional arguments
    variable dir, ls_cmd;
@@ -417,7 +445,7 @@ public define filelist_list_dir() % ([dir], ls_cmd="listdir")
    cmd = FileList_Default_Commands[extension];
    if (ask)
      cmd = read_mini(sprintf("Open %s with (Leave empty to open with jed):",
-			     filename), "", cmd);
+			     filename), cmd, "");
 
    !if (strlen(cmd))
      return filelist_open_file();
@@ -469,6 +497,7 @@ static define mc_bindings()
    definekey("filelist_open_file_with(0)", "^M",    mode); % Return
    undefinekey("^S", mode);
    definekey("isearch_forward", 	   "^S",    mode);
+   % show("call set_help_message", "1Help...", mode);
    set_help_message(
      "1Help 2Menu 3View 4Edit 5Copy 6RenMov 7Mkdir 8Delete 9PullDn 10Quit",
 		    mode);
@@ -543,6 +572,8 @@ public define filelist_mode()
    help_message();
 }
 
+% ---------------------------------------------------------------------------
+
 % listing of the result of a locate search
 public define locate() % (what=<Ask>)
 {
@@ -576,5 +607,3 @@ public define locate() % (what=<Ask>)
    set_status_line("locate:" + what + " (%p)", 0);
    define_blocal_var("generating_function", [_function_name, what]);
 }
-
-provide(mode);
