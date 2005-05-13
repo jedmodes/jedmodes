@@ -32,6 +32,9 @@
 % 	      	    modes you will have this hook as default.
 % 	      	    bugfix: extract_line_no gave error with filenames like
 % 	      	    	    00debian.sl.
+% 2005-05-13  1.3.1 filelist_open_file_with() now checks whether the file is
+%                   a directory and (calls filelist_list_dir in this case)
+%                   Thus, a directory ".lyx" will not be opened as a lyx file
 %
 % TODO: * more bindings of actions: filelist_cua_bindings
 % 	* detailed directory listing (ls -l)
@@ -439,9 +442,13 @@ static define filelist_delete_file(line)
 
    filename = extract_filename(listing_list_tags(0)[0]);
    extension = path_extname(filename);
-   % some programmes can handle gzipped files for themselves
-   if (extension == ".gz")
+   if (extension == ".gz") % some programs can handle gzipped files
      extension = path_extname(path_sans_extname(filename)) + extension;
+   
+   % check for directory
+   if (file_status(filename) == 2) 
+     return filelist_list_dir(filename);
+   
    cmd = FileList_Default_Commands[extension];
    if (ask)
      cmd = read_mini(sprintf("Open %s with (Leave empty to open with jed):",
