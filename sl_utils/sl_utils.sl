@@ -3,19 +3,21 @@
 % Copyright (c) 2003 Günter Milde
 % Released under the terms of the GNU General Public License (ver. 2 or later)
 % 
-% Version 1.0 first public release
-%         1.1 new: max(), contract_filename()
-%         1.2 new: normalize_modename(), what_line_if_wide()
-%         1.3 backwards compatibility: emulate run_program() if not existent
-%             (works only in xjed)
-%         1.3.1 2004-03-22 
-%         	bugfix in contract_filename() error if  HOME 
-%         	environment variable is missing (report Thomas Koeckritz)
-%         1.3.2 removed max(), as it contradicts the intrinsic max() definition
-%               (which resembles array_max() from datutils.sl)
+% Version    1.0   first public release
+%            1.1   new: max(), contract_filename()
+%            1.2   new: normalize_modename(), what_line_if_wide()
+%            1.3   backwards compatibility: emulate run_program() if not 
+%                  existent (works only in xjed)
+% 2004-03-22 1.3.1 bugfix in contract_filename() error if  HOME 
+%                  environment variable is missing (report Thomas Koeckritz)
+%            1.3.2 removed max(), as it contradicts the intrinsic max() 
+%                  definition (which resembles array_max() from datutils.sl)
+% 2005-04-11 1.4   new function prompt_for_argument()
+%                  added provide("sl_utils")
+%            1.5   new function _implements(): implement a "named" namespace
+                 but allow re-evaluation if `_debug_info` is TRUE
 
 
-% Comment this out and set _traceback to 1, to chase down bugs
 % _debug_info = 1;
 
 %!%+
@@ -40,12 +42,12 @@
 %   fun(1, 2)    %  --> (1, 2, *scratch*)
 %   fun(1, 2, 3) %  --> (1, 2, 3, 4)
 % but  
-%   fun()	 %  --> (NULL, d2, *scratch*)  !!compulsory arg missing!!
+%   fun()        %  --> (NULL, d2, *scratch*)  !!compulsory arg missing!!
 %   fun(1, , )   %  --> (1, NULL, NULL)  !!empty args replaced with NULL!!
 %\notes
-% Remember, not to forget the _NARGS argument!
+% Do not forget the _NARGS argument!
 % The arguments to push_default will always be evaluated. If time is an issue,
-% use rather a construct like
+% rather use a construct like
 %#v+
 % define fun() % (a=time_consuming_fun())
 % {
@@ -58,12 +60,57 @@
 % 
 %\seealso{__push_args, __pop_args, _NARGS }
 %!%-
-public define push_defaults() % args, n
+define push_defaults() % args, n
 {
    variable n = ();
    variable args = __pop_args(_NARGS-1);
    __push_args(args[[n:]]);
 }
+
+
+%!%+
+%\function{prompt_for_argument}
+%\synopsis{Prompt for an optional argument if it is not given.}
+%\usage{Str prompt_for_argument(Ref prompt_function, [args], Int use_stack)}
+%\description
+%  This function facilitates the definition of function with optional
+%  arguments.
+%  
+%  The first argument is a prompt function (e.g. \var{read_mini} or
+%  \var{read_with_completion}, followed by its arguments and the
+%  \var{use_stack} argument.
+%  
+%  If \var{use_stack} is non-zero, this function simply returns and
+%  the calling code picks up the top element from stack.
+%  Otherwise, \var{prompt_function} is called with the given arguments
+%  (except when the minibuffer is already active, in which case an error
+%  is risen).
+%\example
+%#v+
+%  define prompt_for_message() % ([str])
+%  {
+%     variable str = prompt_for_argument(&read_mini, 
+%                                        "Message:", "", "", _NARGS);
+%     message(str);
+%  }
+%#v-
+%\seealso{push_defaults, _NARGS, read_mini, read_with_completion}
+%!%-
+define prompt_for_argument() % (fun, [args], use_stack)
+{
+   variable use_stack = ();
+   variable args = __pop_args(_NARGS-2);
+   variable fun = ();
+   if (use_stack)
+     return;  % argument is already on stack
+   else
+     {
+        if (MINIBUFFER_ACTIVE) % cannot use minibuffer for prompting
+          error("missing argument");
+        return @fun(__push_args(args));
+     }
+}
+
 
 %!%+
 %\function{push_array}
@@ -82,14 +129,14 @@ public define push_defaults() % args, n
 %   in order to get type-independend behaviour.
 %\seealso{array, pop2array, __push_args, __pop_args}
 %!%-
-public define push_array(a)
+define push_array(a)
 {
    if (_typeof(a) == Any_Type)
-	foreach (a)
-	     if (dup == NULL)
-	       ();
-	     else
-	      @();
+        foreach (a)
+             if (dup == NULL)
+               ();
+             else
+              @();
    else
      foreach (a)
        ();
@@ -136,10 +183,10 @@ define get_blocal() % (name, default=NULL)
 %#v+
 %
 %    !if (run_function("foo"))
-% 	message("\"foo\" is not defined");
-% 	
+%       message("\"foo\" is not defined");
+%       
 %    !if (run_function(&foo))
-% 	message("\"foo\" is not defined");
+%       message("\"foo\" is not defined");
 %#v-
 %\notes
 % If fun is (solely) an internal function, the optional arguments will
@@ -152,18 +199,18 @@ define run_function()  % (fun, [args])
    variable fun = ();
    if (typeof(fun) == String_Type)
      {
-	if (is_defined(fun) > 0)
-	  fun = __get_reference(fun);
-	else if (is_internal(fun))
-	  {
-	     call(fun);
-	     return 1;
-	  }
+        if (is_defined(fun) > 0)
+          fun = __get_reference(fun);
+        else if (is_internal(fun))
+          {
+             call(fun);
+             return 1;
+          }
      }
    if (typeof(fun) == Ref_Type)
      {
-	@fun(__push_args(args));
-	return 1;
+        @fun(__push_args(args));
+        return 1;
      }
    return 0;
 }
@@ -183,7 +230,7 @@ define run_function()  % (fun, [args])
 %  * If the path starts with the home-dir, replace it with "~".
 %\seealso{expand_filename}
 %!%-
-public define contract_filename() % (file, cwd=getcwd())
+define contract_filename() % (file, cwd=getcwd())
 {
    variable file, cwd;
    (file, cwd) = push_defaults( , getcwd(), _NARGS);
@@ -195,15 +242,15 @@ public define contract_filename() % (file, cwd=getcwd())
    % or replace HOME with ~
    else if (andelse{home != NULL}{strlen(home)})
      {
-	home = path_concat(home, ""); % ensure home has a trailing dirsep
-	if (is_substr(file, home) == 1)
-	  file = path_concat("~", file[[strlen(home):]]);
+        home = path_concat(home, ""); % ensure home has a trailing dirsep
+        if (is_substr(file, home) == 1)
+          file = path_concat("~", file[[strlen(home):]]);
      }
    return file;
 }
 
 % when a buffer is folded what_line may give the false number
-public define what_line_if_wide ()
+define what_line_if_wide ()
 {
   if (count_narrows ())
     {
@@ -217,12 +264,9 @@ public define what_line_if_wide ()
 }
 
 % backwards-compatibility 
-% (Check for version: exit occures first in jed 0.99.16, as well as 
-% run_program. However, when preprocessing with make_ini, this file 
-% might be already evaluated and hence run_program defined...)
-#ifnexists exit
+#ifnexists exit % (_jed_version < 9916)
 custom_variable ("XTerm_Pgm", "xterm");
-define run_program (s)
+define run_program(s)
 {
    !if (getenv("DISPLAY") != NULL) % assume X-Windows running
      error("this emulation of run_program only works under X");
@@ -230,3 +274,17 @@ define run_program (s)
    return system (sprintf ("%s -e %s &", XTerm_Pgm, s));
 }
 #endif
+
+define _implements(name)
+{
+   if (_featurep(name) and _debug_info)
+     use_namespace(name);
+   else
+     {
+        implements(name);
+        provide(name);
+     }
+}
+
+
+provide("sl_utils");
