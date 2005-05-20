@@ -28,20 +28,10 @@
 % }  
 % 
 % Optionally change custom variables
-
  
 
-% debug information, comment these out when ready
+% debug information, uncomment to locate errors
 _debug_info = 1;
-
-% give it a name
-static variable mode = "ding";
-
-if (_featurep(mode))
-  use_namespace(mode);
-else
-  implements(mode);
-provide(mode);
 
 % --- requirements ---
 
@@ -59,6 +49,11 @@ autoload("bget_word", "txtutils");
 autoload("array", "datutils");
 autoload("get_table", "csvutils");
 autoload("insert_table", "csvutils");
+autoload("_implements", "sl_utils");
+
+% --- set up namespace
+private variable mode = "ding";
+_implements(mode);
 
 % --- custom variables
 

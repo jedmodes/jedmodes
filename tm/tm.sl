@@ -32,16 +32,16 @@
 %
 %  TODO: let this work for tm-documented C-code too
 
+_debug_info=1;
+
 autoload("str_re_replace_all", "strutils");
 autoload("arrayread_file", "bufutils");
 autoload("get_lines", "csvutils");
 autoload("view_mode", "view");
+autoload("_implements", "sl_utils");
 
-if (_featurep("tm"))
-  use_namespace("tm");
-else
-  implements("tm");
-provide("tm");
+% set up namespace
+_implements("tm");
 
 static variable Tm_Doc_Buffer = "*tm doc*";
 
@@ -226,7 +226,8 @@ public define tm_view() % ([args])
 	% extract documentation blocks
 	variable blocks = tm_get_blocks(get_lines()+"\n");
 	% convert to ASCII
-	blocks = array_map(String_Type, &tm2ascii, blocks);
+	if (length(blocks))
+	  blocks = array_map(String_Type, &tm2ascii, blocks);
 	% insert
 	str = strjoin(blocks, "");
      }

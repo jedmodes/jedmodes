@@ -82,12 +82,13 @@ _autoload("get_blocal", "sl_utils",
 	  "run_function", "sl_utils",
 	  "push_defaults", "sl_utils",
 	  "push_array", "sl_utils",
+	  "_implements", "sl_utils",
 	  "buffer_dirname", "bufutils",
 	  "close_buffer", "bufutils",
 	  "popup_buffer", "bufutils",
 	  "string_get_match", "strutils",
 	  "grep", "grep",
-	  9);
+	  10);
 % optional extensions
 if(strlen(expand_jedlib_file("filelistmsc")))
   _autoload("filelist_do_rename_regexp", "filelistmsc",
@@ -95,12 +96,8 @@ if(strlen(expand_jedlib_file("filelistmsc")))
 
 % --- Declare modename and namespace -------------------------------------
 %
-static variable mode = "filelist";
-if (_featurep(mode))
-  use_namespace(mode);
-else
-  implements(mode);
-provide(mode);
+private variable mode = "filelist";
+_implements(mode);
 
 % --- Custom Variables ----------------------------------------------------
 

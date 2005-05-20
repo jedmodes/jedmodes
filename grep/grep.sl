@@ -47,10 +47,7 @@
 %       make it Windows-secure (filename might contain ":")
 
 % debug info, comment out once ready
-% _debug_info=1;
-
-% set up namespace
-implements("grep");
+_debug_info=1;
 
 % --- Requirements --------------------------------------------- %{{{
 % standard modes
@@ -63,8 +60,15 @@ autoload("close_buffer", "bufutils");
 autoload("buffer_dirname", "bufutils");
 autoload("rebind", "bufutils");
 autoload("contract_filename", "sl_utils");
+autoload("_implements", "sl_utils");
 autoload("get_word", "txtutils");
 %}}}
+
+
+% --- set up namespace
+private variable mode = "grep";
+_implements(mode);
+
 
 % --- Variables -------------------------------------------------%{{{
 
@@ -75,10 +79,8 @@ custom_variable("GrepCommand", "grep -nH"); % print filename and linenumbers
 static variable LAST_GREP = "";
 
 % Buffer opened by grep_replace
-static variable Replace_Buffer = "";
+private variable Replace_Buffer = "";
 
-% quasi constants
-static variable mode = "grep";
 %}}}
 
 % --- Replace across files ------------------------------------- %{{{
@@ -345,9 +347,11 @@ public define grep() % ([what], [files])
      { case 2:
 	message("Error (or file not found) in " + cmd);
      }
+   % remove empty last line (if present)
    if (bolp() and eolp())
      call("backward_delete_char");
    fit_window(get_blocal("is_popup", 0));
+   bob();
    set_status_line("Grep: " + cmd + " (%p)", 0);
    grep_mode();
 }

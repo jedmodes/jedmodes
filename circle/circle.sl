@@ -1,13 +1,35 @@
-% circle.sl: a ring of variables/circular array/closed array
+% circular array (i.e. array with periodic boundary conditions)
+% 
+% Copyright (c) 2005 Günter Milde
+% Released under the terms of the GNU General Public License (ver. 2 or later)
+%
+% Defines a new data type Circ_Type, a "circular" array with relational 
+% indexing via a set of functions. "Circular" (or cyclic, looped, closed) 
+% means that the first element is regarded the successor of the last element.
+% This can also be seen as a "periodic boundary condition".
+%
+% used by e.g. navigate.sl, help.sl and man.sl ("hyper-versions from Jedmodes)
+%
+% USAGE: just place in your jed library path
+% 
+% VERSIONS
+% 
+% 1.0    first public version
+% 1.1  2005-20-04 added copyright and leading documentation  
+%      		  removed the testing appendix (the new sprint_var.sl can
+%      		  handle user-defined data types)
+%      		  use the "standard way" of defining an array with type set 
+%      		  at run time in create_circ()
+
 
 %!%+
 %\variable{Circ_Type}
 %\synopsis{A "circular" array with relational indexing via a set of functions.}
 %\description
 %
-% "Circular" (or "cyclic", "looped", "closed") means that the first element 
-% counts as successor of the last element. This can also be seen as a 
-% periodic boundary condition (as known from crystal theory), 
+% "Circular" (or "cyclic", "looped", "closed") means that the first element
+% counts as successor of the last element. This can also be seen as a
+% periodic boundary condition (as known from crystal theory),
 % i.e. a circular array of size N looks like
 %
 %  .. N-2 N-1 0  1  2 .. N-2 N-1  0  1  2 .. N-2 N-1 0  1  2 .. N-2 N-1  0 ..
@@ -20,7 +42,7 @@
 %     String_Type .step_mode: the mode of relative indexing
 %
 % Indexing is done relative to the position of the pointer.
-% The pointer can be moved using the functions circ_fstep(arr), 
+% The pointer can be moved using the functions circ_fstep(arr),
 % circ_bstep(arr), and circ_step(arr, n), where
 % n might be negative - moving the pointer backwards (left in the above
 % picture).
@@ -52,7 +74,7 @@
 %
 %    		     If the pointer is at the last valid element, an attempt
 %    		     to step further will not move it but just issue a
-%    		     warning: 
+%    		     warning:
 %    		       "attempt to step past last/first valid entry"
 %    		     If the pointer is at the first valid element, an attempt
 %    		     to step further back will not move it but just issue a
@@ -84,42 +106,39 @@
 % the first item will fall of the stack if there are more pushes than levels.
 % Therefore, a circular array in linear mode is e.g. best suited for a
 % history stack with a limited number of stored positions/commands
-% 
+%
 % The dereference operator @ may be used to create an instance of the
 % circular array:
 %    variable a = @Circ_Type;
-% but typically one wants to initialize it as well, e.g.:   
+% but typically one wants to initialize it as well, e.g.:
 %    variable a = create_circ(Integer_Type, 30, "circle_all");
 %
 % \seealso{cicr_append, circ_get, circ_set}
 %!%-
-%#ifnexists Circ_Type  % this gives problems with precompilation
-typedef struct
-{
-   values,
-   pointer,
-   first,
-   last,
-   step_mode
-} Circ_Type;
-%#endif
-
+!if (_featurep("circle"))
+  typedef struct{
+     values,
+       pointer,
+       first,
+       last,
+       step_mode
+  } Circ_Type;
 
 %!%+
 %\function{create_circ}
 %\synopsis{Return an instance of a circular array}
 %\usage{Circ_Type create_circ(data_type, N, step_mode)}
 %\description
-%   Create an circular array of size N with elements of Data_Type_Type 
+%   Create an circular array of size N with elements of Data_Type_Type
 %   data_type.
 %   For an explanation of step_mode see Circ_Type.
-%   
+%
 %\seealso{Circ_Type, create_circ, cicr_append, circ_set, circ_get, circ_fstep, circ_next}
 %!%-
 define create_circ(type, N, step_mode)
 {
    variable circ = @Circ_Type;
-   circ.values = type[N];
+   circ.values = @Array_Type(type,[N]);
    circ.pointer = 0;
    % circ.first/last  % remain NULL until circ_append sets them
    circ.step_mode = step_mode;
@@ -128,17 +147,16 @@ define create_circ(type, N, step_mode)
 
 % --- "circular arithmetic" ---
 
-
 %!%+
 %\function{circ_add}
 %\synopsis{Add m and n, "fold" the result back to [0,...,N-1]}
 %\usage{Number circ_add(Number m, Number n, Integer N)}
 %\description
-%   circ_add does an "circular addition" of two numbers (Integer or Float). 
+%   circ_add does an "circular addition" of two numbers (Integer or Float).
 %   Use a negative number for b if you want a subtraction.
 %\seealso{Circ_Type,  , }
 %!%-
-public define circ_add(m, n, N)
+define circ_add(m, n, N)
 {
    variable sum;
    sum = (m + n) mod N;
@@ -217,12 +235,12 @@ define circ_step(var, n)
 %!%+
 %\function{circ_get}
 %\synopsis{Return the value [pointer+offset] of the circular array var}
-%\usage{Any_Type circ_get(Circ var, Int offset=0)}
+%\usage{value = circ_get(Circ var, Int offset=0)}
 %\description
-%   Get the value at the actual position (var.pointer) or (if the 
-%   optional argument is given) at pointer "+" offset 
+%   Get the value at the actual position (var.pointer) or (if the
+%   optional argument is given) at pointer "+" offset
 %   ("+" means "circular addition" according to var.step_mode).
-%   The return value is of course of the type defined by the creation of 
+%   The return value is of course of the type defined by the creation of
 %   var.
 %\seealso{Circ_Type, circ_set, circ_next, circ_previous}
 %!%-
@@ -233,7 +251,7 @@ define circ_get() % (var, offset=0)
    if (_NARGS == 2)
      offset = ();
    variable var = ();
-   
+
    variable value, p = var.pointer;    % save current position
    circ_step(var, offset);
    if (_typeof(var.values) == Any_Type)
@@ -244,19 +262,18 @@ define circ_get() % (var, offset=0)
    return(value);
 }
 
-
 %!%+
 %\function{circ_set}
 %\synopsis{Set the value [pointer+offset] of the circular array var}
-%\usage{Void circ_set(Circ var, Any_Type value, Int offset=0)}
+%\usage{Void circ_set(Circ var,  value, Int offset=0)}
 %\description
-%   Set the value at the actual position (var.pointer) or (if the 
-%   optional argument is given) at pointer "+" offset 
+%   Set the value at the actual position (var.pointer) or (if the
+%   optional argument is given) at pointer "+" offset
 %   ("+" means "circular addition" according to var.step_mode).
-%\note
+%\notes
 % circ_set does not use/affect the first-last pair, to change the range of
 % "valid entries" as well, use the functions circ_append or circ_insert
-%   
+%
 %\seealso{Circ_Type, circ_get, circ_append}
 %!%-
 define circ_set()  % circ_set(var, value, [offset = 0])
@@ -267,20 +284,19 @@ define circ_set()  % circ_set(var, value, [offset = 0])
      offset = ();
    variable value = ();
    variable var = ();
-   
+
    variable p = var.pointer;    % save current position
    circ_step(var, offset);
    var.values[var.pointer] = value;
    var.pointer = p;		% restore position
 }
 
-
 % just for conveniency, some often used combinations:
 
 %!%+
 %\function{circ_step_and_get}
 %\synopsis{Move the actual position n steps and return the value}
-%\usage{Any_Type circ_step_and_get(Circ var, Int n)}
+%\usage{value = circ_step_and_get(Circ var, Int n)}
 %\description
 %   Move the pointer to the actual position n steps and get the value
 %\seealso{Circ_Type, circ_step, circ_get, circ_next, circ_previous}
@@ -294,9 +310,9 @@ define circ_step_and_get(var, n)
 %!%+
 %\function{circ_next}
 %\synopsis{Move the actual position 1 step and return the value}
-%\usage{Any_Type circ_next(Circ var)}
+%\usage{value = circ_next(Circ var)}
 %\description
-%   Move the pointer to the actual position one step and return 
+%   Move the pointer to the actual position one step and return
 %   the value of var[pointer]
 %\seealso{Circ_Type, circ_step_and_get, circ_step, circ_get, circ_previous}
 %!%-
@@ -309,9 +325,9 @@ define circ_next(var)
 %!%+
 %\function{circ_previous}
 %\synopsis{Move the actual position 1 step back and return the value}
-%\usage{Any_Type circ_previous(Circ var)}
+%\usage{value = circ_previous(Circ var)}
 %\description
-%   Move the pointer to the actual position one step backwards and 
+%   Move the pointer to the actual position one step backwards and
 %   return the value of var[pointer]
 %\seealso{Circ_Type, circ_step, circ_get, circ_previous}
 %!%-
@@ -321,7 +337,6 @@ define circ_previous(var)
    return(circ_get(var));
 }
 
-
 %!%+
 %\function{circ_append}
 %\synopsis{Append the value to the actual position}
@@ -329,15 +344,15 @@ define circ_previous(var)
 %\description
 % Set the value at the actual positions successor (circling round the full
 % circle) and adjust the "range of valid entries" to end at this value.
-% 
+%
 % If the array is already full, the first entry will be overwritten.
-% 
-% The optional argument "at_end" tells circ_append to append the 
+%
+% The optional argument "at_end" tells circ_append to append the
 % value not to the current position but at the end of the array.
-% 
+%
 %\seealso{Circ_Type, circ_set, circ_get}
 %!%-
-public define circ_append() % circ_append(var, value, [at_end = 0])
+define circ_append() % circ_append(var, value, [at_end = 0])
 {
    % get arguments: last is top on stack
    variable at_end = 0;
@@ -345,8 +360,8 @@ public define circ_append() % circ_append(var, value, [at_end = 0])
      at_end = ();
    variable value = ();
    variable var = ();
-   
-   % if at_end is TRUE and list not empty: goto end of list 
+
+   % if at_end is TRUE and list not empty: goto end of list
    if (at_end and var.last != NULL)
      var.pointer = var.last;
    % append the value
@@ -356,9 +371,9 @@ public define circ_append() % circ_append(var, value, [at_end = 0])
    var.last = var.pointer;
    % two cases where we need to set .first
    if(var.first == NULL)                     % array empty
-     var.first = var.pointer;	             
-   else if(var.first == var.pointer)         % array full 
-     {		     		             
+     var.first = var.pointer;
+   else if(var.first == var.pointer)         % array full
+     {
 	var.first++;		             % -> increment .first
 	if (var.first == length(var.values))
 	  var.first = 0;
@@ -367,40 +382,39 @@ public define circ_append() % circ_append(var, value, [at_end = 0])
 
 % TODO circ_insert(var, value) insert value at position, "moving the others up"
 
-
 %!%+
 %\function{circ_delete}
 %\synopsis{remove current entry and let rest "close the gap"}
 %\usage{Void circ_delete(Circ var, offset=0)}
 %\description
 %   Remove the current entry from the range of valid entries.
-%   
+%
 %   If step-mode == circle_all or no valid entries: do nothing
 %   If pointer is at last position:
 %   * the value is not deleted, but var.last is decrememted to mark it as
 %     outside of the valid range. var.pointer is decremented as well
 %\seealso{Circ_Type, circ_append, circ_set}
 %!%-
-public define circ_delete() % (var, offset=0)
+define circ_delete() % (var, offset=0)
 {
    % get arguments
    variable offset = 0;
    if (_NARGS == 2)
      offset = ();
    variable var = ();
-   
+
    % no valid entries
-   if (var.first == NULL)  
-     return;	     	
+   if (var.first == NULL)
+     return;
    % just one valid entry
-   if (var.first == var.last) 
+   if (var.first == var.last)
      {
 	var.first = NULL; % \_ means: "NO VALID ENTRIES"
 	var.last = NULL;  % /
 	return;
      }
    % remember position
-   variable p = var.pointer;  
+   variable p = var.pointer;
    % consider offset (might abort due to errro with "linear" mode)
    circ_step(var, offset);
    % "delete": entries above the deleted slide one position down
@@ -413,11 +427,10 @@ public define circ_delete() % (var, offset=0)
    var.pointer = p;
    % make sure pointer stays on a valid value
    if (var.pointer == var.last)               % at last valid entry
-	circ_bstep(var); 
-   % decrement .last 
+	circ_bstep(var);
+   % decrement .last
    var.last = circ_add(var.last, -1,  length(var.values));
 }
-
 
 %!%+
 %\function{circ_length}
@@ -437,7 +450,6 @@ define circ_length(var)
    if (ve_length < 1) ve_length += length(var.values);
    return(ve_length);
 }
-
 
 %!%+
 %\function{circ_get_values}
@@ -488,28 +500,13 @@ define circ_get_values() % (var, direction = 1) % 1=forward, -1=backward
 %\synopsis{return an array with the valid values of var in reverse order}
 %\usage{Array circ_bget_values (Circ var)}
 %\description
-% return an ordinary array with the valid values 
+% return an ordinary array with the valid values
 % in reverse order
 %\seealso{circ_get_values}
 %!%-
 define circ_bget_values (var)
 {
    circ_get_values(var, -1);
-}
-
-% --------------- Testing ---------------------------------------------
-
-% requires the non-standard module debug.sl
-autoload("sprint_array", "debug");
-
-% write info about circular array to debug buffer
-define sprint_circ(var)
-{
-   variable str = sprint_array(circ_get_values(var));
-   str += ", pointer == " + string(var.pointer);
-   str += ", first == " + string(var.first);
-   str += ", last == " + string(var.last);
-   return(str);
 }
 
 provide("circle");

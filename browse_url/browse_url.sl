@@ -1,6 +1,6 @@
 % browse_url	-*- mode: Slang; mode: Fold -*-
 % 
-% $Id: browse_url.sl,v 1.1.1.1 2004/10/28 08:16:17 milde Exp $
+% $Id$
 % Keywords: WWW, processes, unix
 %
 % Copyright (c) 2003 Paul Boekholt, Günter Milde.
@@ -17,8 +17,16 @@
 %     downloading "complicated" URL (no negotiating with the server)
 %     that can be avoided by using a text moded browser with --dump
 
-implements("browse_url");
-% _debug_info=1;
+_debug_info=1;
+
+private variable mode = "browse_url";
+
+if (_featurep(mode))
+  use_namespace(mode);
+else
+  implements(mode);
+provide(mode);
+
 
 %{{{ finding the programs    
 % This should be in a separate library (say sl-utils?)
@@ -81,7 +89,7 @@ custom_variable("Browse_Url_Browser", find_program("links, lynx, w3m"));
 %\seealso{find_url, Browse_Url_Browser}
 %!%-
 custom_variable("Browse_Url_Download_Cmd", 
-   find_program("wget -O -, w3c -n, dog"));
+   find_program("wget --output-document=-, w3c -n, dog"));
 if (Browse_Url_Download_Cmd == "")
    Browse_Url_Download_Cmd = Browse_Url_Browser + " -source";
    
@@ -138,7 +146,7 @@ public define find_url() %(url=read_mini, cmd = Browse_Url_Download_Cmd)
 
    popup_buffer(url);
    erase_buffer;
-
+   flush(sprintf("calling %s %s", cmd, url));
    status = run_shell_cmd(sprintf("%s %s", cmd, url));
    if (status)
      {
@@ -171,6 +179,7 @@ public define view_url() %(url=read_mini, cmd= Browse_Url_Viewer)
    popup_buffer("*"+url+"*");
    erase_buffer;
 
+   flush(sprintf("calling %s %s", cmd, url));
    status = run_shell_cmd(sprintf("%s %s", cmd, url));
    if (status)
      {
@@ -193,14 +202,14 @@ public define view_url() %(url=read_mini, cmd= Browse_Url_Viewer)
 %   as background process in a separate window.
 %\seealso{browse_url, find_url, view_url, Browse_Url_X_Browser}
 %!%-
-public define browse_url_x() %(url, cmd=Browse_Url_X_Browser)
+ public define browse_url_x() %(url, cmd=Browse_Url_X_Browser)
 {
    variable status, url, cmd;
    (url, cmd) = push_defaults(, Browse_Url_X_Browser, _NARGS);
    if (url == NULL)  
      url = read_mini("url: ", "", "");
 
-   flush("calling " + cmd);
+   flush(sprintf("calling %s %s", cmd, url));
    cmd = strcat(cmd, " ", url);
 #ifdef UNIX
    cmd += " &> /dev/null &"; % run cmd in background
@@ -241,10 +250,10 @@ public define browse_url() %(url=read_mini, cmd=Browse_Url_Browser)
      }
    else
      {
+	flush(sprintf("calling %s %s", cmd, url));
 	status = run_program(sprintf("%s %s", cmd, url));
 	if (status)
 	  verror("%s returned %d, %s", cmd, status, errno_string(status));
      }
 }
 
-provide ("browse_url");

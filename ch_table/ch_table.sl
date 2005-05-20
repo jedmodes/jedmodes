@@ -49,8 +49,8 @@ add_completion("special_chars");
 %   (or what the actual encoding is) and give iso-name of actual char
 %   (in status line or bottom line(s) of buffer)
 
-static variable mode = "ch_table";
-implements(mode);
+% debug information, uncomment to locate errors
+_debug_info = 1;
 
 % --- requirements
 require("view"); %  readonly-keymap
@@ -59,6 +59,11 @@ autoload("popup_buffer", "bufutils");
 autoload("close_buffer", "bufutils");
 autoload("set_help_message", "bufutils");
 autoload("get_blocal", "sl_utils");
+autoload("_implements", "sl_utils");
+
+% --- set up namespace
+private variable mode = "ch_table";
+_implements(mode);
 
 % --- custom variables
 
@@ -70,12 +75,12 @@ custom_variable("ChartableTabSpacing", 4);
 % --- static variables -------------------------------------------
 
 % initialized in function ch_table
-static variable StartChar = ChartableStartChar;
-static variable NumBase = ChartableNumBase;
-static variable CharsPerLine = ChartableCharsPerLine;
+private variable StartChar = ChartableStartChar;
+private variable NumBase = ChartableNumBase;
+private variable CharsPerLine = ChartableCharsPerLine;
 
 % quasi constants
-static variable Digits ="0123456789abcdef";
+private variable Digits ="0123456789abcdef";
 
 % --- Helper functions --------------------------------------------
 
@@ -140,7 +145,7 @@ static define ct_update ()
    ct_status_line ();
    % write again to minibuffer (as messages don't persist)
       % if ressources are a topic, we could compute the message in
-      % ch_table and store to a static variable GotoMessage
+      % ch_table and store to a private variable GotoMessage
    vmessage("Goto char (%s ... %s, base: %d): ___",
         int2string(StartChar, NumBase), int2string(255, NumBase),  NumBase);
    % mark character
@@ -276,7 +281,7 @@ static define insert_ch_table ()
    ct_update();
 }
 
-% set static variables and define keys to use specified number base
+% set private variables and define keys to use specified number base
 static define use_base (numbase)
 {
    variable i;
@@ -288,7 +293,7 @@ static define use_base (numbase)
    % adapt CharsPerLine, if it matched NumBase
    if (CharsPerLine == NumBase)
      CharsPerLine = numbase;
-   % set static variable
+   % set private variable
    NumBase = numbase;
 }
 
@@ -386,5 +391,3 @@ definekey("ch_table->ct_insert_and_close", "^M",     mode);  % Return
 set_help_message(
    "<RET>:Insert q:Quit, B:Binary, O:Octal, D:Decimal, H:hex N:Number_Base",
 		 mode);
-
-provide(mode);

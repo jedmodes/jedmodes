@@ -21,13 +21,8 @@
 %                    
 % TODO:  * Shift-Click tags from point to Mousepoint
 %          may be also: right-drag tags lines
-%        
-% _traceback = 1;
-% _debug_info = 1;
-
-% set up namespace:
-implements("listing");
-static variable mode = "listing";
+        
+_debug_info = 1;
 
 % --- requirements ---
 
@@ -39,6 +34,12 @@ autoload("array", "datutils");
 autoload("array_delete", "datutils");
 autoload("array_append", "datutils");
 autoload("push_defaults", "sl_utils");
+autoload("_implements", "sl_utils");
+
+% set up namespace:
+private variable mode = "listing";
+_implements(mode);
+
 
 % --- Variables -------------------------------------------------------
 
@@ -114,7 +115,7 @@ static define tags_length() % (scope=2)
 % Helper function for listing_map
 % Argument is an array of positions in the Tags blocal var.
 %   E.g. delete_tag_lines(get_blocal_var("Tags") % delete all tagged lines
-%        delete_tag_lines(get_blocal_var("Tags")[where(rv==2)])
+%        delete_tag_lines(get_blocal_var("Tags")[where(result==2)])
 % The tag-marks will not be deleted!
 static define delete_tag_lines(tags)
 {
@@ -327,16 +328,16 @@ static define edit()
      error("No tags set");
 
    % We do not use array_map becouse in case of an error midways
-   % we still want to clean up. By defining rv in forehand and filling
+   % we still want to clean up. By defining result in forehand and filling
    % as we go, we have the results also if a break occures after
    % some tags are processed.
-   variable i, rv = Int_Type[length(tags)];
+   variable i, result = Int_Type[length(tags)];
    ERROR_BLOCK 	% clean up
      {
 	setbuf(buf); % just in case we landed somewhere else
-	delete_tag_lines(tags[where(rv==2)]);
+	delete_tag_lines(tags[where(result==2)]);
 	if (scope > 0) % tagged lines used
-	  set_blocal_var(tags[where(not(rv))], "Tags");
+	  set_blocal_var(tags[where(not(result))], "Tags");
 	if (Dont_Ask == -1)
 	  {
 	     message("Quit");
@@ -350,7 +351,7 @@ static define edit()
      {
 	% show("calling",fun, get_tag(tags[i]));
 	!if (is_line_hidden)
-	  rv[i] = @fun(get_tag(tags[i]), __push_args(args));
+	  result[i] = @fun(get_tag(tags[i]), __push_args(args));
      }
    % clean up
    EXECUTE_ERROR_BLOCK;
@@ -434,4 +435,3 @@ public define listing_mode ()
    run_mode_hooks(mode+"_mode_hook");
 }
 
-provide(mode);

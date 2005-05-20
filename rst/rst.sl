@@ -15,13 +15,29 @@
 % 1.2 2004-12-23   removed dependency on view mode (called by runhooks now)
 % 1.2.1 2005-03-11 bugfix in Mode>Layout>Hrule
 %                  bugfix remove spurious ":" from anonymous target markup
+% 1.3 2005-04-14   restructuring of the export and view functions
 
 % For debugging purposes:
-% _debug_info = 1;
+_debug_info = 1;
+
+% --- Requirements 
+% standard modes
+require("comments"); 
+% extra modes (from http://jedmodes.sf.net/mode/)
+require("structured_text");  % text_mode_hook for lists formatting
+% require("ishell"); % >= 1.7  % overwriting the do_shell_cmd from shell.sl
+autoload("do_shell_cmd", "ishell");        
+autoload("view_url", "browse_url");
+autoload("browse_url", "browse_url");
+autoload("bufsubfile", "bufutils");
+autoload("insert_markup", "txtutils");   % >= 2.3
+autoload("insert_block_markup", "txtutils");   % >= 2.3
+autoload("string_repeat", "strutils");
+autoload("_implements", "sl_utils");
 
 % the modename
-static variable mode = "rst";
-implements(mode);
+private variable mode = "rst";
+_implements(mode);
 
 % --- Custom Variables
 %!%+
@@ -31,41 +47,30 @@ implements(mode);
 %\description
 %  Path to the ReStructured Text to Html converter
 %\notes
-%  The default works with the Debian package python-docutils.deb  
-%\seealso{rst_mode}
+% Non absolute filenames will be searched along the systems PATH.
+% The default works with the Debian package python-docutils.deb  
+% For simple Html without css stylesheets try the docarticle.py contribution
+% custom_variable("Rst2Html_Cmd", "docarticle.py");
+%\seealso{rst_mode, Rst2Latex_Cmd, Rst_Export_Options}
 %!%-
 custom_variable("Rst2Html_Cmd", "rst2html.py");
-% for a Debian default setup, choose
-% custom_variable("Rst2Html_Cmd", "rst2latex.py");
-% for simple Html without css stylesheets try the docarticle.py contribution
-% custom_variable("Rst2Html_Cmd", "docarticle.py");
+
+%!%+
+%\variable{Rst2Latex_Cmd}
+%\synopsis{ReStructured Text to LaTeX converter}
+%\usage{String_Type Rst2Latex_Cmd = "rst2latex.py"}
+%\description
+%  Path to the ReStructured Text to Html converter
+%\notes
+% Non absolute filenames will be searched along the systems PATH.
+% The default works with the Debian package python-docutils.deb  
+%\seealso{rst_mode, Rst2Html_Cmd, Rst_Export_Options}
+%!%-
+custom_variable("Rst2Latex_Cmd", "rst2latex.py");
 
 % custom_variable("Rst_Export_Options", "--output-encoding=latin-1");
 custom_variable("Rst_Export_Options", "");
 
-%!%+
-%\variable{Rst2Latex_Cmd}
-%\synopsis{ReStructured Text to Html converter}
-%\usage{String_Type Rst2Latex_Cmd = "/usr/share/python-docutils/html.py"}
-%\description
-%  Path to the ReStructured Text to Html converter
-%\notes
-%  The default works with the Debian package python-docutils.deb  
-%\seealso{rst_mode}
-%!%-
-custom_variable("Rst2Latex_Cmd", "rst2latex.py");
-
-% --- Requirements (find them at http://jedmodes.sf.net/mode/)
-require("structured_text");          % text_mode_hook for lists formatting
-autoload("view_url", "browse_url");
-autoload("browse_url", "browse_url");
-autoload("bufsubfile", "bufutils");
-autoload("insert_markup", "txtutils");   % >= 2.3
-autoload("insert_block_markup", "txtutils");   % >= 2.3
-autoload("string_repeat", "strutils");
-autoload("save_buffer_as", "cuamisc");
-autoload("shell_cmd_on_region", "ishell"); % >= 1.6
-require("comments"); 
 
 set_comment_info(mode, ".. ", "", 0);
 
@@ -73,6 +78,8 @@ set_comment_info(mode, ".. ", "", 0);
 % ---------------------------- static Variables --------------------------
 
 static variable Markup_Tags = Assoc_Type[Array_Type];
+static variable Last_Underline_Char = "-";
+static variable Underline_Chars = "=-`:'\"~^_*+#<>";
 
 % Layout Character
 Markup_Tags["bold"]     = ["**", "**"];
@@ -110,37 +117,50 @@ public define rst_export(cmd)
    switch (cmd)
      { case Rst2Html_Cmd: extension = ".html"; }
      { case Rst2Latex_Cmd: extension = ".tex"; }
-   buffer_keystring(path_sans_extname(whatbuf())+extension);
-   output_file = read_file_from_mini("Output File:");
-   shell_cmd_on_region(cmd + " " + Rst_Export_Options, 
-      "*rst_export output*", output_file);
+     { extension = read_mini("Output file extension:", "", ""); }
+	
+   output_file = path_sans_extname(buffer_filename())+extension;
+   cmd = strjoin([cmd, Rst_Export_Options, buffer_filename(), output_file], 
+		 " ");
+   save_buffer();
+   % make sure we have the right variant of do_shell_cmd()
+   require("ishell");
+   do_shell_cmd(cmd, "*rst export output*");
    message("exported to " + output_file);
 }
 
-% export and view the buffer to html
+% export to html
 public define rst_run()
 {
-   variable html_file = path_sans_extname(whatbuf())+".html";
+   % variable html_file = path_sans_extname(whatbuf())+".html";
    rst_export(Rst2Html_Cmd);
-   find_file(html_file);
+   % find_file(html_file);
 }
 
 static define rst_export_help()
 {
-   do_shell_cmd(Rst2Html_Cmd + " --help");
-   runhooks("view_mode");
+   do_shell_cmd(Rst2Html_Cmd + " --help", "*rst export help*");
 }
 
 static define set_rst_export_options()
-{ Rst_Export_Options = read_mini("Rst_Export_Options:", "", Rst_Export_Options); }
+{ 
+   Rst_Export_Options = read_mini("Rst_Export_Options:", "", 
+				  Rst_Export_Options); 
+}
   
 % Browse the html conversion of the current buffer in an external browser
 public define rst_browse() % (browser=NULL)
-{ 
-   variable args = __pop_args(_NARGS);
-   rst_run();
-   html_browse(__push_args(args));
-   close_buffer();
+{
+   variable html_file = "file:" + path_sans_extname(buffer_filename())+".html";
+   rst_export(Rst2Html_Cmd);
+   if (_NARGS)
+     {
+	variable cmd = ();
+	browse_url(html_file, cmd);
+     }
+   
+   else
+     browse_url(html_file);
 }
 
 % insert a markup
@@ -152,28 +172,33 @@ static define block_markup(type)
 
 % underline the current line
 % if there is already underlining, adapt it to the lenght of the line
-static define section_markup()
+static define section_markup() % ([ch])
 {
-   eol_trim();
-   variable len = what_column(), ch, line_del=0, underline_chars="~'`=_-";
+   variable ch, len, old_ch;
    
-   if (len == 0)
-     len = 20;   % transition
-   !if(right(1))
+   ch = prompt_for_argument(&read_mini, 
+			    sprintf("Underline char [%s]:", Underline_Chars),
+			    Last_Underline_Char, "",
+			    _NARGS);
+   Last_Underline_Char = ch;
+   eol_trim();
+   len = what_column();
+   if (len == 0) % transition
+     len = 50;
+   
+   if(right(1))  %go down one line
+     foreach (Underline_Chars)
+       {
+	  old_ch = char(());
+	  if (looking_at(string_repeat(old_ch, 3)))
+	    {
+	       delete_line();
+	       break;
+	    }
+       }
+   else
      newline;
-   foreach (underline_chars)
-     {
-	ch = char();
-	if (looking_at(string_repeat(ch, 3)))
-	  {
-	     line_del = 1;
-	     break;
-	  }
-     }
-   ch = read_mini(sprintf("Underline character [%s]:", underline_chars),
-      ch, "");
-   if (line_del)
-     delete_line();
+   
    insert(string_repeat(ch, len-1)+ "\n");
 }
      
@@ -217,68 +242,83 @@ static define setup_dfa_callback (mode)
    % variable post_i = "($|[-'\"\\)\\]}>/:\\.,;!?\\\\ \t])"; % char after ...
    % dfa_define_highlight_rule (pre_i+"\\*\\*[^ \t].*[^ \t]\\*\\*"+post_i, color_bold, mode);
    % doesnot work :-(
-   dfa_define_highlight_rule ("\\*\\*[a-zA-Z0-9_\\-:!]+\\*\\*", color_bold, mode);
-   dfa_define_highlight_rule ("\\*?\\*[a-zA-Z0-9_\\-:!]+\\*\\*?", color_emphasis, mode);
-   dfa_define_highlight_rule ("`[a-zA-Z0-9_\\-:!]+`", color_interpreted, mode);
-   dfa_define_highlight_rule ("``[a-zA-Z0-9_\\-:!]+``", color_literal, mode);
-   dfa_define_highlight_rule ("\\|[a-zA-Z0-9_\\-:!]+\\|", color_substitution, mode);
-   dfa_define_highlight_rule ("::$", color_literal, mode);
-   dfa_define_highlight_rule (":[a-zA-Z0-9_\\-:!]+:", color_directive, mode);
+   dfa_define_highlight_rule("\\*\\*[a-zA-Z0-9_\\-:!]+\\*\\*", color_bold, mode);
+   dfa_define_highlight_rule("\\*?\\*[a-zA-Z0-9_\\-:!]+\\*\\*?", color_emphasis, mode);
+   dfa_define_highlight_rule("`[a-zA-Z0-9_\\-:!]+`", color_interpreted, mode);
+   dfa_define_highlight_rule("``[a-zA-Z0-9_\\-:!]+``", color_literal, mode);
+   dfa_define_highlight_rule("\\|[a-zA-Z0-9_\\-:!]+\\|", color_substitution, mode);
+   dfa_define_highlight_rule("::$", color_literal, mode);
+   dfa_define_highlight_rule(":[a-zA-Z0-9_\\-:!]+:", color_directive, mode);
    
    % Reference Marks
    %   URLs and Emails
-   dfa_define_highlight_rule ("(http|ftp|file|https)://[^ \t\n>]+", color_url, mode);
+   dfa_define_highlight_rule("(http|ftp|file|https)://[^ \t\n>]+", color_url, mode);
    % dfa_define_highlight_rule ("[^ \t\n<]*@[^ \t\n>]+", color_email, mode);
    %   crosslinks
-   dfa_define_highlight_rule ("[a-zA-Z0-9\\-_\\.]+_+[^a-zA-Z0-9]", color_reference, mode);
-   dfa_define_highlight_rule ("[a-zA-Z0-9\\-_\\.]+_+$", color_reference, mode);
-   dfa_define_highlight_rule ("`[^`]*`__?", color_reference, mode);
+   dfa_define_highlight_rule("[a-zA-Z0-9\\-_\\.]+_+[^a-zA-Z0-9]", color_reference, mode);
+   dfa_define_highlight_rule("[a-zA-Z0-9\\-_\\.]+_+$", color_reference, mode);
+   dfa_define_highlight_rule("`[^`]*`__?", color_reference, mode);
    %   footnotes and citations
-   dfa_define_highlight_rule ("\\[[a-zA-Z0-9#\\*\\.\\-_]+\\]+_", color_reference, mode); 
+   dfa_define_highlight_rule("\\[[a-zA-Z0-9#\\*\\.\\-_]+\\]+_", color_reference, mode); 
 
    % Reference Targets
    %   named crosslinks, footnotes and citations, substitution definitions
-   dfa_define_highlight_rule ("^\\.\\. [_\\[\\|].*", color_target, mode);
+   dfa_define_highlight_rule("^\\.\\. [_\\[\\|].*", color_target, mode);
    % inline target
-   dfa_define_highlight_rule ("_`[^`]*`", color_target, mode);
+   dfa_define_highlight_rule("_`[^`]*`", color_target, mode);
    % dfa_define_highlight_rule ("^\\.\\. _+`.+`:.*", color_target, mode);
    %   anonymous
-   dfa_define_highlight_rule ("^__ .*", color_target, mode); 
+   dfa_define_highlight_rule("^__ .*", color_target, mode); 
    %   footnotes and citations
-   dfa_define_highlight_rule ("^\\.\\. \\[[a-zA-Z#\\*]+\\].*", color_target, mode);
+   dfa_define_highlight_rule("^\\.\\. \\[[a-zA-Z#\\*]+\\].*", color_target, mode);
 
    % Comments
-   dfa_define_highlight_rule ("^\\.\\..*$", "comment", mode);
+   dfa_define_highlight_rule("^\\.\\..*$", "comment", mode);
 
    % Lists
    %   itemize
-   dfa_define_highlight_rule ("^[ \t]*[\\-\\*\\+] ", color_list_marker, mode);
+   dfa_define_highlight_rule("^[ \t]*[\\-\\*\\+] ", color_list_marker, mode);
    %   enumerate
-   dfa_define_highlight_rule ("^[ \t]*[0-9]+\\. ", color_list_marker, mode);
-   dfa_define_highlight_rule ("^[ \t]*\\(?[a-zA-Z]+\\) ", color_list_marker, mode);
+   dfa_define_highlight_rule("^[ \t]*[0-9]+\\. ", color_list_marker, mode);
+   dfa_define_highlight_rule("^[ \t]*\\(?[a-zA-Z]+\\) ", color_list_marker, mode);
    %   field list
-   dfa_define_highlight_rule ("^[ \t]*:.+: ", color_list_marker, mode);
+   dfa_define_highlight_rule("^[ \t]*:.+: ", color_list_marker, mode);
    %   option list
-   dfa_define_highlight_rule ("^[ \t]*--?[a-zA-Z]+  +", color_list_marker, mode);
+   dfa_define_highlight_rule("^[ \t]*--?[a-zA-Z]+  +", color_list_marker, mode);
    
-   % hrules and Section underlining
-   dfa_define_highlight_rule ("^(----|====|____|~~~~).*$",  color_transition, mode);
-
+   % Hrules and Sections
+   foreach (Underline_Chars)
+       {
+	  $1 = char(());
+	  $1 = string_repeat($1, 4);
+	  dfa_define_highlight_rule(sprintf("^%s.*$", $1), 
+				    color_transition, mode);
+       }
    dfa_build_highlight_table(mode);
 }
 dfa_set_init_callback(&setup_dfa_callback, mode);
 %%% DFA_CACHE_END %%%
 enable_dfa_syntax_for_mode(mode);
 #else
-% define_syntax( '`', '"', mode);               % strings
-define_syntax ("..", "", '%', mode); % Comments
-define_syntax ("[", "]", '(', mode);     % Delimiters
-define_syntax ("0-9a-zA-Z", 'w', mode);      % Words
+% define_syntax( '`', '"', mode);              % strings
+define_syntax ("..", "", '%', mode); 	       % Comments
+define_syntax ("[", "]", '(', mode);           % Delimiters
+define_syntax ("0-9a-zA-Z", 'w', mode);        % Words
 % define_syntax ("-+*=", '+', mode);           % Operators
 % define_syntax ("-+0-9.", '0', mode);         % Numbers
 % define_syntax (",", ',', mode);              % Delimiters
 % define_syntax (";", ',', mode);              % Delimiters
 #endif
+
+% Keymap
+!if (keymap_p (mode)) 
+  make_keymap (mode);
+% definekey_reserved("_help",  "H", mode);  % Help
+% definekey_reserved("_run",   "^M",mode);  % Return: Run buffer/region
+% 
+definekey("self_insert_cmd", "`", mode); % this is needed to often to be bound to
+			      	     	 % quoted insert
+definekey_reserved("quoted_insert", "`", mode); % 
 
 
 % --- the mode dependend menu
@@ -350,5 +390,3 @@ public define rst_mode()
    define_blocal_var("run_buffer_hook", &rst_run);
    run_mode_hooks(mode + "_mode_hook");
 }
-
-provide(mode);

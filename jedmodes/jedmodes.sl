@@ -1,12 +1,11 @@
-% 1.6   20004-11-30
-%     * added new optional argument "postfile_args" to shell_cmd_on_region
-% 1.6   20004-11-30
-%     * added new optional argument "postfile_args" to shell_cmd_on_region
 % jedmodes.sl
 % Utilities for the publication of modes at Jedmodes
 % 
 % Keywords: tools
 % Authors: Günter Milde, Paul Boekholt
+% 
+% Versions:
+% 2004-12-16  Some bugfixes in jedmodes_new_mode()
 % 
 % Contains a script for generating a JMR dcdata file from a template, with
 % some information extracted from your S-Lang source, a function to upload
@@ -79,7 +78,7 @@
 % This script requires the JMR templates mode.
 require("templates");
 
-% _debug_info = 1;
+_debug_info = 1;
 
 % --- Variables ---
 
@@ -100,9 +99,8 @@ public variable Dabbrev_Default_Buflist=1;
 
 % --- Functions ---
 
-% Fill in requirements. This is not smart enough to skip requirements
-% that may be in the standard library.
-define get_requires()
+% Fill in requirements. 
+define jedmodes_get_requirements()
 {
    variable pattern, requirement, requirements = Assoc_Type[Int_Type];
    push_spot_bob();
@@ -131,13 +129,25 @@ static define dc_parsep()
    ffind_char(':');
 }
 
+% open the modes dcdata.txt file in a buffer
+public define jedmodes_find_dcdata()
+{
+   variable mode_dir = path_concat(Jedmodes_Dir, path_sans_extname(whatbuf()));
+   !if(file_status(mode_dir))
+     mode_dir = path_concat(Jedmodes_Dir, 
+			    read_mini("Mode Sources Directory", 
+				      path_sans_extname(whatbuf()), ""));
+   read_file(dircat (mode_dir, "dcdata.txt"));
+   pop2buf("dcdata.txt");
+   set_buffer_hook("par_sep", &dc_parsep);
+}
+
 % insert the dcdata template and do additional replacements
-autoload("insert_template", "templates");
 public define insert_dcdata()
 {
    variable dc_replacements = Assoc_Type[String_Type];
    dc_replacements["<TITLE>"] = path_sans_extname(whatbuf());
-   dc_replacements["<REQUIRES>"] = get_requires();
+   dc_replacements["<REQUIRES>"] = jedmodes_get_requirements();
    bob();
    push_visible_mark();
    insert_template("mode.dcdata");
@@ -148,14 +158,15 @@ public define insert_dcdata()
    widen();
 }
 
-public define make_dcdata_file()
+% create a dcdata.txt file for the current buffer from template and guesses
+public define jedmodes_make_dcdata()
 { 
    variable dcdata_template = dircat(Templates_Dir, "dcdata.txt");
    if (file_status(dcdata_template) != 1)
      dcdata_template = dircat(Jedmodes_Dir, "../doc/mode-template/dcdata.txt");
    variable dc_replacements = Assoc_Type[String_Type];
    dc_replacements["<TITLE>"] = path_sans_extname(whatbuf());
-   dc_replacements["<REQUIRES>"] = get_requires();
+   dc_replacements["<REQUIRES>"] = jedmodes_get_requirements();
    dc_replacements["<SUBJECT>"]="";
    bob;
    if (bol_fsearch("% Keywords:"))
@@ -172,9 +183,9 @@ public define make_dcdata_file()
    bob;
    go_down(Jedmodes_Abstract_Line_No-1);
    dc_replacements["<ABSTRACT>"] = strtrim(get_line(), "% \t");
-   variable this_dc_dir = dircat(Jedmodes_Dir, dc_replacements["<TITLE>"]);
-   mkdir (this_dc_dir, 0755);   % make it world searchable
-   chdir (this_dc_dir);
+   variable mode_dir = dircat(Jedmodes_Dir, dc_replacements["<TITLE>"]);
+   mkdir (mode_dir, 0755);   % make it world searchable
+   chdir (mode_dir);
    write_string_to_file("<?php\n" +
       "// Index file for mode directories, reads mode-index.php with mode argument\n" +
       "$jedmodes_root = dirname(dirname(dirname(__FILE__)));\n" +
@@ -184,13 +195,12 @@ public define make_dcdata_file()
    % make the file world readable
    chmod("index.php", 0644);
 
-   read_file(dircat (this_dc_dir, "dcdata.txt"));
-   pop2buf("dcdata.txt");
-   insert_template_file(dcdata_template);
+   jedmodes_find_dcdata();
+   if (bobp and eobp())
+     insert_template_file(dcdata_template);
    bob;
    foreach(dc_replacements) using ("keys", "values")
      replace();
-   set_buffer_hook("par_sep", &dc_parsep);
  }
 
 % upload a file from the private jedmodes mirror to sourceforge
@@ -202,43 +212,82 @@ public define jedmodes_upload()
    save_buffer();
    ishell();
    eob;
-   vinsert("\n\n#upload to jedmodes\nscp -p %s %s", from, to);
+   vinsert("\n\n#upload %s to jedmodes\nscp -p %s %s/", 
+	   path_basename(from), from, to);
+}
+
+% find the path of the current (or given) mode in the CVS tree
+define jedmodes_find_cvs_path() % (mode=whatbuf(), mode_dir=path_sans_extname(whatbuf()))
+{
+   variable path, mode = whatbuf(), mode_dir = NULL;
+   if (_NARGS > 1)
+     mode_dir = ();
+   if (_NARGS)
+     mode = ();
+   if (mode_dir == NULL)
+     mode_dir=path_sans_extname(mode);
+   path = path_concat(path_concat(Jedmodes_CVS_Root, mode_dir), mode);
+   % !if (file_status(path) == 1)
+   %   return "";
+   return path;
 }
 
 % upload a new mode version from the personal library
 public define jedmodes_new_version()
 {
-   variable buf = whatbuf(),
-   mode_dir = dircat(Jedmodes_CVS_Root,
-      read_mini("Mode Sources Directory", path_sans_extname(buf), "")),
-   to = "jedmodes.sf.net:/home/groups/j/je/jedmodes/"
-     + (mode_dir[[is_substr(mode_dir, "jedmodes")+8:]]);
-
-   % copy to the jedmodes mirror first
-   % set the umask to 0, so we can have searchable dirs
-   variable old_umask = umask(0);
+   variable file, dir, name, flags, mode_dir;
+   (file, dir, name, flags) = getbuf_info();
+   mode_dir = path_dirname(jedmodes_find_cvs_path());
    !if(file_status(mode_dir))
-     () = mkdir(mode_dir, 0755);  % world searchable
-   () = umask(old_umask);
-   % save to version directory (ask for overwrite)
-   buffer_keystring(mode_dir + " ");
-   save_buffer_as();
+     mode_dir = path_concat(Jedmodes_CVS_Root, 
+			    read_mini("Mode Sources Directory", 
+				      path_sans_extname(name), ""));
+   !if(file_status(mode_dir))
+       {
+	  if (get_y_or_n("Create " + mode_dir) != 1)
+	    return;
+	  % set the umask to 0, so we can have searchable dirs
+	  variable old_umask = umask(0);
+	  () = mkdir(mode_dir, 0755);  % world searchable
+	  () = umask(old_umask);
+       }
+   
+   % comment out the debug_info
+   bob();
+   if (fsearch("_debug_info"))
+     uncomment_line();
+   
+   % Copy to the jedmodes mirror
+   save_buffer();
+   % copy to mode directory (doesnot ask for overwrite)
+   if (-1 == copy_file(buffer_filename(), 
+		       path_concat(mode_dir, whatbuf()))
+       )
+     error("could not copy the mode");
    % unfortunately, here save_buffer_as leaves the file only user-readable
-   chmod(buffer_filename(), 0644);
-   % chdir(mode_dir);
+   chmod(path_concat(mode_dir, whatbuf()), 0644);
    
    % prepare the upload via ishell
+   % chdir(mode_dir);
    ishell();
    eob;
-   % insert("\n\n#upload the mode sources\ncd " + mode_dir);
-   % % upload with scp
-   % vinsert("\nscp -pr %s %s", buf, to);
-   % cvs update
    insert("\n\n#commit to cvs");
    vinsert("\n\ncd %s", path_dirname(mode_dir));
    variable comment = read_mini("CVS Comment:", "", "");
    vinsert("\ncvs commit -m '%s' %s", comment, path_basename(mode_dir));
    go_up_1();
+   
+   % update the dcdata file
+   sw2buf(name);
+   jedmodes_find_dcdata();
+   if (fsearch("date:"))
+     {
+	skip_word();
+	skip_non_word_chars();
+	del_eol();
+	insert_date();
+     }
+   jedmodes_upload();
 }
 
 % Add a new mode from the personal library
@@ -258,26 +307,29 @@ public define jedmodes_new_mode()
    !if(file_status(mode_dir))
      () = mkdir(mode_dir, 0755);  % world searchable
    () = umask(old_umask);
-   make_dcdata_file();
+   jedmodes_make_dcdata();
    save_buffer_as();
    % unfortunately, here save_buffer_as leaves the file only user-readable
    chmod(dircat(mode_dir, "dcdata.txt"), 0644);
 
-   % prepare the upload via ishell
+   % prepare the dcdata upload via ishell (creating the directory)
    ishell();
    eob;
    insert("\n\n#upload the mode description\ncd " + mode_dir);
    vinsert("\nscp -pr %s %s", ".", to);
+   
+   % copy the source to the CVS tree and prepare the commit via ishell
    sw2buf(buf);
    jedmodes_new_version();
-   vinsert("\n\n#commit to cvs \n\ncd %s", path_dirname(mode_dir));
-   vinsert("\ncvs add %s %s", path_basename(mode_dir), path_concat(path_basename(mode_dir), buf));
-   variable comment = read_mini("CVS Comment:", "", "");
-   vinsert("\ncvs commit -m '%s' %s", comment, path_basename(mode_dir));
+   bol_bsearch("cvs commit"); 
+   bol();
+   vinsert("cvs add %s", path_basename(mode_dir));
+   vinsert("\ncvs add %s\n", path_concat(path_basename(mode_dir), buf));
    sw2buf("dcdata.txt");
 }
 
-_add_completion("make_dcdata_file", "jedmodes_upload", 
+
+_add_completion("jedmodes_make_dcdata", "jedmodes_upload", 
    "jedmodes_new_version", "jedmodes_new_mode", 4);
 
 provide("jedmodes");
