@@ -15,10 +15,12 @@
 % 2005-04-11 1.4   new function prompt_for_argument()
 %                  added provide("sl_utils")
 %            1.5   new function _implements(): implement a "named" namespace
-                 but allow re-evaluation if `_debug_info` is TRUE
+%                 but allow re-evaluation if `_debug_info` is TRUE
 
 
 % _debug_info = 1;
+
+provide("sl_utils");
 
 %!%+
 %\function{push_defaults}
@@ -281,10 +283,7 @@ define _implements(name)
      use_namespace(name);
    else
      {
-        implements(name);
         provide(name);
+        implements(name);
      }
 }
-
-
-provide("sl_utils");
