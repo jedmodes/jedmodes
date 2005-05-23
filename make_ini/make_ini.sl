@@ -236,7 +236,8 @@ define make_ini_look_for_functions(file)
        }
    % find out if the mode defines/uses a namespace
    bob();
-   if (andelse{bol_fsearch("implements")} {bol_fsearch("use_namespace")})
+   if (andelse{bol_fsearch("implements")} {bol_fsearch("_implements")} 
+	 {bol_fsearch("use_namespace")})
      {
 	named_namespace = 1;
         str += "% private namespace: " + line_as_string + "\n";

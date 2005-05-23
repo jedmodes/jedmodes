@@ -47,7 +47,7 @@
 %       make it Windows-secure (filename might contain ":")
 
 % debug info, comment out once ready
-_debug_info=1;
+% _debug_info=1;
 
 % --- Requirements --------------------------------------------- %{{{
 % standard modes
@@ -64,10 +64,10 @@ autoload("_implements", "sl_utils");
 autoload("get_word", "txtutils");
 %}}}
 
-
-% --- set up namespace
+% --- name it
+provide("grep");
+_implements("grep");
 private variable mode = "grep";
-_implements(mode);
 
 
 % --- Variables -------------------------------------------------%{{{

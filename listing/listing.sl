@@ -22,7 +22,7 @@
 % TODO:  * Shift-Click tags from point to Mousepoint
 %          may be also: right-drag tags lines
         
-_debug_info = 1;
+% _debug_info = 1;
 
 % --- requirements ---
 
@@ -36,10 +36,10 @@ autoload("array_append", "datutils");
 autoload("push_defaults", "sl_utils");
 autoload("_implements", "sl_utils");
 
-% set up namespace:
+% --- name it
+provide("listing");
+_implements("listing");
 private variable mode = "listing";
-_implements(mode);
-
 
 % --- Variables -------------------------------------------------------
 

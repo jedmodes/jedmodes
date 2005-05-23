@@ -18,7 +18,7 @@
 % 1.3 2005-04-14   restructuring of the export and view functions
 
 % For debugging purposes:
-_debug_info = 1;
+% _debug_info = 1;
 
 % --- Requirements 
 % standard modes
@@ -35,9 +35,10 @@ autoload("insert_block_markup", "txtutils");   % >= 2.3
 autoload("string_repeat", "strutils");
 autoload("_implements", "sl_utils");
 
-% the modename
+% --- name it
+provide("rst");
+_implements("rst");
 private variable mode = "rst";
-_implements(mode);
 
 % --- Custom Variables
 %!%+

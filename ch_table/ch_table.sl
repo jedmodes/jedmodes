@@ -50,7 +50,7 @@ add_completion("special_chars");
 %   (in status line or bottom line(s) of buffer)
 
 % debug information, uncomment to locate errors
-_debug_info = 1;
+% _debug_info = 1;
 
 % --- requirements
 require("view"); %  readonly-keymap
@@ -61,9 +61,11 @@ autoload("set_help_message", "bufutils");
 autoload("get_blocal", "sl_utils");
 autoload("_implements", "sl_utils");
 
-% --- set up namespace
+
+% --- name it
+provide("ch_table");
+_implements("ch_table");
 private variable mode = "ch_table";
-_implements(mode);
 
 % --- custom variables
 

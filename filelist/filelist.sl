@@ -72,7 +72,7 @@ append_to_hook("_jed_find_file_before_hooks",
 
 #endif %</INITIALIZATION>
 
-_debug_info = 1;
+% _debug_info = 1;
 
 
 % --- Requirements ------------------------------------------------------
@@ -94,10 +94,11 @@ if(strlen(expand_jedlib_file("filelistmsc")))
   _autoload("filelist_do_rename_regexp", "filelistmsc",
 	    "filelist_do_tar", "filelistmsc", 2);
 
-% --- Declare modename and namespace -------------------------------------
-%
+% --- name it
+provide("filelist");
+_implements("filelist");
 private variable mode = "filelist";
-_implements(mode);
+
 
 % --- Custom Variables ----------------------------------------------------
 
@@ -610,4 +611,5 @@ public define locate() % (what=<Ask>)
    filelist_mode();
    set_status_line("locate:" + what + " (%p)", 0);
    define_blocal_var("generating_function", [_function_name, what]);
+   bob();
 }

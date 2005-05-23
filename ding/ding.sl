@@ -31,7 +31,7 @@
  
 
 % debug information, uncomment to locate errors
-_debug_info = 1;
+% _debug_info = 1;
 
 % --- requirements ---
 
@@ -51,9 +51,10 @@ autoload("get_table", "csvutils");
 autoload("insert_table", "csvutils");
 autoload("_implements", "sl_utils");
 
-% --- set up namespace
+% --- name it
+provide("ding");
+_implements("ding");
 private variable mode = "ding";
-_implements(mode);
 
 % --- custom variables
 

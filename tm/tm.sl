@@ -32,7 +32,7 @@
 %
 %  TODO: let this work for tm-documented C-code too
 
-_debug_info=1;
+% _debug_info=1;
 
 autoload("str_re_replace_all", "strutils");
 autoload("arrayread_file", "bufutils");
@@ -40,8 +40,10 @@ autoload("get_lines", "csvutils");
 autoload("view_mode", "view");
 autoload("_implements", "sl_utils");
 
-% set up namespace
+% --- name it
+provide("tm");
 _implements("tm");
+private variable mode = "tm";
 
 static variable Tm_Doc_Buffer = "*tm doc*";
 

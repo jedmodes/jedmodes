@@ -65,7 +65,6 @@
 % % Load recent.sl (assuming it is in the jed library path)
 % require("recent");
 
-
 % _debug_info=1;
 
 % Requirements
@@ -76,9 +75,10 @@
 "strread_file",      "bufutils";
 _autoload(5);
 
-% set up namespace
+% --- name it
+provide("recent");
+_implements("recent");
 private variable mode = "recent";
-_implements(mode);
 
 % --- custom variables: user-settable ----------------------------------
 
