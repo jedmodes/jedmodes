@@ -15,7 +15,9 @@
 % 2005-04-11 1.4   new function prompt_for_argument()
 %                  added provide("sl_utils")
 %            1.5   new function _implements(): implement a "named" namespace
-%                 but allow re-evaluation if `_debug_info` is TRUE
+%                  but allow re-evaluation if `_debug_info` is TRUE
+% 2005-05-23 1.5.1 bugfix in _implements(): separate _implement and provide,
+%                  do not rely on _featurep()
 
 
 % _debug_info = 1;
@@ -277,13 +279,15 @@ define run_program(s)
 }
 #endif
 
+
 define _implements(name)
 {
-   if (_featurep(name) and _debug_info)
-     use_namespace(name);
-   else
-     {
-        provide(name);
-        implements(name);
-     }
+#ifexists _slang_utf8_ok   
+  implements(name);        % SLang 2 has a re-evaluation save implements()
+#else
+  if (length(where(name == _get_namespaces())) and _debug_info)
+    use_namespace(name);
+  else
+    implements(name);
+#endif
 }
