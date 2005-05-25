@@ -45,9 +45,17 @@
 % 2005-04-01 2.5 * cleanup in make_ini_look_for_functions(): do not insert
 % 	     	   library path in autoload commands
 % 2005-04-07 2.6 * provide add_completion commands (with Make_ini_Add_Completions)
-% 2005-04-25 2.7 * bugfix: added missing autoload for push_array()
+% 2005-04-25 2.7 * bugfix: list_slang_files() failed for directories without 
+% 	     	   	   slang files or nonexisting directories.
+% 	     	   	   make_libfun_doc() failed if there was no documentation
+%                * Test for existing tm.sl with #ifexists:
+%                  the function tm_parse() must be defined/declared at 
+%                  evaluation/preparse time of make_ini.sl in order to enable 
+%                  the documentation extract feature.
+% 2005-05-25 2.7.1 * bugfix: andelse -> orelse (report Paul Boekholt)
+                  
 
-_debug_info=1;
+% _debug_info=1;
 
 autoload("get_word", "txtutils");
 autoload("push_array", "sl_utils");
@@ -117,18 +125,17 @@ custom_variable("Make_ini_Exclusion_List", ["ini.sl"]);
 %\usage{Int_Type Make_ini_Extract_Documentation = 1}
 %\description
 % Let update_ini() also extract documentation and save in libfuns.txt file.
-% Documentation extraction requires the tm.sl mode.
 %\notes 
-% If tm.sl is not in the jed_library_path, this variable 
-% will be set to 0.
-%\seealso{}
+% Documentation extraction requires tm_parse() from the tm.sl mode.
+% If tm_parse() is not defined at evaluation (or byt-compile) time of
+% make_ini.sl, Make_ini_Extract_Documentation will be set to 0.
+%\seealso{update_ini, tm_parse, tm_view}
 %!%-
 custom_variable("Make_ini_Extract_Documentation", 1);
-if(expand_jedlib_file("tm.sl") != "")
-  autoload("tm_parse_file", "tm.sl");
-else
-  Make_ini_Extract_Documentation = 0;
 
+#ifnexists tm_parse
+  Make_ini_Extract_Documentation = 0;
+#endif
 
 %!%+
 %\variable{Make_ini_Add_Completions}
@@ -143,7 +150,7 @@ custom_variable("Make_ini_Add_Completions", 0);
 % valid chars in function and variable definitions
 static variable Slang_word = "A-Za-z0-9_";
 static variable Ini_File = "ini.sl";
-static variable Parsing_Buffer = "*make_ini tmp*";
+private variable Parsing_Buffer = "*make_ini tmp*";
 static variable Tm_Doc_File = "libfuns.txt";
 
 % --- functions ---------------------------------------------------
@@ -236,7 +243,7 @@ define make_ini_look_for_functions(file)
        }
    % find out if the mode defines/uses a namespace
    bob();
-   if (andelse{bol_fsearch("implements")} {bol_fsearch("_implements")} 
+   if (orelse{bol_fsearch("implements")}  {bol_fsearch("_implements")} 
 	 {bol_fsearch("use_namespace")})
      {
 	named_namespace = 1;
@@ -298,21 +305,23 @@ define make_ini_look_for_functions(file)
 
 static define list_slang_files(dir)
 {
-   variable xfile, files = listdir(dir);
+   variable exclusion_file, files = listdir(dir);
+   if (files == NULL or length(files) == 0)
+     return String_Type[0];
    % Skip files that are  no slang-source (test for extension ".sl")
    files = files[where(array_map(String_Type, &path_extname, files) == ".sl")];
+   !if (length(files))
+     return String_Type[0];
    % Skip jed lock files
    files = files[where(array_map(Integer_Type, &is_substr, files, ".#") != 1)];
    % Skip files from the exclusion list
    foreach (Make_ini_Exclusion_List)
      {
-	xfile = ();
-	files = files[where(files != xfile)];
+	exclusion_file = ();
+	files = files[where(files != exclusion_file)];
      }
-   % array_map() on an empty arry will error anyway. 
-   % Give a more informative error message
    !if (length(files))
-     verror("no SLang files found in %s", dir);
+     return String_Type[0];
    % Prepend the directory to the path
    files = array_map(String_Type, &path_concat, dir, files);
    % Sort alphabetically and return
@@ -378,10 +387,11 @@ public define make_ini() % ([dir])
 %  requires tm.sl (jedmodes.sf.net/mode/tm/) 
 %\seealso{update_ini, Make_ini_Extract_Documentation}
 %!%-
-public define make_libfun_doc() % ([dir])
+define make_libfun_doc() % ([dir])
 {
-   !if (is_defined("tm_view"))
+#ifnexists tm_parse
      error("make_libfun_doc needs a current version of tm.sl");
+#else
    % get optional argument
    variable dir;
    if (_NARGS)
@@ -392,13 +402,17 @@ public define make_libfun_doc() % ([dir])
 	dir = read_file_from_mini("Extract tm Documentation from dir:");
      }
    
-   variable buf = whatbuf(), files = list_slang_files(dir);
-   % extract tm documentation blocks 
-   runhooks("tm_view", push_array(files));
-   % there is no associated filename to the buffer
-   () = write_buffer(path_concat(dir, Tm_Doc_File));
-   delbuf(whatbuf);
-   sw2buf(buf);
+   % extract tm documentation blocks
+   variable docstrings, str, files=list_slang_files(dir);
+   !if (length(files))
+     return vmessage("no slang files in %s", dir);
+   docstrings = array_map(String_Type, &tm_parse, files);
+   str = strjoin(docstrings, "");
+   if (str == "")
+     return vmessage("no tm documentation in %s", dir);
+   
+   () = write_string_to_file (str, path_concat(dir, Tm_Doc_File));
+#endif
 }
 
 %!%+
@@ -444,7 +458,7 @@ public define update_ini() % (directory=buffer_dir())
 
 % run update_ini, if called as a batch process
 if (BATCH)
-  update_ini;
+  update_ini();
 
 #ifexists Jed_Home_Library
 %!%+
