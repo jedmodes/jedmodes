@@ -6,7 +6,8 @@
 % Versions: 
 %            1.0 first public release
 % 2005-04-05 1.1 merge of GM and PB versions, bugfix in enable edit
-% 2005-04-07 1.2 bugfix: added require("keydefs") (Rafael Laboissiere)
+% 2005-04-07 1.2 added require("keydefs") (Rafael Laboissiere)
+% 2005-05-25 1.3 bugfix: view_mode() now tries view_mode_hook() (PB)
 %
 % CUSTOMIZATION
 % 
@@ -132,7 +133,7 @@ public define view_mode()
    mode_set_mode_info(mode, "init_mode_menu", &view_menu);
    set_help_message(
      "SPC:pg_dn BS:pg_up f:search_fw b:search_bw q:quit e:edit ?:this_help");
-   run_mode_hooks(mode);
+   run_mode_hooks(mode + "_mode_hook");
 }
 
 public define set_view_mode_if_readonly()
