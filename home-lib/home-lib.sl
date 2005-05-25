@@ -129,7 +129,7 @@ if (Jed_Local_Library == NULL) % no custom or environment var set
      Jed_Local_Library = "";
    else
      Jed_Local_Library = path_concat(path_concat($2, path_basename($3)), 
-                                     "Jedsoft\JED\lib");
+                                     "Jedsoft\\JED\\lib");
 #else
      Jed_Local_Library = "/usr/local/share/jed/lib";
 #endif
