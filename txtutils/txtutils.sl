@@ -24,9 +24,9 @@
 
 autoload("get_blocal", "sl_utils");
 autoload("push_defaults", "sl_utils");
+autoload("indent_region_or_line", "cuamisc");
 
 %--- marking and regions ---------------------------------------------
-
 
 %!%+
 %\function{mark_word}
