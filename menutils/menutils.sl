@@ -1,16 +1,12 @@
 % menutils.sl	-*- mode: Slang; mode: Fold -*-
 % popup menu extensions
 % 
-% $Id: menutils.sl,v 1.1 2004/02/25 21:41:57 paul Exp paul $
+% $Id: menutils.sl,v 1.1 2005/05/27 18:24:00 paul Exp paul $
 % Keywords: slang, ui
 %
-% Copyright (c) 2004 Paul Boekholt.
+% Copyright (c) 2004, 2005 Paul Boekholt.
 % Released under the terms of the GNU GPL (version 2 or later).
 
-if (_featurep("menutils"))
-  use_namespace("menutils");
-else
-  implements("menutils");
 provide("menutils");
 
 static define menu_do_toggle(var)
