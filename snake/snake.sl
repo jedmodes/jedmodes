@@ -1,19 +1,16 @@
 % snake.sl
 % Eat the apples and stay away from the walls
 % 
-% $Id: snake.sl,v 1.1 2004/03/11 10:09:51 paul Exp paul $
+% $Id: snake.sl,v 1.2 2005/05/27 17:28:01 paul Exp paul $
 % Keywords: games
 %
-% Copyright (c) 2004 Paul Boekholt.
+% Copyright (c) 2004, 2005 Paul Boekholt.
 % Released under the terms of the GNU GPL (version 2 or later).
 
-if (_featurep("snake"))
-  use_namespace("snake");
-else
-  implements("snake");
 provide("snake");
+implements("snake");
 
-autoload("get_keystring", "strutils");
+
 
 custom_variable("Snake_Use_DFA", 1);
 custom_variable("Snake_Initial_Number_Apples", 50);
@@ -41,17 +38,14 @@ dfa_set_init_callback (&setup_dfa_callback, "snake");
 
 % It is a little known fact of herpetology that snakes are made of
 % segments.
-!if (is_defined("Segment_Type"))
+static variable Segment_Type = struct
 {
-   typedef struct
-     {
-	next,
-	  prev,
-	  x, y
-     } Segment_Type;
-}
+   next,
+     prev,
+     x, y
+};
 
-variable snake = @Segment_Type,
+variable the_snake = @Segment_Type,
   tail,
   score=0,
   grow=0,
@@ -130,9 +124,9 @@ define snake_move(x,y)
 	tail = segment.prev;
 	segment.prev = NULL;
      }
-   segment.next = snake;
-   snake.prev = segment;
-   snake = segment;
+   segment.next = the_snake;
+   the_snake.prev = segment;
+   the_snake = segment;
    segment.x=x;
    segment.y=y;
    return draw_segment(segment);
@@ -154,10 +148,10 @@ define draw_apples()
 
 define init_snake(x,y)
 {
-   snake.x = x;
-   snake.y = y;
-   tail = snake;
-   ()=draw_segment(snake);
+   the_snake.x = x;
+   the_snake.y = y;
+   tail = the_snake;
+   ()=draw_segment(the_snake);
 }
 
 %}}}
@@ -261,4 +255,3 @@ public define snake()
 }
 
 %}}}
-
