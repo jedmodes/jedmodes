@@ -1,24 +1,22 @@
 % pcre.sl
 % Perl-compatible searching functions
 % 
-% $Id: pcre.sl,v 1.1 2004/06/16 04:42:24 paul Exp paul $
+% $Id: pcre.sl,v 1.2 2005/06/01 11:59:16 paul Exp paul $
 % Keywords: matching
 %
-% Copyright (c) 2004 Paul Boekholt.
+% Copyright (c) 2004, 2005 Paul Boekholt.
 % Released under the terms of the GNU GPL (version 2 or later).
 % 
 % This requires JED B0.99-17 and the pcre module.
+% 
+% This provides some functions for searching, replacing and occurring
+% pcre-regexps.  The searching and replacing functions can find multi-line
+% matches.
 
+provide("pcre");
 import("pcre");
 require("srchmisc");
-!if (is_defined("occur_goto_line"))
-  ()=evalfile("occur");
-
-if (_featurep("pcre"))
-  use_namespace("pcre");
-else
-  implements("pcre");
-provide("pcre");
+require("occur");  % this requires the occur from jedmodes.sf.net/mode/occur
 
 % _debug_info=1;
 %{{{ search
@@ -40,7 +38,7 @@ public define pcre_fsearch(pat)
    return 0;
 }
 
-variable last_pcre_search = "";
+private variable last_pcre_search = "";
 
 public define pcre_search_forward()
 {
@@ -144,8 +142,8 @@ public define pcre_query_replace()
 %}}}
 %{{{ occur
 
-variable occur_re;
-define pcre_match(str)
+private variable occur_re;
+private define pcre_match(str)
 {
    pcre_exec(occur_re, str);
 }
@@ -153,27 +151,29 @@ define pcre_match(str)
 public define pcre_occur()
 {
    variable pat, str, tmp, n;
-   
-   pat = read_mini("Find All (Regexp):", LAST_SEARCH, Null_String);
+   if (_NARGS) pat = ();
+   else
+     pat = read_mini("Find All (Regexp):", LAST_SEARCH, Null_String);
    occur_re = pcre_compile(pat);
    tmp = "*occur*";
-   Occur_Buffer = whatbuf();
+   occur->obuf = whatbuf();
+   occur->nlines=0;
+   occur->mbuffers=0;
    push_spot_bob;
    push_mark_eob;
    str = strchop(bufsubstr, '\n', 0);
    pop_spot;
    variable index = where(array_map(Integer_Type, &pcre_match, str));
+   !if (length(index)) return message("no matches");
    pop2buf(tmp);
    erase_buffer();
    foreach (index)
      {
 	n = ();
-	vinsert ("%4d: %s\n", 1+n, str[n]);
+	vinsert ("%*d: %s\n", occur->line_number_width, 1+n, str[n]);
      }
    bob(); set_buffer_modified_flag(0);
-
-   use_keymap ("Occur");
-   run_mode_hooks ("occur_mode_hook");
+   occur_mode();
 }
 
 
