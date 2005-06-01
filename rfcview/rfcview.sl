@@ -1,10 +1,10 @@
 % rfcview.sl	-*- mode: Slang; mode: Fold -*-
 % RFC viewer
 % 
-% $Id: rfcview.sl,v 1.2 2004/01/18 09:55:57 paul Exp paul $
+% $Id: rfcview.sl,v 1.3 2005/06/01 19:47:12 paul Exp paul $
 % Keywords: docs
 %
-% Copyright (c) 2003 Paul Boekholt.
+% Copyright (c) 2003-2005 Paul Boekholt.
 % Released under the terms of the GNU GPL (version 2 or later).
 % 
 % Not as pretty as Emacs' rfcview, but more features.
@@ -14,20 +14,16 @@
 % -pop up references with mouse
 % -selectively display only headers, or sections matching any of a list
 %  of regexps.
-%  
-% Some of this should go into an outline minor mode.
+
+provide("rfcview");
+require("view");
+implements("rfcview");
 
 custom_variable ("Rfc_Path", "/usr/doc/rfc");
 custom_variable ("Rfc_Index", "/usr/doc/rfc/rfc-index.txt.gz");
 
 variable mode = "rfcview";
-implements("rfcview");
 
-require("view");
-_autoload
-  ("set_buffer_hidden", "filter-view",
-   "set_matching_hidden", "filter_view",
-   "string_get_match", "strutils", 3);
 
 %{{{ syntax table
 
@@ -36,8 +32,10 @@ create_syntax_table(mode);
 %%% DFA_CACHE_BEGIN %%%
 static define setup_dfa_callback (mode)
 {
-   dfa_define_highlight_rule ("RFC ?[0-9]+", "keyword", mode);
+   dfa_define_highlight_rule ("RFC ?[0-9]+", "keyword1", mode);
    dfa_define_highlight_rule ("^[0-9\\.]+", "preprocess", mode);
+   dfa_define_highlight_rule ("\\[RFC ?[0-9]+\\]", "QKkeyword1", mode);
+   dfa_define_highlight_rule ("\\[.*\\]", "QKnormal", mode);
    dfa_build_highlight_table(mode);
 }
 dfa_set_init_callback (&setup_dfa_callback, mode);
@@ -90,7 +88,6 @@ define get_rfc_from_index()
 
 define hide_body()
 {
-   set_buffer_hidden(1);
    set_matching_hidden(0, "^[0-9]");
    message("a: show all  s: show section  d: hide section");
 }
@@ -117,7 +114,7 @@ define hide_section(hide)
 variable last_pattern = "";
 
 % rolo for a pattern, or a | separated list of patterns, in the index or
-% in the rfc, if it's section headers begin with a number
+% in the rfc, if its section headers begin with a number
 define rolo()
 {
    variable pattern, subpattern;
@@ -267,7 +264,7 @@ public define rfc_mode()
    variable line, page, pages = Assoc_Type[Mark_Type],
      body, toc;
    
-   % remove linefeeds
+   % remove form feeds
    bob;
    while (bol_fsearch("\f"))
      {
@@ -298,19 +295,11 @@ public define rfc_mode()
    eob;
    if (re_bsearch("^[0-9\\.]*[ \t]*references"))
      {
-	variable dfa_table = "rfc_" + whatbuf;
-	create_syntax_table(dfa_table);
-	dfa_define_highlight_rule ("RFC ?[0-9]+", "keyword", dfa_table);
-	dfa_define_highlight_rule ("^[0-9\\.]+", "preprocess", dfa_table);
 	while (re_fsearch("^[ \t]*\\(\\[[^\\]]+\\]\\)"))
 	  {
-	     dfa_define_highlight_rule
-	       (str_quote_string(regexp_nth_match(1), "-.[]", '\\'),
-		"comment", dfa_table);
+	     add_keyword(mode, regexp_nth_match(1));
 	     eol;
 	  }
-	dfa_build_highlight_table(dfa_table);
-	use_syntax_table(dfa_table);
      }
 #endif
 
@@ -388,4 +377,3 @@ public define rfcview()
    use_keymap("rfc_toc");
 }
 
-provide(mode);
