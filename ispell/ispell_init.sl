@@ -2,18 +2,18 @@
 %
 % Author:	Paul Boekholt
 %
-% $Id: ispell_init.sl,v 1.7 2004/03/25 16:30:23 paul Exp paul $
+% $Id: ispell_init.sl,v 1.9 2005/06/16 08:48:37 paul Exp paul $
 %
 % Copyright (c) 2003 Paul Boekholt.
 % Released under the terms of the GNU GPL (version 2 or later).
 %
 % This defines global variables and functions for the ispell package. 
 % You may evaluate this on starting JED. 
-autoload("push_defaults", "sl_utils.sl");
-autoload("menu_radio", "menutils");
 % Version numbering for this package follows the RCS numbering of
 % ispell.sl
-variable ispell_version = "ispell.sl 1.17";
+provide ("ispell_init");
+
+variable ispell_version = "ispell.sl 1.18";
 
 %{{{ autoloads
 
@@ -120,4 +120,3 @@ append_to_hook ("load_popup_hooks", &ispell_load_popup_hook);
 
 %}}}
 
-provide ("ispell_init");

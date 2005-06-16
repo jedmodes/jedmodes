@@ -2,7 +2,7 @@
 %
 % Author:	Paul Boekholt
 %
-% $Id: ispell_common.sl,v 1.11 2004/03/05 14:32:21 paul Exp $
+% $Id: ispell_common.sl,v 1.12 2005/06/16 08:40:18 paul Exp paul $
 % 
 % Copyright (c) 2003,2004 Paul Boekholt.
 % Released under the terms of the GNU GPL (version 2 or later).
@@ -11,9 +11,10 @@
 % vispell. It is not part of JED.
 % The JMR ispell package can be found at http://jedmodes.sf.net
 
-implements("ispell");
+provide ("ispell_common");
 
 require ("ispell_init");
+implements("ispell");
 
 variable
   ispell_letters,
@@ -189,4 +190,3 @@ static define ispell_end_of_word()
 if (Ispell_Dictionary == "ask") ispell_change_dictionary();
 make_ispell_command;
 
-provide ("ispell_common");

@@ -1,6 +1,6 @@
 % flyspell.sl  -*- mode: SLang; mode: Fold -*-
 %
-% $Id: flyspell.sl,v 1.15 2004/03/25 16:31:03 paul Exp paul $
+% $Id: flyspell.sl,v 1.16 2005/06/16 08:40:18 paul Exp paul $
 % 
 % Copyright (c) 2003,2004 Paul Boekholt.
 % Released under the terms of the GNU GPL (version 2 or later).
@@ -10,9 +10,9 @@
 % depending on the flyspell blocal var.  In English: you need JED 0.99.16
 % or greater.
   
-require("ispell_common");
 autoload("get_blocal", "sl_utils");
 autoload("add_keyword_n", "syntax");
+require("ispell_common");
 use_namespace("ispell");
 % The DFA trick used in this file does not work with "-" as an otherchar,
 % so we trim it.
@@ -43,6 +43,7 @@ public define flyspell_parse_output (pid, output)
    if (strlen(output))
      {
 	output = strtok(output)[1];
+	update_sans_update_hook(0);
 	if (flyspell_use_keyword2)
 	  add_keyword_n(name, output, 2);
 	else
@@ -167,7 +168,7 @@ public define flyspell_word()
       return;
    }
    if (strlen(word) < 3) return;
-   
+   clear_message;
    send_process( flyspell_process, strcat ("^", word, "\n"));
 }
 
@@ -315,7 +316,7 @@ public define flyspell_mode()
 %!%-
 public define flyspell_region()
 {
-   variable string;
+   variable line;
    
    flyspell_current_dictionary = ispell_current_dictionary;
    !if (get_blocal("flyspell", 0))
@@ -327,8 +328,8 @@ public define flyspell_region()
    flush ("flyspelling...");
    foreach(strchop(bufsubstr(), '\n', 0))
      {
-   	string = ();
-   	send_process( flyspell_process, "^" + string + "\n");
+   	line = ();
+   	send_process( flyspell_process, "^" + line + "\n");
    	get_process_input(1);
      }
    pop_spot;

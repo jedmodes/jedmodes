@@ -2,7 +2,7 @@
 % 
 % Author:        Paul Boekholt
 %
-% $Id: vispell.sl,v 1.6 2003/09/23 09:41:47 paul Exp $
+% $Id: vispell.sl,v 1.7 2005/06/16 08:40:18 paul Exp paul $
 % 
 % Copyright (c) 2003 Paul Boekholt.
 % Released under the terms of the GNU GPL (version 2 or later).
@@ -10,6 +10,7 @@
 % This file provides a full-screen interface to ispell, like in joe or vi.
 % Thanks to Romano Giannetti and John Davis.
 autoload ("vrun_program_fg", "runpgm");
+provide ("vispell");
 require("ispell_common");
 use_namespace("ispell");
 
@@ -19,7 +20,6 @@ public define vispell()
    variable cmd, tmp = "/tmp/jedispell", mode, mask;
    cmd = ispell_command;
    (mode,) = what_mode();
-   mode = extract_element (mode, 0, ' '); % we may be in flyspell minor mode
 
    % set the format depending on the mode (troff/TeX/html)
    switch (mode)
@@ -61,4 +61,3 @@ public define vispell()
    call("redraw");
 }
 
-provide ("vispell");

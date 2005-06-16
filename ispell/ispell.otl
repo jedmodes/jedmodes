@@ -1,11 +1,8 @@
 ispell mode
 * news
-  Some more bugfixes:
-** ispell_init
-   Ispell_Dictionary was used before it was defined
-** flyspell
-   Flyspell_region didn't work when flyspell had not started and the
-   dictionary was changed.
+  Namespace handling in version 1.18 works with slang 2.0.3.
+**look.sl
+  Rewrote ispell-complete to use S-Lang's file seeking functions.
 * installation
   Simply put it all in your load path, add
   require ("ispell_init");
@@ -102,9 +99,9 @@ I have ispell 3.1.20.
    at all, but full-screen aspell does.  Don't use ispell.sl for html, use
    vispell or flyspell instead.
 ** checking email
-   The new email.sl has an ispell_message() function that will check
-   the body of the message, and an ispell_region_hook that will skip
-   past quoted text.  Get it from http://jedmodes.sf.net/mode/email
+   Email.sl has an ispell_message() function that will check the body of of
+   the message, and an ispell_region_hook that will skip past quoted text.
+   Get it from http://jedmodes.sf.net.
 * look.sl
   To bind ispell_complete to M-tab:
   setkey ("ispell_complete", "\e\t");

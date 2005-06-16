@@ -2,82 +2,88 @@
 %
 % Author:        Paul Boekholt
 %
-% $Id: look.sl,v 1.7 2003/09/23 09:41:47 paul Exp $
+% $Id: look.sl,v 1.8 2005/06/16 08:40:18 paul Exp paul $
 % 
-% Copyright (c) 2003 Paul Boekholt.
+% Copyright (c) 2003,2005 Paul Boekholt.
 % Released under the terms of the GNU GPL (version 2 or later).
 %
-% This file provides dictionary lookup and completion of words from the
-% system dictionary.  This is a list of words in case insensitive
-% lexicographic order separated by newlines.
+% This file provides completion of words from the system dictionary.  This
+% was adapted from the BSD look program.
+provide ("look");
+
 require("ispell_common");
-require("bufutils");
 use_namespace("ispell");
 
-% use look program or internal function to lookup words? Internal function
-% is slow to start and uses huge amount of memory, but may be better for
-% looking up words with non-alphanumeric characters or doing 100s of
-% lookups.
-custom_variable("ispell_lookup_fun", "lookup_words");
-static variable dict_array = NULL, look_list = NULL;
-% If I remove the newlines at the ends, it takes forever
-static variable dict_length;
+private variable fp, word, l;
+private variable keys_string = "0123456789abcdefghijklmnopqrstuvwxyz";
+private variable look_max_hits = strlen(keys_string);
+private variable keys = Char_Type[look_max_hits];
+init_char_array(keys, keys_string);
 
-% Case insensitive binary search dictionary lookup. Returns matches as an
-% array of words. If you change the list, the old one is forgotten, so
-% don't switch to and fro between wordlists.
-public define look(word, list)
+private define skip_past_newline(p)
 {
-   if (dict_array == NULL or list != look_list)
-     {
-	dict_array = arrayread_file(list);
-	dict_length = length(dict_array) - 1;
-	look_list = list;
-     }
-   variable word_length, this_word,
-     first_line = 0, this_line, second_line;
-   word = strlow(word);
-   word_length = strlen(word);
-   second_line = dict_length;
-   this_line = second_line / 2;
-   forever
-     {
-	this_word = strlow(substr(dict_array[this_line], 1, word_length));
-	if (this_word < word)
-	  {
-	     this_line;
-	     this_line = (second_line + this_line) / 2;
-	     first_line = ();
-	  }
-	else if (this_word > word)
-	  {
-	     this_line;
-	     this_line = (first_line + this_line) / 2;
-	     second_line = ();
-	  }
-	else
-	  break;
-	if (second_line - first_line < 2) break;
-     }
-   while (strlow(substr(dict_array[first_line], 1, word_length)) < word) first_line++;
-   while (strlow(substr(dict_array[second_line], 1, word_length)) > word) second_line--;
-   % If there was no match, second_line will now be one less than first_line
-   if (second_line < first_line) return NULL;
-   return array_map(String_Type, &strtrim_end,
-		    dict_array[[first_line:second_line]], "\n");
+   variable ch, s;
+   ()=fseek(fp, p, SEEK_SET);
+   ()=fgets(&s, fp);
+   return ftell(fp);
 }
 
-% same as look, but use the external look program
-public define lookup_words(word, list)
+private define compare(p)
 {
-   variable buf = whatbuf;
-   setbuf("*look*");
-   erase_buffer;
-   variable command = sprintf("look -df %s %s", word, list);
-   shell_cmd(command);
-   mark_buffer;
-   strchop(strtrim(bufsubstr(), "\n"), '\n', 0);
-   setbuf(buf);
+   variable s2;
+   ()=fseek(fp, p, SEEK_SET);
+   ()=fgets(&s2, fp);
+   return strncmp(word, strlow(s2), l);
+}
+
+private define binary_search(front, back)
+{
+   ()=fseek(fp, front, SEEK_SET);
+   variable p = (back - front) / 2;
+   p = skip_past_newline(p);
+
+   while (p < back and back > front) 
+     {
+	if (compare(p) > 0) front = p;
+	else back = p;
+	p = front + (back - front) / 2;
+	p=skip_past_newline(p);
+     }
+   return front;
+}
+
+private define linear_search(front)
+{
+   variable c, s, result = 0;
+   ()=fseek(fp, front, SEEK_SET);
+   loop (look_max_hits)
+     {
+	if (-1 == fgets(&s, fp)) break;
+	c =  (strncmp(word, strlow(s), l));
+	if (c > 0) continue;
+	if (c < 0) break;
+	s;
+     }
+}
+
+% Case insensitive binary search dictionary lookup. Returns matches as an
+% array of words.
+define look(w, file)
+{
+   word=w;
+   l=strlen(w);
+   fp = fopen(file, "r");
+   if (fp == NULL) verror ("could not open file %s", file);
+   variable front, back, result;
+   ()=fseek(fp, 0, SEEK_SET);
+   front = ftell(fp);
+   ()=fseek(fp, 0, SEEK_END);
+   back = ftell(fp);
+   front = binary_search(front, back);
+   result = [w, linear_search(front)];
+   result = result[[1:]];
+   ()=fclose(fp);
+   return result;
 }
 
 
@@ -89,7 +95,6 @@ public define ispell_complete()
    variable word, new_word, buf = whatbuf, cbuf = "*completions*",
      num_win = nwindows, obuf, n, completions, num,
      wordlen, lookfun;
-   lookfun = __get_reference(ispell_lookup_fun);
 
    push_spot;
    push_mark;
@@ -100,9 +105,8 @@ public define ispell_complete()
    pop_spot;
    word = strlow(word);
    if (ispell_wordlist == "") return message ("no wordlist");
-   completions = @lookfun(word, ispell_wordlist);
-   if (completions == NULL) return message ("no completions");
-
+   completions = look(word, ispell_wordlist);
+   !if (length(completions)) return message ("no completions");
    % try to complete a part
    variable first_completion = completions[0];
    variable last_completion = completions[-1];
@@ -126,7 +130,7 @@ public define ispell_complete()
    erase_buffer;
    for (i = 0; i < length (completions); i++)
       {
-    	vinsert ("(%d)  %s\n", i, completions[i]);
+    	vinsert ("(%c)  %s", keys[i], completions[i]);
       }
 
    buffer_format_in_columns;
@@ -142,12 +146,11 @@ public define ispell_complete()
      }
 
    set_buffer_modified_flag(0);
-   message ("Enter choice");
+   message ("Enter choice (SPACE to leave unchanged)");
 
    update_sans_update_hook(0);
    variable c = getkey();
-   ungetkey(c);
-   !if ('0' <= c and c <= '9')
+   if (c == ' ')
      {
 	sw2buf(obuf);
 	pop2buf(buf);
@@ -155,13 +158,12 @@ public define ispell_complete()
 	bury_buffer(cbuf);
 	return;
      }
-   num = integer (read_mini ("Enter choice. (^G to abort)", "0", Null_String));
    sw2buf(obuf);
    pop2buf(buf);
-   if (num >= 0 and num < length (completions))
-     insert (completions[num][[wordlen:]]); 
+   num = where (c == keys);
+   if (length(num))
+     insert (strtrim_end(completions[num[0]][[wordlen:]]));
    if (num_win == 1) onewindow();
    bury_buffer(cbuf);
 }
 
-provide ("look");

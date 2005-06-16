@@ -1,11 +1,12 @@
 % ispell.sl	-*- mode: SLang; mode: fold -*-
 % 
-% $Id: ispell.sl,v 1.17 2004/03/05 14:32:21 paul Exp paul $
+% $Id: ispell.sl,v 1.18 2005/06/16 08:40:18 paul Exp paul $
 % 
 % Copyright (c) 2001-2004 Guido Gonzato, John Davis, Paul Boekholt.
 % Released under the terms of the GNU GPL (version 2 or later).
 % 
 % Thanks to Günter Milde.
+provide("ispell");
 require("ispell_common");
 require("bufutils");
 use_namespace("ispell");
