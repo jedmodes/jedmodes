@@ -1,7 +1,9 @@
+% filelist.sl
 % A special mode for file listings (ls, ls -a, locate)
 % -> replace/extend dired mode
-%
-% Günter Milde <milde at web.de>
+% 
+% Copyright (c) 2005 Günter Milde
+% Released under the terms of the GNU General Public License (ver. 2 or later)
 %
 % Version   0.9   * initial version (beta)
 %           0.9.1 (based on report by Paul Boekholt)
@@ -35,6 +37,8 @@
 % 2005-05-13  1.3.1 filelist_open_file_with() now checks whether the file is
 %                   a directory and (calls filelist_list_dir in this case)
 %                   Thus, a directory ".lyx" will not be opened as a lyx file
+% 2005-06-01  1.4   extract_filename() now uses whitespace as default delimiter
+%                   
 %
 % TODO: * more bindings of actions: filelist_cua_bindings
 % 	* detailed directory listing (ls -l)
@@ -150,7 +154,7 @@ if (getenv("DISPLAY") != NULL) % assume X-Windows running
    FileList_Default_Commands[".eps"]     = "gv";
    FileList_Default_Commands[".ps"]      = "gv";
    FileList_Default_Commands[".ps.gz"]   = "gv";
-   FileList_Default_Commands[".pdf"]     = "gv";
+   FileList_Default_Commands[".pdf"]     = "xpdf";
    FileList_Default_Commands[".pdf.gz"]  = "gv";
    FileList_Default_Commands[".dvi"]     = "xdvi";
    FileList_Default_Commands[".dvi.gz"]  = "xdvi";
@@ -187,10 +191,11 @@ static define extract_filename(line)
    !if (strlen(filename))
      {
 	variable fp = get_blocal("filename_position", 0);
-	variable del = get_blocal("delimiter", ' ');
-	% filename = strchop(line, del, '\\')[fp];
-	% filename = strtok(line, del, '\\')[fp];
-	filename = extract_element(line, fp, del);
+	variable del = get_blocal("delimiter");
+	if (del == NULL)
+	   filename = strtok(line)[fp];
+	else
+	  filename = extract_element(line, fp, del);
      }
    % remove trailing path-separator
    return strtrim_end(filename, Dir_Sep);
@@ -395,6 +400,9 @@ static define filelist_delete_file(line)
 }
 
 % Open the file in the current line in a buffer.
+% if the filename is not in the first position, set the blocal variables
+% "filename_position" (counting from 0) and "delimiter"
+% (Char_Type, default NULL means all whitespace)
  public define filelist_open_file()
 {
    % get the line but keep the point (see also get_line in txtutils.sl)
@@ -404,7 +412,9 @@ static define filelist_delete_file(line)
    % extract filename and line number
    variable filename = extract_filename(line);
    variable line_no = extract_line_no(line);
-   () = chdir(buffer_dirname());
+   
+   filename = path_concat(buffer_dirname(), filename());
+   
    % eventually close the calling buffer
    if (get_blocal("FileList_Cleanup", 0) > 1)
      close_buffer();
@@ -545,12 +555,12 @@ static define filelist_menu(menu)
    menu_insert_item ("&Edit Listing", menu, "&Open",             "filelist_open_file");
    menu_insert_item ("&Edit Listing", menu, "Open &With",        "filelist_open_file_with(1)");
    menu_insert_item ("&Edit Listing", menu, "&View (read-only)", "filelist_view_file");
-   menu_insert_item ("&Edit Listing", menu, "Open Directory",    "filelist_list_base_dir");
+   menu_insert_item ("&Edit Listing", menu, "Open &Directory",    "filelist_list_base_dir");
    menu_insert_separator("&Edit Listing", menu);
    menu_insert_item ("&Edit Listing", menu, "&Copy",      	 "filelist_copy_tagged");
    menu_insert_item ("&Edit Listing", menu, "Rename/&Move", 	 "filelist_rename_tagged");
    menu_insert_item ("&Edit Listing", menu, "&Rename/ regexp", 	 "filelist_do_rename_regexp");
-   menu_insert_item ("&Edit Listing", menu, "Make &Directory", 	 "filelist_make_directory");
+   menu_insert_item ("&Edit Listing", menu, "Make Di&rectory", 	 "filelist_make_directory");
    menu_insert_item ("&Edit Listing", menu, "Delete",      	 "filelist_delete_tagged");
    menu_insert_separator("&Edit Listing", menu);
    menu_insert_item ("&Edit Listing", menu, "&Grep",      	 "filelist_do_grep");
