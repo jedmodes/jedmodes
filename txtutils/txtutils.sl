@@ -1,22 +1,29 @@
+% txtutils.sl
 % Tools for text processing (marking, string processing, formatting)
-% Günter Milde <g.milde web.de>
+% 
+% Copyright (c) 2005 Günter Milde
+% Released under the terms of the GNU General Public License (ver. 2 or later)
 %
 % VERSIONS
-%  2.0             * get_word(), bget_word() now "region aware"
-%                  * new functions mark_line(), get_line(), autoinsert()
-%                  * bugfix for indent_region_or_line() (used to leave stuff
-%                    on stack)
-%  2.1      	   * mark_word(), bmark_word() test for buffer local variable
+%  2.0              * get_word(), bget_word() now "region aware"
+%                   * new functions mark_line(), get_line(), autoinsert()
+%                   * bugfix for indent_region_or_line() (used to leave stuff
+%                     on stack)
+%  2.1       	    * mark_word(), bmark_word() test for buffer local variable
 %                    "Word_Chars" (using get_blocal from sl_utils.sl)
-%  2.2  2003-11    * removed indent_region_or_line() (now in cuamisc.sl)
-%                  * changed mark_/get_word: added 2nd opt arg skip
+%  2.2   2003-11    * removed indent_region_or_line() (now in cuamisc.sl)
+%                   * changed mark_/get_word: added 2nd opt arg skip
 %                               -1 skip backward, if not in a word
 %                                0 don't skip
 %                                1 skip forward, if not in a word
 %                    Attention: get_word now returns last word, if the point is
 %                    just behind a word (that is the normal way jed treats 
 %                    word boundaries)
-%  2.3  2004-11-24 * New function insert_markup(beg_tag, end_tag)
+%  2.3   2004-11-24 * New function insert_markup(beg_tag, end_tag)
+%  2.3.1 2005-05-26  bugfix: missing autoload (report PB)
+%  2.3.2 2005-06-09 * reintroduced indent_region_or_line() 
+%  	 	      jed99-17's cuamisc.sl doesnot have it
+
 
 % _debug_info = 1;
 
@@ -24,7 +31,6 @@
 
 autoload("get_blocal", "sl_utils");
 autoload("push_defaults", "sl_utils");
-autoload("indent_region_or_line", "cuamisc");
 
 %--- marking and regions ---------------------------------------------
 
@@ -191,6 +197,34 @@ public define autoinsert()
      }
    widen;
 }
+
+%{{{ indent_region_or_line()      % should go to a generic place (site.sl?)
+%!%+
+%\function{indent_region_or_line}
+%\synopsis{Indent the current line or (if defined) the region}
+%\usage{Void indent_region_or_line ()}
+%\description
+%   Call the indent_line_hook for every line in a region.
+%   If no region is defined, call it for the current line.
+%\seealso{indent_line, set_buffer_hook, is_visible_mark}
+%!%-
+public define indent_region_or_line ()
+{
+   !if(is_visible_mark ())
+     {
+	indent_line ();
+	return;
+     }
+
+   check_region (1);                  % make sure the mark comes first
+   variable end_line = what_line ();
+   exchange_point_and_mark();         % now point is at start of region
+   while (what_line() <= end_line)
+     {indent_line (); go_down_1 ();}
+   pop_mark (0);
+   pop_spot ();
+}
+%}}}
 
 %!%+
 %\function{insert_markup}
