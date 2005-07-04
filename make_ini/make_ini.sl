@@ -53,6 +53,7 @@
 %                  evaluation/preparse time of make_ini.sl in order to enable 
 %                  the documentation extract feature.
 % 2005-05-25 2.7.1 * bugfix: andelse -> orelse (report Paul Boekholt)
+% 2005-07-04 2.8 * separated function byte_compile_library()
                   
 
 % _debug_info=1;
@@ -377,6 +378,26 @@ public define make_ini() % ([dir])
 }
 
 %!%+
+%\function{byte_compile_library}
+%\synopsis{Byte compile all *.sl files in a directory}
+%\usage{ byte_compile_library(dir)}
+%\description
+%  Call \var{byte_compile_file} on all files returned by 
+%  \var{list_slang_files}(dir).
+%\seealso{byte_compile_file, update_home_lib, update_site_lib}
+%!%-
+define byte_compile_library(dir)
+{
+   variable file;
+   foreach (list_slang_files(dir))
+     {
+        file = ();
+        byte_compile_file(file, 0);
+     }
+}
+
+
+%!%+
 %\function{make_libfun_doc}
 %\synopsis{Write tm documentation in dir to "libfuns.txt"}
 %\usage{ make_libfun_doc([dir])}
@@ -442,11 +463,7 @@ public define update_ini() % (directory=buffer_dir())
    if(Make_ini_Bytecompile)
      {
 	flush("byte compiling files");
-	foreach (list_slang_files(dir))
-	  {
-	     file = ();
-	     byte_compile_file(file, 0);
-	  }
+        byte_compile_library(dir);
 	byte_compile_file(path_concat(dir, Ini_File), 0);
      }
    % extract the documentation and put in file libfuns.txt
