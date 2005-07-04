@@ -1,3 +1,8 @@
+% csvutils.sl
+% 
+% Copyright (c) 2003 Günter Milde
+% Released under the terms of the GNU General Public License (ver. 2 or later)
+%
 % Utilities to work with comma (or tabulator) separated values (csv files)
 % We will call such a 2d-array of values a table
 %
@@ -85,7 +90,7 @@ public define get_lines() % (kill=0)
 %  Calls strcompress on the buffer (or region, if defined)
 %\seealso{strcompress, get_lines, trim_buffer}
 %!%-
-public define buffer_compress(white)
+define buffer_compress(white)
 {
    push_spot();
    variable lines = get_lines(1);
@@ -123,7 +128,7 @@ public define spaces2tab()
 %  delimited table.
 %\seealso{strchop, strtok, read_table}
 %!%-
-public define strchop2d() % (str, col_sep='\t', line_sep='\n', quote=0)
+define strchop2d() % (str, col_sep='\t', line_sep='\n', quote=0)
 {
    variable str, col_sep, line_sep, quote;
    (str, col_sep, line_sep, quote) = push_defaults( , '\t', '\n', 0, _NARGS);
@@ -164,7 +169,7 @@ public define strchop2d() % (str, col_sep='\t', line_sep='\n', quote=0)
 %#v-
 %\seealso{strchop2d, format_table, insert_table}
 %!%-
-public define get_table() % (col_sep=NULL, kill=0)
+define get_table() % (col_sep=NULL, kill=0)
 {
    variable col_sep, kill;
    (col_sep, kill) = push_defaults(NULL, 0, _NARGS);
@@ -210,7 +215,7 @@ public define get_table() % (col_sep=NULL, kill=0)
 %   strjoin(Array_Type a, String_Type delim).
 %\seealso{strjoin, strchop2d, insert_table, get_table}
 %!%-
-public define strjoin2d() %(a, col_sep="\t", line_sep="\n", align=NULL)
+define strjoin2d() %(a, col_sep="\t", line_sep="\n", align=NULL)
 {
    % get arguments
    variable a, col_sep, line_sep, align;
@@ -270,7 +275,7 @@ public define strjoin2d() %(a, col_sep="\t", line_sep="\n", align=NULL)
 %   and last column not aligned.
 %\seealso{get_table, strjoin2d, strjoin}
 %!%-
-public define insert_table() %(a, align="l", col_sep=" ")
+define insert_table() %(a, align="l", col_sep=" ")
 {
    variable a, align, col_sep;
    (a, align, col_sep) = push_defaults( , "l", " ", _NARGS);
@@ -341,7 +346,7 @@ define compute_columns() % (a, width=SCREEN_WIDTH, col_sep_length=1)
 }
 
 % arrange a 1d-array as a table (2d-array) with cols columns
-public define list2table() % (a, cols=compute_columns(a))
+define list2table() % (a, cols=compute_columns(a))
 {
    variable a, cols;
    (a, cols) = push_defaults(, 0, _NARGS);

@@ -1,7 +1,11 @@
-% Brief editor emulation
+% brief.sl:    Brief editor emulation
+% 
 % modified by Guenter Milde to work with X-windows and a IBMPC keyboard
 % using keymap.sl 
 % 2003-08-18
+% 
+% Copyright (c) 2005 John E Davis, Günter Milde
+% Released under the terms of the GNU General Public License (ver. 2 or later)
 
 _Jed_Emulation = "brief";
 

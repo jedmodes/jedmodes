@@ -1,25 +1,30 @@
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % cuamark.sl
-% Implements CUA/Windows style of marking ("volatile regions")
+% 
+% Copyright (c) 2003 Günter Milde
+% Released under the terms of the GNU General Public License (ver. 2 or later)
+%
+% CUA/Windows style of marking ("volatile regions")
 % 
 % Version 0.9
-% Version 1.0  use _jed_before_key_hooks (needs jed 0.99.16)
-%              after the example by JED in wmarks.sl
-%              added support for Dave Kuhlhard's yank_repop command       
-%
-% Author: Guenter Milde (g.milde@web.de)
+% Version 0.9.1  use _jed_before_key_hooks (needs jed 0.99.16)
+%                after the example by JED in wmarks.sl
+%         1.0    added support for Dave Kuhlhard's yank_repop command
+%         1.1  * removed the require("yankpop"), (autoloads in site.sl)
+
+% Author: Guenter Milde (g.milde web.de)
 % 
-% Mark regions the CUA like style:
+% Mark regions the CUA style:
 %
 % * Holding down Shift key and using navigation keys defines a region
 % 
 % * Arrow keys without Shift undefine the region, if defined with 
 %   Shift-<arrow>
 %   
-% * Self-insert (Typing "normal" text) will replace such a  region
+% * Self-insert (Typing "normal" text) will replace such a  region,
+%   del() and backward_delete_char[_untabify]() delete it.
 %   Define 
-%      variable CuaInsertReplacesRegion = 0 
-%   in your .jedrc if you don't like it.
+%      variable CuaInsertReplacesRegion = ""
+%   in your .jedrc if you don't like this.
 %
 % * You can still define a "non-cua"-region with push_visible_mark().
 %   Such "permanent-region" will behave the "normal jed way" (i.e it can 
@@ -28,52 +33,48 @@
 % 
 % The following bindings affect all visible regions:
 % 
-% * <Del> deletes the region if one is defined (otherwise the char under 
-%   cursor)
-% * Shift-<Del> cuts the region  (also ^X in CUA)
-% * Ctrl-<Ins>  copies the region (also ^C in CUA)
-% * Shift-<Ins> inserts the yank_buffer (also ^V in CUA)
+% * Shift-<Del> cuts the region  (in CUA also ^X)
+% * Ctrl-<Ins>  copies the region (in CUA also ^C)
+% * Shift-<Ins> inserts the yank_buffer (in CUA also ^V)
 % 
-% TODO:
-%       Extend the Shift+navigation marking to wordwise moving via 
-%       Ctrl-Left/Right. 
-%       However, on Linux Shift-Ctrl-Left/Right is not defined
-%       Still you can start a region using Shift-Left/Right and then 
-%       extend it with Ctrl-Left/Right
+% USAGE: Insert a line require("cuamark") into your .jedrc/jed.rc file.
+%        Optionally customize using custom variables and the cuamark_hook.
 % 
-% Notes: If you are having problems with Shift-arrow keys under linux, 
-% 	 then read the jed/doc/txt/linux-keys.txt file.
+% NOTES: If you are having problems with Shift-arrow keys under linux, 
+% 	 read the JED_ROOT/doc/txt/linux-keys.txt file.
 %        
-%        If your Delete key deletes the charakter under the cursor but does 
-%        not delete the region, comment out the line
-%               setkey ("delete_char_cmd", "\e[3~");
-% 	 in your .jedrc
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% TODO:
+%        Extend the Shift+navigation marking to wordwise moving via 
+%        Ctrl-Left/Right. 
+%        Problem: with Unix/Linux Shift-Ctrl-Left/Right == Ctrl-Left/Right
+%        Workaround:
+%        Currently, "skip_word, bskip_word" are not listed as unmarking 
+%        functions -> Start the region using Shift-Left/Right and then 
+%        extend it with Ctrl-Left/Right.
 
-require ("keydefs");
-require ("yankpop");
 
-% --- Variables
+require ("keydefs"); % part of standard jed distribution
 
-% shall copy also place a copy to the clipboard (X-selection, cutbuffer)?
+% --- Custom Variables ---------------------------------------------------
+
+% shall "copy" also place a copy to the clipboard (X-selection, cutbuffer)?
 custom_variable("CuaCopyToClipboard", 1);
 
 % Comma separated list of functions that unmark the region (movement functions)
-custom_variable("Cua_Unmarking_Functions", "beg_of_line eol_cmd," 
-		+ "previous_char_cmd, next_char_cmd,"
-		+ "previous_line_cmd, next_line_cmd,"
-		+ "page_up, page_down, bob, eob,"
-		%  + "skip_word bskip_word " % Shift_Ctrl_Right/Left
-		);
+custom_variable("Cua_Unmarking_Functions", 
+   "beg_of_line, eol_cmd,"
+   + "previous_char_cmd, next_char_cmd,"
+   + "previous_line_cmd, next_line_cmd,"
+   + "page_up, page_down, bob, eob,"
+   %  + "skip_word, bskip_word " % Shift_Ctrl_Right/Left
+   );
 
-% List of functions that delete the region (insert-functions)
-%   Define 
-%      variable CuaInsertReplacesRegion = ""
-%   in your .jedrc if you don't want the region replaced by inserting
-custom_variable("Cua_Replacing_Functions", "self_insert_cmd,yank,yp_yank,");
+% List of functions that replace the region (insert-functions)
+% (Define variable Cua_Replacing_Functions = "";
+% in your .jedrc if you don't want the region replaced by inserting)
+custom_variable("Cua_Replacing_Functions", "self_insert_cmd, yank, yp_yank");
 
-
-% --- Functions
+% --- Functions ------------------------------------------------------------
 
 static define before_key_hook (fun)
 {
@@ -83,7 +84,7 @@ static define before_key_hook (fun)
      del_region();
 }
 
-static define after_key_hook () {}  % dummy definition
+static define after_key_hook ();  % dummy definition
 static define after_key_hook ()
 {
    !if (is_visible_mark())
@@ -93,9 +94,17 @@ static define after_key_hook ()
      }
 }
 
-
-% if no visible region is defined, set visible mark and key-hooks
-define cua_mark ()
+%!%+
+%\function{cua_mark}
+%\synopsis{Mark a cua-region (usually, with Shift-Arrow keys)}
+%\usage{cua_mark()}
+%\description
+%   if no visible region is defined, set visible mark and key-hooks
+%   so that Cua_Unmarking_Functions unmark the region and
+%   Cua_Deleting_Functions delete it.
+%\seealso{cua_kill_region, cua_copy_region, Cua_Unmarking_Functions, Cua_Deleting_Functions}
+%!%-
+define cua_mark()
 {
    !if (is_visible_mark)
      {
@@ -121,7 +130,16 @@ static define copy_to_clipboard()
      pop_mark_0;
 }
 
-% Insert selection at point
+
+%!%+
+%\function{cua_insert_clipboard}
+%\synopsis{Insert X selection at point}
+%\usage{Void cua_insert_clipboard()}
+%\description
+%   Insert the content of the X selection at point.
+%   Use, if you want to have a keybinding for the "middle click" action.
+%\seealso{x_insert_selection, x_insert_cutbuffer, CuaCopyToClipboard}
+%!%-
 define cua_insert_clipboard()
 {
    if (is_defined("x_insert_selection"))
@@ -130,7 +148,15 @@ define cua_insert_clipboard()
      eval("x_insert_cutbuffer");
 }
 
-% Kill region with customizable function
+%!%+
+%\function{cua_kill_region}
+%\synopsis{Kill region (and copy to yp-yankbuffer [and X selection])}
+%\usage{Void cua_kill_region()}
+%\description
+%   Kill region. A copy is placed in the yp-yankbuffer and 
+%   (with xjed and if CuaCopyToClipboard is true) to the X selection.
+%\seealso{yp_kill_region, cua_copy_region, CuaCopyToClipboard}
+%!%-
 define cua_kill_region ()
 {
    if (CuaCopyToClipboard)
@@ -138,83 +164,36 @@ define cua_kill_region ()
    yp_kill_region;
 }
 
-% Copy region with customizable function
-define cua_copy_region ()
+%!%+
+%\function{cua_copy_region}
+%\synopsis{Copy region to yp-yankbuffer [and X selection])}
+%\usage{Void cua_copy_region()}
+%\description
+%   Copy the region to the yp-yankbuffer and 
+%   (with xjed and if CuaCopyToClipboard is true) to the X selection.
+%\seealso{yp_copy_region_as_kill, cua_kill_region, CuaCopyToClipboard}
+%!%-
+define cua_copy_region()
 {
    if (CuaCopyToClipboard)
      copy_to_clipboard();
    yp_copy_region_as_kill;
 }
 
-% yank_pop or go_up (to have both on key Shift-Up)
-define cua_shift_up_cmd () 
-{
-   if (LAST_KBD_COMMAND == "%yank%") 
-     yp_yank_pop (); 
-   else 
-     {
-	cua_mark (); 
-	call ("previous_line_cmd");
-     }
-}
-
-% yank_repop or go_down (to have both on key Shift-Down)
-define cua_shift_down_cmd () 
-{
-   if (andelse
-        {LAST_KBD_COMMAND == "%yank%"}
-	{is_defined("yp_yank_repop")}
-      ) 
-     runhooks("yp_yank_repop");
-   else 
-     {
-	cua_mark (); 
-	call ("next_line_cmd");
-     }
-}
-
-%!%+
-%\function{delete_cmd}
-%\synopsis{Delete of character or (if defined) region}
-%\usage{Void delete_cmd ()}
-%\description
-%   Bind this to the Key_Delete, if you would like it to work 
-%   context dependend
-%\seealso{del, del_region}
-%!%-
-public define delete_cmd ()
-{
-   if (is_visible_mark) 
-     del_region;
-   else del;
-}
-
-% delete the char before the cursor or the region (if defined)
-define backspace_cmd ()
-{
-   if (is_visible_mark) 
-     del_region;
-   else call("backward_delete_char_untabify");
-}
-
-
 % --- Keybindings
 
-setkey ("cua_shift_up_cmd",                        Key_Shift_Up);
-setkey ("cua_shift_down_cmd",       		   Key_Shift_Down);
-setkey ("cua_mark; call(\"previous_char_cmd\")",   Key_Shift_Left);
-setkey ("cua_mark; call(\"next_char_cmd\")",       Key_Shift_Right);
-setkey ("cua_mark; call(\"page_up\")",             Key_Shift_PgUp);
-setkey ("cua_mark; call(\"page_down\")",           Key_Shift_PgDn);
-setkey ("cua_mark; bol",			   Key_Shift_Home);
-setkey ("cua_mark; eol",			   Key_Shift_End);
+setkey("cua_mark; go_up_1",             Key_Shift_Up);
+setkey("cua_mark; go_down_1",           Key_Shift_Down);
+setkey("cua_mark; go_left_1",           Key_Shift_Left);
+setkey("cua_mark; go_right_1",          Key_Shift_Right);
+setkey("cua_mark; call(\"page_up\")",   Key_Shift_PgUp);
+setkey("cua_mark; call(\"page_down\")", Key_Shift_PgDn);
+setkey("cua_mark; bol",                 Key_Shift_Home);
+setkey("cua_mark; eol",                 Key_Shift_End);
 
-setkey ("delete_cmd",           Key_Del);
-setkey ("backspace_cmd",        Key_BS);
-
-setkey ("yp_yank",		Key_Shift_Ins);
-setkey ("cua_kill_region",  	Key_Shift_Del);
-setkey ("cua_copy_region",	Key_Ctrl_Ins);
+setkey("cua_yank",		        Key_Shift_Ins);
+setkey("cua_kill_region",  	        Key_Shift_Del);
+setkey("cua_copy_region",	        Key_Ctrl_Ins);
 
 
 % some more keybinding suggestions:
