@@ -1,6 +1,11 @@
-% --- Data manipulations, convenience functions for several Data_Types
+% datutils.sl
+% 
+% Copyright (c) 2003 Günter Milde
+% Released under the terms of the GNU General Public License (ver. 2 or later)
 %
-% Version 1.0  Günter Milde  <g.milde@web.de>
+% Data manipulations, convenience functions for several Data_Types
+%
+% Version 1.0  Günter Milde  <g.milde web.de>
 %         1.1  new functions pop2array, array, null_fun, array_repeat,
 %              array_fill_missing
 %         1.2  removed array_concat, array_append, array_insert

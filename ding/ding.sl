@@ -1,6 +1,10 @@
-% Ding dictionary lookup
+% ding.sl   Ding dictionary lookup
+% 
+% Copyright (c) 2003 Günter Milde
+% Released under the terms of the GNU General Public License (ver. 2 or later)
+%
 % inspired by the tcl/tk program "ding" for german-english translation
-% Günter Milde <g.milde web.de>
+%
 % Version    0.8   first draft
 % Version    1     Adapted to the new format of the ding dictionary
 % 2005-04-07 1.1   bugfix: added missing autoloads

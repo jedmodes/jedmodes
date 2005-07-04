@@ -1,9 +1,10 @@
-% print.sl --- a printing mode for jed ---
+% print.sl --- a printing mode for jed ---% print.sl
+% 
+% Copyright (c) 2005 Günter Milde
+% Released under the terms of the GNU General Public License (ver. 2 or later)
 % 
 % very basic still, but allows to send the buffer content to the printer 
 % with a key shortcut or menu item.
-% 
-% Author: Guenter Milde <g.milde@web.de>
 % 
 % Version 1.0  
 %

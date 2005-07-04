@@ -1,4 +1,14 @@
-% gkeydefs.sl   more dense alternative to keydefs.sl
+% kp_keydefs.sl
+% 
+% Extends keydefs.sl with symbolic keynames for the numeric keypad
+% Only tested under Linux with PC Keyboard and X-Windows.
+% 
+% Copyright (c) 2003 Günter Milde
+% Released under the terms of the GNU General Public License (ver. 2 or later)
+%
+% Versions:
+% 1.1 2005-07-04 
+
 
 % Define symbolic keynames 
 static define set_keyvar (ibmpc, termcap, default)
