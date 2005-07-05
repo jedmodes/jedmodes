@@ -1,37 +1,69 @@
-% file cuamouse.sl
-% A more cua-compatible mouse mode
-% by Guenter Milde (g.milde@physik.tu-dresden.de)
-% 
+% A cua-compatible mouse mode
+%
+% Copyright (c) 2003 Günter Milde
+% Released under the terms of the GNU General Public License (ver. 2 or later)
+%
+% Version     1   1998 (published 15. 01. 03)
+%             1.1 mark_word does no longer skip back to next word
+%                 implemented mark_by_lines for right drag
+% 2005-03-18  1.2 added some tm documentation
+% 2005-07-05  1.3 added `xclip` workaround for interaction with QT applications
+%                 (idea by Jaakko Saaristo)
+%
 % What does it do:
-% 
+%
 % In the Text:
-% 
+%
 % Left click:
 %    - no region defined: move point to mouse-cursor (mouse_goto_position)
 %    - outside a region: undefine region
 %    - inside a region: copy to selection and delete region ("pick")
-%        + Shift:   copy to (yp)-yankbuffer 
-%    
+%        + Shift:   copy to (yp)-yankbuffer
+%
 % Middle click:
-%    - no region defined: - insert selection at point (not at mouse-cursor!)   
-%    - region defined: delete region and insert selection at point
-%   Shift:  
+%    - insert selection at mouse-cursor
+%   Shift:
 %      insert (yp)-yankbuffer (yank_from_jed)
-%    
+%
 % Right click:
 %    - region defined: extend region to mouse-cursor (ggf exchange_point_and_mark first)
 %    - no region defined: move point to mouse-cursor
-%                      
+%
 % Left drag:
 %    - define a region and copy to selection
 % Middle drag:
 %    - insert selection at mouse-point instead of point
 % Right drag:
 %    - mark by lines (or, as original left drag: mark but leave point)
-%    
+%
+% Statusline:
+%
+% Left click:
+%    - next buffer (jed default)
+% Right click:
+%    - split window (jed default)
+% TODO:
+% Left drag: enlarge/shrink window
+%
 %----------------------------------------------------------------------------
 
+%!%+
+%\variable{CuaMouse_Use_Xclip}
+%\synopsis{Use `xclip` instead of x_copy_region_to_selection()}
+%\usage{Int_Type CuaMouse_Use_Xclip = 0}
+%\description
+%  Currently, a xjed selection doesnot paste into applications using the
+%  QT toolkit (all KDE applications including Klipper, lyx-qt).
+%
+%  This workaround uses the command line tool `xclip` to copy the selected
+%  text to the X selection to overcome this problem. As it introduces a
+%  dependency on `xclip` and some overhead, it is disabled by default.
+%\seealso{copy_region_to_clipboard, x_copy_region_to_selection}
+%!%-
+custom_variable("CuaMouse_Use_Xclip", 0);
+
 require ("mouse");
+autoload("run_function", "sl_utils");
 
 variable CuaMouse_Drag_Mode = 0;     % 0 no previous drag, 1 drag
 variable CuaMouse_Return_Value = 1;  % return value for the mouse_hooks
@@ -40,14 +72,21 @@ variable CuaMouse_Return_Value = 1;  % return value for the mouse_hooks
   %  1 Event handled, stay in current window.
 variable CuaMouse_Clipboard = "";    % string where a mouse-drag is stored
 
-
-% determine whether the mouse_click is in a region
-% returns: -1 - click "before" region
+%!%+
+%\function{click_in_region}
+%\synopsis{determine whether the mouse_click is in a region}
+%\usage{Int click_in_region(col, line)}
+%\description
+%   Given the mouse click coordinates (col, line), the function
+%   returns an Integer denoting:
+%          -1 - click "before" region
 %          -2 - click "after" region
 %          -3 - click in region but "void space" (i.e. past eol)
 %           0 - no region defined
 %           1 - click in region
-public define click_in_region(col,line)
+%\seealso{cuamouse_mark_word}
+%!%-
+define click_in_region(col,line)
 {
    !if(is_visible_mark())
      return 0;
@@ -73,20 +112,47 @@ public define click_in_region(col,line)
      return -3;
    return 1;
 }
-       
-  
-% copy region to system and internal clipboards (The region stays marked)
-public define copy_region_to_clipboard ()
+
+define cuamouse_mark_word()
 {
-   () = dupmark();                  % \
-   if (bufsubstr() == "")           %  | no copy if the region is nil
-     return;	      		    % /
-   () = dupmark();		    
-   if (is_defined("x_copy_region_to_selection"))
-     eval("x_copy_region_to_selection");
-   else if (is_defined("x_copy_region_to_cutbuffer"))
-     eval("x_copy_region_to_cutbuffer");
-   () = dupmark();		    
+   variable word_chars = get_word_chars();
+   if (blocal_var_exists("Word_Chars"))
+       word_chars = get_blocal_var("Word_Chars");
+   bskip_chars(word_chars);
+   push_visible_mark();
+   skip_chars(word_chars);
+}
+
+% copy region to system and internal clipboards (The region stays marked)
+%!%+
+%\function{copy_region_to_clipboard}
+%\synopsis{Copy region to x-selection/cutbuffer and internal mouse clipboard}
+%\usage{ copy_region_to_clipboard()}
+%\description
+%   Copy region to selection/cutbuffer and internal mouse clipboard.
+%
+%   The region stays marked.
+%\notes
+%   Tries x_copy_region_to_selection() and x_copy_region_to_cutbuffer()
+%   (in this order).
+%
+%   With CuaMouse_Use_Xclip = 1, the region is piped to the `xclip` command
+%   line tool instead. This is a workaround for interaction with applications
+%   using the QT toolkit that refuse to paste the selected text otherwise.
+%\seealso{CuaMouse_Use_Xclip, copy_region, yp_copy_region_as_kill}
+%!%-
+public define copy_region_to_clipboard()
+{
+   () = dupmark();
+   if (bufsubstr() == "")           % no copy if the region is nil
+     return;
+   () = dupmark();
+   if (CuaMouse_Use_Xclip)
+     pipe_region("xclip");
+   else
+     !if (run_function("x_copy_region_to_selection"))
+       () = run_function("x_copy_region_to_cutbuffer");
+   () = dupmark();
    CuaMouse_Clipboard = bufsubstr ();
 }
 
@@ -97,13 +163,10 @@ define cuamouse_insert(from_jed)
      insert(CuaMouse_Clipboard);
    else
      {
-   if (is_defined("x_insert_selection"))
-     eval("x_insert_selection");
-   else if (is_defined("x_insert_cutbuffer"))
-     eval("x_insert_cutbuffer");
+   !if (run_function("x_insert_selection"))
+     () = run_function("x_insert_cutbuffer");
      }
 }
-
 
 % cursor follows mouse, warp if pointer is outside window.
 define cuamouse_drag (col, line)
@@ -112,44 +175,35 @@ define cuamouse_drag (col, line)
    variable y;
 
    mouse_goto_position (col, line);
-   
+
    top = window_info ('t');
-   bot = top + window_info ('r');
-   
-   (,y, ) = mouse_get_event_info ();
-   
+   bot = top + window_info('r');
+
+   (,y, ) = mouse_get_event_info();
+
    if ((y < top) or (y > bot))
      x_warp_pointer ();
 }
 
-% mark a word (to be bound to double-click)
-% this function is hopefully some day part of the distro
-static define mark_word ()
-{
-   bskip_word;
-   call ("set_mark_cmd");
-   skip_word;
-}
-
-define cuamouse_2click_hook (line, col, but, shift) %mark word
+define cuamouse_2click_hook(line, col, but, shift) %mark word
 {
    if (but == 1)
      {
-	mouse_goto_position (col, line);
-	mark_word ();
-	copy_region_to_clipboard;
+	mouse_goto_position(col, line);
+	cuamouse_mark_word();
+	copy_region_to_clipboard(); % only if non-empty
 	return 1;
      }
    return -1;
-}	
+}
 
 % button specific down hooks
-define	cuamouse_left_down_hook(line, col, shift)
+define cuamouse_left_down_hook(line, col, shift)
 {
-   variable cir = click_in_region(col,line);
-%    if (cir == -3)                     % click in region but void space
+   variable click_position = click_in_region(col,line);
+%    if (click_position == -3)             % click in region but void space
 %      return;
-   if (cir == 1)
+   if (click_position == 1)
      {
    	copy_region_to_clipboard;
    	del_region;
@@ -177,32 +231,40 @@ define	cuamouse_middle_down_hook(line, col, shift)
 
 define	cuamouse_right_down_hook(line, col, shift)
 {
-   if (click_in_region(col, line) == -1)  % click "before" region   
+   if (click_in_region(col, line) == -1)  % click "before" region
      exchange_point_and_mark();
    mouse_goto_position (col, line);
    CuaMouse_Return_Value = 1;                 % stay in current window
 }
 
-% button specific drag hooks
+% Button specific drag hooks
 % argument bme: Begin_Middle_End of drag: 0 Begin, 1 Middle, 2 End (up)
+
+% mark region
 define	cuamouse_left_drag_hook(line, col, bme, shift)
 {
-   if (bme == 0)    
+   if (bme == 0)
      cua_mark();
-   cuamouse_drag (col, line);
+   cuamouse_drag (col, line); % cursor follows mouse
    if (bme == 2) % last drag  (button up)
      copy_region_to_clipboard();
 }
 
 define	cuamouse_middle_drag_hook(line, col, bme, shift)
-{ 
+{
 }
 
+% mark region by lines
 define	cuamouse_right_drag_hook(line, col, bme, shift)
-{ 
+{
    if (bme == 0)    % first drag
-     cua_mark();
+     {
+	pop_mark_0();
+	bol();
+	cua_mark();
+     }
    cuamouse_drag (col, line);
+   eol();
    if (bme == 2) % last drag  (button up)
      copy_region_to_clipboard();
 }
@@ -233,7 +295,7 @@ define cuamouse_drag_hook (line, col, but, shift)
    return CuaMouse_Return_Value;
 }
 
-% generic up hook: calls the button specific drag (!) hooks 
+% generic up hook: calls the button specific drag (!) hooks
 % with third argument set to 2 (up = end of drag)
 define cuamouse_up_hook (line, col, but, shift)
 {
@@ -248,7 +310,6 @@ define cuamouse_up_hook (line, col, but, shift)
    CuaMouse_Drag_Mode = 0;
    return CuaMouse_Return_Value;
 }
-   
 
 mouse_set_default_hook ("mouse_2click", "cuamouse_2click_hook");
 mouse_set_default_hook ("mouse_down", "cuamouse_down_hook");
