@@ -15,6 +15,14 @@
 %        to Jed_Doc_Files
 %        removed Jed_Debian_Library and introduced Jed_Local_Library
 %        (thanks to Dino Sangoi for a Windows default).
+% 0.9.5  renamed register_library() to register_libdir()
+% 1.0    make the script less "aggresive", so it can be evaluated without
+%        side-effects. 
+%          * !! new way of invocation, see INITIALIZATION !!
+%          * do not change Jed_Home_Directory (do this in
+%            the configuration file instead)
+%          * do not change Default_Jedrc_Startup_File
+%        * prepend (instead of append) /colors to Color_Scheme_Path (J. Sommer)
 %
 % FEATURES
 % 
@@ -22,13 +30,18 @@
 %    change Jed_Home_Directory to point there
 %    
 %  * Initializes up to 3 extension libraries:
-%      1. Jed_Site_Library  (default "JED_ROOT/site-lib")        
-%      2. Jed_Local_Library (default "/usr/local/share/jed/lib")
-%      3. Jed_Home_Library  (default "~/.jed/lib")
-%    for
-%      1. modes provided by the distribution (e.g. Debian GNU/Linux)
-%      2. site-wide extensions by the local administrator
-%      3. user extensions
+%  
+%    1. Jed_Site_Library  (default "JED_ROOT/site-lib")
+%       
+%       for modes provided by the distribution (e.g. Debian GNU/Linux)
+%
+%    2. Jed_Local_Library (default "/usr/local/share/jed/lib")
+%    
+%    	for site-wide extensions|modifications by the local administrator
+%    	
+%    3. Jed_Home_Library  (default "~/.jed/lib")
+%    
+%    	for user extensions|modifications
 %  
 %  * evaluate (if existent) the file ini.sl in the extension libraries
 %    (ini.sl files can be autocreated by make_ini.sl)
@@ -40,54 +53,37 @@
 % 
 % INITIALIZATION
 % 
-% Write in your .jedrc (or jed.rc on winDOS)
-%   require("home-lib", "/FULL_PATH_TO/home-lib.sl")
-% or put home-lib.sl in JED_ROOT/lib and write in .jedrc 
-%   require("home-lib")
-% or rename to (or insert into) defaults.sl.
-% On Debian, you can put it in /etc/jed-init.d for automatic evaluation
-% 
-% With the latter variants "jedrc" is found at following places (assuming UNIX)
-%    ~/.jed/.jedrc
-%    ~/.jedrc
-%    ~/.jed/lib/jed.rc    (actually, Jed_Home_Library + "/jed.rc")
-%    Jed_Site_Library + "/jed.rc"
-%    JED_ROOT + "/lib/jed.rc"
+% Write in your .jedrc (or jed.rc on winDOS) e.g.
+%   require("home-lib", "/FULL_PATH_TO/home-lib.sl");
+%   register_libdir(Jed_Home_Library, Jed_Local_Library, Jed_Site_Library);
 % 
 % CUSTOMIZATION
 % 
 % For other than the default paths use the environment variables 
-% JED_HOME and JED_SITE_LIB or define Jed_Site_Library, and 
-% Jed_Home_Library before evaluating home-lib.sl.
+% JED_HOME and JED_SITE_LIB or define Jed_Site_Library, Jed_Local_Library, 
+% and Jed_Home_Library before evaluating home-lib.sl.
         
 private variable path;
 
-% --- Jed_Home_Directory ------------------------------------------
+% Jed_Home_Directory
+% ------------------
 
 % Jed_Home_Directory is defined in site.sl, defaulting to $HOME
-% If Jed_Home_Directory/.jed/ exists, point Jed_Home_Directory there,
-path = path_concat(Jed_Home_Directory, ".jed");
-if(2 == file_status(path))
-  Jed_Home_Directory = path; 
+% previous versions contained code to change this to ~/.jed/
+% 
+% With the code below in jed.conf (or defaults.sl), Jed looks for .jedrc 
+% in ~/.jed/ only. 
+% 
+%   % If Jed_Home_Directory/.jed/ exists, point Jed_Home_Directory there,
+%   $1 = path_concat(Jed_Home_Directory, ".jed");
+%   if(2 == file_status($1))
+%     Jed_Home_Directory = $1; 
 
-% TODO: find out if this is really needed. Otherwise remove.
-% % documentation on library functions can reside in
-% % Jed_Home_Directory/doc/txt/libfuns.txt or
-% % Jed_Home/lib/libfuns.txt (see later in this file)
-% if(2 == file_status(Jed_Home_Directory)) % directory does exist
-% {
-%    path = expand_filename(Jed_Home_Directory+"/doc/txt/libfuns.txt");
-%    if(1 == file_status(path))
-%      Jed_Doc_Files = Jed_Doc_Files + "," + path;
-% }
-
-% backwards compatibility of jedrc-location 
-% (if nonexistent, Jed_Home_Library+"/jed.rc" will be tried)
-#ifdef UNIX
-Default_Jedrc_Startup_File = "~/.jedrc";
-#endif
-
-% --- Jed_Site_Library and Jed_Home_Library  ------------------------
+% Alternatively, place .jedrc in HOME and set there
+%   Jed_Home_Directory = expand_filename("~/.jed");
+  
+% custom variables
+% ----------------
 
 %!%+
 %\variable{Jed_Site_Library}
@@ -143,54 +139,79 @@ if (file_status(Jed_Local_Library) != 2) % no directory
 %\synopsis{Directory for private non-standard slang scripts}
 %\description
 %  The directory for private jed-slang scripts. Defaults to 
-%  Jed_Home_Directory+"/lib".
+%  "~/.jed/lib".
 %  Set to "" if the specified directory does not exist.
 %\seealso{Jed_Site_Library, Jed_Local_Library, Jed_Home_Directory}
 %\seealso{set_jed_library_path, get_jed_library_path}
 %!%-
+#ifdef UNIX
+custom_variable("Jed_Home_Library", expand_filename("~/.jed/lib/"));
+#else
 custom_variable("Jed_Home_Library", path_concat(Jed_Home_Directory, "lib"));
+#endif
 if (file_status(Jed_Home_Library) != 2) % no directory
   Jed_Home_Library = "";
 
-%  * Prepend \var{lib} to the library path,
-%  * evaluate (if existent) the file ini.sl in this library
-%    to enable initialization (autoloads etc).
-%  * set Color_Scheme_, dfa-cache- and documentation- path
-define register_library(lib)
-{
-   !if (2 == file_status(lib)) % directory doesnot exist
-     return;
-     
-   variable path;
-   
-   % jed library path
-   set_jed_library_path(lib + "," + get_jed_library_path());
-   % colors
-   path = path_concat(lib, "colors");
-   if (2 == file_status(path))
-     Color_Scheme_Path = Color_Scheme_Path + "," + path;
-   % documentation
-   path = path_concat(lib, "libfuns.txt");
-   if (1 == file_status(path))
-     Jed_Doc_Files = path + "," + Jed_Doc_Files;
-   % dfa cache
-#ifdef HAS_DFA_SYNTAX
-   path = path_concat(lib, "dfa");
-   if (2 != file_status(path))
-     path = lib;
-   Jed_Highlight_Cache_Dir = path;
-   Jed_Highlight_Cache_Path += "," + path;
-#endif
-   % Check for a file ini.sl containing initialization code
-   % (e.g. autoload declarations) and evaluate it.
-   path = path_concat(lib, "ini.sl");
-   if (1 == file_status(path))
-     () = evalfile(path);
-}
 
+%!%+
+%\function{register_libdir}
+%\synopsis{Register a library dir for use by jed}
+%\usage{register_libdir(dir, [dir2, ...])}
+%\description
+%  * Prepend \var{lib} to the library path
+%  * Set \var{Color_Scheme_Path}, \var{Jed_Doc_Files},
+%    and \var{Jed_Highlight_Cache_Path}
+%  * Evaluate (if existent) the file \var{ini.sl} in this library
+%    to enable initialization (autoloads etc)
+%\notes
+%  This functions takes a variable number of arguments and processes them
+%  in reversed order.    
+%\example
+%#v+
+%  register_libdir(Jed_Home_Library, Jed_Local_Library, Jed_Site_Library);
+%#v-
+% will register Jed_Site_Library first and Jed_Home_Library last.
+%\seealso{set_jed_library_path, Jed_Home_Library, Jed_Local_Library, Jed_Site_Library}
+%!%-
+define register_libdir() %(args)
+{
+   variable lib;
+   loop (_NARGS)
+     {
+        lib = ();
+        % abort, if directory doesnot exist
+        if (orelse{lib == ""}{2 != file_status(lib)}) 
+          continue;
+        
+        variable path;
+        % jed library path
+        set_jed_library_path(lib + "," + get_jed_library_path());
+        % colors
+        path = path_concat(lib, "colors");
+        if (2 == file_status(path))
+          Color_Scheme_Path = path + "," + Color_Scheme_Path;
+        % documentation
+        path = path_concat(lib, "libfuns.txt");
+        if (1 == file_status(path))
+          Jed_Doc_Files = path + "," + Jed_Doc_Files;
+        % dfa cache
+#ifdef HAS_DFA_SYNTAX
+        path = path_concat(lib, "dfa");
+        if (2 != file_status(path))
+          path = lib;
+        Jed_Highlight_Cache_Dir = path;
+        Jed_Highlight_Cache_Path += "," + path;
+#endif
+        % Check for a file ini.sl containing initialization code
+        % (e.g. autoload declarations) and evaluate it.
+        path = path_concat(lib, "ini.sl");
+        if (1 == file_status(path))
+          () = evalfile(path);
+     }
+}
 
 % --- "register" the libraries -------------------------------------------
 
-foreach ([Jed_Site_Library, Jed_Local_Library, Jed_Home_Library])
-  register_library(());
+% foreach ([Jed_Site_Library, Jed_Local_Library, Jed_Home_Library])
+%   register_libdir(());
 
