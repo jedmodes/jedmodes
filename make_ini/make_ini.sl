@@ -57,7 +57,8 @@
 % 2005-07-04 2.8.1 * renamed byte_compile_library() to byte_compile_libdir
 % 2005-07-11 2.8.2 * bugfix in make_ini_look_for_functions(), strip trailing
 % 	     	     slash from libdir name.
-                  
+% 2005-07-15 2.8.3 * critical bugfix-fix: make_ini_look_for_functions(): use
+% 	     	     path_concat(dir, "") to normalize the dir-path.
 
 % _debug_info=1;
 
@@ -89,7 +90,7 @@ custom_variable("Make_ini_Scope", 1);
 %  n >  0: n lines of global comments + list of custom variables
 %\seealso{make_ini}
 %!%-
-custom_variable("Make_ini_Verbose", 1);
+custom_variable("Make_ini_Verbose", 0);
 
 %!%+
 %\variable{Make_ini_Bytecompile}
@@ -149,7 +150,7 @@ custom_variable("Make_ini_Extract_Documentation", 1);
 %  Should make_ini() insert add_completion commands into ini.sl?
 %\seealso{Make_ini_Bytecompile, Make_ini_Extract_Documentation, Make_ini_Verbose}
 %!%-
-custom_variable("Make_ini_Add_Completions", 0);
+custom_variable("Make_ini_Add_Completions", 1);
 
 % valid chars in function and variable definitions
 static variable Slang_word = "A-Za-z0-9_";
@@ -224,9 +225,9 @@ define make_ini_look_for_functions(file)
    foreach (libdirs)
      {
 	dir = ();
-	dir = path_dirname(dir);
+	dir = path_concat(dir, "");  % ensure trailing path-separator
 	if (is_substr(file, dir) == 1)
-	  file = file[[strlen(dir)+1:]];
+	  file = file[[strlen(dir):]];
      }
 
    % global comment
