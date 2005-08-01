@@ -59,7 +59,9 @@
 % 	     	     slash from libdir name.
 % 2005-07-15 2.8.3 * critical bugfix-fix: make_ini_look_for_functions(): use
 % 	     	     path_concat(dir, "") to normalize the dir-path.
-
+% 2005-07-22 2.9   * adapted to home-lib 1.1 
+% 	     	     (removed reference to Jed_Home_Library and Jed_Site_Library)
+% 2005-07-30 2.9.1 bugfix in update_ini()
 % _debug_info=1;
 
 autoload("get_word", "txtutils");
@@ -461,9 +463,11 @@ public define update_ini() % (directory=buffer_dir())
    else
 	(, dir, , ) = getbuf_info (); % default
 
+   !if (length(list_slang_files(dir)))
+     verror("no SLang files in %s", dir);
    make_ini(dir);
    save_buffer();
-   delbuf(whatbuf);
+   delbuf(whatbuf());
    % bytecompile (the ini-file as well)
    if(Make_ini_Bytecompile)
      {
@@ -482,33 +486,18 @@ public define update_ini() % (directory=buffer_dir())
 if (BATCH)
   update_ini();
 
-#ifexists Jed_Home_Library
+#ifexists Jed_Home_Directory
 %!%+
 %\function{update_home_lib}
-%\synopsis{update Jed_Home_Library/ini.sl}
+%\synopsis{update Jed_Home_Directory/lib/ini.sl}
 %\usage{ update_home_lib()}
 %\description
-%   Run update_ini for the Jed_Home_Library
-%\seealso{update_ini, make_ini, Jed_Home_Library}
+%   Run \var{update_ini} for the "jed-home-library-dir"
+%\seealso{update_ini, make_ini, Jed_Home_Directory}
 %!%-
 public define update_home_lib()
 {
-   update_ini(Jed_Home_Library);
-}
-#endif
-
-#ifexists Jed_Site_Library
-%!%+
-%\function{update_site_lib}
-%\synopsis{update Jed_Site_Library/ini.sl}
-%\usage{ update_site_lib()}
-%\description
-%   Run update_ini for the Jed_Site_Library
-%\seealso{update_ini, make_ini, Jed_Site_Library}
-%!%-
-public define update_site_lib()
-{
-   update_ini(Jed_Site_Library);
+   update_ini(path_concat(Jed_Home_Directory, "lib"));
 }
 #endif
 
