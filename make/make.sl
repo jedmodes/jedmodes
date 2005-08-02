@@ -2,6 +2,9 @@
 %
 % MAKE MODE FOR JED
 %
+%  Copyright (c) 2000  Gerell, Francesc Rocher
+%  Released under the terms of the GNU General Public License (ver. 2 or later)
+%
 % $Id: make.sl,v 1.14 2000/12/30 01:04:50 rocher Exp $
 %
 % --------------------------------------------------------------------  %{{{
