@@ -1,10 +1,13 @@
-% -------------------------------------------- -*- mode:Slang; mode:folding -*-
+%                 -*- mode:Slang; mode:folding -*-
 %
 % CONWAY'S GAME OF LIFE
-%
+% 
+%  Copyright (c) 2001 John E. Davis, Francesc Rocher
+%  Released under the terms of the GNU General Public License (ver. 2 or later)
+
 % $Id: life.sl,v 1.13 2000/04/07 12:36:30 rocher Exp $
 %
-% --------------------------------------------------------------------- %{{{
+% %{{{
 %
 % DESCRIPTION
 %	An implementation of the Game of Life for jed.

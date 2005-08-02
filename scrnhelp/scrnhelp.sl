@@ -2,6 +2,9 @@
 %
 % SCRNHELP
 %
+%  Copyright (c) 2001 Johann Gerell, Francesc Rocher
+%  Released under the terms of the GNU General Public License (ver. 2 or later)
+%
 % $Id: scrnhelp.sl,v 1.4 2001/01/14 08:15:43 rocher Exp $
 %
 % -----------------------------------------------------------------------------

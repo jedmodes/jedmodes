@@ -1,4 +1,8 @@
 % -*- mode: slang; mode: folding -*-
+% 
+%  Copyright (c) 2001 Johann Gerell, Francesc Rocher
+%  Released under the terms of the GNU General Public License (ver. 2 or later)
+
 %
 %{{{ Documentation
 %
