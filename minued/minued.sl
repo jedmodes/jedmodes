@@ -2,7 +2,7 @@
 %
 % MINUED-MODE FOR JED
 %
-%  Copyright (c) 2001 Johann Gerell, Francesc Rocher
+%  Copyright (c) 2000 Francesc Rocher
 %  Released under the terms of the GNU General Public License (ver. 2 or later)
 %
 % $Id: minued.sl,v 2.15 2000/09/09 22:16:42 rocher Exp $
