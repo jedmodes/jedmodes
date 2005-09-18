@@ -2,7 +2,7 @@
 %
 % Author:        Paul Boekholt
 %
-% $Id: look.sl,v 1.8 2005/06/16 08:40:18 paul Exp paul $
+% $Id: look.sl,v 1.9 2005/09/18 07:21:31 paul Exp paul $
 % 
 % Copyright (c) 2003,2005 Paul Boekholt.
 % Released under the terms of the GNU GPL (version 2 or later).
@@ -13,7 +13,6 @@ provide ("look");
 
 require("ispell_common");
 use_namespace("ispell");
-
 private variable fp, word, l;
 private variable keys_string = "0123456789abcdefghijklmnopqrstuvwxyz";
 private variable look_max_hits = strlen(keys_string);
@@ -95,7 +94,7 @@ public define ispell_complete()
    variable word, new_word, buf = whatbuf, cbuf = "*completions*",
      num_win = nwindows, obuf, n, completions, num,
      wordlen, lookfun;
-
+   _pop_n(_NARGS);
    push_spot;
    push_mark;
    ispell_beginning_of_word;	       %  The Dutch dictionary does have
@@ -110,7 +109,8 @@ public define ispell_complete()
    % try to complete a part
    variable first_completion = completions[0];
    variable last_completion = completions[-1];
-   !if (strncmp (first_completion, last_completion, 1 + strlen (word)))
+   if (length(completions) < look_max_hits - 1
+       and not strncmp (first_completion, last_completion, 1 + strlen (word)))
      {
 	% is there a simple way to find a common beginning of two strings?
 	variable len = strlen (first_completion);
