@@ -142,7 +142,7 @@ foreach(_apropos("Global", "^Key_[^A]", 8))
 {
    $1 = ();
    custom_variable(strreplace($1, "_", "_Alt_", 1), pop(),
-                   @__get_reference($1));
+                   Key_Alt + @__get_reference($1));
 }
 
 % ESCAPE key
