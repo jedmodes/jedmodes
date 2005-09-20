@@ -15,6 +15,7 @@
 % 1.1   2004-12-01  first public version
 % 1.2   2004-12-03  merged files x-keydefs.sl and x-keysyms.sl
 %                   with call to x_keydefs_hook for customization
+% 1.3   2005-09-20  set Key_Alt_* in a loop
 %                   
 % USAGE / CUSTOMISATION
 % 
@@ -77,6 +78,7 @@
 
 
 % no modifier
+% -----------
 
 variable Key_Up         = "\e[A";
 variable Key_Down       = "\e[B";
@@ -92,24 +94,25 @@ variable Key_End        = "\e[4~";
 variable Key_PgUp       = "\e[5~";
 variable Key_PgDn       = "\e[6~";
 
-variable Key_Return      = "^M";           % alternative "\e[8~"
+variable Key_Return     = "^M";           % alternative "\e[8~"
 variable Key_BS         = _Backspace_Key; % alternative "\e[16~"
 variable Key_F1         = "\e[11~";
 variable Key_F2         = "\e[12~";
 variable Key_F3         = "\e[13~";
 variable Key_F4         = "\e[14~";
 variable Key_F5         = "\e[15~";
-%        Key_BS            \e[16~     (alternative to ^H, cf Key_Shift_BS)
+%                          \e[16~   % alternative to ^H or ^? for Key_BS
 variable Key_F6         = "\e[17~";
 variable Key_F7         = "\e[18~";
 variable Key_F8         = "\e[19~";
 variable Key_F9         = "\e[20~";
 variable Key_F10        = "\e[21~";
+%                          \e[22~
 variable Key_F11        = "\e[23~";
 variable Key_F12        = "\e[24~";
 
 % Numeric Keypad  (without Num Lock, strings as in rxvt)
-variable Key_KP_Return     = "\eOM";
+variable Key_KP_Return    = "\eOM";
 variable Key_KP_Divide    = "\eOo"; % key sends  "/" by default
 variable Key_KP_Multiply  = "\eOj"; % key sends "*"  by default
 variable Key_KP_Subtract  = "\eOm"; 
@@ -127,56 +130,28 @@ variable Key_KP_7         = "\eOw";
 variable Key_KP_8         = "\eOx";
 variable Key_KP_9         = "\eOy";
 
+% ALT keys
+% --------
+
 % (Some jed-versions (console) don' set ALT_CHAR)
 custom_variable("ALT_CHAR", 27); % '\e'
 variable Key_Alt          = char(ALT_CHAR);
 
+% (loop is < 0.01 s slower than explicit coding but saves ~30 lines of code)
+foreach(_apropos("Global", "^Key_[^A]", 8))
+{
+   $1 = ();
+   custom_variable(strreplace($1, "_", "_Alt_", 1), pop(),
+                   @__get_reference($1));
+}
+
+% ESCAPE key
+% ----------
+
 variable Key_Esc       = "\e\e\e"; % triple Escape
 
-% ALT keys
-
-% TODO:  Maybe do this in a foreach loop? (less code but might be slower)
-%
-% if (ALT_CHAR) % Alt sends two-key sequence starting with Key_Alt
-% {
-%    foreach(_apropos("Global", "^Key_", 8))
-%      {
-% 	$1 = ();
-% 	custom_variable(....
-%       % Key_Alt_* = Key_Alt + Key_*;
-%      }
-% }
-
-variable Key_Alt_Up    = Key_Alt + Key_Up   ;
-variable Key_Alt_Down  = Key_Alt + Key_Down ;
-variable Key_Alt_Right = Key_Alt + Key_Right;
-variable Key_Alt_Left  = Key_Alt + Key_Left ;
-
-variable Key_Alt_Ins   = Key_Alt + Key_Ins  ;
-variable Key_Alt_Del   = Key_Alt + Key_Del  ;
-variable Key_Alt_Home  = Key_Alt + Key_Home ;
-variable Key_Alt_End   = Key_Alt + Key_End  ;
-variable Key_Alt_PgUp  = Key_Alt + Key_PgUp ;
-variable Key_Alt_PgDn  = Key_Alt + Key_PgDn ;
-
-variable Key_Alt_BS    = Key_Alt + Key_BS   ;
-variable Key_Alt_Tab   = Key_Alt + Key_Tab  ;
-variable Key_Alt_Return = Key_Alt + Key_Return;
-
-variable Key_Alt_F1    = Key_Alt + Key_F1   ;
-variable Key_Alt_F2    = Key_Alt + Key_F2   ;
-variable Key_Alt_F3    = Key_Alt + Key_F3   ;
-variable Key_Alt_F4    = Key_Alt + Key_F4   ;
-variable Key_Alt_F5    = Key_Alt + Key_F5   ;
-variable Key_Alt_F6    = Key_Alt + Key_F6   ;
-variable Key_Alt_F7    = Key_Alt + Key_F7   ;
-variable Key_Alt_F8    = Key_Alt + Key_F8   ;
-variable Key_Alt_F9    = Key_Alt + Key_F9   ;
-variable Key_Alt_F10   = Key_Alt + Key_F10  ;
-variable Key_Alt_F11   = Key_Alt + Key_F11  ;
-variable Key_Alt_F12   = Key_Alt + Key_F12  ;
-
-% SHIFT keys. 
+% SHIFT keys
+% ---------- 
  
 variable Key_Shift_Up    = "\e[a";
 variable Key_Shift_Down  = "\e[b";
@@ -210,6 +185,7 @@ variable Key_Shift_F11   = "\e[23$";
 variable Key_Shift_F12   = "\e[24$";
 
 % Ctrl keys
+% ---------
 
 variable Key_Ctrl_Up    = "\e[^A";
 variable Key_Ctrl_Down  = "\e[^B";
