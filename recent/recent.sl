@@ -44,7 +44,7 @@
 %        *  empty cache files will be deleted (if permitted)
 % 3.1    2005-03-34
 %        *  made slang-2 proof: A[[0:-2]] --> A[[:-2]] (P. Boekholt)
-% 3.2    2005-04-02 3.1 
+% 3.2    2005-04-02
 %        * code cleanup and reorganisation
 %        * recent_load_file is now static (was public)
 %        * synchronize recent files file between different running sessions
@@ -70,10 +70,9 @@
 % Requirements
 "what_line_if_wide", "sl_utils";
 "contract_filename", "sl_utils";
-"_implements",       "sl_utils";
-"buffer_dirname",    "bufutils";
+"_implements",       "sl_utils"; % >= 1.5
 "strread_file",      "bufutils";
-_autoload(5);
+_autoload(4);
 
 % --- name it
 provide("recent");

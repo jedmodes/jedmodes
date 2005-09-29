@@ -2,15 +2,15 @@
 %
 % Copyright (c) 2003 Günter Milde
 % Released under the terms of the GNU General Public License (ver. 2 or later)
-% 
+%
 % Version    1.0   first public release
 %            1.1   new: max(), contract_filename()
 %            1.2   new: normalize_modename(), what_line_if_wide()
-%            1.3   backwards compatibility: emulate run_program() if not 
+%            1.3   backwards compatibility: emulate run_program() if not
 %                  existent (works only in xjed)
-% 2004-03-22 1.3.1 bugfix in contract_filename() error if  HOME 
+% 2004-03-22 1.3.1 bugfix in contract_filename() error if  HOME
 %                  environment variable is missing (report Thomas Koeckritz)
-%            1.3.2 removed max(), as it contradicts the intrinsic max() 
+%            1.3.2 removed max(), as it contradicts the intrinsic max()
 %                  definition (which resembles array_max() from datutils.sl)
 % 2005-04-11 1.4   new function prompt_for_argument()
 %                  added provide("sl_utils")
@@ -18,7 +18,7 @@
 %                  but allow re-evaluation if `_debug_info` is TRUE
 % 2005-05-23 1.5.1 bugfix in _implements(): separate _implement and provide,
 %                  do not rely on _featurep()
-
+% 2005-06-07 1.5.2 moved run_program emulation to compat16-15.sl
 
 % _debug_info = 1;
 
@@ -27,9 +27,9 @@ provide("sl_utils");
 %!%+
 %\function{push_defaults}
 %\synopsis{Push n args to the stack}
-%\usage{(a_(n+1), ..., a_m) = push_defaults(a_1, ..., a_m, n)} 
+%\usage{(a_(n+1), ..., a_m) = push_defaults(a_1, ..., a_m, n)}
 %\description
-% Push n args to the stack. Helps to define a slang function with 
+% Push n args to the stack. Helps to define a slang function with
 % optional arguments.
 %\example
 % A function with one compulsory and two optional arguments
@@ -38,14 +38,14 @@ provide("sl_utils");
 % {
 %    variable a1, a2, a3;
 %    (a1, a2, a3) = push_defaults( , "d2", whatbuf(), _NARGS);
-%    vmessage("(%S, %S, %S, %S)", a1, a2, a3, a4); 
+%    vmessage("(%S, %S, %S, %S)", a1, a2, a3, a4);
 % }
 %#v-
 % results in:
 %   fun(1)       %  --> (1, d2, *scratch*)
 %   fun(1, 2)    %  --> (1, 2, *scratch*)
 %   fun(1, 2, 3) %  --> (1, 2, 3, 4)
-% but  
+% but
 %   fun()        %  --> (NULL, d2, *scratch*)  !!compulsory arg missing!!
 %   fun(1, , )   %  --> (1, NULL, NULL)  !!empty args replaced with NULL!!
 %\notes
@@ -61,7 +61,7 @@ provide("sl_utils");
 %    ...
 % }
 %#v-
-% 
+%
 %\seealso{__push_args, __pop_args, _NARGS }
 %!%-
 define push_defaults() % args, n
@@ -71,7 +71,6 @@ define push_defaults() % args, n
    __push_args(args[[n:]]);
 }
 
-
 %!%+
 %\function{prompt_for_argument}
 %\synopsis{Prompt for an optional argument if it is not given.}
@@ -79,11 +78,11 @@ define push_defaults() % args, n
 %\description
 %  This function facilitates the definition of function with optional
 %  arguments.
-%  
+%
 %  The first argument is a prompt function (e.g. \var{read_mini} or
 %  \var{read_with_completion}, followed by its arguments and the
 %  \var{use_stack} argument.
-%  
+%
 %  If \var{use_stack} is non-zero, this function simply returns and
 %  the calling code picks up the top element from stack.
 %  Otherwise, \var{prompt_function} is called with the given arguments
@@ -93,7 +92,7 @@ define push_defaults() % args, n
 %#v+
 %  define prompt_for_message() % ([str])
 %  {
-%     variable str = prompt_for_argument(&read_mini, 
+%     variable str = prompt_for_argument(&read_mini,
 %                                        "Message:", "", "", _NARGS);
 %     message(str);
 %  }
@@ -114,7 +113,6 @@ define prompt_for_argument() % (fun, [args], use_stack)
         return @fun(__push_args(args));
      }
 }
-
 
 %!%+
 %\function{push_array}
@@ -151,13 +149,13 @@ define push_array(a)
 %\synopsis{return value of blocal variable or default value}
 %\usage{Any get_blocal (String name, [Any default=NULL])}
 %\description
-% This function is similar to get_blocal_var, but if the local variable 
+% This function is similar to get_blocal_var, but if the local variable
 % "name" doesnot exist, it returns the default value instead of an error.
 % Default defaults to NULL.
 %\example
 %#v+
 %    if (get_blocal(foo), 0)
-%      message("this buffer is fooish");  
+%      message("this buffer is fooish");
 %#v-
 % will print the message if foo is a blocal variable with nonzero value.
 %\seealso{get_blocal_var, blocal_var_exists}
@@ -166,7 +164,7 @@ define get_blocal() % (name, default=NULL)
 {
    variable name, default;
    (name, default) = push_defaults( , NULL, _NARGS);
-     
+
    if (blocal_var_exists(name))
      return get_blocal_var(name);
    return default;
@@ -179,16 +177,16 @@ define get_blocal() % (name, default=NULL)
 %\description
 % Run a function if it exists. Return whether it exists or not
 % The function can be given by name or by reference (this allows both:
-% yet undefined function (as string) as well as static functions 
+% yet undefined function (as string) as well as static functions
 % (as reference)
-% Any arguments following the function argument will be passed to the 
-% function. 
+% Any arguments following the function argument will be passed to the
+% function.
 %\example
 %#v+
 %
 %    !if (run_function("foo"))
 %       message("\"foo\" is not defined");
-%       
+%
 %    !if (run_function(&foo))
 %       message("\"foo\" is not defined");
 %#v-
@@ -219,7 +217,6 @@ define run_function()  % (fun, [args])
    return 0;
 }
 
-
 %!%+
 %\function{contract_filename}
 %\synopsis{Make a filename as short as possible without ambiguity}
@@ -229,7 +226,7 @@ define run_function()  % (fun, [args])
 %  Make a filename as short as possible while
 %  expand_filname will restore it to the previous value.
 %\notes
-%  * If the path starts with the working dir, strip it. 
+%  * If the path starts with the working dir, strip it.
 %  (This maight fail on case insensitive filesystems).
 %  * If the path starts with the home-dir, replace it with "~".
 %\seealso{expand_filename}
@@ -267,22 +264,9 @@ define what_line_if_wide ()
     what_line ();
 }
 
-% backwards-compatibility 
-#ifnexists exit % (_jed_version < 9916)
-custom_variable ("XTerm_Pgm", "xterm");
-define run_program(s)
-{
-   !if (getenv("DISPLAY") != NULL) % assume X-Windows running
-     error("this emulation of run_program only works under X");
-   s = strtrim_end (s, " \t&");
-   return system (sprintf ("%s -e %s &", XTerm_Pgm, s));
-}
-#endif
-
-
 define _implements(name)
 {
-#ifexists _slang_utf8_ok   
+#ifexists _slang_utf8_ok
   implements(name);        % SLang 2 has a re-evaluation save implements()
 #else
   if (length(where(name == _get_namespaces())) and _debug_info)

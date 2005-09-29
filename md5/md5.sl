@@ -2,7 +2,7 @@
 %
 % MD5 FOR JED
 %
-%  Copyright (c) 2001 Johann Gerell, Francesc Rocher
+%  Copyright (c) 2002 Francesc Rocher
 %  Released under the terms of the GNU General Public License (ver. 2 or later)
 %
 % $Id: md5.sl,v 1.5 2002/03/03 12:50:06 rocher Exp $
