@@ -16,16 +16,16 @@
 % 1.1 changed the Browse_Url_Viewer default, as html2txt has problems
 %     downloading "complicated" URL (no negotiating with the server)
 %     that can be avoided by using a text moded browser with --dump
+% 1.2 made SLang2 proof    
 
-_debug_info=1;
+% _debug_info=1;
+
+autoload("popup_buffer", "bufutils");
+autoload("_implements", "sl_utils");
 
 private variable mode = "browse_url";
-
-if (_featurep(mode))
-  use_namespace(mode);
-else
-  implements(mode);
 provide(mode);
+_implements(mode);
 
 
 %{{{ finding the programs    
