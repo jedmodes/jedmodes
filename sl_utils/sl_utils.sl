@@ -266,12 +266,14 @@ define what_line_if_wide ()
 
 define _implements(name)
 {
-#ifexists _slang_utf8_ok
-  implements(name);        % SLang 2 has a re-evaluation save implements()
-#else
+% SLang 2 is said to have a re-evaluation save implements()
+% However, this failed with  Jed Version: B0.99.17-111, S-Lang Version: 2.0.4
+% #ifexists _slang_utf8_ok
+%   implements(name);        
+% #else
   if (length(where(name == _get_namespaces())) and _debug_info)
     use_namespace(name);
   else
     implements(name);
-#endif
+% #endif
 }
