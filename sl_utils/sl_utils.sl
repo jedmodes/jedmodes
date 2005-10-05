@@ -19,6 +19,8 @@
 % 2005-05-23 1.5.1 bugfix in _implements(): separate _implement and provide,
 %                  do not rely on _featurep()
 % 2005-06-07 1.5.2 moved run_program emulation to compat16-15.sl
+% 2005-10-05 1.5.3 my SLang 2.0.4 doesnot have have a re-evaluation save 
+%                  implements(). So _implements() is now on the save side.
 
 % _debug_info = 1;
 
