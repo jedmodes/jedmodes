@@ -266,16 +266,36 @@ define what_line_if_wide ()
     what_line ();
 }
 
+%!%+
+%\function{_implements}
+%\synopsis{Create or reuse a new static namespace
+%\usage{_implements(Str name)}
+%\description
+%  The \var{_implements} function creates a new static namespace 
+%  (deprecating the old private namespace) and associates it 
+%  with the current compilation unit.
+%  
+%  If a namespace with the specified name already exists, behaviour 
+%  depends on the value of the variable \var{_debug_info}:
+%  
+%  If _debug_info == 0 (default), a `NamespaceError' exception arises.
+%  
+%  If _debug_info == 1, the the current static namespace is changed 
+%  to \var{name}. This alows reevaluation of files in debugging mode.
+%\example
+%  To allow easy reevaluation of a mode during development, write
+%#v+
+%   _debug_info = 1;
+%   autoload("_implements", "sl_utils");
+%   % other autoloads that should go to the "Global" namespace
+%   _implements("foo");
+%#v-
+%\seealso{implements, use_namespace, _debug_info}
+%!%-
 define _implements(name)
 {
-% SLang 2 is said to have a re-evaluation save implements()
-% However, this failed with  Jed Version: B0.99.17-111, S-Lang Version: 2.0.4
-% #ifexists _slang_utf8_ok
-%   implements(name);        
-% #else
   if (length(where(name == _get_namespaces())) and _debug_info)
     use_namespace(name);
   else
     implements(name);
-% #endif
 }
