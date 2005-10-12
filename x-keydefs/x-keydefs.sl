@@ -1,46 +1,49 @@
-% extended set of key variables for xjed
+% extended set of key variables
 %
+%   * add key definitions 
+%     (Key_Escape, Key_Alt, Key_*_Return, Key_*_Tab, Key_KP_*)
+%     
+%   * On xjed, call x_set_keysym for "special_keys"
+%   
 % Copyright (c) 2003 Günter Milde
 % Released under the terms of the GNU General Public License (ver. 2 or later)
-%
-% based on keydefs.sl (which itself goes back to Guido Gonzatos code in ide.sl)
 % 
-% special edition for xjed:
-%   * skip code for wjed and konsole for faster loadup
-%   * add some key definitions 
-%     (Key_Escape, Key_Alt, Key_*_Return, Key_*_Tab, Key_KP_*)
-%   
-%   * calls x_set_keysym for "special_keys"
+% VERSIONS
 %   
 % 1.1   2004-12-01  first public version
 % 1.2   2004-12-03  merged files x-keydefs.sl and x-keysyms.sl
 %                   with call to x_keydefs_hook for customization
 % 1.3   2005-09-20  set Key_Alt_* in a loop
+% 1.4   2005-10-12  (re) use the definitions in standard keydefs.sl,
+%                   let it work on "non-X" jed versions
 %                   
-% USAGE / CUSTOMISATION
+% USAGE
 % 
-% Place in the jed library path and do e.g.
+% Place in the jed library path.
 % 
-% if (is_defined("x_set_keysym"))  % xjed running
-%    require("x-keydefs");   % symbolic keynames
-% else
-%    require("keydefs");
+% To use it independend of a mode requiring it, do 
+% (e.g. in your jed.rc or .jedrc file)
+%
+%    require("x-keydefs");
 % 
+% CUSTOMISATION | EXTENSION
 % 
 % If you want to use alternative key strings, define x_keydefs_hook(). e.g.
 % 
-% x_keydefs_hook()
-% {
-%    % change string values for Keys here, e.g.
-%    Key_Return = "\e[8~";
-%    Key_BS    = "\e[16~";
-%    Key_Tab   = "\e[z";
-%    % new definitions, e.g
-%    global variable Key_Shift_Ctrl_Right = "\e[^c"
-% }
+%    x_keydefs_hook()
+%    {
+%       % Use the ESC key to compose Alt-something:
+%       Key_Escape = "\e";
+%       % Altenative keystring values:
+%       Key_Return = "\e[8~";
+%       Key_BS    = "\e[16~";
+%       Key_Tab   = "\e[z";
+%       % new definitions:
+%       global variable Key_Shift_Ctrl_Right = "\e[^c"
+%    }
+%    
+% In xjed, additional bindings can be enabled with x_set_keysym():   
 %
-% EXTENSION
-% 
 % Get the keysyms from the file keysymdef.h or the Jed variable X_LAST_KEYSYM 
 % e.g. with
 % 
@@ -65,8 +68,12 @@
 % On 28 May 2003 John wrote to jed-users:
 % I will fix it in the next release.  When I wrote the code, there were
 % no such keysyms below 0xFF00.
+% 
+% 
+% Shift-Tab on X-Windows
+% ----------------------
 %
-% unfortunately, Shift-Tab doesnot send any keystring in most X-Window setups.
+% Unfortunately, Shift-Tab doesnot send any keystring in most X-Window setups.
 % as it is bound to "ISO_Left_Tab", Keysym 0xFE20
 %
 % A line 
@@ -76,48 +83,56 @@
 % After the expansion of the keysym range, the following should work:
 % x_set_keysym(0xFE20, '$', Key_Shift_Tab);
 
+% make sure we have tha basic definitions loaded:
+% require("keydefs");
+() = evalfile("keydefs");
 
-% no modifier
-% -----------
+provide("x-keydefs");  % eXtended set of key definitions
 
-variable Key_Up         = "\e[A";
-variable Key_Down       = "\e[B";
-variable Key_Right      = "\e[C";
-variable Key_Left       = "\e[D";
+#ifdef IBMPC_SYSTEM
 
-variable Key_Tab        = "^I";    % alternative "\e[z"
+% TODO: add the IBMPC definitions here
+#stop
 
-variable Key_Home       = "\e[1~";
-variable Key_Ins        = "\e[2~";
-variable Key_Del        = "\e[3~";
-variable Key_End        = "\e[4~";
-variable Key_PgUp       = "\e[5~";
-variable Key_PgDn       = "\e[6~";
+#endif
 
-variable Key_Return     = "^M";           % alternative "\e[8~"
-variable Key_BS         = _Backspace_Key; % alternative "\e[16~"
-variable Key_F1         = "\e[11~";
-variable Key_F2         = "\e[12~";
-variable Key_F3         = "\e[13~";
-variable Key_F4         = "\e[14~";
-variable Key_F5         = "\e[15~";
-%                          \e[16~   % alternative to ^H or ^? for Key_BS
-variable Key_F6         = "\e[17~";
-variable Key_F7         = "\e[18~";
-variable Key_F8         = "\e[19~";
-variable Key_F9         = "\e[20~";
-variable Key_F10        = "\e[21~";
-%                          \e[22~
-variable Key_F11        = "\e[23~";
-variable Key_F12        = "\e[24~";
+% Alt and Escape
+% --------------
 
-% Numeric Keypad  (without Num Lock, strings as in rxvt)
+% (Some jed versions (console) don' set ALT_CHAR)
+custom_variable("ALT_CHAR", 27); % '\e'
+
+variable Key_Alt          = char(ALT_CHAR);
+variable Key_Esc          = "\e\e\e";       % triple Escape
+
+% Tab
+% ---
+
+variable Key_Tab          = "^I";     % alternative "\e[z"
+variable Key_Shift_Tab    = "\e[Z";   % reverse_tab
+variable Key_Ctrl_Tab     = "\e[^Z";
+variable Key_Alt_Tab      = strcat(Key_Alt, Key_Tab);
+
+
+% Return
+% ------ 
+
+variable Key_Return       = "^M";     % alternative "\e[8~"
+variable Key_Shift_Return = "\e[8$";
+variable Key_Ctrl_Return  = "\e[8^";
+variable Key_Alt_Return   = strcat(Key_Alt, Key_Return);
+
+
+% Numeric Keypad
+% --------------
+
+% (without Num Lock, strings as in rxvt)
 variable Key_KP_Return    = "\eOM";
-variable Key_KP_Divide    = "\eOo"; % key sends  "/" by default
-variable Key_KP_Multiply  = "\eOj"; % key sends "*"  by default
+variable Key_KP_Divide    = "\eOo";   % key sends  "/" by default
+variable Key_KP_Multiply  = "\eOj";   % key sends "*"  by default
 variable Key_KP_Subtract  = "\eOm"; 
-variable Key_KP_Add       = "\eOk"; % key sends "+"  by default
-variable Key_KP_Separator = "\eOn"; % key sends "\eOl" with Num Lock
+variable Key_KP_Add       = "\eOk";   % key sends "+"  by default
+variable Key_KP_Separator = "\eOn";   % key sends "\eOl" with Num Lock
 
 variable Key_KP_0         = "\eOp";
 variable Key_KP_1         = "\eOq";
@@ -130,130 +145,48 @@ variable Key_KP_7         = "\eOw";
 variable Key_KP_8         = "\eOx";
 variable Key_KP_9         = "\eOy";
 
-% ALT keys
-% --------
 
-% (Some jed-versions (console) don' set ALT_CHAR)
-custom_variable("ALT_CHAR", 27); % '\e'
-variable Key_Alt          = char(ALT_CHAR);
-
-% (loop is < 0.01 s slower than explicit coding but saves ~30 lines of code)
-foreach(_apropos("Global", "^Key_[^A]", 8))
-{
-   $1 = ();
-   custom_variable(strreplace($1, "_", "_Alt_", 1), pop(),
-                   Key_Alt + @__get_reference($1));
-}
-
-% ESCAPE key
-% ----------
-
-variable Key_Esc       = "\e\e\e"; % triple Escape
-
-% SHIFT keys
-% ---------- 
- 
-variable Key_Shift_Up    = "\e[a";
-variable Key_Shift_Down  = "\e[b";
-variable Key_Shift_Right = "\e[c";
-variable Key_Shift_Left  = "\e[d";
-                         
-variable Key_Shift_Tab   = "\e[Z";  % reverse_tab
-
-variable Key_Shift_Home  = "\e[1$";
-variable Key_Shift_Ins   = "\e[2$";
-variable Key_Shift_Del   = "\e[3$";
-variable Key_Shift_End   = "\e[4$";
-variable Key_Shift_PgUp  = "\e[5$";
-variable Key_Shift_PgDn  = "\e[6$";
-                        
-variable Key_Shift_Return = "\e[8$";
-variable Key_Shift_BS    = "\e[16$";
-
-variable Key_Shift_F1    = "\e[11$";
-variable Key_Shift_F2    = "\e[12$";
-variable Key_Shift_F3    = "\e[13$";
-variable Key_Shift_F4    = "\e[14$";
-variable Key_Shift_F5    = "\e[15$";
-%        Key_Shift_BS    =  \e[16$
-variable Key_Shift_F6    = "\e[17$";
-variable Key_Shift_F7    = "\e[18$";
-variable Key_Shift_F8    = "\e[19$";
-variable Key_Shift_F9    = "\e[20$";
-variable Key_Shift_F10   = "\e[21$";
-variable Key_Shift_F11   = "\e[23$";
-variable Key_Shift_F12   = "\e[24$";
-
-% Ctrl keys
-% ---------
-
-variable Key_Ctrl_Up    = "\e[^A";
-variable Key_Ctrl_Down  = "\e[^B";
-variable Key_Ctrl_Right = "\e[^C";
-variable Key_Ctrl_Left  = "\e[^D";
-
-variable Key_Ctrl_Tab   = "\e[^Z";
-
-variable Key_Ctrl_Home  = "\e[1^";
-variable Key_Ctrl_Ins   = "\e[2^";
-variable Key_Ctrl_Del   = "\e[3^";
-variable Key_Ctrl_End   = "\e[4^";
-variable Key_Ctrl_PgUp  = "\e[5^";
-variable Key_Ctrl_PgDn  = "\e[6^";
-
-variable Key_Ctrl_Return = "\e[8^";
-variable Key_Ctrl_BS    = "\e[16^";
-
-variable Key_Ctrl_F1    = "\e[11^";
-variable Key_Ctrl_F2    = "\e[12^";
-variable Key_Ctrl_F3    = "\e[13^";
-variable Key_Ctrl_F4    = "\e[14^";
-variable Key_Ctrl_F5    = "\e[15^";
-%        Key_Ctrl_BS      "\e[16^"
-variable Key_Ctrl_F6    = "\e[17^";
-variable Key_Ctrl_F7    = "\e[18^";
-variable Key_Ctrl_F8    = "\e[19^";
-variable Key_Ctrl_F9    = "\e[20^";
-variable Key_Ctrl_F10   = "\e[21^";
-variable Key_Ctrl_F11   = "\e[23^";
-variable Key_Ctrl_F12   = "\e[24^";
-
-% ------------------ End of variable definitions ------------------------ 
+% Customziation by hook
+% ---------------------
 
 runhooks("x_keydefs_hook");
 
-% ------------------ Bind some more keys to keystrings ------------------
 
+% Additional keystrings with Xjed
+% -------------------------------
 
-% ESC (make it destinguishable from keys that start with \e
-x_set_keysym(0xFF1B, 0,    Key_Esc);  
+% We need to trick the function check for non-X jed (we cannot use #ifdef XJED,
+% as the byte-compiled file should be usable with jed on a console as well.)
+private variable set_keysym_p = __get_reference("x_set_keysym");
 
-% DEL (see also .jedrc for this topic)
-% (on my system it did not distinguish modifiers)
-x_set_keysym(0xFFFF,  0,   Key_Del); 
-x_set_keysym(0xFFFF , '$', Key_Shift_Del); 
-x_set_keysym(0xFFFF , '^', Key_Ctrl_Del);  
-
-% Backspace:
-x_set_keysym(0xFF08 , 0,   Key_BS);    
-x_set_keysym(0xFF08 , '$', Key_Shift_BS);    
-x_set_keysym(0xFF08 , '^', Key_Ctrl_BS);  
-
-% Enter: (make it distinguishable from ^M)
-x_set_keysym(0xFF0D , 0,   Key_Return);
-x_set_keysym(0xFF0D , '^', Key_Ctrl_Return);
-x_set_keysym(0xFF0D , '$', Key_Shift_Return);
-
-% TAB: 
-x_set_keysym(0xFF09 , 0,   Key_Tab);
-x_set_keysym(0xFF09 , '^', Key_Ctrl_Tab);
-x_set_keysym(0xFF09 , '$', Key_Shift_Tab); % (reverse tab)
-
-% numeric keypad (without Num Lock)
-x_set_keysym(0xFFAF , 0,   Key_KP_Divide);
-x_set_keysym(0xFFAA , 0,   Key_KP_Multiply);
-x_set_keysym(0xFFAB , 0,   Key_KP_Add);
-
-
-provide("keydefs");
-provide("x-keydefs");  % enhanced set of key definitions
+if (is_defined("x_server_vendor"))
+{
+   % ESC (make it distinguishable from keys that start with \e
+   @set_keysym_p(0xFF1B, 0,    Key_Esc);  
+   
+   % DEL (see also .jedrc for this topic)
+   % (on my system it did not distinguish modifiers)
+   @set_keysym_p(0xFFFF,  0,   Key_Del); 
+   @set_keysym_p(0xFFFF , '$', Key_Shift_Del); 
+   @set_keysym_p(0xFFFF , '^', Key_Ctrl_Del);  
+   
+   % Backspace:
+   @set_keysym_p(0xFF08 , 0,   Key_BS);    
+   @set_keysym_p(0xFF08 , '$', Key_Shift_BS);    
+   @set_keysym_p(0xFF08 , '^', Key_Ctrl_BS);  
+   
+   % Return: (make it distinguishable from ^M)
+   @set_keysym_p(0xFF0D , 0,   Key_Return);
+   @set_keysym_p(0xFF0D , '^', Key_Ctrl_Return);
+   @set_keysym_p(0xFF0D , '$', Key_Shift_Return);
+   
+   % TAB: 
+   @set_keysym_p(0xFF09 , 0,   Key_Tab);
+   @set_keysym_p(0xFF09 , '^', Key_Ctrl_Tab);
+   % @set_keysym_p(0xFE20, '$', Key_Shift_Tab);
+   
+   % numeric keypad (without Num Lock)
+   @set_keysym_p(0xFFAF , 0,   Key_KP_Divide);
+   @set_keysym_p(0xFFAA , 0,   Key_KP_Multiply);
+   @set_keysym_p(0xFFAB , 0,   Key_KP_Add);
+}
