@@ -30,6 +30,9 @@ custom_variable("Key_Ctrl_Return", "^J");
 set_status_line("(Jed %v) Brief: %b    (%m%a%n%o)  %p   %t", 1);
 Help_File = Null_String;
 
+autoload ("scroll_up_in_place",		"emacsmsc");
+autoload ("scroll_down_in_place",	"emacsmsc");
+
 private variable Brief_HomeEnd_Count = 0;
 define brief_home ()
 {
@@ -435,12 +438,13 @@ define brief_delete_buffer ()
    brief_next_buffer (1);
 }
 
+unsetkey ("^F");
 unsetkey ("^K");
+unsetkey ("^R");
 unsetkey ("^X");
 unsetkey ("^W");
-unsetkey ("^F");
-setkey ("brief_page_down",       "^D"   );
-setkey ("brief_page_up",         "^E"   );
+setkey ("scroll_up_in_place",    "^D"   );
+setkey ("scroll_down_in_place",  "^E"   );
 setkey ("brief_delete_to_bol",   "^K"   );
 setkey ("goto_match",            "^Q["  );
 setkey ("goto_match",            "^Q\e" );
@@ -452,9 +456,11 @@ setkey ("brief_line_to_mow",     "^C"   );
 setkey ("brief_line_to_eow",     "^B"   );
 %setkey ("brief_next_error",     "^N"   );
 %setkey ("brief_error_window",   "^P"   );
-%setkey ("brief_digit_arg",      "^R"   );
+_for (0, 9, 1) { $0 = (); setkey("digit_arg", "^R" + string($0)); }
 %setkey ("redo",                 "^U"   );
 %setkey ("brief_toggle_backup",  "^W"   );
+%setkey ("save_buffers_and_exit","^X"   );
+%setkey ("one_window",           "^Z"   );
 
 setkey ("brief_yank",            Key_Ins        );
 setkey ("brief_delete",          Key_Del        );
@@ -478,9 +484,10 @@ setkey ("undo",                  Key_KP_Multiply );
 setkey ("brief_copy_region",     Key_KP_Add      );
 setkey ("brief_kill_region",     Key_KP_Subtract );
 
-setkey  ("otherwindow",              Key_F1         );
-setkey  ("splitwindow",              Key_F3         );
-setkey  ("onewindow",                Key_Alt_F2     );
+setkey  ("other_window",             Key_F1         );
+setkey  ("one_window",               Key_Alt_F2     );
+setkey  ("split_window",             Key_F3         );
+setkey  ("delete_window",            Key_F4         );
 setkey  ("brief_search_cmd",         Key_F5         );
 setkey  ("brief_reverse_search",     Key_Alt_F5     );
 setkey  ("brief_search_cmd",         Key_Shift_F5   );
@@ -488,8 +495,10 @@ setkey  ("brief_toggle_case_search", Key_Ctrl_F5    );
 setkey  ("brief_replace_cmd",        Key_F6         );
 setkey  ("brief_toggle_regexp",      Key_Ctrl_F6    );
 setkey  ("brief_record_kbdmacro",    Key_F7         );
+%setkey  ("brief_pause_kbdmacro",     Key_Shift_F7   );
 setkey  ("execute_macro",            Key_F8         );
 setkey  ("emacs_escape_x",           Key_F10        );
+setkey  ("compile",                  Key_Alt_F10    );
 
 setkey  (". 4 brief_set_mark_cmd","\ea" ); % Alt A
 %setkey ("list_buffers",          "\eb" ); % Alt B Buffers menu
@@ -504,9 +513,9 @@ setkey  ("bkmrk_goto_mark",       "\ej" ); % Alt J
 setkey  ("kill_line",             "\ek" ); % Alt K
 setkey  ("brief_line_mark",       "\el" ); % Alt L
 setkey  (". 1 brief_set_mark_cmd","\em" ); % Alt M
-setkey  (". 1 brief_next_buffer", "\en" ); % Alt N
+setkey  ("brief_next_buffer(1)",  "\en" ); % Alt N
 %setkey ("write_buffer",          "\eo" ); % Alt O Mode    menu
-setkey  (". -1 brief_next_buffer","\ep" ); % Alt P; should be: print region
+setkey  ("brief_next_buffer(-1)", "\ep" ); % Alt P; should be: print region
 %setkey ("quote_next_key",        "\eq" ); % Alt Q
 setkey  ("insert_file",           "\er" ); % Alt R
 setkey  ("brief_search_cmd",      "\es" ); % Alt S Search  menu
