@@ -1,6 +1,6 @@
 % email.sl -*- mode: SLang; mode: Fold -*-
 % 
-% $Id: email.sl,v 1.2 2005/10/12 19:17:22 paul Exp paul $
+% $Id: email.sl,v 1.3 2005/10/12 19:30:16 paul Exp paul $
 % Keywords: mail
 % 
 % This file was written by the following people:
@@ -14,7 +14,11 @@
 %   2005 Joerg Sommer
 %
 % This mail mode should work with both sendmail.sl and Mutt.
-
+#<INITIALIZATION>
+autoload("mail_mode", "email.sl");
+add_completion("mail_mode");
+#</INITIALIZATION>
+  
 provide("email");
 require("keydefs");
 _autoload
