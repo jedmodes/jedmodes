@@ -1,6 +1,6 @@
 % email.sl -*- mode: SLang; mode: Fold -*-
 % 
-% $Id: email.sl,v 1.1 2003/11/16 19:54:45 paul Exp paul $
+% $Id: email.sl,v 1.2 2005/10/12 19:17:22 paul Exp paul $
 % Keywords: mail
 % 
 % This file was written by the following people:
@@ -10,19 +10,20 @@
 %   Johann Botha		-> muttmail
 %   Ulli Horlacher		-> mailmode (muttmail light)
 %   Paul Boekholt
-%   Morten Bo Johansen		-> email
+%   Morten Bo Johanssen		-> email
+%   2005 Joerg Sommer
 %
 % This mail mode should work with both sendmail.sl and Mutt.
 
-implements ("email");
-
+provide("email");
 require("keydefs");
 _autoload
   ("rebind", "bufutils",
    "string_nth_match", "strutils",
-   "gpg_encrypt", "gpg",
-   "gpg_sign", "gpg",
+   "mc_encrypt", "mailcrypt",
+   "mc_sign", "mailcrypt",
    "ispell_region", "ispell", 5);
+implements ("email");
 
 % Set the threshold for the number of quote levels beyond which you
 % consider it a waste of time to deal with them. E.g. setting the value
@@ -36,6 +37,10 @@ custom_variable ("Mail_Quote_String", "> ");
 % for backwards compatibility ...
 custom_variable ("mail_mode_have_mbox", 1);
 custom_variable ("Email_Have_Mbox", mail_mode_have_mbox);
+
+% Since mailedit.sl calls this MailEdit_Quote_Chars, we might as well follow
+% suit.
+custom_variable ("MailEdit_Quote_Chars", ">:|");
 
 %{{{ static variables
 
@@ -90,7 +95,7 @@ static variable color_italic = "delimiter";
 % The highlighting copes with email addresses and url's
 dfa_enable_highlight_cache ("email.dfa",mode);
 
-dfa_define_highlight_rule ("^(To:|Cc:) .*",color_to,mode);
+dfa_define_highlight_rule ("^(To|Cc|Newsgroups): .*",color_to,mode);
 dfa_define_highlight_rule ("^Date: .*",color_header,mode);
 dfa_define_highlight_rule ("^From: .*",color_from,mode);
 dfa_define_highlight_rule ("^Subject: .*",color_subject,mode);
@@ -107,8 +112,12 @@ dfa_define_highlight_rule ("^> ?>.*",            color_reply2,mode);
 dfa_define_highlight_rule ("^>.*",               color_reply1,mode);
 
 dfa_define_highlight_rule ("[\\(\\)]+-?[:;P\\^]|[:;P\\^]-?[\\(\\)]+","color_smiley",mode);
+dfa_define_highlight_rule ("[^ ]_[a-zA-Z]+_","normal",mode);
+dfa_define_highlight_rule ("_[a-zA-Z]+_[^ ]","normal",mode);
 dfa_define_highlight_rule ("_[a-zA-Z]+_",color_underline,mode);
 dfa_define_highlight_rule ("\\*[a-zA-Z]+\\*",color_bold,mode);
+dfa_define_highlight_rule ("[^ ]/[a-zA-Z]+/","normal",mode);
+dfa_define_highlight_rule ("/[a-zA-Z]+/[^ ]","normal",mode);
 dfa_define_highlight_rule ("/[a-zA-Z]+/",color_italic,mode);
 
 dfa_build_highlight_table (mode);
@@ -152,17 +161,15 @@ static define email_is_body ()
 static define email_parsep ()
 {
    push_spot_bol ();
-   if (looking_at("--"))
-     return pop_spot, 1;
-   !if (email_is_body ())
-     {
-	(email_is_tag () or (skip_white (),eolp ()));
-     }
-   else
-     {
-	re_looking_at("[->|:} \t]*$");
-     }
+   if (looking_at("-- "))
+     1;
+   else if (email_is_body ()) {
+      skip_chars(MailEdit_Quote_Chars+" \t");
+      eolp();
+   } else
+     (email_is_tag () or (skip_white (),eolp ()));
    pop_spot ();
+   return ();
 }
 
 static define reformat_header ()
@@ -260,9 +267,20 @@ static define requote_buffer(quote)
 static define reformat_quote()
 {
    variable quotes, qlen;
+   USER_BLOCK0
+     {
+	orelse
+	  { not looking_at(quotes)}
+	% If more quote-like stuff follows, it's a deeper quoting level
+	% Might as well test for -lists
+	  { go_right(qlen), skip_white, eolp}
+	  { check_sc_quote() != "" }
+	  { is_substr(MailEdit_Quote_Chars+"-", char(what_char()) )};
+     }
+   
    push_spot_bol;
    push_mark;
-   skip_chars(">|: \t");
+   skip_chars(MailEdit_Quote_Chars+" \t");
    quotes = bufsubstr;
    quotes += check_sc_quote;
    qlen = strlen(quotes);
@@ -270,13 +288,7 @@ static define reformat_quote()
    while (up_1)
      {
 	bol;
-	if (orelse
-	    { not looking_at(quotes)}
-	    % If more quote-like stuff follows, it's a deeper quoting level
-	    % Might as well test for -lists
-	      { go_right(qlen), skip_white, eolp}
-	      { check_sc_quote() != "" }
-	      { push_mark, go_right_1, is_substr("->|:} \t", bufsubstr())})
+	if (X_USER_BLOCK0)
 	  {
 	     go_down_1;
 	     break;
@@ -286,11 +298,7 @@ static define reformat_quote()
    goto_spot;
    while (down_1)
      {
-	if (orelse
-	    { not looking_at(quotes)}
-	      { go_right(qlen), skip_white, eolp}
-	      { check_sc_quote() != "" }
-	      { push_mark, go_right_1, is_substr("->|:} \t", bufsubstr())})
+	if (X_USER_BLOCK0)
 	  {
 	     go_up_1;
 	     break;
@@ -370,7 +378,7 @@ public define check_sc_quotes()
    variable buffer = bufsubstr;
    pop_spot;
    while (string_match
-	  (buffer,"\n\\([>|: \t]*\\)"	  % quotes
+	  (buffer,"\n\\(["+MailEdit_Quote_Chars+" \t]*\\)"	  % quotes
 	   + "\\([a-zA-Z]\\{2,5\\}> ?\\)" % maybe sc quote
 	   + "[^\n]*\n" % rest of line
 	   + "\\1\\2"	% next line starts with quotes and sc quote
@@ -397,13 +405,13 @@ public define email_split_quoted_paragraph ()
 {
    if (bolp or eolp) return newline, indent_line;
    push_spot_bol;
-   !if (re_looking_at ("^[>|:]+"))
+   !if (re_looking_at (sprintf("^[%s]+", MailEdit_Quote_Chars)))
      {
         pop_spot ();
         return newline, indent_line;
      }
    push_mark;
-   skip_chars (">|:} ");
+   skip_chars(MailEdit_Quote_Chars+" ");
    "\n\n\n" + bufsubstr + check_sc_quote;
    pop_spot;
    trim;
@@ -419,7 +427,7 @@ public define remove_excess_quote_levels ()
    if (threshold == -1)
      threshold = Email_Quote_Level_Threshold;
    push_spot_bob ();
-   while (re_fsearch (sprintf("^\\(%s[>|: ]+\\)", Mail_Quote_String)))
+   while (re_fsearch (sprintf("^\\(%s[%s ]+\\)", Mail_Quote_String, MailEdit_Quote_Chars)))
      {
         variable qlen = strlen (strtrans (regexp_nth_match(0)," ",""));
         if (qlen > threshold) delete_line ();
@@ -432,8 +440,11 @@ public define remove_excess_quote_levels ()
 % empty lines. This is not SC-aware yet.
 public define kill_this_level_around_point ()
 {
-   push_spot_bol; push_mark; skip_chars(">|: \t");
+   variable ins_dots = prefix_argument(-1) != -1;
+
+   push_spot_bol; push_mark; skip_chars(MailEdit_Quote_Chars+" \t"); bskip_white();
    variable quotes = bufsubstr;
+   quotes=strtrim_end(quotes);
    variable qlen = strlen (quotes);
    !if (qlen) return pop_spot;
    while (up_1)
@@ -443,7 +454,7 @@ public define kill_this_level_around_point ()
 	    { not looking_at(quotes)}
 	      { go_right(qlen), andelse
 		   { not eolp }
-		   { push_mark, go_right_1, is_substr(">|:} \t", bufsubstr())}
+		   { is_substr(MailEdit_Quote_Chars, char(what_char()))}
 	      })
 	  {
 	     go_down_1;
@@ -451,14 +462,14 @@ public define kill_this_level_around_point ()
 	  }
      }
    push_mark;
-   goto_spot;
+   pop_spot;
    while (down_1)
      {
 	if (orelse
 	    { not looking_at(quotes)}
 	      { go_right(qlen), andelse
 		   { not eolp }
-		   { push_mark, go_right_1, is_substr(">|:} \t", bufsubstr())}
+		   { is_substr(MailEdit_Quote_Chars, char(what_char()))}
 	      })
 
 	  {
@@ -467,6 +478,8 @@ public define kill_this_level_around_point ()
 	  }
      }
    del_region;
+   if (ins_dots)
+     insert(quotes+"\n"+quotes+"  [...]\n"+quotes+"\n");
 }
 
 public define email_delete_quoted_sigs()
@@ -484,7 +497,7 @@ public define email_delete_quoted_sigs()
 		 { not looking_at(quotes)}
 		   { go_right(qlen), andelse
 			{ not eolp }
-			{ skip_white, push_mark, go_right_1, is_substr(">|:}", bufsubstr())}
+			{ skip_white, is_substr(MailEdit_Quote_Chars, char(what_char()) )}
 		   })
 
 	       {
@@ -512,7 +525,7 @@ public define email_prepare_reply()
 
    % remove empty quoted lines without removing the line itself
    bob;
-   while (re_fsearch ("^[>|: \t]+$")) del_eol ();
+   while (re_fsearch (sprintf("^[%s]+[ \t]*$", MailEdit_Quote_Chars))) del_eol ();
 
    % trim trailing whitespace (if any)
    eob ();
@@ -561,13 +574,13 @@ static define fun_on_body(fun)
 % encrypt a message
 public define email_encrypt()
 {
-   fun_on_body(&gpg_encrypt);
+   fun_on_body(&mc_encrypt);
 }
 
 % sign a message
 public define email_sign()
 {
-   fun_on_body(&gpg_sign);
+   fun_on_body(&mc_sign);
 }
 
 % spell check a message
@@ -595,4 +608,3 @@ public define mail_mode ()
 
 %}}}
 
-provide ("email");
