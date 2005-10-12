@@ -1,31 +1,27 @@
 % brief.sl:    Brief editor emulation
 % 
-% * 2003-08-18 modified by Guenter Milde to work with X-windows and a IBMPC 
-%   keyboard using keydefs.sl
+% This will not work well on konsole or in an x-terminal
+% because of the heavy dependence on "exotic" keys.
+% Try with DOS, MS-Windows, or X-Windows and an IBMPC keyboard
+% 
+% Copyright (c) 2005 John E Davis, Günter Milde
+% Released under the terms of the GNU General Public License (ver. 2 or later)
+%
+% 2003-08-18 Guenter Milde 
+%   - work with X-windows and a IBMPC keyboard using keydefs.sl
 %   
-% * 2005-10-11 modified by Marko Mahnic
+% 2005-10-11 Marko Mahnic
 %   - double/triple home/end handling
 %   - more Brief keybindings (based on emacs brief.el)
 %   - more Brief-like region marking, copying, yanking
 %   - page up/dn (mostly) leaves cursor on same screen line
 %   - Brief-like macro recording (F7)
-% 
-% Copyright (c) 2005 John E Davis, Günter Milde
-% Released under the terms of the GNU General Public License (ver. 2 or later)
-
+% 2005-10-12 Guenter Milde
+%   - fixed dependency on x-keydefs (kp_keydefs is obsolete)
 _Jed_Emulation = "brief";
 
-% Since alt keys are used, make sure that they are enabled.
-ALT_CHAR = 27;
-
-% load the symbolic key definitions (variables Key_*)
-require("keydefs");
-% load and bind the additional key definitions for the Keypad
-% require("kp_keydefs", "/full/path/to/kp_keydefs.sl");
-require("kp_keydefs");
-
-% These keys are important so we define them as custom_variables
-custom_variable("Key_Ctrl_Return", "^J");
+% load the extended set of symbolic key definitions (variables Key_*)
+require("x-keydefs");
 
 set_status_line("(Jed %v) Brief: %b    (%m%a%n%o)  %p   %t", 1);
 Help_File = Null_String;
