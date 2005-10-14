@@ -23,6 +23,7 @@
 %  2.3.1 2005-05-26  bugfix: missing autoload (report PB)
 %  2.3.2 2005-06-09 * reintroduced indent_region_or_line() 
 %  	 	      jed99-17's cuamisc.sl doesnot have it
+%  2.3.3 2005-10-14 * added documentation  	 	      
 
 
 % _debug_info = 1;
@@ -39,17 +40,22 @@ autoload("push_defaults", "sl_utils");
 %\synopsis{Mark a word}
 %\usage{ mark_word([word_chars], skip=0)}
 %\description
-% Mark a word as region. 
-% Get the idea of the characters a word is made of from either
-%    * the optional argument,
-%    * the blocal variable "Word_Chars" or
-%    * get_word_chars().
-% The second (optional) argument can have the values
-%   -1 skip backward, if not in a word
-%    0 don't skip
-%    1 skip forward, if not in a word
-% It defaults to zero.
+% Mark a word as visible region. 
+% Get the idea of the characters a word is made of from (in order of 
+% preference):
+% 
+%    * the optional argument \var{word_chars},
+%    * the buffer local variable "Word_Chars", or
+%    * the jed function \var{get_word_chars}.
+% 
+% The optional argument \var{skip} tells how to skip non-word characters
+% 
+%   -1 skip backward
+%    0 don't skip (default)
+%    1 skip forward
+%    
 %\seealso{mark_line, get_word, bget_word}
+%\seealso{define_word, define_blocal_var, push_visible_mark}
 %!%-
 public define mark_word() % ([word_chars], skip=0)
 {
@@ -84,8 +90,18 @@ public define mark_word() % ([word_chars], skip=0)
 %    mark_word(__push_args(args), -1);
 % }
 
-% return the word at point as string
-% if a visible region is defined, return it instead
+
+%!%+
+%\function{get_word}
+%\synopsis{Return the word at point as string}
+%\usage{String get_word([String word_chars], skip=0)}
+%\description
+%  Return the word at point (or a visible region) as string.
+%  
+%  See \var{mark_word} for the "word finding algorithm"
+%  and meaning of the optional arguments.
+%\seealso{bget_word, mark_word, define_word, push_visible_mark}
+%!%-
 public define get_word() % ([word_chars], skip=0)
 {
    % pass on optional arguments
@@ -104,21 +120,48 @@ public define get_word() % ([word_chars], skip=0)
 %    get_word(word_chars(args), 1);
 % }
 
-% return the word at point as string (skip back if between two words)
+
+%!%+
+%\function{bget_word}
+%\synopsis{Return the word at point as string, skip back if not in a word}
+%\usage{String get_word([String word_chars], skip=0)}
+%\description
+%  Return the word at point (or a visible region) as string.
+%  Skip back over non-word characters when not in a word.
+%  This is a shorthand for get_word(-1).
+%  See \var{mark_word} for the "word finding algorithm"
+%\seealso{get_word, mark_word, define_word}
+%!%-
 public define bget_word() %  ([word_chars])
 {
    variable word_chars = push_defaults( , _NARGS);
    get_word(word_chars, -1);
 }
 
-% Mark the current line
+
+%!%+
+%\function{mark_line}
+%\synopsis{Mark the current line}
+%\usage{mark_line()}
+%\description
+%  Mark the current line as an invisible region
+%\seealso{push_mark_eol}
+%!%-
 public define mark_line()
 {
    bol();
    push_mark_eol();
 }
 
-% Return the current line as string (keeping the point at place)
+%!%+
+%\function{get_line}
+%\synopsis{Return the current line as string}
+%\usage{String get_line()}
+%\description
+%  Return the current line as string. In contrast to the standard 
+%  \var{line_as_string}, this keeps the point at place.
+%\seealso{line_as_string, mark_line, bufsubstr}
+%!%-
 public define get_line()
 {
    push_spot();
@@ -126,9 +169,18 @@ public define get_line()
    pop_spot();
 }
 
-% Return buffer (or region, if defined) as string
-%  The optional argument kill tells, whether the buffer/region should be
-%  deleted after reading.
+
+%!%+
+%\function{get_buffer}
+%\synopsis{Return buffer as string}
+%\usage{String get_buffer(kill=0)}
+%\description
+%  Return buffer as string. 
+%  If a visible region is defined, return it instead.
+%  The optional argument \var{kill} tells, whether the buffer/region 
+%  should be deleted in the process.
+%\seealso{bufsubstr, push_visible_mark}
+%!%-
 public define get_buffer() % (kill=0)
 {
    variable  kill;
@@ -147,6 +199,14 @@ public define get_buffer() % (kill=0)
 
 % --- formatting -----------------------------------------------------
 
+%!%+
+%\function{indent_buffer}
+%\synopsis{Format a buffer with \var{indent_line}}
+%\usage{indent_buffer()}
+%\description
+%  Call \var{indent_line} for all lines of a buffer.
+%\seealso{indent_line, indent_region_or_line}
+%!%-
 public define indent_buffer()
 {
    push_spot;
@@ -157,10 +217,23 @@ public define indent_buffer()
    pop_spot;
 }
 
+%!%+
+%\function{number_lines}
+%\synopsis{Number buffer lines}
+%\usage{number_lines()}
+%\description
+%  Precede all lines in the buffer or a visible region with line numbers
+%\notes
+%  The numbers are not just shown, but actually inserted into the buffer. 
+%  You can remove them, e.g., by marking a region and calling 
+%  \var{kill_rect}.
+%\seealso{push_visible_mark}
+%!%-
 public define number_lines ()
 {
+   variable visible_mark = is_visible_mark();
    push_spot;
-   if(is_visible_mark, dup) % leave return-value on stack
+   if(visible_mark)
      narrow;
    eob;
    variable i = 1,
@@ -172,13 +245,24 @@ public define number_lines ()
 	i++;
      }
    while (down_1);
-   if (()) % was_visible_mark
+   if (visible_mark)
      widen;
    pop_spot;
 }
 
+%!%+
+%\function{autoinsert}
+%\synopsis{Auto insert text in a rectangle}
+%\usage{autoinsert()}
+%\description
 % Insert the content of the first line into a rectangle defined by 
-% point and mark
+% point and mark. This is soewhat similar to \var{open_rect} but for 
+% arbitrary content.
+% 
+% If you have to fill out collumns with identical content, write the content
+% in the first line, then mark the collumn and call \var{autoinsert}.
+%\seealso{open_rect}
+%!%-
 public define autoinsert()
 {
    () = dupmark();
@@ -228,7 +312,7 @@ public define indent_region_or_line ()
 
 %!%+
 %\function{insert_markup}
-%\synopsis{Insert markup around region or work}
+%\synopsis{Insert markup around region or word}
 %\usage{Void insert_markup(Str beg_tag, Str end_tag)}
 %\description
 %   Inserts beg_tag and end_tag around the region or current word.
@@ -242,7 +326,7 @@ public define indent_region_or_line ()
 %   insert_markup("{\textbf{", "}");
 %#v-
 %  will do the same for LaTeX.
-%\seealso{mark_word,}
+%\seealso{mark_word}
 %!%-
 define insert_markup(beg_tag, end_tag)
 {
@@ -255,6 +339,7 @@ define insert_markup(beg_tag, end_tag)
    pop_spot();
 }
 
+% Insert markup around region and (re) indent
 define insert_block_markup(beg_tag, end_tag)
 { 
    () = dupmark();
