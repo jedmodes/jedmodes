@@ -15,17 +15,17 @@
 %     and modified by GM)
 % 1.1 changed the Browse_Url_Viewer default, as html2txt has problems
 %     downloading "complicated" URL (no negotiating with the server)
-%     that can be avoided by using a text moded browser with --dump
-% 1.2 made SLang2 proof    
+%     that can be avoided by using a text mode browser with --dump
+% 1.2 made SLang2 proof
+% 1.2.1 2005-10-13 bugfix in find_program()
 
 % _debug_info=1;
 
 autoload("popup_buffer", "bufutils");
-autoload("_implements", "sl_utils");
 
 private variable mode = "browse_url";
 provide(mode);
-_implements(mode);
+implements(mode);
 
 
 %{{{ finding the programs    
@@ -57,9 +57,9 @@ define find_program(programs)
      {
 	program=(strtrim());
 	% show(program, extract_element(program, 0, ' '));
-	!if(system(sprintf("which %s >& /dev/null", 
-	   extract_element(program, 0, ' ')))
-	   )
+	!if(system(sprintf("which %s 2>&1 > /dev/null", 
+			   extract_element(program, 0, ' '))) 
+	    )
 	  return program;
      }
    return "";
