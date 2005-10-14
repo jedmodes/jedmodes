@@ -47,6 +47,9 @@
 %   Johann Gerell <johann dot gerell at home dot se>
 %   Francesc Rocher <f.rocher@computer.org>
 %   
+% Copyright (c) 2001 Francesc Rocher, Johann Gerell
+%  Released under the terms of the GNU General Public License (ver. 2 or later)
+%   
 %}}}
 
 $0 = "css1";
