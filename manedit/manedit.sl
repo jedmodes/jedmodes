@@ -65,6 +65,10 @@
 % Author
 % 
 %   Johann Gerell, johann dot gerell at home dot se
+%   
+% Copyright (c) 2002 Johann Gerell
+%  Released under the terms of the GNU General Public License (ver. 2 or later)
+
 %
 %}}}
 
