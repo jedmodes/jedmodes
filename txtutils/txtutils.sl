@@ -54,8 +54,7 @@ autoload("push_defaults", "sl_utils");
 %    0 don't skip (default)
 %    1 skip forward
 %    
-%\seealso{mark_line, get_word, bget_word}
-%\seealso{define_word, define_blocal_var, push_visible_mark}
+%\seealso{mark_line, get_word, define_word, define_blocal_var, push_visible_mark}
 %!%-
 public define mark_word() % ([word_chars], skip=0)
 {
