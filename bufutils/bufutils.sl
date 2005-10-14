@@ -38,6 +38,13 @@
 % 2005-04-01 1.8   fast strread_file() (Paul Boekholt)
 % 2005-04-08 1.8.1 made preparse-proof 
 % 	     	   "#if (_slang_version < 2000)" cannot be preparsed
+% 	     1.8.2 bugfix in bufsubfile(): use path_basename() of whatbuf()
+% 	           (important, if the buffer name is  e.g. 
+% 	           "http://jedmodes.sf.net")
+% 2005-10-13 1.8.3 bugfix reload_buffer(): reset the changed on disk argument
+%                  permanently
+
+
 % _debug_info = 1;
 
 % --- Requirements ----------------------------------------------------
@@ -60,8 +67,7 @@ variable Help_Message = Assoc_Type[String_Type, "no help available"];
 % This can be used for mode-dependend help, variables, ...
 define normalized_modename() % (mode=get_mode_name())
 {
-   variable mode;
-   mode = push_defaults(get_mode_name, _NARGS);
+   variable mode = push_defaults(get_mode_name, _NARGS);
    mode = extract_element(mode, 0, ' ');
    if (mode == "")
      mode = "no";
@@ -363,7 +369,7 @@ define popup_close_buffer_hook(buf)
 %
 %\seealso{setbuf, sw2buf, close_buffer, fit_window, delete_window}
 %!%-
-define popup_buffer() % (buf, max_rows = Max_Popup_Size)
+public define popup_buffer() % (buf, max_rows = Max_Popup_Size)
 {
    % get arguments
    variable buf, max_rows;
@@ -391,7 +397,7 @@ define popup_buffer() % (buf, max_rows = Max_Popup_Size)
 %
 % see also push_mode/pop_mode from pushmode.sl
 
-static variable stack_name = "keymap_stack";
+private variable stack_name = "keymap_stack";
 
 % temporarily push the keymap
 define push_keymap(new_keymap)
@@ -503,10 +509,10 @@ define strread_file(name)
    variable fp = fopen(name, "r"), str;
    if (fp == NULL)
      verror ("Failed to open \"%s\"", name);
-#ifexists _slang_utf8_ok   % slang 2
-   if (-1 == fread_bytes(&str, size_limit, fp))
-#else
+#ifnexists _slang_utf8_ok   % (_slang_version < 2000)
    if (-1 == fread(&str, Char_Type, size_limit, fp))
+#else
+   if (-1 == fread_bytes(&str, size_limit, fp))
 #endif
      error("could not read file");
    !if (feof(fp)) 
@@ -515,24 +521,42 @@ define strread_file(name)
 }
 
 
-% restore (or update, if file changed on disk) a buffer to the file version
+
+%!%+
+%\function{reload_buffer}
+%\synopsis{Restore (or update) a buffer to the version on disk}
+%\usage{reload_buffer()}
+%\description
+%  Replace the buffer contents with the content of the associated file.
+%  This will restore the last saved version or update, if the file changed 
+%  on disk.
+%\notes
+%  Befor overwriting the buffer contents, an attempt is made to save it 
+%  to a backup file (with the backup file eventually moved to a 
+%  "*~~" back-backup file).
+%\seealso{insert_file, find_file, write_buffer, make_backup_filename}
+%!%-
 public define reload_buffer()
 {
-   variable file = buffer_filename();
+   variable file, dir, name, flags, path;
+   (file, dir, name, flags) = getbuf_info();
+   path = path_concat(dir, file);
    variable col = what_column(), line = what_line();
+   variable backup_file = make_backup_filename(dir, file);
 
-   if(file_status(file) != 1)
-     error("cannot open " + file);
-   % turn off the "changed on disk" bit
-   % cf. example set_overwrite_mode () in the setbuf_info help
-   % but here we want to reset -> use  (a & ~b) instead of (a|b)
-   setbuf_info (getbuf_info () & ~0x004);
+   if(file_status(path) != 1)
+     verror("cannot open %s, errno %d (see file_status)", 
+	    path, file_status(file));
+   % backup buffer
+   if (file != backup_file)
+     () = write_buffer(backup_file);
+   
    erase_buffer(whatbuf());
-   () = insert_file(file);
+   () = insert_file(path);
    goto_line(line);
    goto_column(col);
+   setbuf_info(file, dir, name, flags & ~0x004);
    set_buffer_modified_flag(0);
-   setbuf_info (getbuf_info () & ~0x004);
 }
 
 % ------- Write the region to a file and return its name. -----------------
@@ -621,7 +645,7 @@ define bufsubfile() % (delete=0, base=NULL)
      () = dupmark();
    % create a unique filename (keeping the extension
    if (base == NULL)
-     base = str_delete_chars(whatbuf(), "*+<> ");
+     base = str_delete_chars(path_basename(whatbuf()), "*+<>:\\/ ");
    extension = path_extname(base);
    base = path_concat(Jed_Temp_Dir, path_sans_extname(base));
    for (i=1; i<=i_max; i++)
