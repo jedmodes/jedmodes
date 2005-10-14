@@ -15,12 +15,17 @@
 %          http://www.w3.org/Addressing/schemes.html
 %          
 % % Versions:
-% 1.0             first pubic version
-% 1.1             outsourced the definition of services to the services.sl 
-% 		  file (for faster startup)
-%       	  added the provide("uri")
-% 1.2  2004-11-25 bugfix: find_uri returned a value if the uri did not 
-%      		  contain a scheme: part
+% 1.0               first public version
+% 1.1               outsourced the definition of services to the services.sl 
+% 		    file (for faster startup)
+%       	    added the provide("uri")
+% 1.2  2004-11-25   bugfix: find_uri returned a value if the uri did not 
+%      		    contain a scheme: part
+% 1.2.1 2005-04-21  parse_uri() code cleanup and additional check: 
+%                   if there is a path-separator before the colon,
+%                   assume the path to be no URI but a simple path 
+%                   containing a colon.
+% 1.3 2005-10-14    Bugfix in write_uri() and documentation update
 % 
 % USAGE:
 % 
@@ -32,7 +37,7 @@
 %   
 %   bind to keys of your choice or use rebind from bufutils.sl
 %     rebind("find_file", "find_uri");
-%     rebind("save_buffer", "write_uri");
+%     rebind("save_buffer_as", "write_uri");
 %  
 % * if you want find_file and related functions to be URI-aware
 %   (e.g. to be able to start jed with 'jed locate:foo.sl')
@@ -47,7 +52,7 @@
 %   Problem: Currently, a relative filename is expanded before passing 
 %   it to the _jed_find_file_before_hooks, with the sideeffect of 
 %   "http://host.domain" becoming "/host.domain"
-%   -> find_file doesnot work for http/ftp, 
+%   -> find_file doesnot work for URIs with a double slash
 %
 %   If you want to be able to start jed with e.g.
 %      jed http://jedmodes.sf.net/mode/uri/
@@ -56,6 +61,9 @@
 %     () = find_file (next_file_arg);
 %   to
 %     () = find_uri (next_file_arg);
+%     
+%   CAUTION: hooks.txt says that this hook should not be customized by
+%   	     the user.  
 
 % Requirements
 autoload("run_function", "sl_utils");
@@ -65,18 +73,27 @@ autoload("run_function", "sl_utils");
 % parse uri and return (scheme, path)
 static define parse_uri(uri)
 {
-   % currently, a relative filename is expanded before passing it to the
+   % currently, a filename is expanded before passing it to the
    % _jed_find_file_before_hooks :-(
-   variable pwd = expand_filename("");
-   if(is_substr(uri, pwd) == 1)
-     uri = uri[[strlen(pwd):]];
+   
+   % hack to undo the change (as far as possible)
+   if(is_substr(uri, getcwd) == 1)
+     uri = uri[[strlen(getcwd):]];
    % show("parse uri", uri);
    
    % URI = scheme:path (path can be any argument to scheme)
-   variable sep = is_substr(uri, ":");
-   !if (sep)
+   variable fields = strchop(uri, ':', 0);
+   % show(fields);
+   % no scheme given
+   if (length(fields) == 1)
      return("", uri);
-   return(uri[[:sep-2]], uri[[sep:]]);
+   
+   % no scheme given and ":" in a later component of the path
+   % (the scheme must not contain a directory separator ("/" or "\")
+   if (fields[0] != path_basename(fields[0])) 
+     return("", uri);
+
+   return fields[0], strjoin(fields[[1:]],":");
 }
 
 %!%+
@@ -111,9 +128,10 @@ static define parse_uri(uri)
 %   Unfortunately, currently, a relative filename is expanded before 
 %   passing it to the  _jed_find_file_before_hooks, with the sideeffect of 
 %   "http://example.org" becoming "/example.org" (and no uri opened)
-%   A partial workaround is to bind find_uri() to the key used for 
-%   find_file().
-%\seealso{find_uri, find_file, run_function, runhooks}
+
+%   A partial workaround is to bind find_uri() or ffap() from ffap.sl 
+%   to the key used for find_file() (e.g. using \var{rebind}).
+%\seealso{find_uri, ffap, find_file, write_uri_hook}
 %!%-
 define find_uri_hook(uri)
 {
@@ -144,7 +162,7 @@ define find_uri_hook(uri)
 %   While the intrinsic find_file returns an integer (success or not), 
 %   the internal find_file (as called from setkey()) has no return value.
 %         
-%\seealso{find_uri_hook, find_file, run_function, runhooks}
+%\seealso{write_uri, ffap, find_file, find_uri_hook}
 %!%-
 public define find_uri() % (uri=ask)
 {
@@ -152,7 +170,7 @@ public define find_uri() % (uri=ask)
    if (_NARGS)
      uri = ();
    else
-    uri = read_with_completion ("Find URI", "", "", 'f');
+     uri = read_mini("Find URI", "", "");
 
    !if (find_uri_hook(uri))
      message("No scheme found to open URI " + uri);
@@ -165,22 +183,43 @@ public define find_uri() % (uri=ask)
 %!%+
 %\function{write_uri_hook}
 %\synopsis{Write to an Universal Ressource Indicator (URI)}
-%\usage{ write_uri_hook(uri)}
+%\usage{Integer write_uri_hook(uri)}
 %\description
-%   The analogon to find_uri_hook().
+%  Write to a Universal Ressource Indicator (URI) of the form
+%  "scheme:path".
+%  
+%  Calls a scheme-hook for "scheme" with "path" as argument. 
+%  If no scheme-hook is found or the argument doesnot contain 
+%  a colon, 0 is returned, otherwise 1 is returned.
+%  
+%  The scheme-hook is a function whose name consists of the parts
+%  "scheme" and "_uri_hook", i.e. a http-hook must be called
+%  "http_uri_hook". It must return 1 on success and 0 otherwise.
+%  
+%  Defining the appropriate hooks, it is possible to let jed 
+%  handle an extensible choice of URI schemes.
 %\notes
-%   Unfortunately, currently, a relative filename is expanded before 
-%   passing it to the  _jed_write_region_hooks, with the sideeffect of 
-%   "http://example.org" becoming "/example.org" (and no uri opened)
-%\seealso{}
+%  With
+%#v+
+%     append_to_hook("_jed_write_region_hooks", &write_uri_hook);
+%#v-
+%  jed can be made "URI aware". 
+%  
+%  However:
+%  Unfortunately, currently, a relative filename is expanded before 
+%  passing it to the  _jed_write_region_hooks, with the sideeffect of 
+%  "http://example.org" becoming "/example.org" (and thus an attempt 
+%  is made to write example.org to the root directory).
+%\seealso{write_uri, write_buffer, find_uri_hook}
 %!%-
 define write_uri_hook(uri)
 {
    variable scheme, path;
    (scheme, path) = parse_uri(uri);
+   % % debugging
    % show("write_uri_hook", uri, scheme, path);
-   % call scheme_write_uri_hook with the path argument
    % show("run_function", scheme + "_write_uri_hook", path);
+   % return 1; 
    return run_function(scheme + "_write_uri_hook", path);
 }
 
@@ -189,8 +228,8 @@ define write_uri_hook(uri)
 %\synopsis{Open a universal ressource indicator}
 %\usage{write_uri(String_Type uri)}
 %\description
-%  Analogon to find_uri.
-%\seealso{find_uri_hook, write_region, write_region_to_file}
+%  Save the buffer to a universal resource indicator (URI).
+%\seealso{find_uri, write_uri_hook, write_buffer, save_buffer_as}
 %!%-
 public define write_uri() % (uri=ask)
 {
@@ -198,7 +237,7 @@ public define write_uri() % (uri=ask)
    if (_NARGS)
      uri = ();
    else
-    uri = read_with_completion ("Write URI", "", whatbuf, 'f');
+    uri = read_with_completion ("Write to URI:", "", whatbuf, 'f');
 
    !if (write_uri_hook(uri))
      message("No scheme found for writing URI " + uri);
