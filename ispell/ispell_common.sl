@@ -2,7 +2,7 @@
 %
 % Author:	Paul Boekholt
 %
-% $Id: ispell_common.sl,v 1.12 2005/06/16 08:40:18 paul Exp paul $
+% $Id: ispell_common.sl,v 1.13 2005/10/22 18:21:39 paul Exp paul $
 % 
 % Copyright (c) 2003,2004 Paul Boekholt.
 % Released under the terms of the GNU GPL (version 2 or later).
@@ -165,6 +165,8 @@ public define ispell_switch_buffer_hook(old_buffer)
    ispell_change_current_dictionary(get_blocal("ispell_dictionary", Ispell_Dictionary));
 }
 
+% The blocal may have been set from e.g. gdbmrecent.sl or a modehook
+ispell_switch_buffer_hook("");
 add_to_hook("_jed_switch_active_buffer_hooks", &ispell_switch_buffer_hook);
 
 
