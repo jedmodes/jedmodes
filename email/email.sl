@@ -1,7 +1,10 @@
 % email.sl -*- mode: SLang; mode: Fold -*-
 % 
-% $Id: email.sl,v 1.3 2005/10/12 19:30:16 paul Exp paul $
+% $Id: email.sl,v 1.4 2005/10/29 21:52:56 paul Exp paul $
 % Keywords: mail
+% 
+% Copyright (c) 2003-2005 Paul Boekholt, Morten Bo Johansen
+% Released under the terms of the GNU GPL (version 2 or later).
 % 
 % This file was written by the following people:
 %   Ulli "Framstag" Horlacher	-> mail_mode
