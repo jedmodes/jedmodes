@@ -50,6 +50,7 @@
 %    	  	      help_search(): Search for a string in on-line documentation (PB)
 %    	  	      removed where_is_word_at_point(), as where_is() already
 %    	  	      has word_at_point as default.
+%   1.6.1 2005-11-01  bugfix in describe_bindings()
 %           	      
 %   TODO: use _get_namespaces() to make apropos aware of functions in
 %   	  "named namespaces" (When called with a numeric prefix arg [PB])
@@ -485,7 +486,7 @@ define strsub_control_chars(key)
    key = strsub_control_chars(key);
    % check for a symbolic keyname and return it if defined
    if (strlen(Keydef_Keys[key]))
-     return Keydef_Keys[key];
+     key = sprintf("%s (\"%s\")", Keydef_Keys[key], key);
    % two more readability replacements
    (key, ) = strreplace(key, "^I", "\\t", strlen (key));
    (key, ) = strreplace(key, "^[", "\\e", strlen (key));
@@ -642,7 +643,7 @@ define help_for_object(obj)
      help_str += "  Undocumented";
    else
      help_str += doc_str[[strlen(obj):]];
-     % help_str += sprintf("[Obtained from file %s]", file);
+     help_str += sprintf("\n(Obtained from file %s)", file);
 
    return help_str;
 }
@@ -718,10 +719,10 @@ public define describe_mode ()
 %   Show a list of all keybindings in the help buffer
 %\seealso{showkey, where_is, help_mode}
 %!%-
-public define describe_bindings() % (keymap=what_keymap())
+ public define describe_bindings() % (keymap=what_keymap())
 {
-   variable keymap = prompt_for_argument(&read_mini, "Keymap:", what_keymap, 
-					 _NARGS);
+   variable keymap = prompt_for_argument(&read_mini, 
+                                         "Keymap:", what_keymap(), "", _NARGS);
    flush("Building bindings..");
    variable buf = whatbuf();
    current_topic = [_function_name, keymap];
