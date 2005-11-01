@@ -20,6 +20,7 @@
 %      		  handle user-defined data types)
 %      		  use the "standard way" of defining an array with type set 
 %      		  at run time in create_circ()
+% 1.2 2005-11-01  documentation typo fix, no explicitely public functions
 
 
 %!%+
@@ -340,7 +341,7 @@ define circ_previous(var)
 %!%+
 %\function{circ_append}
 %\synopsis{Append the value to the actual position}
-%\usage{ public Void circ_append() % circ_append(var, value, [at_end = 0])}
+%\usage{circ_append(var, value, [at_end = 0])}
 %\description
 % Set the value at the actual positions successor (circling round the full
 % circle) and adjust the "range of valid entries" to end at this value.
