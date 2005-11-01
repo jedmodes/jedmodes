@@ -642,8 +642,10 @@ define help_for_object(obj)
    if (doc_str == NULL)
      help_str += "  Undocumented";
    else
-     help_str += doc_str[[strlen(obj):]];
-     help_str += sprintf("\n(Obtained from file %s)", file);
+     {
+        help_str += doc_str[[strlen(obj):]];
+        help_str += sprintf("\n\n(Obtained from file %s)", file);
+     }
 
    return help_str;
 }
