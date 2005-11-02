@@ -192,10 +192,7 @@ static define get_confirmation() % (prompt, [default])
 %!%-
 static define tag() % (how = 1)
 {
-   % optional argument with default
-   variable how = 1;
-   if (_NARGS)
-     how = ();
+   variable how = push_defaults(1, _NARGS);
 
    variable tags = get_blocal_var("Tags");
    % see whether the line is already tagged
@@ -226,10 +223,7 @@ static define tag() % (how = 1)
 %!%-
 static define tag_all() % (how = 1)
 {
-   % optional argument with default
-   variable how = 1;
-   if (_NARGS)
-     how = ();
+   variable how = push_defaults(1, _NARGS);
 
    if(is_visible_mark())
      narrow();
@@ -260,13 +254,9 @@ static define tag_all() % (how = 1)
 % Tag all lines that match a regex pattern
 static define tag_matching() %(how)
 {
-   variable how = 1;
-   if (_NARGS)
-     how = ();
+   variable how = push_defaults(1, _NARGS);
    
-   variable prompt = "Tag all lines containing regexp:";
-   !if (how)
-     prompt = "Unt" + prompt[[1:]];
+   variable prompt = ["Untag", "Tag"][how==1] + " all lines containing regexp:";
      
    variable pat = read_mini(prompt, "", ".*");
    push_spot_bob();
