@@ -15,7 +15,8 @@
 % 1.2 2004-12-23   removed dependency on view mode (called by runhooks now)
 % 1.2.1 2005-03-11 bugfix in Mode>Layout>Hrule
 %                  bugfix remove spurious ":" from anonymous target markup
-% 1.3 2005-04-14   restructuring of the export and view functions
+% 1.3   2005-04-14 restructuring of the export and view functions
+% 1.3.1 2005-11-02 hide "public" in some functions
 
 % For debugging purposes:
 % _debug_info = 1;
@@ -25,8 +26,7 @@
 require("comments"); 
 % extra modes (from http://jedmodes.sf.net/mode/)
 require("structured_text");  % text_mode_hook for lists formatting
-% require("ishell"); % >= 1.7  % overwriting the do_shell_cmd from shell.sl
-autoload("do_shell_cmd", "ishell");        
+autoload("shell_command", "ishell");        
 autoload("view_url", "browse_url");
 autoload("browse_url", "browse_url");
 autoload("bufsubfile", "bufutils");
@@ -112,7 +112,7 @@ Markup_Tags["substitution"]       = ["\n.. |", "|"];
 % ----------------------------- Functions --------------------------------
 
 % export the buffer/region using cmd
-public define rst_export(cmd)
+ public define rst_export(cmd)
 {
    variable output_file, extension = "";
    switch (cmd)
@@ -124,14 +124,12 @@ public define rst_export(cmd)
    cmd = strjoin([cmd, Rst_Export_Options, buffer_filename(), output_file], 
 		 " ");
    save_buffer();
-   % make sure we have the right variant of do_shell_cmd()
-   require("ishell");
-   do_shell_cmd(cmd, "*rst export output*");
+   shell_command(cmd, "*rst export output*");
    message("exported to " + output_file);
 }
 
 % export to html
-public define rst_run()
+ public define rst_run()
 {
    % variable html_file = path_sans_extname(whatbuf())+".html";
    rst_export(Rst2Html_Cmd);
@@ -140,7 +138,7 @@ public define rst_run()
 
 static define rst_export_help()
 {
-   do_shell_cmd(Rst2Html_Cmd + " --help", "*rst export help*");
+   shell_command(Rst2Html_Cmd + " --help", "*rst export help*");
 }
 
 static define set_rst_export_options()
@@ -150,7 +148,7 @@ static define set_rst_export_options()
 }
   
 % Browse the html conversion of the current buffer in an external browser
-public define rst_browse() % (browser=NULL)
+ public define rst_browse() % (browser=NULL)
 {
    variable html_file = "file:" + path_sans_extname(buffer_filename())+".html";
    rst_export(Rst2Html_Cmd);
@@ -218,7 +216,7 @@ set_syntax_flags (mode, 0);
 %%% DFA_CACHE_BEGIN %%%
 static define setup_dfa_callback (mode)
 {
-   % dfa_enable_highlight_cache(mode +".dfa", mode);
+   dfa_enable_highlight_cache(mode +".dfa", mode);
    
    variable color_bold = "error";
    variable color_literal = "number";
@@ -243,10 +241,10 @@ static define setup_dfa_callback (mode)
    % variable post_i = "($|[-'\"\\)\\]}>/:\\.,;!?\\\\ \t])"; % char after ...
    % dfa_define_highlight_rule (pre_i+"\\*\\*[^ \t].*[^ \t]\\*\\*"+post_i, color_bold, mode);
    % doesnot work :-(
-   dfa_define_highlight_rule("\\*\\*[a-zA-Z0-9_\\-:!]+\\*\\*", color_bold, mode);
-   dfa_define_highlight_rule("\\*?\\*[a-zA-Z0-9_\\-:!]+\\*\\*?", color_emphasis, mode);
-   dfa_define_highlight_rule("`[a-zA-Z0-9_\\-:!]+`", color_interpreted, mode);
-   dfa_define_highlight_rule("``[a-zA-Z0-9_\\-:!]+``", color_literal, mode);
+   dfa_define_highlight_rule("\\*\\*[a-zA-Z0-9_\\-:! ]+\\*\\*", color_bold, mode);
+   dfa_define_highlight_rule("\\*?\\*[a-zA-Z0-9_\\-:! ]+\\*\\*?", color_emphasis, mode);
+   dfa_define_highlight_rule("`[a-zA-Z0-9_\\-:! ]+`", color_interpreted, mode);
+   dfa_define_highlight_rule("``[a-zA-Z0-9_\\-:! ]+``", color_literal, mode);
    dfa_define_highlight_rule("\\|[a-zA-Z0-9_\\-:!]+\\|", color_substitution, mode);
    dfa_define_highlight_rule("::$", color_literal, mode);
    dfa_define_highlight_rule(":[a-zA-Z0-9_\\-:!]+:", color_directive, mode);
@@ -292,7 +290,7 @@ static define setup_dfa_callback (mode)
        {
 	  $1 = char(());
 	  $1 = string_repeat($1, 4);
-	  dfa_define_highlight_rule(sprintf("^%s.*$", $1), 
+	  dfa_define_highlight_rule(sprintf("^%s *$", $1), 
 				    color_transition, mode);
        }
    dfa_build_highlight_table(mode);
