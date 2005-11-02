@@ -19,8 +19,9 @@
 % 2005-05-23 1.5.1 bugfix in _implements(): separate _implement and provide,
 %                  do not rely on _featurep()
 % 2005-06-07 1.5.2 moved run_program emulation to compat16-15.sl
-% 2005-10-05 1.5.3 my SLang 2.0.4 doesnot have have a re-evaluation save 
-%                  implements(). So _implements() is now on the save side.
+% 2005-10-05 1.5.3 Simplified _implements(). Developers working with SLang2 
+%                  should switch to using the standard implements().
+%                  (Normal users will will usually not re-evaluate.)
 
 % _debug_info = 1;
 
@@ -107,7 +108,7 @@ define prompt_for_argument() % (fun, [args], use_stack)
    variable args = __pop_args(_NARGS-2);
    variable fun = ();
    if (use_stack)
-     return;  % argument is already on stack
+     return ();  % argument is already on stack
    else
      {
         if (MINIBUFFER_ACTIVE) % cannot use minibuffer for prompting
@@ -272,8 +273,7 @@ define what_line_if_wide ()
 %\usage{_implements(Str name)}
 %\description
 %  The \var{_implements} function creates a new static namespace 
-%  (deprecating the old private namespace) and associates it 
-%  with the current compilation unit.
+%  and associates it with the current compilation unit.
 %  
 %  If a namespace with the specified name already exists, behaviour 
 %  depends on the value of the variable \var{_debug_info}:
@@ -281,9 +281,14 @@ define what_line_if_wide ()
 %  If _debug_info == 0 (default), a `NamespaceError' exception arises.
 %  
 %  If _debug_info == 1, the the current static namespace is changed 
-%  to \var{name}. This alows reevaluation of files in debugging mode.
+%  to \var{name}. 
+%  
+%  This alows re-evaluation of files in debugging|development mode.
+%  (In SLang 2 this is standard behaviour of implements(), if the 
+%  namespace was defined in the same file. If defined in another file,
+%  it still throws an error.)
 %\example
-%  To allow easy reevaluation of a mode during development, write
+%  To allow easy re-evaluation of a mode during development, write
 %#v+
 %   _debug_info = 1;
 %   autoload("_implements", "sl_utils");
