@@ -16,6 +16,7 @@
 %               moved string_repeat and string_reverse to strutils.sl
 %         1.2.2 bugfix in array_max(), the definition in sl_utils contrdicted
 %               the intrinsic one which resembles array_max() (report PB)
+%         1.2.3 removed "public" keyword from all functions
 
 _autoload(
    "push_defaults", "sl_utils",
@@ -41,7 +42,7 @@ static define typeof_ref(ref)
 % Attention: dont use it in a function call with optional arguments
 % , i.e. not show(pop2array()) but
 %  $1 = pop2array(), show($1);
-public define pop2array() % (n=_stkdepth, [type])
+define pop2array() % (n=_stkdepth, [type])
 {
    variable n, type;
    (n, type) = push_defaults(_stkdepth(), Any_Type, _NARGS);
@@ -65,7 +66,7 @@ public define pop2array() % (n=_stkdepth, [type])
 %    pop2array(N, datatype)
 % instead of (the simpler)
 %    array(arg1, ...., argN);
-public define array() %([args])
+define array() %([args])
 {
    return pop2array(_NARGS);
 }
