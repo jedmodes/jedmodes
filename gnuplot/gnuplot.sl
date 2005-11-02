@@ -14,6 +14,7 @@
 %  	      1.1.1 gnuplot-help uses view-mode (from bufutils)
 %  2004-05-06 1.1.2 Added doc for custom variables
 %  	            code cleanup after getting version 1.5 of ishell
+%  2005-11-02 1.13  fixed the "public" statements 
 %
 %
 %  TODO
@@ -104,8 +105,8 @@ custom_variable ("Gnuplot_Command", "gnuplot -persist");
 
 % ----------------------------------------------------------------------------
 
-static variable mode = "gnuplot";
-static variable tmp_buf = "gnuplot_tmp";
+private variable mode = "gnuplot";
+private variable tmp_buf = "gnuplot_tmp";
 
 % do commenting with comments.sl
 set_comment_info (mode, "# ", "", 7);
@@ -150,7 +151,7 @@ define gnuplot_info ()
 %   Only tested on UNIX
 %\seealso{gnuplot_mode, gnuplot_info}
 %!%-
-public define gnuplot_help() %([topic])
+define gnuplot_help() %([topic])
 {
    variable topic;
    if (_NARGS)
@@ -200,12 +201,12 @@ define gnuplot_run()
 %!%+
 %\function{gnuplot_shell}
 %\synopsis{open an interactive gnuplot session in the current buffer }
-%\usage{Void gnuplot_shell ()}
+%\usage{Void gnuplot_shell()}
 %\description
 %   This command calls ishell_mode with gnuplot as argument
 %\seealso{ishell, ishell_mode}
 %!%-
-define gnuplot_shell()
+public define gnuplot_shell()
 {
    ishell_mode(Gnuplot_Command);
 }
