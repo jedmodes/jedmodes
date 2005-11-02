@@ -62,6 +62,10 @@
 % 2005-07-22 2.9   * adapted to home-lib 1.1 
 % 	     	     (removed reference to Jed_Home_Library and Jed_Site_Library)
 % 2005-07-30 2.9.1 bugfix in update_ini()
+% 2005-11-02 2.9.2 * adapted to libdir 0.9.1 (removed update_site_lib())
+%                  * new custom variable Make_ini_Bytecompile_Exclusion_List
+%                  
+
 % _debug_info=1;
 
 autoload("get_word", "txtutils");
@@ -99,7 +103,7 @@ custom_variable("Make_ini_Verbose", 0);
 %\synopsis{Bytecompile the files with update_ini()}
 %\usage{Int_Type Make_ini_Bytecompile = 1}
 %\description
-% Let update_ini, update_home_lib, and update_site_lib bytecompile 
+% Let \var{update_ini} and \var{update_home_lib} bytecompile 
 % the files as well.
 % This gives considerable evalutation speedup but might introduce problems.
 %\notes 
@@ -111,7 +115,7 @@ custom_variable("Make_ini_Verbose", 0);
 %       define my_new_function()
 %       {  ... }
 %       #endif
-%\seealso{update_ini, update_home_lib, update_site_lib}
+%\seealso{update_ini, update_home_lib}
 %!%-
 custom_variable("Make_ini_Bytecompile", 1);
 
@@ -120,11 +124,21 @@ custom_variable("Make_ini_Bytecompile", 1);
 %\synopsis{Array of files to exclude from make_ini()}
 %\usage{String_Type[] Make_ini_Exclusion_List = ["ini.sl"]}
 %\description
-% Exclusion list: do not add autoloads for these files.
-% Also exlude these files from bytecompiling with update_ini().
+% Exclusion list: do scan these files.
 %\seealso{make_ini, update_ini, Make_ini_Bytecompile}
 %!%-
 custom_variable("Make_ini_Exclusion_List", ["ini.sl"]);
+
+%!%+
+%\variable{Make_ini_Bytecompile_Exclusion_List}
+%\synopsis{Array of files to exclude from bytecompiling}
+%\usage{Int_Type Make_ini_Bytecompile_Exclusion_List = []}
+%\description
+% Exlude these files from bytecompiling with \var{update_ini} and 
+% \var{update_home_lib}.
+%\seealso{}
+%!%-
+custom_variable("Make_ini_Bytecompile_Exclusion_List", String_Type[0]);
 
 %!%+
 %\variable{Make_ini_Extract_Documentation}
@@ -193,9 +207,9 @@ static define _get_function_name()
 %  
 %  My workaround is a construct of type
 %#v+
-%  #iffalse %<INITIALIZATION>
+%  #<INITIALIZATION>
 %     ... initialisation block ...
-%  #endif %</INITIALIZATION>
+%  #</INITIALIZATION>
 %#v-
 %
 %  If there is an INITIALIZATION block, no automatic search for 
@@ -322,12 +336,6 @@ static define list_slang_files(dir)
      return String_Type[0];
    % Skip jed lock files
    files = files[where(array_map(Integer_Type, &is_substr, files, ".#") != 1)];
-   % Skip files from the exclusion list
-   foreach (Make_ini_Exclusion_List)
-     {
-	exclusion_file = ();
-	files = files[where(files != exclusion_file)];
-     }
    !if (length(files))
      return String_Type[0];
    % Prepend the directory to the path
@@ -358,7 +366,13 @@ public define make_ini() % ([dir])
    else 
      dir = read_file_from_mini("Make ini.sl for:");
 
-   variable files = list_slang_files(dir), file = "";
+   variable files = list_slang_files(dir), exclusion_file, file;
+   % Skip files from the exclusion list
+   foreach (Make_ini_Exclusion_List)
+     {
+	exclusion_file = ();
+	files = files[where(files != exclusion_file)];
+     }
    % find old ini file 
    () = find_file(path_concat(dir, Ini_File));
    slang_mode();
@@ -391,12 +405,18 @@ public define make_ini() % ([dir])
 %\description
 %  Call \var{byte_compile_file} on all files returned by 
 %  \var{list_slang_files}(dir).
-%\seealso{byte_compile_file, update_home_lib, update_site_lib}
+%\seealso{byte_compile_file, update_home_lib}
 %!%-
 define byte_compile_libdir(dir)
 {
-   variable file;
-   foreach (list_slang_files(dir))
+   variable exclusion_file, file, files = list_slang_files(dir);
+   % Skip files from the exclusion list
+   foreach (Make_ini_Bytecompile_Exclusion_List)
+     {
+	exclusion_file = ();
+	files = files[where(files != exclusion_file)];
+     }
+   foreach (files)
      {
         file = ();
         byte_compile_file(file, 0);
@@ -415,20 +435,17 @@ define byte_compile_libdir(dir)
 %  requires tm.sl (jedmodes.sf.net/mode/tm/) 
 %\seealso{update_ini, Make_ini_Extract_Documentation}
 %!%-
-define make_libfun_doc() % ([dir])
+public define make_libfun_doc() % ([dir])
 {
 #ifnexists tm_parse
-     error("make_libfun_doc needs a current version of tm.sl");
+     error("make_libfun_doc needs a current version of tm.sl (jedmodes.sf.net/tm/");
 #else
    % get optional argument
    variable dir;
    if (_NARGS)
      dir = ();
    else
-     {
-	(, dir, , ) = getbuf_info (); % default
-	dir = read_file_from_mini("Extract tm Documentation from dir:");
-     }
+     dir = read_file_from_mini("Extract tm Documentation from dir:");
    
    % extract tm documentation blocks
    variable docstrings, str, files=list_slang_files(dir);
@@ -452,16 +469,16 @@ define make_libfun_doc() % ([dir])
 %  functions in all slang files in \var(dir).
 %  Depending on the Make_ini_* custom variables this also bytecompiles
 %  the files and extracts tm documentation.
-%\seealso{make_ini, update_home_lib, update_site_lib, Make_ini_Bytecompile, Make_ini_Extract_Documentation}
+%\seealso{make_ini, update_home_lib, Make_ini_Bytecompile, Make_ini_Extract_Documentation}
 %!%-
 public define update_ini() % (directory=buffer_dir())
 {
 
-   variable file, dir, name, flags, buf = whatbuf();
+   variable dir, buf = whatbuf();
    if (_NARGS)
      dir = ();
    else
-	(, dir, , ) = getbuf_info (); % default
+     dir = buffer_dirname(); % default
 
    !if (length(list_slang_files(dir)))
      verror("no SLang files in %s", dir);
