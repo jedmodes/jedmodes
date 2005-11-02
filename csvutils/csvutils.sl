@@ -67,7 +67,7 @@ static define align_fields(a, align)
 % --- public functions ------------------------------------------------
 
 % Return the buffer/region as an string-array of lines
-public define get_lines() % (kill=0)
+define get_lines() % (kill=0)
 {
    variable kill;
    (kill) = push_defaults(0, _NARGS);
@@ -87,10 +87,10 @@ public define get_lines() % (kill=0)
 %\synopsis{Remove excess whitespace characters from the buffer}
 %\usage{Void buffer_compress(white)}
 %\description
-%  Calls strcompress on the buffer (or region, if defined)
-%\seealso{strcompress, get_lines, trim_buffer}
+%  Calls \var{strcompress} on the buffer or (if visible) region.
+%\seealso{trim_buffer, strcompress, get_lines, get_buffer}
 %!%-
-define buffer_compress(white)
+public define buffer_compress(white)
 {
    push_spot();
    variable lines = get_lines(1);
@@ -100,8 +100,17 @@ define buffer_compress(white)
    pop_spot();
 }
 
-% "normalize" csv-date: change all whitespace (" " and "\t") to single tabs
-% (also trims lines)
+%!%+
+%\function{spaces2tab}
+%\synopsis{"Normalize" whitespace delimited data}
+%\usage{ spaces2tab()}
+%\description
+%  Change all whitespace (" " and "\t") to single tabs
+%  (also trims lines)
+%\notes
+%  Use buffer_compress(white) if you need customizable replacements
+%\seealso{buffer_compress, trim_buffer}
+%!%-
 public define spaces2tab()
 {
    buffer_compress("\t ");
