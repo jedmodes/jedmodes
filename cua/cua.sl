@@ -1,56 +1,71 @@
-% CUA (Windows/Mac/CDE/KDE-like) bindings for Jed.
-% 
-% Copyright (c) 2003 Günter Milde
-% Released under the terms of the GNU General Public License (ver. 2 or later)
-%
-% based on cua.sl by Reuben Thomas (rrt@sc3d.org)
-%
-% Versions:
-% 1   first version by Guenter Milde <g.milde at web.de>
-% 1.1 05-2003    * triple (optional single) ESC-keypress aborts functions
-%                * fixed missing definition of Key_Ins 
-%                * Key_Ctrl_Del calls cua_delete_word (was delete_word)
-%                * F3 bound to repeat_search (tip by Guido Gonzato)
-%                * removed definitions for F4...F10 (cua-compatible suggestions?)
-%                * ^Q exits without asking for confirmation
-% 1.2 07-2003    * better support for older jed versions with 
-%                  if (_jed_version >= 9916) around new functions
-% 1.3 2004-01-23 * Key_Del and Key_BS "region aware" (needs cuamisc >= 1.3)
-%
-% USAGE:
-%
-% put somewhere in your path and uncomment the line
-% %  () = evalfile ("cua");            % CUA-like key bindings
-% in your .jedrc/jed.rc file
-%
-% ESC-problem: unfortunately, some function keys return "\e\e<something>"
-% as keystring. To have a single ESC-press aborting, insert
-%    autoload("one_press_escape", "cuamisc");
-%    one_press_escape();
-% into your .jedrc. !! Attention, except for xjed, this is an experimental
-% feature that can cause problems with functions that use getkey(),
-% (e.g. showkey(), wmark.sl (before jed 99.16), ...)
-%
-% Enhancements (optional helper modes from http://jedmodes.sf.net/):
-%  cuamouse.sl: cua-like mouse bindings
-%  cuamark.sl:  cua-like marking/copy/paste using yp_yank.sl (a ring of
-%               kill-buffers)
-%  numbuf.sl:   fast switch between buffers via ALT + Number
-%  print.sl:    printing
-%  ch_table.sl: popup_buffer with character table (special chars)
+%%  CUA (Windows/Mac/CDE/KDE-like) bindings for Jed.
+%% 
+%%  Copyright (c) 2003 Günter Milde
+%%  Released under the terms of the GNU General Public License (ver. 2 or later)
+%% 
+%%  based on the original cua.sl by Reuben Thomas
+%% 
+%%  Versions:
+%%  1   first version by Guenter Milde <g.milde web.de>
+%%  1.1 05-2003    * triple (optional single) ESC-keypress aborts functions
+%%                 * fixed missing definition of Key_Ins
+%%                 * Key_Ctrl_Del calls cua_delete_word (was delete_word)
+%%                 * F3 bound to repeat_search (tip by Guido Gonzato)
+%%                 * removed definitions for F4...F10 (cua-compatible suggestions?)
+%%                 * ^Q exits without asking for confirmation
+%%  1.2 07-2003    * better support for older jed versions with
+%%                   if (_jed_version >= 9916) around new functions
+%%  1.3 2004-01-23 * Key_Del and Key_BS "region aware" (needs cuamisc >= 1.3)
+%%  1.4 2005-05-26 * Merge with the version of jed 0.99-17
+%%  1.4.1  	     bugfix: check for XWINDOWS before loading cuamouse.sl
+%%  1.5 2005-06-07 * load backwards compatibility code from compat17-16.sl
+%%  		     and compat16-15.sl (if needed)
+%%  1.5.1 2005-11-02 bugfix: bind ESC to "back_menu" in menu map
+%% 
+%%  USAGE:
+%% 
+%%  put somewhere in your path and uncomment the line
+%%  %  () = evalfile ("cua");            % CUA-like key bindings
+%%  in your .jedrc/jed.rc file
+%% 
+%%  ESC-problem: unfortunately, some function keys return "\e\e<something>"
+%%  as keystring. To have a single ESC-press aborting, insert
+%%     autoload("cua_one_press_escape", "cuamisc");
+%%     cua_one_press_escape();
+%%  into your .jedrc. !! Attention, except for xjed, this is an experimental
+%%  feature that can cause problems with functions that use getkey(),
+%%  (e.g. showkey(), wmark.sl (before jed 99.16), ...)
+%% 
+%%  Enhancements (optional helper modes from http://jedmodes.sf.net/):
+%%   cuamouse.sl: cua-like mouse bindings
+%%   cuamark.sl:  cua-like marking/copy/paste using yp_yank.sl (a ring of
+%%                kill-buffers)
+%%   numbuf.sl:   fast switch between buffers via ALT + Number
+%%   print.sl:    printing
+%%   ch_table.sl: popup_buffer with character table (special chars)
 
 % --- Requirements ------------------------------------------------------
 
-require ("cuamisc");   % "Outsourced" helper functions
+% load backwards compatibility code (if needed)
+if (_jed_version < 9915)
+  require("compat16-15");
+if (_jed_version < 9916)
+  require("compat17-16");
+
+require("cuamisc");   % "Outsourced" helper functions
 require("keydefs");   % Key definitions for Unix and DOS/Windos
-% non standard mode cuamark
-if(strlen(expand_jedlib_file("cuamark.sl")) and _jed_version >= 9916) 
-  require("cuamark");
-else if (strlen(expand_jedlib_file("cuamark.0.9.sl")))
-  require("cuamark.0.9.sl");
-else
-  require("wmark");   % cua-like marking, standard version
 require("recent");    % save a list of recent files
+
+if(strlen(expand_jedlib_file("cuamark.sl")) and _jed_version >= 9916)
+  require("cuamark"); % cua-like marking (Jedmodes version)
+else if (strlen(expand_jedlib_file("cuamark.0.9.sl")))
+  require("cuamark.0.9.sl"); % cua-like marking (version without keyhooks)
+else
+  require("wmark");   % cua-like marking (standard version)
+
+if (is_defined("x_copy_region_to_selection"))     % XWINDOWS
+  if(strlen(expand_jedlib_file("cuamouse.sl")))
+    require("cuamouse"); % configurable cua-like mouse interface
 
 % --- Variables --------------------------------------------------------
 set_status_line(" %b  mode: %m %n  (%p)   %t ", 1);
@@ -66,8 +81,8 @@ _Reserved_Key_Prefix = "^E";  % Extended functionality :-)
 
 % ESC (unfortunately, some special keys return "\e\e<something>")
 % see USAGE at top for workaround
-setkey ("escape_cmd", "\e\e\e");              % Triple-Esc -> abort
-definekey ("exit_menubar", "\e\e\e", "menu"); % close menus
+setkey ("cua_escape_cmd", "\e\e\e");              % Triple-Esc -> abort
+definekey("back_menu", "\e\e\e", "menu"); % close menus
 
 % Function keys
 setkey("menu_select_menu(\"Global.&Help\")",   Key_F1);
@@ -78,8 +93,8 @@ setkey("repeat_search",                        Key_F3);
 % setkey("menu_select_menu(\"Global.&Search\")", Key_F3); % open Search menu
 
 % The "named" keys
-setkey("bdelete_cmd",                      Key_BS);
-setkey("delete_cmd",                	   Key_Del);
+setkey("cua_bdelete_char",                 Key_BS);
+setkey("cua_delete_char",                  Key_Del);
 setkey("toggle_overwrite",                 Key_Ins);
 setkey("beg_of_line",                      Key_Home);
 setkey("eol_cmd",                          Key_End);
@@ -134,12 +149,12 @@ setkey("describe_mode", 	"^HM");
 setkey ("unix_man",	      	"^HU");
 setkey("describe_variable", 	"^HV");
 setkey("where_is", 		"^HW");
-if (_jed_version >= 9916)
-  setkey("menu_select_menu(\"Global.&Help\")", "^H?");
-else
-  setkey("ungetkey('h'); call(\"select_menubar\");", "^H?");
+setkey("menu_select_menu(\"Global.&Help\")", "^H?");
 
-setkey("indent_region_or_line", "^I");   % Key_Tab: indent_line
+if (is_defined("indent_region_or_line"))
+  setkey("indent_region_or_line", "^I");   % Key_Tab
+else
+  setkey("indent_line", "^I");   % Key_Tab: indent_line
 % setkey("self_insert_cmd", 	"^I");
 % setkey("",		   	"^J");   % Free!
 setkey("del_eol",		"^K");   % Kill line
@@ -156,14 +171,9 @@ setkey("kill_rect",		"^RX");  % delete and copy to rect-buffer
 setkey("open_rect",		"^R ");  % ^R Space: insert whitespace
 setkey("blank_rect",		"^RY");  % delete (replace with spaces)
 setkey("blank_rect",		"^R" + Key_Del);
-setkey("save_buffer",		"^S");   % Save 
-setkey("yp_yank",              	"^V");   % insert/paste
-%setkey("transpose_chars",      "^T");
+setkey("save_buffer",		"^S");   % Save
 % 				 ^T      % still free
-if (is_defined("cua_yank"))
-  setkey("cua_yank",            "^V");   % paste
-else
-  setkey("yp_yank",             "^V");   % paste
+setkey("yp_yank",              	"^V");   % insert/paste
 setkey("delbuf(whatbuf)",     	"^W");
 setkey("yp_kill_region",        "^X");   % cut
 setkey("redo",		        "^Y");
@@ -173,13 +183,13 @@ runhooks ("keybindings_hook", "cua");    % eventual modifications
 
 % --- menu additions --------------------------------------------------
 
-define cua_load_popup_hook (menubar)
+static define cua_load_popup_hook (menubar)
 {
    menu_delete_item ("Global.&File.&Close");
    menu_insert_item("&Save", "Global.&File", "&Close", "delbuf(whatbuf)");
    if(strlen(expand_jedlib_file("print.sl"))) % non standard mode
      {
-     menu_insert_item("Canc&el Operation", "Global.&File", "&Print", 
+     menu_insert_item("Canc&el Operation", "Global.&File", "&Print",
 		      "print_buffer");
      menu_insert_separator("Canc&el Operation", "Global.&File");
      }
