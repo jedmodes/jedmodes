@@ -12,13 +12,14 @@
 %              Numbered_Buffer_List[0] now used as well (was kept empty)
 %              (buffer-numbers and keybindings start at 1)
 %         1.3  new custom variable Numbuf_number_all: number also buffers
-%              not bound to a file     
+%              not bound to a file
+%         1.3.1  2005-11-02 Fix "public" statements     
 %              
 % USAGE
 % 
 % Put in jed_library_path and insert a line
 %   require("numbuf")
-% into .jedrc
+% into your jed rc file. Optionally set (custom) variables.
 
 % _debug_info=1;
 
@@ -67,7 +68,7 @@ define number_buffer()
 }
 
 % this is also defined in bufutils.sl but we don't want dependencies
- public define go2buf(buf)
+private define go2buf(buf)
 {
    if(buffer_visible(buf))
      pop2buf(buf);   % goto window where buf is visible
@@ -100,19 +101,11 @@ define numbuf_menu_callback (popup)
 }
 
 % Change the callback of the Change Buffer menu entry
-static define numbuf_popup_hook(menubar)
+private define numbuf_popup_hook(menubar)
 {
    menu_set_select_popup_callback(chbuf_menu, &numbuf_menu_callback);
 }
 append_to_hook("load_popup_hooks", &numbuf_popup_hook);
-
-% % Open Buffers List.
-% define open_buffer_list()
-% {
-%    ungetkey('c');
-%    ungetkey('b');
-%    call("select_menubar");
-% }
 
 define goto_numbered_buffer(n)
 {
