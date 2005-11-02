@@ -7,8 +7,9 @@
 % Based on Guido Gonzatos matlab.sl  <guido@ibogeo.df.unibo.it>
 % Enables interactive work using ishell.sl
 %  
-% 19 May 1999 first public version
-% 2005-04-25  bugfix to work with SLang2  (report Jörg Sommer)
+% 0.9 19 May 1999 first public version
+% 0.9.1  2005-04-25 bugfix to work with SLang2  (report Jörg Sommer)
+% 0.9.2  2005-11-02 fix public definiton of mupad_mode() 
 
 % requirements
 require("comments");
@@ -16,7 +17,7 @@ autoload ("ishell_send_input", "ishell.sl");
 autoload ("ishell_mode", "ishell.sl");
 
   
-static variable modename = "Mupad";
+private variable modename = "Mupad";
 
 custom_variable ("Mupad_Command", "mupad");
 
