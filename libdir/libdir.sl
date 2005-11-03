@@ -6,6 +6,8 @@
 % Versions
 % 0.9   2005-09-19  first public version, based on home-lib.sl
 % 0.9.1 2005-09-29  removed custom_variable stuff
+% 0.9.2 2005-10-12  documentation fix
+% 0.9.3 2005-11-03  evaluation of ini.sl now customizable with optional arg
 % 
 % FEATURES
 % 
@@ -32,24 +34,29 @@
 %!%+
 %\function{add_libdir}
 %\synopsis{Register a library dir for use by jed}
-%\usage{add_libdir(path)}
+%\usage{add_libdir(path, initialize=1)}
 %\description
 %  * Prepend \var{path} to the library path
-%  * Set \var{Color_Scheme_Path}, \var{Jed_Doc_Files},
-%    \var{Jed_Highlight_Cache_Dir}, and \var{Jed_Highlight_Cache_Path}
-%  * Evaluate (if existent) the file \var{ini.sl} in this library
-%    to enable initialization (autoloads etc)
+%  * Add \var{path} to \var{Color_Scheme_Path}, \var{Jed_Doc_Files},
+%    and \var{Jed_Highlight_Cache_Path}
+%  * Evaluate (if existent and \var{initialize} is TRUE) the file \var{ini.sl} 
+%    in this library to enable initialization (autoloads etc)
 %\example
 %#v+
-%  add_libdir(path_concat(Jed_Local_Directory, "lib"));
+%  add_libdir("usr/local/jed/lib/", 0));  % do not initialize
 %  add_libdir(path_concat(Jed_Home_Directory, "lib"));
 %#v-
 % will register the local and user-specific library-dir
 %\seealso{append_libdir, make_ini, set_jed_library_path, Jed_Doc_Files}
 %\seealso{Color_Scheme_Path, Jed_Highlight_Cache_Dir, Jed_Highlight_Cache_Path}
 %!%-
-define add_libdir(lib)
+define add_libdir()
 {
+   variable lib, initialize=1;
+   if (_NARGS == 2)
+     initialize = ();
+   lib = ();
+   
    % abort, if directory doesnot exist
    if (orelse{lib == ""}{2 != file_status(lib)}) 
      continue;
@@ -73,30 +80,29 @@ define add_libdir(lib)
    % Check for a file ini.sl containing initialization code
    % (e.g. autoload declarations) and evaluate it.
    path = path_concat(lib, "ini.sl");
-   if (1 == file_status(path))
+   if (initialize and 1 == file_status(path))
      () = evalfile(path);
 }
 
 %!%+
 %\function{append_libdir}
 %\synopsis{Register a library dir for use by jed}
-%\usage{append_libdir(path)}
+%\usage{append_libdir(path, initialize=1)}
 %\description
 %  * Append \var{path} to the library path
-%  * Set \var{Color_Scheme_Path}, \var{Jed_Doc_Files},
-%    \var{Jed_Highlight_Cache_Dir}, and \var{Jed_Highlight_Cache_Path}
-%  * Evaluate (if existent) the file \var{ini.sl} in this library
+%  * Append \var{path} to \var{Color_Scheme_Path}, \var{Jed_Doc_Files},
+%    and \var{Jed_Highlight_Cache_Path}
+%  * Evaluate (if existent and \var{initialize} is TRUE) the file \var{ini.sl} 
 %    to enable initialization (autoloads etc)
-%\example
-%#v+
-%  append_libdir(path_concat(Jed_Local_Directory, "lib"));
-%#v-
-% will register the local
-%\seealso{add_libdir, make_ini, set_jed_library_path, Jed_Doc_Files}
-%\seealso{Color_Scheme_Path, Jed_Highlight_Cache_Dir, Jed_Highlight_Cache_Path}
+%\seealso{add_libdir}
 %!%-
-define append_libdir(lib)
+define append_libdir()
 {
+   variable lib, initialize=1;
+   if (_NARGS == 2)
+     initialize = ();
+   lib = ();
+   
    % abort, if directory doesnot exist
    if (orelse{lib == ""}{2 != file_status(lib)}) 
      continue;
@@ -119,7 +125,7 @@ define append_libdir(lib)
    % Check for a file ini.sl containing initialization code
    % (e.g. autoload declarations) and evaluate it.
    path = path_concat(lib, "ini.sl");
-   if (1 == file_status(path))
+   if (initialize and 1 == file_status(path))
      () = evalfile(path);
 }
 
