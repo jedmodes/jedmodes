@@ -1,24 +1,25 @@
-%-------- tmtools.sl ----------------------------------
-% Some semi-automatic tm style documentation generation.
+% tmtools.sl: Some semi-automatic tm style documentation generation.
 %
-% By Dino Leonardo Sangoi.
-% modified by G Milde
-%
-% If you have my cext.sl, uncomment the next line and
-% exchange c_top_of_function with new_top_of_function.
-%
-%require("cext");
-%
-% _traceback=1;
+% Copyright (c) 2005 Dino Leonardo Sangoi, Günter Milde
+% Released under the terms of the GNU General Public License (ver. 2 or later)
+% 
 % _debug_info=1;
+
+% Requirements
+% ------------
+
+% If you have Dinos cext.sl, uncomment the next line and
+% exchange c_top_of_function with new_top_of_function.
+%require("cext");
 require("comments");
 autoload("get_word", "txtutils");
 autoload("insert_markup", "txtutils");
+autoload("string_nth_match", "stringutils");
 
 % Uhm, the word should be defined by mode, I guess (but currently is not)
 % More accurate: it should be mode specific: when I edit a latin1 encoded
 % text after calling tm_make_doc, I get trouble with Umlauts. Therefore:
-static variable word_chars = "A-Za-z0-9_";
+private variable word_chars = "A-Za-z0-9_";
 
 % valid tm attributes (subset understood by tm2ascii() in tm.sl)
 static variable tm_attributes = "var, em";
@@ -31,7 +32,7 @@ static define tm_make_var_doc()
    (name, value) = (string_nth_match(line,1), string_nth_match(line, 2));
    if (is_substr(value, "\""))
      tm = "%%!%%+\n%%\\variable{%s}\n%%\\synopsis{}\n%%\\usage{String_Type %s = \"%s\"}\n%%\\description\n%%  \n%%\\seealso{}\n%%!%%-\n";
-   else % assume it's an integer
+   else % assume it's an integer TODO: check value, auto-guess type
      tm = "%%!%%+\n%%\\variable{%s}\n%%\\synopsis{}\n%%\\usage{Int_Type %s = %s}\n%%\\description\n%%  \n%%\\seealso{}\n%%!%%-\n";
    tm = sprintf(tm, name, name, value);
    bol;
