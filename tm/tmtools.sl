@@ -41,15 +41,18 @@ static define tm_make_var_doc()
 
 %!%+
 %\function{tm_make_doc}
-%\synopsis{Create documentation comments for a function}
+%\synopsis{Create documentation comments for a function or custom variable}
 %\usage{tm_make_doc()}
 %\description
 %   When this function is called from inside a C or SLang function, it
 %   creates right above the function itself a set of commented lines
 %   formatted as expected by tm2txt. Some data will be generated
 %   automagically from the function definition and comments.
+%   
+%   When it is called on a line starting with "custom_variable",
+%   appropriate variable documentation is created instead.
 %\notes
-%   Bind to a key.
+%   Bind to a key or call via M-x tm_make_doc
 %\seealso{tm_set_attr}
 %!%-
 public define tm_make_doc()
