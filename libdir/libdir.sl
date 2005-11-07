@@ -8,6 +8,7 @@
 % 0.9.1 2005-09-29  removed custom_variable stuff
 % 0.9.2 2005-10-12  documentation fix
 % 0.9.3 2005-11-03  evaluation of ini.sl now customizable with optional arg
+% 0.9.4 2005-11-06  added provide() statement
 % 
 % FEATURES
 % 
@@ -29,7 +30,9 @@
 %   add_libdir("/usr/local/share/jed/lib"));
 %   add_libdir(path_concat(Jed_Home_Directory, "lib"));
         
-  
+% _debug_info = 1;  
+
+provide("libdir");
 
 %!%+
 %\function{add_libdir}
