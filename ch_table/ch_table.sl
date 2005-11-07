@@ -1,6 +1,6 @@
 % A "popup_buffer" with a table of characters
 %
-% Copyright (c) 2003 Günter Milde
+% Copyright (c) 2005 Günter Milde
 % Released under the terms of the GNU General Public License (ver. 2 or later)
 %
 % with additions by Dino Leonardo Sangoi.
@@ -12,6 +12,7 @@
 % 2003-03-07  2.1 ch_table calls ch_table_mode_hook instead of ct_mode_hook
 % 2004-11-27  2.2 new format of the INITIALIZATION block allows 
 % 	          auto-initialisation with make-ini >= 2.2
+% 2005-11-07  2.3 changed _implements() to implements()	          
 %
 % Functions and Functionality
 %
@@ -28,8 +29,15 @@
 % USAGE:
 % put in the jed_library_path and make available e.g. by a keybinding or
 % via the following menu entry (make-ini >= 2.2 will do this for you)
-% 
-#iffalse %<INITIALIZATION>
+%
+% TODO:
+%
+% + get a list of codes and names  via
+%      recode --list=full latin1
+%   (or what the actual encoding is) and give iso-name of actual char
+%   (in status line or bottom line(s) of buffer)
+ 
+#<INITIALIZATION>
 define ct_load_popup_hook (menubar)
 {
    menu_insert_item ("&Rectangles", "Global.&Edit",
@@ -40,14 +48,7 @@ append_to_hook ("load_popup_hooks", &ct_load_popup_hook);
 autoload("ch_table", "ch_table.sl");
 autoload("special_chars", "ch_table.sl");
 add_completion("special_chars");
-#endif %</INITIALIZATION>
-
-% TODO:
-%
-% + get a list of codes and names  via
-%      recode --list=full latin1
-%   (or what the actual encoding is) and give iso-name of actual char
-%   (in status line or bottom line(s) of buffer)
+#</INITIALIZATION>
 
 % debug information, uncomment to locate errors
 % _debug_info = 1;
@@ -59,12 +60,10 @@ autoload("popup_buffer", "bufutils");
 autoload("close_buffer", "bufutils");
 autoload("set_help_message", "bufutils");
 autoload("get_blocal", "sl_utils");
-autoload("_implements", "sl_utils");
-
 
 % --- name it
 provide("ch_table");
-_implements("ch_table");
+implements("ch_table");
 private variable mode = "ch_table";
 
 % --- custom variables
