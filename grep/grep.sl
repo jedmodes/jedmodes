@@ -17,6 +17,11 @@
 %     -> grep("pat" "dir/!") gets translated to `grep -r "pat" "dir/"`
 % 0.9.4 2004-04-28
 %   * close grep buffer, if the return value of the grep cmd is not 0
+% 0.9.5 2005-11-07
+%   * change _implements() to implements() (this will only affect re-evaluating
+%     sl_utils.sl in a JED < 0.99.17, so if you are not a developer on an older
+%     jed version, it will not harm).
+%  
 %
 % USAGE
 %
@@ -46,7 +51,6 @@
 %       take current word as default (optional)
 %       make it Windows-secure (filename might contain ":")
 
-% debug info, comment out once ready
 % _debug_info=1;
 
 % --- Requirements --------------------------------------------- %{{{
@@ -60,13 +64,12 @@ autoload("close_buffer", "bufutils");
 autoload("buffer_dirname", "bufutils");
 autoload("rebind", "bufutils");
 autoload("contract_filename", "sl_utils");
-autoload("_implements", "sl_utils");
 autoload("get_word", "txtutils");
 %}}}
 
 % --- name it
 provide("grep");
-_implements("grep");
+implements("grep");
 private variable mode = "grep";
 
 
