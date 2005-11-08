@@ -51,6 +51,7 @@
 %    	  	      removed where_is_word_at_point(), as where_is() already
 %    	  	      has word_at_point as default.
 %   1.6.1 2005-11-01  bugfix in describe_bindings()
+%   1.6.2 2005-11-08  changed _implements() to implements()
 %           	      
 %   TODO: use _get_namespaces() to make apropos aware of functions in
 %   	  "named namespaces" (When called with a numeric prefix arg [PB])
@@ -111,7 +112,6 @@ autoload("run_function",        "sl_utils");
 autoload("get_blocal",          "sl_utils");
 autoload("push_array",          "sl_utils");
 autoload("prompt_for_argument", "sl_utils");
-autoload("_implements", 	"sl_utils"); % >= 1.5
 autoload("popup_buffer",        "bufutils");
 autoload("close_buffer",        "bufutils");
 autoload("strread_file",        "bufutils");
@@ -144,7 +144,7 @@ else
 
 % --- name it
 provide("help");
-_implements("help");
+implements("help");
 private variable mode = "help";
 
 

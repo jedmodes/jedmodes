@@ -29,6 +29,7 @@
 %  	         tm_make_ascii_doc() and tm_preview() united to
 %  	         tm_view([args])  -- args are filenames to extract doc from
 %  	                             no arg: extract from current buffer/region
+%  2005-11-08  changed _implements() to implements()	                             
 %
 %  TODO: let this work for tm-documented C-code too
 
@@ -38,11 +39,10 @@ autoload("str_re_replace_all", "strutils");
 autoload("arrayread_file", "bufutils");
 autoload("get_lines", "csvutils");
 autoload("view_mode", "view");
-autoload("_implements", "sl_utils");
 
 % --- name it
 provide("tm");
-_implements("tm");
+implements("tm");
 private variable mode = "tm";
 
 static variable Tm_Doc_Buffer = "*tm doc*";

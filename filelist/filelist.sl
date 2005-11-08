@@ -38,6 +38,7 @@
 %                   a directory and (calls filelist_list_dir in this case)
 %                   Thus, a directory ".lyx" will not be opened as a lyx file
 % 2005-06-01  1.4   extract_filename() now uses whitespace as default delimiter
+% 2005-11-08  1.4.1 changed _implements() to implements()
 %                   
 %
 % TODO: * more bindings of actions: filelist_cua_bindings
@@ -55,7 +56,7 @@
 %   error), insert the INITALIZATION block into your .jedrc (or jed.rc)
 %   (or use the "make_ini" and "home-lib" modes from jedmodes.sf.net)
 
-#iffalse %<INITIALIZATION>
+#<INITIALIZATION>
 "filelist_list_dir", "filelist.sl";
 "filelist_mode", "filelist.sl";
 "locate", "filelist.sl";
@@ -74,7 +75,7 @@ define filelist_find_file_hook(filename)
 append_to_hook("_jed_find_file_before_hooks",
 	       &filelist_find_file_hook);
 
-#endif %</INITIALIZATION>
+#</INITIALIZATION>
 
 % _debug_info = 1;
 
@@ -86,13 +87,12 @@ _autoload("get_blocal", "sl_utils",
 	  "run_function", "sl_utils",
 	  "push_defaults", "sl_utils",
 	  "push_array", "sl_utils",
-	  "_implements", "sl_utils",
 	  "buffer_dirname", "bufutils",
 	  "close_buffer", "bufutils",
 	  "popup_buffer", "bufutils",
 	  "string_get_match", "strutils",
 	  "grep", "grep",
-	  10);
+	  9);
 % optional extensions
 if(strlen(expand_jedlib_file("filelistmsc")))
   _autoload("filelist_do_rename_regexp", "filelistmsc",
@@ -100,7 +100,7 @@ if(strlen(expand_jedlib_file("filelistmsc")))
 
 % --- name it
 provide("filelist");
-_implements("filelist");
+implements("filelist");
 private variable mode = "filelist";
 
 

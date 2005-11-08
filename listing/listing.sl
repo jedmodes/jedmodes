@@ -17,7 +17,8 @@
 %            0.9.5 * optional argument "default" for get_confirmation()
 % 2004-02-05 0.9.6 * bugfix: listing_mode no longer tries to delete
 %                    empty lines (P. Boekholt)
-% 2005-03-31 1.9.7 * made slang-2 proof: A[[0:-2]] --> A[[:-2]]   
+% 2005-03-31 1.9.7 * made slang-2 proof: A[[0:-2]] --> A[[:-2]]
+% 2005-11-08 1.9.8 * changed _implements() to implements()
 %                    
 % TODO:  * Shift-Click tags from point to Mousepoint
 %          may be also: right-drag tags lines
@@ -34,11 +35,10 @@ autoload("array", "datutils");
 autoload("array_delete", "datutils");
 autoload("array_append", "datutils");
 autoload("push_defaults", "sl_utils");
-autoload("_implements", "sl_utils");
 
 % --- name it
 provide("listing");
-_implements("listing");
+implements("listing");
 private variable mode = "listing";
 
 % --- Variables -------------------------------------------------------

@@ -48,6 +48,8 @@
 %        * code cleanup and reorganisation
 %        * recent_load_file is now static (was public)
 %        * synchronize recent files file between different running sessions
+% 3.2.1  2005-11-08
+%        * changed _implements() to implements()       
 %
 % USAGE:
 %
@@ -70,13 +72,12 @@
 % Requirements
 "what_line_if_wide", "sl_utils";
 "contract_filename", "sl_utils";
-"_implements",       "sl_utils"; % >= 1.5
 "strread_file",      "bufutils";
-_autoload(4);
+_autoload(3);
 
 % --- name it
 provide("recent");
-_implements("recent");
+implements("recent");
 private variable mode = "recent";
 
 % --- custom variables: user-settable ----------------------------------

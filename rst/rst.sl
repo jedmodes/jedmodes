@@ -17,11 +17,14 @@
 %                  bugfix remove spurious ":" from anonymous target markup
 % 1.3   2005-04-14 restructuring of the export and view functions
 % 1.3.1 2005-11-02 hide "public" in some functions
+% 1.3.2 2005-11-08 changed _implements() to implements()
 
 % For debugging purposes:
 % _debug_info = 1;
 
-% --- Requirements 
+% Requirements
+% ------------
+
 % standard modes
 require("comments"); 
 % extra modes (from http://jedmodes.sf.net/mode/)
@@ -33,11 +36,10 @@ autoload("bufsubfile", "bufutils");
 autoload("insert_markup", "txtutils");   % >= 2.3
 autoload("insert_block_markup", "txtutils");   % >= 2.3
 autoload("string_repeat", "strutils");
-autoload("_implements", "sl_utils");
 
 % --- name it
 provide("rst");
-_implements("rst");
+implements("rst");
 private variable mode = "rst";
 
 % --- Custom Variables
