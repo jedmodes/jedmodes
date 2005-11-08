@@ -43,6 +43,9 @@
 % 	           "http://jedmodes.sf.net")
 % 2005-10-13 1.8.3 bugfix reload_buffer(): reset the changed on disk argument
 %                  permanently
+% 2005-11-08 1.8.4 simplified reload_buffer() again, as jed 0.99.17.135 
+% 	           will reset the buffer's ctime field if the changed-on-disk
+% 	           flag is reset
 
 
 % _debug_info = 1;
@@ -528,33 +531,21 @@ define strread_file(name)
 %\usage{reload_buffer()}
 %\description
 %  Replace the buffer contents with the content of the associated file.
-%  This will restore the last saved version or update, if the file changed 
-%  on disk.
-%\notes
-%  Befor overwriting the buffer contents, an attempt is made to save it 
-%  to a backup file (with the backup file eventually moved to a 
-%  "*~~" back-backup file).
+%  This will restore the last saved version or update (if the file changed 
+%  on disk).
 %\seealso{insert_file, find_file, write_buffer, make_backup_filename}
 %!%-
 public define reload_buffer()
 {
-   variable file, dir, name, flags, path;
+   variable file, dir, name, flags;
    (file, dir, name, flags) = getbuf_info();
-   path = path_concat(dir, file);
    variable col = what_column(), line = what_line();
-   variable backup_file = make_backup_filename(dir, file);
 
-   if(file_status(path) != 1)
-     verror("cannot open %s, errno %d (see file_status)", 
-	    path, file_status(file));
-   % backup buffer
-   if (file != backup_file)
-     () = write_buffer(backup_file);
-   
    erase_buffer(whatbuf());
-   () = insert_file(path);
+   () = insert_file(path_concat(dir, file));
    goto_line(line);
    goto_column(col);
+   % reset the changed-on-disk flag
    setbuf_info(file, dir, name, flags & ~0x004);
    set_buffer_modified_flag(0);
 }
