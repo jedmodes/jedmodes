@@ -5,6 +5,9 @@
 %  Copyright (c) 2000  Gerell, Francesc Rocher
 %  Released under the terms of the GNU General Public License (ver. 2 or later)
 %
+%  2005-11-11 define_highlight_rule -> dfa_define_highlight_rule  
+%             (implemented dpatch by Rafael Laboissiere)
+% 
 % $Id: make.sl,v 1.14 2000/12/30 01:04:50 rocher Exp $
 %
 % --------------------------------------------------------------------  %{{{
@@ -35,6 +38,7 @@
 %
 % ------------------------------------------------------------------------ %}}}
 
+% _debug_info = 1;
 implements("Make");
 
 private define is_comment_line      ()  %{{{
@@ -214,23 +218,24 @@ define_syntax ("0-9a-zA-Z_", 'w', $0);
 % in JED is seriously damaged. Or, alternatively (and probably),
 % I don't know how to write good rules   :(
 %
-define_highlight_rule("\"[^\"]*\"", "string", $0);
-define_highlight_rule("'[^']*'", "string", $0);
-%define_highlight_rule("\"([^\"\\\\]|\\\\.)*\"", "string", $0);
-%define_highlight_rule("\"([^\"\\\\]|\\\\.)*\\\\?$", "string", $0);
-%define_highlight_rule("'([^'\\\\]|\\\\.)*'", "Qstring", $0);
-%define_highlight_rule("'([^'\\\\]|\\\\.)*\\\\?$", "string", $0);
-define_highlight_rule ("^[ \t]*@", "string", $0);
-define_highlight_rule ("[ \t]*\\\\[ \t]*$", "string", $0);
-define_highlight_rule ("[ \t]*#.*$", "comment", $0);
-define_highlight_rule ("[A-Za-z_][A-Za-z_0-9]*", "Knormal", $0);
-%define_highlight_rule ("[ \t]*[A-Za-z_][A-Za-z_0-9]*", "Knormal", $0);
-%define_highlight_rule ("^[ \t]*[A-Za-z_][A-Za-z_0-9]*", "Knormal", $0);
-define_highlight_rule ("^[^\"']*\\:$", "keyword1", $0);
-define_highlight_rule ("^[^\"']*\\:[ \t]+", "keyword1", $0);
-%define_highlight_rule ("[ \t]*\.PHONY.*", "keyword1", $0);
-define_highlight_rule ("/include", "normal", $0);
-build_highlight_table ($0);
+dfa_define_highlight_rule("\"[^\"]*\"", "string", $0);
+dfa_define_highlight_rule("'[^']*'", "string", $0);
+%dfa_define_highlight_rule("\"([^\"\\\\]|\\\\.)*\"", "string", $0);
+%dfa_define_highlight_rule("\"([^\"\\\\]|\\\\.)*\\\\?$", "string", $0);
+%dfa_define_highlight_rule("'([^'\\\\]|\\\\.)*'", "Qstring", $0);
+%dfa_define_highlight_rule("'([^'\\\\]|\\\\.)*\\\\?$", "string", $0);
+dfa_define_highlight_rule ("^[ \t]*@", "string", $0);
+dfa_define_highlight_rule ("[ \t]*\\\\[ \t]*$", "string", $0);
+dfa_define_highlight_rule ("[ \t]*#.*$", "comment", $0);
+dfa_define_highlight_rule ("[A-Za-z_][A-Za-z_0-9]*", "Knormal", $0);
+%dfa_define_highlight_rule ("[ \t]*[A-Za-z_][A-Za-z_0-9]*", "Knormal", $0);
+%dfa_define_highlight_rule ("^[ \t]*[A-Za-z_][A-Za-z_0-9]*", "Knormal", $0);
+dfa_define_highlight_rule ("^[^\"']*\\:$", "keyword1", $0);
+dfa_define_highlight_rule ("^[^\"']*\\:[ \t]+", "keyword1", $0);
+%dfa_define_highlight_rule ("[ \t]*\.PHONY.*", "keyword1", $0);
+dfa_define_highlight_rule ("/include", "normal", $0);
+dfa_build_highlight_table ($0);
+enable_dfa_syntax_for_mode ($0);
 #endif
 
 () = define_keywords_n ($0, "ARASCCCOCPFCPCRMfiif", 2, 0);
