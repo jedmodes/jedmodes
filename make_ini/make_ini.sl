@@ -64,12 +64,13 @@
 % 2005-07-30 2.9.1 bugfix in update_ini()
 % 2005-11-02 2.9.2 * adapted to libdir 0.9.1 (removed update_site_lib())
 %                  * new custom variable Make_ini_Bytecompile_Exclusion_List
-%                  
+% 2005-11-14 2.9.3 * added missing autoload for buffer_dirname()
 
 % _debug_info=1;
 
 autoload("get_word", "txtutils");
 autoload("push_array", "sl_utils");
+autoload("buffer_dirname", "bufutils");
 
 % --- Settings -----------------------------------------------------------
 
@@ -471,7 +472,7 @@ public define make_libfun_doc() % ([dir])
 %  the files and extracts tm documentation.
 %\seealso{make_ini, update_home_lib, Make_ini_Bytecompile, Make_ini_Extract_Documentation}
 %!%-
-public define update_ini() % (directory=buffer_dir())
+public define update_ini() % (directory=buffer_dirname())
 {
 
    variable dir, buf = whatbuf();
