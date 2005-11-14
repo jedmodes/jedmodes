@@ -8,6 +8,7 @@
 % Version    0.8   first draft
 % Version    1     Adapted to the new format of the ding dictionary
 % 2005-04-07 1.1   bugfix: added missing autoloads
+% 2005-11-07 1.2   changed _implements() to implements()
 % 
 % REQUIREMENTS
 % * A bilingual wordlist in ASCII format (e.g. the one that comes
@@ -53,11 +54,10 @@ autoload("bget_word", "txtutils");
 autoload("array", "datutils");
 autoload("get_table", "csvutils");
 autoload("insert_table", "csvutils");
-autoload("_implements", "sl_utils");
 
 % --- name it
 provide("ding");
-_implements("ding");
+implements("ding");
 private variable mode = "ding";
 
 % --- custom variables
