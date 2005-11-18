@@ -53,7 +53,10 @@ aps_menu = 1;
 aps_del_ps_file = 1;
 
 #ifdef UNIX
-aps_tmp_dir = "/home/xyz/tmp/";
+aps_tmp_dir = getenv ("TMPDIR") + "/";
+if (aps_tmp_dir == "/")
+  aps_tmp_dir = "/tmp/";
+% aps_tmp_dir = "/home/xyz/tmp/";
 a2ps_cmd = "a2ps";
 default_printer = 5;
 #endif
