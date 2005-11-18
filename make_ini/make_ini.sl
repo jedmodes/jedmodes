@@ -3,7 +3,7 @@
 % Creates a file ini.sl that declares all (public) functions
 % in the current directory. Also bytecompiles the files, if set to do so.
 %
-% Copyright (c) 2003 Günter Milde
+% Copyright (c) 2005 Günter Milde
 % Released under the terms of the GNU General Public License (ver. 2 or later)
 %
 % USAGE:
@@ -65,6 +65,8 @@
 % 2005-11-02 2.9.2 * adapted to libdir 0.9.1 (removed update_site_lib())
 %                  * new custom variable Make_ini_Bytecompile_Exclusion_List
 % 2005-11-14 2.9.3 * added missing autoload for buffer_dirname()
+% 2005-11-18 2.9.4 * removed the if(BATCH) clause as it does not work as expected
+%                    and prevents the use from another script with jed-script
 
 % _debug_info=1;
 
@@ -500,10 +502,6 @@ public define update_ini() % (directory=buffer_dirname())
    message("update_ini completed");
 }
 
-% run update_ini, if called as a batch process
-if (BATCH)
-  update_ini();
-
 #ifexists Jed_Home_Directory
 %!%+
 %\function{update_home_lib}
@@ -518,4 +516,3 @@ public define update_home_lib()
    update_ini(path_concat(Jed_Home_Directory, "lib"));
 }
 #endif
-
