@@ -62,6 +62,17 @@
 %     * added new optional argument "postfile_args" to shell_cmd_on_region
 % 1.6.1 2005-04-07
 %     * bugfix: autoload for view_mode
+% 1.7   2005-04-14
+%     * new command do_shell_cmd() replacing the one from shell.sl with
+%       a more configurable one by using code from shell_cmd_on_region()
+% 1.7.1 2005-07-08
+%     * as the reuse of the do_shell_cmd() name lead to conflicts, ishell's
+%       version is renamed to shell_command().
+% 1.8   2005-07-28
+%       new function shell_cmd_on_region_or_buffer(): Doesnot save to a
+%       temporary file if no region is defined
+% 1.8.1 2005-11-18
+%       added documentation for custom variables and all public functions
 %
 % USAGE ishell()              opens a shell in a buffer on its own
 %  	ishell_mode([cmd])    attaches an interactive process to the
@@ -80,22 +91,26 @@
 % Examples for output filters:
 %
 %    % Some programs put out ^M-s. We don't want them on Unix
-%         define mupad_ishell_output_filter(str)
-%           { return str_delete_chars (str, "\r"); }
+%    
+%       define mupad_ishell_output_filter(str)
+%         { return str_delete_chars (str, "\r"); }
+%       define_blocal_var("Ishell_output_filter", "mupad_ishell_output_filter")
+%    
 %    % Output commenting:
-%         define ishell_comment_output(str)
-%           {
-%              return strreplace_all (str, "\n", "\n"+"% ");
-%           }
-%    define_blocal_var("Ishell_output_filter", "ishell_comment_output")
+%       define ishell_comment_output(str)
+%         {
+%            return strreplace_all (str, "\n", "\n"+"% ");
+%         }
+%       define_blocal_var("Ishell_output_filter", "ishell_comment_output")
+%    
 %    % Give a message instead of inserting anything:
-%         define ispell_output_message(str)
-%           {
-%              vmessage("%d bytes of output", strlen(str));
-%              return ""; % empty string
-%           }
+%       define ishell_output_message(str)
+%         {
+%           vmessage("%d bytes of output", strlen(str));
+%           return ""; % empty string
+%         }
+%       define_blocal_var("Ishell_output_filter", "ishell_output_message")
 
-% For debugging purposes:
 % _debug_info = 1;
 
 % --- requirements ----------------------------------------------------
@@ -110,28 +125,65 @@ autoload("push_defaults", "sl_utils");
 autoload("run_blocal_hook", "bufutils");
 autoload("bufsubfile", "bufutils");
 autoload("view_mode", "view");
+
 % autoload("strbreak", "strutils");
 
 % ------------------ custom variables ---------------------------------
 
-% Where is output from the process placed: (see also help for set_process())
+%!%+
+%\variable{Ishell_default_output_placement}
+%\synopsis{Customize output placement of interactive shell commands}
+%\usage{String_Type Ishell_default_output_placement = ">"}
+%\description
+% Where is output from the process placed: 
 %    "_"           end of buffer
 %    "@"           end of buffer (return to point)
-%    ">"           below corresponding input (on an own line)
+%    ">"           below corresponding input (on an new line)
 %    "o"           output buffer
 %    "."           point (also the default for not listed strings)
+%\notes
+% This is an extended version of the options for \var{set_process}
+%\seealso{ishell, ishell_mode, set_process}
+%!%-
 custom_variable("Ishell_default_output_placement", ">");
 
+
+%!%+
+%\variable{Ishell_logout_string}
+%\synopsis{interactive shell logout string}
+%\usage{String_Type Ishell_logout_string = ""}
+%\description
 % the string sent to the process for logout
+%\seealso{ishell, ishell_mode}
+%!%-
 custom_variable("Ishell_logout_string", ""); % default is Ctrl-D
 
-% maximal size for resizing the ishell output buffer (if external)
+%!%+
+%\variable{Ishell_Max_Popup_Size}
+%\synopsis{Size of ishell output buffer}
+%\usage{Int_Type Ishell_Max_Popup_Size = 10}
+%\description
+%  Maximal size for resizing the ishell output buffer 
+%  (if \var{Ishell_default_output_placement} == "o").
+%\seealso{ishell, ishell_mode}
+%!%-
 custom_variable("Ishell_Max_Popup_Size", 10);
 
-% the default shell and interactive-shell:
-%
-% (in ashell.sl, Ishell_Default_Shell is misleadingly named and
-% contains just the flag for interactivity)
+%!%+
+%\variable{Ishell_Default_Shell}
+%\synopsis{Default interactive shell}
+%\usage{Int_Type Ishell_Default_Shell = getenv ("SHELL")}
+%\description
+% The default process started by \var{ishell_mode}.
+% 
+% In UNIX, the interactive shell has the interacitve flag but might also be a
+% completely different one (say `sh` for normal but `bash -i` for interactive.
+% If you want this, set the variable Ishell_Default_Shell
+%\notes 
+% in ashell.sl, \var{Shell_Default_Interactive_Shell} is misleadingly named
+% as it contains just the 'interactive' flag)
+%\seealso{Shell_Default_Shell, ishell, ishell_mode}
+%!%-
 #ifdef WIN32
 custom_variable("Shell_Default_Shell", getenv ("COMSPEC"));
 if (Shell_Default_Shell == NULL)
@@ -333,10 +385,22 @@ static define ishell_menu(menu)
    menu_append_item(menu, "&o Output buffer",         "ishell_set_output_placement", "o");
 }
 
-% ishell_mode: open a process and attach it to the current buffer.
-% by default, the process is Ishell_Default_Shell,
+%!%+
+%\function{ishell_mode}
+%\synopsis{Open a process and attach it to the current buffer.}
+%\usage{ ishell_mode(command_line=Ishell_Default_Shell)}
+%\description
+% Open an interactive process and attach to the current buffer.
+% By default, the process is \var{Ishell_Default_Shell},
 % the optional argument String "command_line" overrides this.
-% Void ishell_mode(String command_line=Ishell_Default_Shell)
+%\example
+% Open an interactive python session in a new buffer:
+%#v+
+%  sw2buf("*python*");
+%  ishell_mode("python");
+%#v-
+%\seealso{ishell, Ishell_default_output_placement, Ishell_Max_Popup_Size}
+%!%-
 public define ishell_mode() % (command_line=Ishell_Default_Shell)
 {
    variable command_line = push_defaults(Ishell_Default_Shell, _NARGS);
@@ -367,10 +431,18 @@ public define ishell_mode() % (command_line=Ishell_Default_Shell)
 
    % set/modify the mode-menu
    mode_set_mode_info(get_mode_name(), "init_mode_menu", &ishell_menu);
-   run_mode_hooks ("ishell_mode_hook");
+   run_mode_hooks("ishell_mode_hook");
 }
 
-% open an interactive shell in buffer *ishell* and set to ishell_mode
+
+%!%+
+%\function{ishell}
+%\synopsis{Interactive shell}
+%\usage{ ishell()}
+%\description
+% Open an interactive shell in buffer *ishell* and set to \var{ishell_mode}.
+%\seealso{ishell_mode, Ishell_Default_Shell}
+%!%-
 public define ishell()
 {
    variable buf = "*ishell*";
@@ -385,9 +457,16 @@ public define ishell()
      }
 }
 
-% Run "cmd" in a terminal in the current buffers dir.
-% terminal is the one jed runs on or (with xjed) given by variable XTerm_Pgm
-% (see run_program)
+%!%+
+%\function{terminal}
+%\synopsis{Run a command in a terminal}
+%\usage{terminal(cmd = Ishell_Default_Shell)}
+%\description
+% Run \var{cmd} in a terminal with the current buffers dir as pwd.
+% The terminal is the one jed runs on or (with xjed) given by variable
+% \var{XTerm_Pgm}
+%\seealso{run_program, ishell_mode, Ishell_Default_Shell}
+%!%-
 public define terminal() % (cmd = Ishell_Default_Shell)
 {
    variable cmd = push_defaults(Ishell_Default_Shell, _NARGS);
@@ -395,114 +474,171 @@ public define terminal() % (cmd = Ishell_Default_Shell)
    () = run_program(cmd);
 }
 
-% --- run a command with the buffer/region as argument ---------------------
+% --- run a shell command (with flexible output setting) ---------------------
 %
 % (This section should rather go to shell.sl.)
 
 % the last command as default for the next call, also used by shell.sl,
 % so we use custom_variable to not overwrite it when evaluating ishell
-custom_variable("Shell_Last_Shell_Command", "");
+ custom_variable("Shell_Last_Shell_Command", "");
+
 
 %!%+
-%\function{shell_cmd_on_region}
-%\synopsis{Save region to a temp file and run a command on it}
-%\usage{Void shell_cmd_on_region (cmd="", output_handling=0, postfile_args="")}
-%\usage{Void shell_cmd_on_region (cmd="", String output_buffer, postfile_args="")}
+%\function{shell_command}
+%\synopsis{Run a shell command}
+%\usage{Void shell_command(cmd="", output_handling=0)}
+%\usage{Void shell_command(cmd="", String output_buffer)}
 %\description
-% The \var{shell_cmd_on_region} function starts cmd in a shell.
+% Executes \var{cmd} in a shell.
 % If no argument is given, the user will be prompted for a command to execute.
-% The region will be saved to a temporary file and its name appended to the
-% arguments. If no region is defined, the whole buffer is taken instead.
-% Output handling is controled by the second argument (defaults to 0)
-%          -1   ignore the output,
-%           0   a new buffer is opened for the output (if there is output).
-%           1   output will be inserted on the edition point,
-%           2   output replaces the region/buffer.
-%           3   return output as string
-%           4   message output
-% or
-%    "<name>"   name of a new buffer for the output
-%
-% The third argument \var{postfile_args} will be % inserted in the command 
-% string after the filename argument. Use it e.g. for the outfile in commands 
-% like "rst2html infile outfile".
-% \seealso{filter_region, shell_cmd, do_shell_cmd}
+% 
+% Output handling is controled by the second argument 
+%      -1   ignore the output,
+%       0   a new buffer is opened for the output (if there is output).
+%       1   output will be inserted on the edition point,
+%       2   output replaces the region/buffer.
+%       3   return output as string
+%       4   message output
+%  "<name>" name of a new buffer for the output
+% Default is \var{prefix_argument}(0)
+%\notes
+%  This version from ishell.sl is a drop in replacement for the standard
+%  version from shell.sl with extended configurability.
+%\seealso{run_shell_cmd, shell_cmd, filter_region, shell_cmd_on_region}
 %!%-
-public define shell_cmd_on_region () % (cmd="", output_handling=0, postfile_args=)
+public define shell_command() % (cmd="", output_handling=0)
 {
-   variable cmd, output_handling, postfile_args;
-   (cmd, output_handling, postfile_args) = push_defaults("", 0, "", _NARGS);
-   % read command from minibuffer if not given as optional argument
-   if (orelse {cmd == NULL}{cmd == ""}) % NULL test for backup compatibility
+   % optional arguments, read command from minibuffer if not given
+   variable cmd, output_handling;
+   (cmd, output_handling) = 
+     push_defaults("", prefix_argument(0), _NARGS);
+   if (cmd == NULL or cmd == "") % NULL test for backwards compatibility
      {
-	cmd = read_mini (sprintf ("Shell Cmd on Region:"),
+	cmd = read_mini (sprintf ("(%s) Shell Cmd:", getcwd()),
 			 "", Shell_Last_Shell_Command);
-	if (cmd == "")
-	  return;
 	Shell_Last_Shell_Command = cmd;
      }
-
-   variable status, file,
-     buf = whatbuf(), % current buffer
-     outbuf = "*shell-output*";
-
-   % second arg can also be the name of the output buffer
+   if (cmd == "")
+     return;
+   
+   % Init variables
+   variable status, file, result, buf = whatbuf(), outbuf = "*shell-output*";
+   % if second arg is a String, its the name of the output buffer
    if (typeof(output_handling) == String_Type)
      {
 	outbuf = output_handling;
 	output_handling = 0;
      }
 
-   % save region/buffer to file (delete if output_handling == 2)
-   file = bufsubfile(output_handling==2);
-
-   % set output buffer
-   if (output_handling == 0)
-     {
+   % Set output buffer
+   switch (output_handling)
+     { case 0:
 	popup_buffer(outbuf);
 	set_readonly(0);
 	eob;
-	!if(bobp())
+	!if (bobp())
 	  insert("\n------------------------------------\n\n");
      }
-   else if (output_handling < 0 or output_handling > 2)
-     {
-	outbuf = "*scratch*";
-	sw2buf(outbuf);
+     { case 1: } % nothing to do
+     { case 2: if(is_visible_mark()) del_region(); }
+     { % all other cases: -1, 3, 4
+	setbuf("*temp-shell-output*");
 	push_mark();
      }
 
-   % redirect output/error
+   % Redirect error messages
 # ifdef OS2
-   postfile_args += " 2>&1";
+   cmd += " 2>&1";
 # elifdef UNIX
-   postfile_args += " 2>&1 < /dev/null";
+   % cmd += " 2>&1 < /dev/null"; % this in shell.sl's do_shell_cmd()
+   cmd += " 2>&1";
 # endif
 
-   % Run the command on the file
+   % Run the command
    flush ("Running " + cmd);
-   status = run_shell_cmd(sprintf("%s %s %s", cmd, file, postfile_args));
+   status = run_shell_cmd(cmd);
    vmessage("%s exited with %d", cmd, status);
 
-   % Output processing/cleanup
+   % Output processing
    switch (output_handling)
-     % { case -1: } % nothing to do
      { case 0:
-	if(bobp and eobp)
-	  {
-	     close_buffer();
-	     message(MESSAGE_BUFFER + ": no output");
-	  }
+	if(bobp and eobp) 
+	  message(MESSAGE_BUFFER + ": no output"); 
 	else
-	  view_mode();
-	return;
+	  {
+	     () = bol_bsearch("------------------------------------");
+	     view_mode();
+	  }
      }
-     { case 1 or case 2: return; }
-     { case 3: bufsubstr(); }          % push return value on stack
+     { case 1 or case 2: return; }   % do not run cleanup code below
+     { case -1 or case 3: result = bufsubstr_delete(); }
      { case 4: message(strtrim(bufsubstr_delete)); }
+
+   % Cleanup
    set_buffer_modified_flag(0);
-   delbuf(outbuf);
-   sw2buf(buf);     % make sure we return to the current buffer
+   if(bobp and eobp)
+     close_buffer();
+   if (output_handling != 0)
+     sw2buf(buf);
+   if (output_handling == 3)
+     return result;
+}
+
+
+%!%+
+%\function{shell_cmd_on_region}
+%\synopsis{Save region to a temp file and run a command on it}
+%\usage{Void shell_cmd_on_region(cmd="", output_handling=0, postfile_args="")}
+%\usage{Void shell_cmd_on_region(cmd="", String output_buffer, postfile_args="")}
+%\description
+% Run \var{cmd} in a shell. (If \var{cmd}=="", the user will be prompted for 
+% a command to execute.)
+%
+% Output handling is controlled by the second argument (see \var{shell_command})
+% 
+% The region will be saved to a temporary file and the filename appended to 
+% the arguments. If no region is defined, the whole buffer is saved.
+%
+% The third argument \var{postfile_args} will be appended to the command
+% string after the filename argument. Use it e.g. for the outfile in commands 
+% like "rst2html infile outfile".
+% \seealso{shell_command, filter_region, run_shell_cmd}
+%!%-
+public define shell_cmd_on_region_or_buffer() % (cmd="", output_handling=0, postfile_args="")
+{
+   variable cmd, output_handling, postfile_args;
+   (cmd, output_handling, postfile_args) = push_defaults("", 0, "", _NARGS);
+   % read command from minibuffer if not given as optional argument
+   if (cmd == NULL or cmd == "") % NULL test for backwards compatibility
+     {
+	cmd = read_mini (sprintf ("(%s) Shell Cmd:", getcwd()),
+			 "", Shell_Last_Shell_Command);
+	Shell_Last_Shell_Command = cmd;
+     }
+   if (cmd == "")
+     return;
+   
+   variable file, do_delete = (typecast(output_handling, Integer_Type) == 2);
+   
+   if (markp())
+     file = bufsubfile(do_delete);
+     % save region/buffer to file (delete if output_handling == 2)
+   else
+     {
+        % if (buffer_modified)
+        save_buffer();
+        file = buffer_filename();
+     }
+   % Run the command on the file
+   shell_command(strjoin([cmd, file, postfile_args], " "), output_handling);
+}
+
+public define shell_cmd_on_region() % (*args)
+{
+   variable args = __pop_args(_NARGS);
+   !if (is_visible_mark)
+     mark_buffer();
+   shell_cmd_on_region_or_buffer(__push_args(args));
 }
 
 %!%+
@@ -515,7 +651,7 @@ public define shell_cmd_on_region () % (cmd="", output_handling=0, postfile_args
 % The region will be saved to a temporary file and its name appended to the
 % arguments. If no region is defined, the whole buffer is taken instead.
 % The command output will replace the region/buffer.
-%\seealso{shell_cmd_on_region, do_shell_cmd}
+%\seealso{shell_cmd_on_region, shell_command}
 %!%-
 public define filter_region() % (cmd=NULL)
 {
@@ -527,29 +663,21 @@ public define filter_region() % (cmd=NULL)
 
 %!%+
 %\function{shell_cmd2string}
-%\synopsis{Rund a shell cmd and return the output}
+%\synopsis{Run a shell cmd and return the output}
 %\usage{String shell_cmd2string(String cmd)}
 %\description
-%   Rund a shell cmd and return the output as a string.
+%   Run a shell cmd and return the output as a string.
+%   This is an alias for shell_command(cmd, 3)
 %\example
 %#v+
 %   insert(shell_cmd2string(date));
 %#v-
-%   woult insert the current date as returned by the `date` command
-%\seealso{run_shell_cmd, shell_cmd_on_region}
+%   would insert the current date as returned by the `date` command
+%\seealso{shell_command, shell_cmd_on_region}
 %!%-
 define shell_cmd2string(cmd)
 {
-   variable status, output, buf = whatbuf(), outbuf = "*scratch*";
-
-   sw2buf(outbuf);
-   push_mark();
-   flush ("Running " + cmd);
-   status = run_shell_cmd(cmd);
-   vmessage("%s exited with %d", cmd, status);
-   output = strtrim(bufsubstr_delete());
-   sw2buf(buf);
-   return output;
+   return shell_command(cmd, 3);
 }
 
 provide("ishell");
