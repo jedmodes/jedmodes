@@ -18,6 +18,7 @@
 %     that can be avoided by using a text mode browser with --dump
 % 1.2 made SLang2 proof
 % 1.2.1 2005-10-13 bugfix in find_program()
+% 1.2.1 2005-11-18 correct bugfix in find_program() (changed order of redirections)
 
 % _debug_info=1;
 
@@ -57,7 +58,7 @@ define find_program(programs)
      {
 	program=(strtrim());
 	% show(program, extract_element(program, 0, ' '));
-	!if(system(sprintf("which %s 2>&1 > /dev/null", 
+	!if(system(sprintf("which %s > /dev/null 2>&1",
 			   extract_element(program, 0, ' '))) 
 	    )
 	  return program;
