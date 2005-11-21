@@ -23,7 +23,9 @@
 %  2.3.1 2005-05-26  bugfix: missing autoload (report PB)
 %  2.3.2 2005-06-09 * reintroduced indent_region_or_line() 
 %  	 	      jed99-17's cuamisc.sl doesnot have it
-%  2.3.3 2005-10-14 * added documentation  	 	      
+%  2.3.3 2005-10-14 * added documentation
+%  2.3.3 2005-11-21 * removed "public" from definitions of functions 
+%                     returning a value
 
 
 % _debug_info = 1;
@@ -101,7 +103,7 @@ public define mark_word() % ([word_chars], skip=0)
 %  and meaning of the optional arguments.
 %\seealso{bget_word, mark_word, define_word, push_visible_mark}
 %!%-
-public define get_word() % ([word_chars], skip=0)
+define get_word() % ([word_chars], skip=0)
 {
    % pass on optional arguments
    variable args = __pop_args (_NARGS);
@@ -131,7 +133,7 @@ public define get_word() % ([word_chars], skip=0)
 %  See \var{mark_word} for the "word finding algorithm"
 %\seealso{get_word, mark_word, define_word}
 %!%-
-public define bget_word() %  ([word_chars])
+define bget_word() %  ([word_chars])
 {
    variable word_chars = push_defaults( , _NARGS);
    get_word(word_chars, -1);
@@ -161,7 +163,7 @@ public define mark_line()
 %  \var{line_as_string}, this keeps the point at place.
 %\seealso{line_as_string, mark_line, bufsubstr}
 %!%-
-public define get_line()
+define get_line()
 {
    push_spot();
    line_as_string();  % leave return value on stack
@@ -180,7 +182,7 @@ public define get_line()
 %  should be deleted in the process.
 %\seealso{bufsubstr, push_visible_mark}
 %!%-
-public define get_buffer() % (kill=0)
+define get_buffer() % (kill=0)
 {
    variable  kill;
    kill = push_defaults(0,_NARGS);
