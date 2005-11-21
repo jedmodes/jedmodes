@@ -6,7 +6,8 @@
 % very basic still, but allows to send the buffer content to the printer 
 % with a key shortcut or menu item.
 % 
-% Version 1.0  
+% Version 1.0
+% Version 1.1 no autoload with make_ini() to avoid conflicts with other print modes
 %
 % I use it with:
 % 
@@ -46,7 +47,7 @@ shell_perform_cmd("print /D:PRN", 0); % initialize printer
 custom_variable("PrintCommand", "lpr");
 #endif
 
-public define print_buffer ()
+define print_buffer ()
 {
    variable print_command = read_mini("Print the current buffer with:",
 				      "", PrintCommand);
