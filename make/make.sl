@@ -253,7 +253,7 @@ set_syntax_flags ($0, 0x10|0x80);
 
 %}}}
 
-public  define make_mode            ()  %{{{
+public define make_mode            ()  %{{{
 {
    $0 = "make";
    !if (keymap_p ($0))
