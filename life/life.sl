@@ -12,8 +12,10 @@
 % DESCRIPTION
 %	An implementation of the Game of Life for jed.
 %
-% USAGE
-%	() = evalfile ("life"); life ();
+#<INITIALIZATION>
+autoload("life", "life");
+add_completion("life");
+#</INITIALIZATION>
 %
 % AUTHORS
 %	John E. Davis <davis@space.mit.edu>
