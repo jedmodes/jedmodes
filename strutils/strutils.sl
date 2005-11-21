@@ -14,12 +14,14 @@
 % 2005-01-01  1.4 removed the string_get_last_match() alias, call
 % 	      	  string_nth_match() instead.
 % 	      	  added tm documentation
+% 2005-11-21  1.4.1 removed the public from define str_repeat() and 
+%                   define get_keystring()
 %
 % (projects for further functions in projects/str_utils.sl)
 
 autoload("array_append", "datutils");
 
-% debug information, comment these out when ready
+% debug information, uncomment to locate errors
  % _debug_info = 1;
 
 
@@ -181,7 +183,7 @@ define string_reverse(s)
 %  This is equivalent to str*n in Python
 %\seealso{array_repeat}
 %!%-
-public define string_repeat(str, n)
+define string_repeat(str, n)
 {
    variable strings = String_Type[n];
    strings[*] = str;
@@ -283,7 +285,7 @@ define strbreak() % (str, wrap=WRAP, delim=' ')
 %  This may err for fast typing on slow terminals.
 %\seealso{getkey, ungetkey, input_pending, buffer_keystring}
 %!%-
-public define get_keystring()
+define get_keystring()
 {
    variable ch, key = "";
    do
