@@ -143,7 +143,7 @@ define mupad_newline ()
 }
 
 % interactive MuPad session with the actual document as template
-define mupad_shell ()
+public define mupad_shell()
 {
    ishell_mode(Mupad_Command);
 }
