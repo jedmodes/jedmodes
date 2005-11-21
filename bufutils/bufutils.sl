@@ -46,6 +46,7 @@
 % 2005-11-08 1.8.4 simplified reload_buffer() again, as jed 0.99.17.135 
 % 	           will reset the buffer's ctime field if the changed-on-disk
 % 	           flag is reset
+% 2005-11-21 1.8.5 removed public from popup_buffer() definition
 
 
 % _debug_info = 1;
@@ -372,7 +373,7 @@ define popup_close_buffer_hook(buf)
 %
 %\seealso{setbuf, sw2buf, close_buffer, fit_window, delete_window}
 %!%-
-public define popup_buffer() % (buf, max_rows = Max_Popup_Size)
+define popup_buffer() % (buf, max_rows = Max_Popup_Size)
 {
    % get arguments
    variable buf, max_rows;
