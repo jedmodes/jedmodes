@@ -67,12 +67,18 @@
 % 2005-11-14 2.9.3 * added missing autoload for buffer_dirname()
 % 2005-11-18 2.9.4 * removed the if(BATCH) clause as it does not work as expected
 %                    and prevents the use from another script with jed-script
+% 2005-11-22 2.9.5 * code cleanup
 
 % _debug_info=1;
 
 autoload("get_word", "txtutils");
 autoload("push_array", "sl_utils");
 autoload("buffer_dirname", "bufutils");
+if (strlen(expand_jedlib_file("tm.sl")))
+{
+   autoload("tm_parse", "tm");
+}
+
 
 % --- Settings -----------------------------------------------------------
 
@@ -127,8 +133,8 @@ custom_variable("Make_ini_Bytecompile", 1);
 %\synopsis{Array of files to exclude from make_ini()}
 %\usage{String_Type[] Make_ini_Exclusion_List = ["ini.sl"]}
 %\description
-% Exclusion list: do scan these files.
-%\seealso{make_ini, update_ini, Make_ini_Bytecompile}
+% Exclusion list: do not scan these files.
+%\seealso{make_ini, update_ini, Make_ini_Bytecompile_Exclusion_List}
 %!%-
 custom_variable("Make_ini_Exclusion_List", ["ini.sl"]);
 
@@ -139,7 +145,7 @@ custom_variable("Make_ini_Exclusion_List", ["ini.sl"]);
 %\description
 % Exlude these files from bytecompiling with \var{update_ini} and 
 % \var{update_home_lib}.
-%\seealso{}
+%\seealso{Make_ini_Exclusion_List}
 %!%-
 custom_variable("Make_ini_Bytecompile_Exclusion_List", String_Type[0]);
 
@@ -157,9 +163,8 @@ custom_variable("Make_ini_Bytecompile_Exclusion_List", String_Type[0]);
 %!%-
 custom_variable("Make_ini_Extract_Documentation", 1);
 
-#ifnexists tm_parse
+!if (is_defined("tm_parse"))
   Make_ini_Extract_Documentation = 0;
-#endif
 
 %!%+
 %\variable{Make_ini_Add_Completions}
@@ -173,6 +178,7 @@ custom_variable("Make_ini_Add_Completions", 1);
 
 % valid chars in function and variable definitions
 static variable Slang_word = "A-Za-z0-9_";
+
 static variable Ini_File = "ini.sl";
 private variable Parsing_Buffer = "*make_ini tmp*";
 static variable Tm_Doc_File = "libfuns.txt";
@@ -369,13 +375,8 @@ public define make_ini() % ([dir])
    else 
      dir = read_file_from_mini("Make ini.sl for:");
 
-   variable files = list_slang_files(dir), exclusion_file, file;
-   % Skip files from the exclusion list
-   foreach (Make_ini_Exclusion_List)
-     {
-	exclusion_file = ();
-	files = files[where(files != exclusion_file)];
-     }
+   variable files = list_slang_files(dir), file;
+   
    % find old ini file 
    () = find_file(path_concat(dir, Ini_File));
    slang_mode();
@@ -396,6 +397,9 @@ public define make_ini() % ([dir])
      {
 	file = ();
 	% show(file, file_type(file), file_status(file));
+        % Skip files from the exclusion list
+        if (length(where(path_basename(file) == Make_ini_Exclusion_List)))
+             continue;
 	insert("\n% " + path_basename(file) + "\n");
 	make_ini_look_for_functions(file);
      }
@@ -408,20 +412,18 @@ public define make_ini() % ([dir])
 %\description
 %  Call \var{byte_compile_file} on all files returned by 
 %  \var{list_slang_files}(dir).
-%\seealso{byte_compile_file, update_home_lib}
+%\seealso{byte_compile_file, update_home_lib, Make_ini_Bytecompile_Exclusion_List}
 %!%-
 define byte_compile_libdir(dir)
 {
    variable exclusion_file, file, files = list_slang_files(dir);
-   % Skip files from the exclusion list
-   foreach (Make_ini_Bytecompile_Exclusion_List)
-     {
-	exclusion_file = ();
-	files = files[where(files != exclusion_file)];
-     }
    foreach (files)
      {
         file = ();
+        % Skip files from the exclusion list
+        if (length(where(path_basename(file) 
+           == Make_ini_Bytecompile_Exclusion_List)))
+          continue;
         byte_compile_file(file, 0);
      }
 }
@@ -459,7 +461,7 @@ public define make_libfun_doc() % ([dir])
    if (str == "")
      return vmessage("no tm documentation in %s", dir);
    
-   () = write_string_to_file (str, path_concat(dir, Tm_Doc_File));
+   () = write_string_to_file(str, path_concat(dir, Tm_Doc_File));
 #endif
 }
 
