@@ -42,7 +42,7 @@ static variable Windows = NULL;
 % 
 %\seealso{select_prev_window, select_next_window, select_bottom_window}
 %!%-
-define select_top_window()
+public define select_top_window()
 {
    variable i;
    for (i = nwindows(); i > 0; i--)
@@ -63,7 +63,7 @@ define select_top_window()
 % 
 %\seealso{select_prev_window, select_next_window, select_top_window}
 %!%-
-define select_bottom_window()
+public define select_bottom_window()
 {
    variable togo = nwindows() - 1;
    if (MINIBUFFER_ACTIVE) togo--;
@@ -103,7 +103,7 @@ define select_next_window()
 % 
 %\seealso{select_next_window, select_top_window, select_bottom_window}
 %!%-
-define select_prev_window()
+public define select_prev_window()
 {
    variable i;
    for (i = nwindows() - 1; i > 0; i--) otherwindow();
@@ -289,7 +289,7 @@ define restore_windows(list)
 % 
 % \seealso{restore_windows_cmd, save_windows}
 %!%-
-define save_windows_cmd()
+public define save_windows_cmd()
 {
    Windows = save_windows();
 }
@@ -307,7 +307,7 @@ define save_windows_cmd()
 % 
 % \seealso{save_windows_cmd, restore_windows}
 %!%-
-define restore_windows_cmd()
+public define restore_windows_cmd()
 {
    restore_windows(Windows);
 }
