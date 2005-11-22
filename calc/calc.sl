@@ -94,6 +94,11 @@
 %% 
 %% Use calc_help (^C^H) (or look at the mode menu) for help on keys.
 
+#<INITIALIZATION>
+_autoload("calc", "calc", "calc2", "calc", 2);
+_add_completion("calc", "calc2", 2);
+#</INITIALIZATION>
+
 % set up a named namespace
 implements("calc");
 
