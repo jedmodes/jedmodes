@@ -139,7 +139,7 @@ static define prepare_syntax_table(modename)
 % --------------------------------------------------------------
 % Main entry
 %
-define custom_mode ()
+public define custom_mode ()
 {
    variable custom_id, modename, modeflags = 2;
    
