@@ -205,7 +205,7 @@ static variable kwds_MsOr =
    "prior space continue backup fortran max checkpoint sum function use truncate return ";
 
 
-define sql92_mode ()
+public define sql92_mode ()
 {
    variable sql = "sql92";
    !if (keywords->check_language(sql))
@@ -232,7 +232,7 @@ define sql92_mode ()
    use_syntax_table(sql);
 }
 
-define sql99_mode ()
+public define sql99_mode ()
 {
    variable sql = "sql99";
    !if (keywords->check_language(sql))
@@ -260,7 +260,7 @@ define sql99_mode ()
 }
 
 % PostgreSql
-define pgsql_mode ()
+public define pgsql_mode ()
 {
    variable sql = "pgsql";
    !if (keywords->check_language(sql))
@@ -288,7 +288,7 @@ define pgsql_mode ()
 }
 
 % MySql
-define mysql_mode ()
+public define mysql_mode ()
 {
    variable sql = "mysql";
    !if (keywords->check_language(sql))
@@ -316,7 +316,7 @@ define mysql_mode ()
 }
 
 % MS SQL mode
-define mssql_mode ()
+public define mssql_mode ()
 {
    variable sql = "mssql";
    !if (keywords->check_language(sql))
@@ -343,7 +343,7 @@ define mssql_mode ()
 }
 
 % Oracle
-define orsql_mode ()
+public define orsql_mode ()
 {
    variable sql = "orsql";
    !if (keywords->check_language(sql))
@@ -369,7 +369,7 @@ define orsql_mode ()
    use_syntax_table(sql);
 }
 
-define sql_mode ()
+public define sql_mode ()
 {
    variable mode;
    mode = sprintf("%s_mode", sql_default_mode);
