@@ -617,7 +617,7 @@ static define remove_last_expansion ()
    temExpEnd_point = NULL;
 }
 
-define temabbrev()
+public define temabbrev()
 {
    variable fun_type, fun, rvExpand;
    variable first_time = 1;
