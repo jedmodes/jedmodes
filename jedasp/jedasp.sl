@@ -119,7 +119,7 @@ static define asp_exec_marked_script (ScriptBeginTag)
 }
 
 % \usage{Void asp_run_scripts (String ScriptBeginTag, String ScriptEndTag)}
-define asp_run_scripts (ScriptBeginTag, ScriptEndTag)
+public define asp_run_scripts (ScriptBeginTag, ScriptEndTag)
 {
    variable buf = whatbuf();
    asp_begin_tag = ScriptBeginTag;
