@@ -52,6 +52,7 @@
 %    	  	      has word_at_point as default.
 %   1.6.1 2005-11-01  bugfix in describe_bindings()
 %   1.6.2 2005-11-08  changed _implements() to implements()
+%   1.6.3 2005-11-22  hide functions with autoloads in site.sl from make_ini()
 %           	      
 %   TODO: use _get_namespaces() to make apropos aware of functions in
 %   	  "named namespaces" (When called with a numeric prefix arg [PB])
@@ -216,7 +217,7 @@ static variable Keywords =
 % --- auxiliary functions --------------------------------
 
 % dummy definitions for recursive use (the real ones are at the end of file)
- public define help_mode() {}
+public  define help_mode() {}
 define help_for_object() {}
 
 static define read_object_from_mini(prompt, default, flags)
@@ -231,12 +232,12 @@ static define read_object_from_mini(prompt, default, flags)
    return read_string_with_completion(prompt, default, objs);
 }
 
- public define read_function_from_mini(prompt, default)
+public  define read_function_from_mini(prompt, default)
 {
    read_object_from_mini(prompt, default, 0x3);
 }
 
- public define read_variable_from_mini(prompt, default)
+public  define read_variable_from_mini(prompt, default)
 {
    read_object_from_mini(prompt, default, 0xC);
 }
@@ -346,7 +347,7 @@ define help_for_help() {help("help.hlp");}
 %   a pattern in the minibuffer.
 %\seealso{help_mode, describe_function, describe_variable }
 %!%-
-public define apropos() % ([pattern])
+public  define apropos() % ([pattern])
 {
    variable pattern = prompt_for_argument(&read_mini, 
 					  "apropos:", "", "", _NARGS);
@@ -468,7 +469,7 @@ define strsub_control_chars(key)
 %       ^[[A to Key_Up, etc...
 %\seealso{setkey}
 %!%-
- public define expand_keystring (key)
+public  define expand_keystring(key)
 {
    variable keyname, keystring;
    % initialize the Keydef_Keys dictionary
@@ -502,7 +503,7 @@ define strsub_control_chars(key)
 %   in the minibuffer.
 %\seealso{where_is, help_for_help}
 %!%-
-public define showkey() % ([keystring])
+public  define showkey() % ([keystring])
 {
    variable ks, f, type;
    if (_NARGS)
@@ -550,7 +551,7 @@ public define showkey() % ([keystring])
 %   Show the key that is bound to it.
 %\seealso{get_key_binding, help_for_help}
 %!%-
-public define where_is()
+public  define where_is()
 {
    variable cmd = prompt_for_argument(&read_function_from_mini, 
 				      "Where is command:",
@@ -571,7 +572,7 @@ public define where_is()
 
 % --- describe function/variable and helpers
 
- public define is_keyword(name)
+public  define is_keyword(name)
 {
    return (length(where(name == Keywords)));
 }
@@ -659,7 +660,7 @@ define help_for_object(obj)
 %   help buffer.
 %\seealso{describe_variable, help_for_help, help_mode}
 %!%-
-public define describe_function () % ([fun])
+public  define describe_function () % ([fun])
 {
    variable fun = prompt_for_argument(&read_function_from_mini,
 				      "Describe Function:", 
@@ -678,7 +679,7 @@ public define describe_function () % ([fun])
 %   help buffer.
 %\seealso{describe_function, help_for_help, help_mode}
 %!%-
-public define describe_variable() % ([var])
+public  define describe_variable() % ([var])
 {
    variable var = prompt_for_argument(&read_variable_from_mini,
 				      "Describe Variable:", 
@@ -697,7 +698,7 @@ public define describe_variable() % ([var])
 %   in the help buffer.
 %\seealso{describe_function, help_for_help, help_mode}
 %!%-
-public define describe_mode ()
+public  define describe_mode ()
 {
    variable modstr = normalized_modename();
    current_topic = [_function_name, modstr];
@@ -721,7 +722,7 @@ public define describe_mode ()
 %   Show a list of all keybindings in the help buffer
 %\seealso{showkey, where_is, help_mode}
 %!%-
- public define describe_bindings() % (keymap=what_keymap())
+public  define describe_bindings() % (keymap=what_keymap())
 {
    variable keymap = prompt_for_argument(&read_mini, 
                                          "Keymap:", what_keymap(), "", _NARGS);
@@ -909,7 +910,7 @@ public define set_variable()
 %   return as string
 %\seealso{help_for_function, mini_help_for_object}
 %!%-
- public define extract_mini_doc(help_str)
+public  define extract_mini_doc(help_str)
 {
    variable synopsis, usage, word = strchop(help_str, ':', 0)[0];
    help_str = strchop(help_str, '\n', 0);
@@ -1017,7 +1018,7 @@ public define context_help()
    () = run_function(get_blocal("context_help_hook", &help_for_word_at_point));
 }
 
- public define help_2click_hook (line, col, but, shift)
+public  define help_2click_hook (line, col, but, shift)
 {
    help_for_word_at_point();
    return(0);
