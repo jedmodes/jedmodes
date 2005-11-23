@@ -1,0 +1,57 @@
+# awk.ssh --- Sheet definitions for AWK scripts
+# This style sheet is based on stylesheets provided by Edward Arthur, Akim Demaille, Miguel Santana
+# Copyright (c) 1999 Edward Arthur, Akim Demaille, Miguel Santana
+#
+
+#
+# This file is not part of a2ps.
+# It is automatically created from within jed using functions in a2psmode.sl.
+#
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2, or (at your option)
+# any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; see the file COPYING.  If not, write to
+# the Free Software Foundation, 59 Temple Place - Suite 330,
+# Boston, MA 02111-1307, USA.
+
+## 1.0 Thomas Koeckritz
+# Initial implementation.
+
+style AWK is
+
+written by "Thomas Koeckritz <tkoeckritz@lucent.com>"
+version is 1.0
+requires a2ps version 4.9.7
+
+   
+
+documentation is
+   "This style is devoted to the AWK language."
+It has been automatzically created from within jed.
+end documentation
+
+alphabets are
+   "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz_0"
+case sensitive
+
+keywords in Keyword_strong are
+do,if,"in",cos,exp,for,int,log,sin,sub,else,exit,
+file,gsub,next,rand,sqrt,atan2,break,close,
+index,match,print,split,srand,while,delete,
+length,printf,return,substr,system,getline,
+sprintf,systime,tolower,toupper,continue,strftime,lowercase,uppercase
+end keywords
+
+sequences are
+"#" Comment "\n"
+end sequences
+
+end style
