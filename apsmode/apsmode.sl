@@ -1,26 +1,31 @@
 % apsmode -*- mode: slang; mode: fold; -*-
 
 % apsmode
-% Copyright (c) 2003 Thomas Koeckritz
+% Copyright (c) 2003 Thomas Koeckritz (tkoeckritz@gmx.de)
 % Released under the terms of the GNU General Public License (ver. 2 or later)
 %
 % ChangeLog
 % ---------
-% 0.1  2003-07-01  started as "lunch-hour" project
+% 0.1   2003-07-01 started as "lunch-hour" project
 %                  quick and dirty printing via hardcoded a2ps-command
-% 0.2  2003-07-31  most a2ps options included
-% 0.3  2003-08-12  QuickPrint added
-% 0.4  2003-08-27  a2ps style-sheet support added
-% 1.0  2003-09-18  Initial (stable) version
-% 1.1  2004-01-05  JEDFILENAME, JEDDATETIME added, minor modifications
-% 1.2  2004-02-20  apsmode.hlp written
-% 1.3  2004-03-09  region stays highlighted after preview/printing
+% 0.2   2003-07-31 most a2ps options included
+% 0.3   2003-08-12 QuickPrint added
+% 0.4   2003-08-27 a2ps style-sheet support added
+% 1.0   2003-09-18 Initial (stable) version
+% 1.1   2004-01-05 JEDFILENAME, JEDDATETIME added, minor modifications
+% 1.2   2004-02-20 apsmode.hlp written
+% 1.3   2004-03-09 region stays highlighted after preview/printing
 %                  internal documentation enhanced
-% 1.4  2004-03-22  printer.conf renamed to apsconf.sl
+% 1.4   2004-03-22 printer.conf renamed to apsconf.sl
 %                  all user-definable variables moved to apsconf.sl
 %                  add variable to choose menu-support (aps_menu)
 %                  add variable to choose deletion of ps-file (aps_del_ps_file)
 %                  handling of options for WINDOWS corrected/improved
+% 1.5   2005-04-14 added handling of font size
+%                  added saving of current parameters in apsconf format
+% 1.5.1 2005-11-21 modified apsconf.sl: GM: use path_concat() for aps_tmp_dir
+%
+%
 % Description
 % -----------
 % JED-mode to support printing from jed using a2ps and ghostview.
@@ -147,16 +152,16 @@
 %
 % (Windows only?): If the path to the a2ps/gsview executables contains blanks,
 % apsmode can't access them.
-% So prevent installation of executables in Directories containing blanks 
+% So prevent installation of executables in Directories containing blanks
 % in name or add the a2ps directory to the path.
 %   (a2ps Windows version (14.3b)):
-%   For a2ps.exe I encountered this problem. a2ps.exe requested to be 
+%   For a2ps.exe I encountered this problem. a2ps.exe requested to be
 %   in C:\Program Files\a2ps. So I did a "double" installation, one a2ps in
 %   C:\Program Files\a2ps, the other in C:\Programs\a2ps.
 %   In apsconf.sl I referenced the a2ps command in C:\Programs\a2ps, which then
 %   takes it config files and other stuff from C:\Program Files\a2ps.
 %   Or adding the a2ps directory to the path will also help.
-%   
+%
 
 % Helper functions for Postscript printing %{{{
 
@@ -185,6 +190,7 @@ typedef struct
      description,
      columns,
      rows,
+     fontsize,
      chars,
      borders,
      orientation,
@@ -217,7 +223,7 @@ variable use_jed_a2ps_style_sheet = Assoc_Type[Integer_Type];
 % define user-definable variables and set default values which
 % could be overwritten by apsconf.sl
 %
-% modify values in apscon.sl instead of here!!!
+% modify values in apsconf.sl instead of here!!!
 %
 variable aps_tmp_dir = path_rel(__FILE__,"../apsconf/");
 variable a2ps_cmd = "a2ps";
@@ -232,8 +238,8 @@ variable aps_del_ps_file = 1;
 variable JEDFILENAME = "";
 % this variable will be used to give the date/time of printing to a2ps
 variable JEDDATETIME = "";
-variable aps_version = "1.4";
-variable aps_creation_date = "2004-03-22";
+variable aps_version = "1.5.1";
+variable aps_creation_date = "2005-11-22";
 variable aps_jed_tested = "0.99-16";
 variable aps_creator = "tkoeckritz@gmx.de";
 
@@ -269,6 +275,7 @@ define qp_is_copy_of(pid_in)
    printer[aps_pid].description = printer[pid_in].description;
    printer[aps_pid].columns = printer[pid_in].columns;
    printer[aps_pid].rows = printer[pid_in].rows;
+   printer[aps_pid].fontsize = printer[pid_in].fontsize;
    printer[aps_pid].chars = printer[pid_in].chars;
    printer[aps_pid].borders = printer[pid_in].borders;
    printer[aps_pid].orientation = printer[pid_in].orientation;
@@ -373,7 +380,7 @@ static define jed_date_time() %{{{
 
 static define default_printer_callback (popup)
 {
-   menu_append_item (popup, string(printer[default_printer].setup), strcat("show_printer_settings(",string(default_printer),")"));
+   menu_append_item (popup, string(printer[default_printer].setup), strcat("show_printer_settings(",string(default_printer),",1)"));
 }
 
 static define set_default_printer_callback (popup)
@@ -395,6 +402,7 @@ static define set_default_printer_callback (popup)
      }
    return;
 }
+
 static define show_default_printer_callback (popup)
 {
    variable i;
@@ -404,12 +412,32 @@ static define show_default_printer_callback (popup)
 	  {
 	     if (i == default_printer)
 	       {
-		  menu_append_item (popup, strcat("* ", string(printer[i].setup)), strcat("show_printer_settings(",string(i),")"));
+		  menu_append_item (popup, strcat("* ", string(printer[i].setup)), strcat("show_printer_settings(",string(i),",1)"));
 	       }
 	     else
 	       {
-		  menu_append_item (popup, strcat("  ", string(printer[i].setup)), strcat("show_printer_settings(",string(i),")"));
+		  menu_append_item (popup, strcat("  ", string(printer[i].setup)), strcat("show_printer_settings(",string(i),",1)"));
 	       }
+	  }
+     }
+   return;
+}
+
+static define show_default_printer2_callback (popup)
+{
+   variable i;
+   for (i = 0; i <= max_no_printers-1; i++)
+     {
+	if (printer[i].setup != NULL)
+	  {
+	     if (i == default_printer)
+	       {
+		  menu_append_item (popup, "Current Settings in apsconf format", strcat("show_printer_settings(",string(default_printer),",2)"));
+	       }
+%	     else
+%	       {
+%		  menu_append_item (popup, strcat("  ", string(printer[i].setup)), strcat("show_printer_settings(",string(i),",1)"));
+%	       }
 	  }
      }
    return;
@@ -637,6 +665,49 @@ static define set_qp_is_copy_of_callback (popup)
      }
    return;
 }
+static define set_qp_fontsize_callback (popup)
+{
+   variable i;
+   variable increment = 1;
+
+   if (printer[0].fontsize == "none")
+     {
+        menu_append_item (popup, strcat("* ", "don't care"), strcat("set_qp(\"printer[0].fontsize=\\\"", "none", "\\\"\")"));
+     }
+   else
+     {
+        menu_append_item (popup, strcat("  ", "don't care"), strcat("set_qp(\"printer[0].fontsize=\\\"", "none", "\\\"\")"));
+     }
+   % add fontsize in points
+   for (i = 6; i <= 72; i = i + increment)
+     {
+	if (printer[0].fontsize == strcat(string(i), "points"))
+	  {
+	     menu_append_item (popup, strcat("* ", string(i), "points"), strcat("set_qp(\"printer[0].fontsize=\\\"", string(i), "points", "\\\"\")"));
+	  }
+	else
+	  {
+	     menu_append_item (popup, strcat("  ", string(i), "points"), strcat("set_qp(\"printer[0].fontsize=\\\"", string(i), "points", "\\\"\")"));
+	  }
+	if ( i == 12)
+	  {
+	     increment = 2;
+	  }
+	if ( i == 28)
+	  {
+	     increment = 8;
+	  }
+	if ( i == 36)
+	  {
+	     increment = 12;
+	  }
+	if ( i == 48)
+	  {
+	     increment = 24;
+	  }
+     }
+   return;
+}
 static define set_qp_max_chars_callback (popup)
 {
    variable action;
@@ -687,6 +758,8 @@ if ( aps_menu == 1)
    menu_set_select_popup_callback (strcat ($1, ".&QuickPrint.&Linenumbers"), &set_qp_linenumbers_callback);
    menu_append_popup (strcat($1, ".&QuickPrint"), "&Max Characters");
    menu_set_select_popup_callback (strcat ($1, ".&QuickPrint.&Max Characters"), &set_qp_max_chars_callback);
+   menu_append_popup (strcat($1, ".&QuickPrint"), "&Fontsize");
+   menu_set_select_popup_callback (strcat ($1, ".&QuickPrint.&Fontsize"), &set_qp_fontsize_callback);
    menu_append_popup (strcat($1, ".&QuickPrint"), "Paper &Format");
    menu_set_select_popup_callback (strcat ($1, ".&QuickPrint.Paper &Format"), &set_qp_medium_callback);
    menu_append_popup (strcat($1, ".&QuickPrint"), "&Header");
@@ -704,6 +777,7 @@ if ( aps_menu == 1)
    menu_append_separator ($1);
    menu_append_item ($1, "Edi&t apsconf.sl", "find_file(aps_config_file)");
    menu_append_item ($1, "Rel&oad apsconf.sl", "aps_pid=0;evalfile(aps_config_file)");
+   menu_append_item ($1, "Current Settings in apsconf format", strcat("show_printer_settings(",string(default_printer),",2)"));
    menu_append_item ($1, "&Create Style Sheet", "create_a2ps_style_sheet(\"\")");
 
    menu_append_separator ($1);
@@ -758,6 +832,11 @@ static define get_a2ps_cmd(id, max_char) %{{{
      {
 	cmd = strcat(cmd, " --chars-per-line=", string(max_char));
      };
+
+   if (printer[id].fontsize != "none")
+     {
+	cmd = strcat(cmd, " --font-size=", printer[id].fontsize);
+     }
 
    cmd = strcat(cmd, " --borders=", printer[id].borders);
    cmd = strcat(cmd, " --", printer[id].orientation);
@@ -873,62 +952,107 @@ static define get_a2ps_cmd(id, max_char) %{{{
 %!%+
 %\function{show_printer_settings}
 %\synopsis{show current printer settings}
-%\usage{show_printer_settings (Integer_Type id)}
+%\usage{show_printer_settings (Integer_Type id, Integer_Type format)}
 %\description
 % This function is used to show the current printer settings in a
 % separate buffer.
 % \var{id} will be used as index for the \var{printer}-array, which
 % contains the settings.
+% \var{format} will be used to format the output either as
+% - human readable text or
+% - as configuration data for apsconf.sl
 % This function returns nothing.
 %!%-
-define show_printer_settings(id) %{{{
+define show_printer_settings(id,format) %{{{
 {
    variable bufname = strcat("*Printer-settings-for-Printer-", string(id), "*");
    sw2buf(bufname);
    set_readonly(0);
    erase_buffer();
    bob();
-   insert(sprintf("\nSettings for %s\n", printer[id].setup));
-   insert("==========================================\n\n");
-   insert("\nPrint options\n");
-   insert("------------------------------------------\n");
-   insert(sprintf("Printer Name          : %s\n", printer[id].name));
-   insert(sprintf("Printer Description   : %s\n", printer[id].description));
-   insert(sprintf("Number of Columns     : %s\n", printer[id].columns));
-   insert(sprintf("Number of Rows        : %s\n", printer[id].rows));
-   insert(sprintf("Characters per Line   : %s\n", printer[id].chars));
-   insert(sprintf("Orientation           : %s\n", printer[id].orientation));
-   insert(sprintf("Paper Format          : %s\n", printer[id].medium));
-   insert(sprintf("One/Two Sides Print   : %s\n", printer[id].sides));
-   insert(sprintf("Truncate Lines        : %s\n", printer[id].truncate));
-   insert(sprintf("Number of copies      : %s\n", printer[id].copies));
-   insert(sprintf("Major Print Direction : %s\n", printer[id].major));
-   insert(sprintf("\nPrint Linenumbers every %s row(s)\n", printer[id].linenumbers));
+   
+   % print settings in a readable format
+   if (format == 1)
+     {
+	insert(sprintf("\nSettings for %s\n", printer[id].setup));
+	insert("==========================================\n\n");
+	insert("\nPrint options\n");
+	insert("------------------------------------------\n");
+	insert(sprintf("Printer Name          : %s\n", printer[id].name));
+	insert(sprintf("Printer Description   : %s\n", printer[id].description));
+	insert(sprintf("Number of Columns     : %s\n", printer[id].columns));
+	insert(sprintf("Number of Rows        : %s\n", printer[id].rows));
+	insert(sprintf("Fontsize              : %s\n", printer[id].fontsize));
+	insert(sprintf("Characters per Line   : %s\n", printer[id].chars));
+	insert(sprintf("Orientation           : %s\n", printer[id].orientation));
+	insert(sprintf("Paper Format          : %s\n", printer[id].medium));
+	insert(sprintf("One/Two Sides Print   : %s\n", printer[id].sides));
+	insert(sprintf("Truncate Lines        : %s\n", printer[id].truncate));
+	insert(sprintf("Number of copies      : %s\n", printer[id].copies));
+	insert(sprintf("Major Print Direction : %s\n", printer[id].major));
+	insert(sprintf("\nPrint Linenumbers every %s row(s)\n", printer[id].linenumbers));
 
-   insert("\nLayout options\n");
-   insert("------------------------------------------\n");
-   insert(sprintf("Print Borders         : %s\n", printer[id].borders));
-   insert(sprintf("Margin [points]       : %s\n", printer[id].margin));
-   insert(sprintf("Header                : %s\n", printer[id].header));
-   insert(sprintf("Left Title            : %s\n", printer[id].title_left));
-   insert(sprintf("Center Title          : %s\n", printer[id].title_center));
-   insert(sprintf("Right Title           : %s\n", printer[id].title_right));
-   insert(sprintf("Left Footer           : %s\n", printer[id].footer_left));
-   insert(sprintf("Center Footer         : %s\n", printer[id].footer_center));
-   insert(sprintf("Right Footer          : %s\n", printer[id].footer_right));
-   insert(sprintf("Color                 : %s\n", printer[id].color));
-   insert(sprintf("Syntax Highlighting   : %s\n", printer[id].pretty));
+	insert("\nLayout options\n");
+	insert("------------------------------------------\n");
+	insert(sprintf("Print Borders         : %s\n", printer[id].borders));
+	insert(sprintf("Margin [points]       : %s\n", printer[id].margin));
+	insert(sprintf("Header                : %s\n", printer[id].header));
+	insert(sprintf("Left Title            : %s\n", printer[id].title_left));
+	insert(sprintf("Center Title          : %s\n", printer[id].title_center));
+	insert(sprintf("Right Title           : %s\n", printer[id].title_right));
+	insert(sprintf("Left Footer           : %s\n", printer[id].footer_left));
+	insert(sprintf("Center Footer         : %s\n", printer[id].footer_center));
+	insert(sprintf("Right Footer          : %s\n", printer[id].footer_right));
+	insert(sprintf("Color                 : %s\n", printer[id].color));
+	insert(sprintf("Syntax Highlighting   : %s\n", printer[id].pretty));
 
-   insert("------------------------------------------\n\n");
-   insert("a2ps command:\n");
-   insert(get_a2ps_cmd(id,0));
-   insert("\n\n");
-   insert("print command:\n");
-   insert(printer[id].print_cmd);
-   insert("\n\n");
-   insert("view command:\n");
-   insert(printer[id].view_cmd);
-   insert("\n");
+	insert("------------------------------------------\n\n");
+	insert("a2ps command:\n");
+	insert(get_a2ps_cmd(id,0));
+	insert("\n\n");
+	insert("print command:\n");
+	insert(printer[id].print_cmd);
+	insert("\n\n");
+	insert("view command:\n");
+	insert(printer[id].view_cmd);
+	insert("\n");
+     }
+
+   % print settings in a apsconf format
+   if (format == 2)
+     {
+insert("aps_pid++;\n");
+insert(sprintf("printer[aps_pid].setup = \"%s\";\n",printer[id].setup));
+insert(sprintf("printer[aps_pid].name = \"%s\";\n",printer[id].name));
+insert(sprintf("printer[aps_pid].description = \"%s\";\n",printer[id].description));
+insert(sprintf("printer[aps_pid].columns = \"%s\";\n",printer[id].columns));
+insert(sprintf("printer[aps_pid].rows = \"%s\";\n",printer[id].rows));
+insert(sprintf("printer[aps_pid].fontsize = \"%s\";\n",printer[id].fontsize));
+insert(sprintf("printer[aps_pid].chars = \"%s\";\n",printer[id].chars));
+insert(sprintf("printer[aps_pid].borders = \"%s\";\n",printer[id].borders));
+insert(sprintf("printer[aps_pid].orientation = \"%s\";\n",printer[id].orientation));
+insert(sprintf("printer[aps_pid].medium = \"%s\";\n",printer[id].medium));
+insert(sprintf("printer[aps_pid].sides = \"%s\";\n",printer[id].sides));
+insert(sprintf("printer[aps_pid].truncate = \"%s\";\n",printer[id].truncate));
+insert(sprintf("printer[aps_pid].linenumbers = \"%s\";\n",printer[id].linenumbers));
+insert(sprintf("printer[aps_pid].copies = \"%s\";\n",printer[id].copies));
+insert(sprintf("printer[aps_pid].major = \"%s\";\n",printer[id].major));
+insert(sprintf("printer[aps_pid].margin = \"%s\";\n",printer[id].margin));
+insert(sprintf("printer[aps_pid].header = \"%s\";\n",printer[id].header));
+insert(sprintf("printer[aps_pid].title_left = \"%s\";\n",printer[id].title_left));
+insert(sprintf("printer[aps_pid].title_center = \"%s\";\n",printer[id].title_center));
+insert(sprintf("printer[aps_pid].title_right = \"%s\";\n",printer[id].title_right));
+insert(sprintf("printer[aps_pid].footer_left = \"%s\";\n",printer[id].footer_left));
+insert(sprintf("printer[aps_pid].footer_center = \"%s\";\n",printer[id].footer_center));
+insert(sprintf("printer[aps_pid].footer_right = \"%s\";\n",printer[id].footer_right));
+insert(sprintf("printer[aps_pid].color = \"%s\";\n",printer[id].color));
+insert(sprintf("printer[aps_pid].pretty = \"%s\";\n",printer[id].pretty));
+insert(sprintf("printer[aps_pid].print_cmd = \"%s\";\n",printer[id].print_cmd));
+insert(sprintf("printer[aps_pid].view_cmd = \"%s\";\n",printer[id].view_cmd));
+insert("printer[aps_pid].copy_of = 0;\n");
+
+     }
+   
    set_buffer_modified_flag(0);
    set_readonly(1);
    bob();
@@ -1022,7 +1146,7 @@ define print_region() %{{{
    variable rc;
    variable region_highlighted = is_visible_mark;
    variable redirect;
-   
+
    if ( region_highlighted == 1)
      {
 	narrow_to_region();
@@ -1102,13 +1226,13 @@ define print_region() %{{{
    print_log("print cmd ", printer[default_printer].print_cmd);
 
    % use " 2>&1" to re-direct stderr as well
-#ifdef UNIX   
+#ifdef UNIX
    redirect = "2>&1";
-#endif   
-#ifdef MSWINDOWS   
+#endif
+#ifdef MSWINDOWS
    redirect = "";
-#endif   
-   
+#endif
+
    insert ("\n--------------------- a2ps preprocessing --- (a2ps cmd) -------------------------\n");
    rc = run_shell_cmd (sprintf ("%s %s", cmd, redirect));
    insert ("--------------------------------------------------------------------------------\n\n");

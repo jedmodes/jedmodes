@@ -100,6 +100,10 @@ Note: Already selected values will be marked by "*" in the menues.
 - Edit apsconf.sl
   opens apsconf.sl for editing
   
+- Current Settings in apsconf format
+  list settings of the current printer in a separate buffer
+  The data format of the settings is the same as to be used in apsconf.sl
+  
 - Reload apsconf.sl
   reloads current printer settings (useful after editing them, jed doesn't
   need to be restarted)
@@ -167,6 +171,12 @@ QuickPrint Menu Description
   80:100
   80:132
   
+- Fontsize
+  defines the fontsize in points
+  6, 7, 8, 9, 10, 11, 12
+  14, 16, 18, 20, 22, 24, 26, 28,
+  36, 48, 72
+
 - Paper Format
   defines the paper format
   A4, A3, Letter

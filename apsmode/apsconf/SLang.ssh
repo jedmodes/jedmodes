@@ -5,7 +5,7 @@
 
 #
 # This file is not part of a2ps.
-# It is automatically created from within jed using functions in apsmode.sl.
+# It is automatically created from within jed using functions in a2psmode.sl.
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -27,7 +27,7 @@
 
 style SLANG is
 
-written by "Thomas Koeckritz <tkoeckritz@gmx.de>"
+written by "Thomas Koeckritz <tkoeckritz@lucent.com>"
 version is 1.0
 requires a2ps version 4.9.7
 
@@ -35,7 +35,7 @@ requires a2ps version 4.9.7
 
 documentation is
    "This style is devoted to the SLANG language."
-It has been automatically created from within jed.
+It has been automatzically created from within jed.
 end documentation
 
 alphabets are

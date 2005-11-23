@@ -5,7 +5,9 @@
 % default printer id, style sheet usage, ...
 % some of them are OS specific
 % 
-% requires apsmode version >=1.4
+% requires apsmode version >=1.5
+% 
+% 2005-11-21 GM: use path_concat() for aps_tmp_dir
 % 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% 
 % name        : aps_menu
@@ -53,7 +55,9 @@ aps_menu = 1;
 aps_del_ps_file = 1;
 
 #ifdef UNIX
-aps_tmp_dir = "/home/xyz/tmp/";
+aps_tmp_dir = path_concat(getenv("TMPDIR"), ""); % ensure trailing "/"
+if (aps_tmp_dir == "")
+  aps_tmp_dir = "/tmp/";
 a2ps_cmd = "a2ps";
 default_printer = 5;
 #endif
@@ -67,6 +71,11 @@ default_printer = 1;
 aps_tmp_file = strcat(aps_tmp_dir, "print_from_jed.ps");
 
 use_jed_a2ps_style_sheet["SLang"] = 1;
+use_jed_a2ps_style_sheet["TSL"] = 1;
+use_jed_a2ps_style_sheet["awk"] = 1;
+use_jed_a2ps_style_sheet["tl1"] = 1;
+use_jed_a2ps_style_sheet["tm"] = 1;
+use_jed_a2ps_style_sheet["occur"] = 1;
 
   
 %%%%%%%%%%%%%%%%%% Define printers %%%%%%%%%%%%%%%%%%%%%%%%%%% %{{{
@@ -134,6 +143,14 @@ use_jed_a2ps_style_sheet["SLang"] = 1;
 % description: specify the number of rows of virtual pages per physical page
 % value(s)   : integer (1...n)
 % example    : "2"
+% 
+% name       : fontsize
+% description: defines fontsize in points
+%              if other formats than points needs to be supported 
+%              by QuickPrint then function <set_qp_fontsize_callback> has to be 
+%              modified accordingly
+% value(s)   : 8,...,72 points, anything your printer and a2ps supports
+% example    : "8points"
 % 
 % name       : chars
 % description: number of characters to be printed on one line
@@ -248,7 +265,7 @@ use_jed_a2ps_style_sheet["SLang"] = 1;
 % name       : color
 % description: switches color printing on/off
 %              bw - Style is plain: pure black and white, with standard fonts
-%               color - Colors are used to highlight the keywords
+%              color - Colors are used to highlight the keywords
 % value(s)   : bw,color
 % example    : "color"
 % 
@@ -282,15 +299,15 @@ use_jed_a2ps_style_sheet["SLang"] = 1;
 % reset index for printer setting
 aps_pid = 0;
 
-%%%%%%%%%%%%%%%%%% UNIX Printers %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 #ifdef UNIX
 
 aps_pid++;
-printer[aps_pid].setup = "printer setup name";
-printer[aps_pid].name = "printer name";
-printer[aps_pid].description = "Printer Description";
+printer[aps_pid].setup = "code, A4, 6pt, 2x1, duplex, CCB_3_F008";
+printer[aps_pid].name = "CCB_3_F008";
+printer[aps_pid].description = "Printer 1";
 printer[aps_pid].columns = "2";
 printer[aps_pid].rows = "1";
+printer[aps_pid].fontsize = "6points";
 printer[aps_pid].chars = "80:100";
 printer[aps_pid].borders = "on";
 printer[aps_pid].orientation = "landscape";
@@ -305,11 +322,109 @@ printer[aps_pid].header = "";
 printer[aps_pid].title_left = "";
 printer[aps_pid].title_center = "";
 printer[aps_pid].title_right = "";
+%printer[aps_pid].footer_left = "%e %*";
 printer[aps_pid].footer_left = "JEDDATETIME";
+%printer[aps_pid].footer_center = "$f";
 printer[aps_pid].footer_center = "JEDFILENAME";
 printer[aps_pid].footer_right = "%s./%s#";
 printer[aps_pid].color = "bw";
 printer[aps_pid].pretty = "on";
+printer[aps_pid].print_cmd = strcat("lpr -P ", printer[aps_pid].name, " ", aps_tmp_file);
+printer[aps_pid].view_cmd = strcat("gv ", aps_tmp_file);
+printer[aps_pid].copy_of = 0;
+
+aps_pid++;
+printer[aps_pid].setup = "code, A4, 8pt, 1x1, duplex, CCB_3_F008";
+printer[aps_pid].name = "CCB_3_F008";
+printer[aps_pid].description = "Printer1";
+printer[aps_pid].columns = "1";
+printer[aps_pid].rows = "1";
+printer[aps_pid].fontsize = "8points";
+printer[aps_pid].chars = "80:100";
+printer[aps_pid].borders = "on";
+printer[aps_pid].orientation = "portrait";
+printer[aps_pid].medium = "A4";
+printer[aps_pid].sides = "2";
+printer[aps_pid].truncate = "on";
+printer[aps_pid].linenumbers = "5";
+printer[aps_pid].copies = "1";
+printer[aps_pid].major = "columns";
+printer[aps_pid].margin = "5";
+printer[aps_pid].header = "";
+printer[aps_pid].title_left = "";
+printer[aps_pid].title_center = "";
+printer[aps_pid].title_right = "";
+%printer[aps_pid].footer_left = "%e %*";
+printer[aps_pid].footer_left = "JEDDATETIME";
+%printer[aps_pid].footer_center = "$f";
+printer[aps_pid].footer_center = "JEDFILENAME";
+printer[aps_pid].footer_right = "%s./%s#";
+printer[aps_pid].color = "bw";
+printer[aps_pid].pretty = "on";
+printer[aps_pid].print_cmd = strcat("lpr -P ", printer[aps_pid].name, " ", aps_tmp_file);
+printer[aps_pid].view_cmd = strcat("gv ", aps_tmp_file);
+printer[aps_pid].copy_of = 0;
+
+aps_pid++;
+printer[aps_pid].setup = "code, A3, 6pt, 3x2, simplex, CCB_3_F008_A3";
+printer[aps_pid].name = "CCB_3_F008_A3";
+printer[aps_pid].description = "Printer1";
+printer[aps_pid].columns = "3";
+printer[aps_pid].rows = "2";
+printer[aps_pid].fontsize = "6points";
+printer[aps_pid].chars = "80:132";
+printer[aps_pid].borders = "off";
+printer[aps_pid].orientation = "landscape";
+printer[aps_pid].medium = "A3";
+printer[aps_pid].sides = "1";
+printer[aps_pid].truncate = "on";
+printer[aps_pid].linenumbers = "5";
+printer[aps_pid].copies = "1";
+printer[aps_pid].major = "columns";
+printer[aps_pid].margin = "5";
+printer[aps_pid].header = "";
+printer[aps_pid].title_left = "";
+printer[aps_pid].title_center = "";
+printer[aps_pid].title_right = "";
+%printer[aps_pid].footer_left = "%e %*";
+printer[aps_pid].footer_left = "JEDDATETIME";
+%printer[aps_pid].footer_center = "$f";
+printer[aps_pid].footer_center = "JEDFILENAME";
+printer[aps_pid].footer_right = "%s./%s#";
+printer[aps_pid].color = "bw";
+printer[aps_pid].pretty = "on";
+printer[aps_pid].print_cmd = strcat("lpr -P ", printer[aps_pid].name, " -Z simplex ", aps_tmp_file);
+printer[aps_pid].view_cmd = strcat("gv ", aps_tmp_file);
+printer[aps_pid].copy_of = 0;
+
+aps_pid++;
+printer[aps_pid].setup = "text, A4, 8pt, 2x1, duplex, CCB_3_F008";
+printer[aps_pid].name = "CCB_3_F008";
+printer[aps_pid].description = "Printer 1";
+printer[aps_pid].columns = "2";
+printer[aps_pid].rows = "1";
+printer[aps_pid].fontsize = "8points";
+printer[aps_pid].chars = "80:100";
+printer[aps_pid].borders = "on";
+printer[aps_pid].orientation = "landscape";
+printer[aps_pid].medium = "A4";
+printer[aps_pid].sides = "2";
+printer[aps_pid].truncate = "on";
+printer[aps_pid].linenumbers = "0";
+printer[aps_pid].copies = "1";
+printer[aps_pid].major = "columns";
+printer[aps_pid].margin = "5";
+printer[aps_pid].header = "";
+printer[aps_pid].title_left = "";
+printer[aps_pid].title_center = "";
+printer[aps_pid].title_right = "";
+%printer[aps_pid].footer_left = "%e %*";
+printer[aps_pid].footer_left = "JEDDATETIME";
+%printer[aps_pid].footer_center = "$f";
+printer[aps_pid].footer_center = "JEDFILENAME";
+printer[aps_pid].footer_right = "%s./%s#";
+printer[aps_pid].color = "bw";
+printer[aps_pid].pretty = "off";
 printer[aps_pid].print_cmd = strcat("lpr -P ", printer[aps_pid].name, " ", aps_tmp_file);
 printer[aps_pid].view_cmd = strcat("gv ", aps_tmp_file);
 printer[aps_pid].copy_of = 0;
@@ -319,11 +434,12 @@ printer[aps_pid].copy_of = 0;
 %%%%%%%%%%%%%%%%%% MS Windows Printers %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 #ifdef MSWINDOWS
 aps_pid++;
-printer[aps_pid].setup = "printer setup name";
-printer[aps_pid].name = "printer name";
-printer[aps_pid].description = "Printer Description";
+printer[aps_pid].setup = "code, 2x1x2";
+printer[aps_pid].name = "PR6730";
+printer[aps_pid].description = "HP Postscript Printer, Convenience Center";
 printer[aps_pid].columns = "2";
 printer[aps_pid].rows = "1";
+printer[aps_pid].fontsize = "8points";
 printer[aps_pid].chars = "80:100";
 printer[aps_pid].borders = "on";
 printer[aps_pid].orientation = "landscape";
@@ -338,11 +454,184 @@ printer[aps_pid].header = "";
 printer[aps_pid].title_left = "";
 printer[aps_pid].title_center = "";
 printer[aps_pid].title_right = "";
+%printer[aps_pid].footer_left = "%e %*";
+%printer[aps_pid].footer_left = "%e";
 printer[aps_pid].footer_left = "JEDDATETIME";
+%printer[aps_pid].footer_center = "$f";
 printer[aps_pid].footer_center = "JEDFILENAME";
 printer[aps_pid].footer_right = "%s./%s#";
 printer[aps_pid].color = "bw";
 printer[aps_pid].pretty = "on";
+printer[aps_pid].print_cmd = strcat("D:\\Programs\\gstools\\gsview\\gsview32.exe ", aps_tmp_file);
+printer[aps_pid].view_cmd = strcat("D:\\Programs\\gstools\\gsview\\gsview32.exe ", aps_tmp_file);
+printer[aps_pid].copy_of = 0;
+
+aps_pid++;
+printer[aps_pid].setup = "code, 1x1x2";
+printer[aps_pid].name = "PR6730";
+printer[aps_pid].description = "HP Postscript Printer, Convenience Center";
+printer[aps_pid].columns = "1";
+printer[aps_pid].rows = "1";
+printer[aps_pid].fontsize = "8points";
+printer[aps_pid].chars = "80:100";
+printer[aps_pid].borders = "on";
+printer[aps_pid].orientation = "portrait";
+printer[aps_pid].medium = "A4";
+printer[aps_pid].sides = "2";
+printer[aps_pid].truncate = "off";
+printer[aps_pid].linenumbers = "5";
+printer[aps_pid].copies = "1";
+printer[aps_pid].major = "columns";
+printer[aps_pid].margin = "5";
+printer[aps_pid].header = "";
+printer[aps_pid].title_left = "";
+printer[aps_pid].title_center = "";
+printer[aps_pid].title_right = "";
+%printer[aps_pid].footer_left = "%e %*";
+%printer[aps_pid].footer_left = "%e";
+printer[aps_pid].footer_left = "JEDDATETIME";
+%printer[aps_pid].footer_center = "$f";
+printer[aps_pid].footer_center = "JEDFILENAME";
+printer[aps_pid].footer_right = "%s./%s#";
+printer[aps_pid].color = "bw";
+printer[aps_pid].pretty = "on";
+%printer[aps_pid].print_cmd = strcat("lpr -P ", printer[aps_pid].name, " ", aps_tmp_file);
+printer[aps_pid].print_cmd = strcat("D:\\Programs\\gstools\\gsview\\gsview32.exe ", aps_tmp_file);
+printer[aps_pid].view_cmd = strcat("D:\\Programs\\gstools\\gsview\\gsview32.exe ", aps_tmp_file);
+printer[aps_pid].copy_of = 0;
+
+aps_pid++;
+printer[aps_pid].setup = "text, 2x1x2";
+printer[aps_pid].name = "PR6730";
+printer[aps_pid].description = "HP Postscript Printer, Convenience Center";
+printer[aps_pid].columns = "2";
+printer[aps_pid].rows = "1";
+printer[aps_pid].fontsize = "8points";
+printer[aps_pid].chars = "80:100";
+printer[aps_pid].borders = "on";
+printer[aps_pid].orientation = "landscape";
+printer[aps_pid].medium = "A4";
+printer[aps_pid].sides = "2";
+printer[aps_pid].truncate = "off";
+printer[aps_pid].linenumbers = "0";
+printer[aps_pid].copies = "1";
+printer[aps_pid].major = "columns";
+printer[aps_pid].margin = "5";
+printer[aps_pid].header = "";
+printer[aps_pid].title_left = "";
+printer[aps_pid].title_center = "";
+printer[aps_pid].title_right = "";
+%printer[aps_pid].footer_left = "%e %*";
+%printer[aps_pid].footer_left = "%e";
+printer[aps_pid].footer_left = "JEDDATETIME";
+%printer[aps_pid].footer_center = "$f";
+printer[aps_pid].footer_center = "JEDFILENAME";
+printer[aps_pid].footer_right = "%s./%s#";
+printer[aps_pid].color = "bw";
+printer[aps_pid].pretty = "off";
+%printer[aps_pid].print_cmd = strcat("lpr -P ", printer[aps_pid].name, " ", aps_tmp_file);
+printer[aps_pid].print_cmd = strcat("D:\\Programs\\gstools\\gsview\\gsview32.exe ", aps_tmp_file);
+printer[aps_pid].view_cmd = strcat("D:\\Programs\\gstools\\gsview\\gsview32.exe ", aps_tmp_file);
+printer[aps_pid].copy_of = 0;
+
+aps_pid++;
+printer[aps_pid].setup = "text, 1x1x2";
+printer[aps_pid].name = "PR6730";
+printer[aps_pid].description = "HP Postscript Printer, Convenience Center";
+printer[aps_pid].columns = "1";
+printer[aps_pid].rows = "1";
+printer[aps_pid].fontsize = "8points";
+printer[aps_pid].chars = "80:100";
+printer[aps_pid].borders = "on";
+printer[aps_pid].orientation = "portrait";
+printer[aps_pid].medium = "A4";
+printer[aps_pid].sides = "2";
+printer[aps_pid].truncate = "off";
+printer[aps_pid].linenumbers = "0";
+printer[aps_pid].copies = "1";
+printer[aps_pid].major = "columns";
+printer[aps_pid].margin = "5";
+printer[aps_pid].header = "";
+printer[aps_pid].title_left = "";
+printer[aps_pid].title_center = "";
+printer[aps_pid].title_right = "";
+%printer[aps_pid].footer_left = "%e %*";
+%printer[aps_pid].footer_left = "%e";
+printer[aps_pid].footer_left = "JEDDATETIME";
+%printer[aps_pid].footer_center = "$f";
+printer[aps_pid].footer_center = "JEDFILENAME";
+printer[aps_pid].footer_right = "%s./%s#";
+printer[aps_pid].color = "bw";
+printer[aps_pid].pretty = "off";
+%printer[aps_pid].print_cmd = strcat("lpr -P ", printer[aps_pid].name, " ", aps_tmp_file);
+printer[aps_pid].print_cmd = strcat("D:\\Programs\\gstools\\gsview\\gsview32.exe ", aps_tmp_file);
+printer[aps_pid].view_cmd = strcat("D:\\Programs\\gstools\\gsview\\gsview32.exe ", aps_tmp_file);
+printer[aps_pid].copy_of = 0;
+
+aps_pid++;
+printer[aps_pid].setup = "PR6763_PCL color, A4, 2x1";
+printer[aps_pid].name = "PR6763_PCL";
+printer[aps_pid].description = "HP Color Inkjet, 114-E000";
+printer[aps_pid].columns = "2";
+printer[aps_pid].rows = "1";
+printer[aps_pid].fontsize = "8points";
+printer[aps_pid].chars = "80:100";
+printer[aps_pid].borders = "on";
+printer[aps_pid].orientation = "landscape";
+printer[aps_pid].medium = "A4";
+printer[aps_pid].sides = "1";
+printer[aps_pid].truncate = "off";
+printer[aps_pid].linenumbers = "5";
+printer[aps_pid].copies = "1";
+printer[aps_pid].major = "columns";
+printer[aps_pid].margin = "5";
+printer[aps_pid].header = "";
+printer[aps_pid].title_left = "";
+printer[aps_pid].title_center = "";
+printer[aps_pid].title_right = "";
+%printer[aps_pid].footer_left = "%e %*";
+%printer[aps_pid].footer_left = "%e";
+printer[aps_pid].footer_left = "JEDDATETIME";
+%printer[aps_pid].footer_center = "$f";
+printer[aps_pid].footer_center = "JEDFILENAME";
+printer[aps_pid].footer_right = "%s./%s#";
+printer[aps_pid].color = "color";
+printer[aps_pid].pretty = "on";
+%printer[aps_pid].print_cmd = strcat("lpr -P ", printer[aps_pid].name, " ", aps_tmp_file);
+printer[aps_pid].print_cmd = strcat("D:\\Programs\\gstools\\gsview\\gsview32.exe ", aps_tmp_file);
+printer[aps_pid].view_cmd = strcat("D:\\Programs\\gstools\\gsview\\gsview32.exe ", aps_tmp_file);
+printer[aps_pid].copy_of = 0;
+
+aps_pid++;
+printer[aps_pid].setup = "text, 1x1x2, Testfloor";
+printer[aps_pid].name = "PR6560";
+printer[aps_pid].description = "HP Postscript Printer, Testfloor C1";
+printer[aps_pid].columns = "1";
+printer[aps_pid].rows = "1";
+printer[aps_pid].fontsize = "8points";
+printer[aps_pid].chars = "80:100";
+printer[aps_pid].borders = "on";
+printer[aps_pid].orientation = "portrait";
+printer[aps_pid].medium = "A4";
+printer[aps_pid].sides = "2";
+printer[aps_pid].truncate = "off";
+printer[aps_pid].linenumbers = "0";
+printer[aps_pid].copies = "1";
+printer[aps_pid].major = "columns";
+printer[aps_pid].margin = "5";
+printer[aps_pid].header = "";
+printer[aps_pid].title_left = "";
+printer[aps_pid].title_center = "";
+printer[aps_pid].title_right = "";
+%printer[aps_pid].footer_left = "%e %*";
+%printer[aps_pid].footer_left = "%e";
+printer[aps_pid].footer_left = "JEDDATETIME";
+%printer[aps_pid].footer_center = "$f";
+printer[aps_pid].footer_center = "JEDFILENAME";
+printer[aps_pid].footer_right = "%s./%s#";
+printer[aps_pid].color = "bw";
+printer[aps_pid].pretty = "off";
+%printer[aps_pid].print_cmd = strcat("lpr -P ", printer[aps_pid].name, " ", aps_tmp_file);
 printer[aps_pid].print_cmd = strcat("D:\\Programs\\gstools\\gsview\\gsview32.exe ", aps_tmp_file);
 printer[aps_pid].view_cmd = strcat("D:\\Programs\\gstools\\gsview\\gsview32.exe ", aps_tmp_file);
 printer[aps_pid].copy_of = 0;
