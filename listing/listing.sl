@@ -353,8 +353,9 @@ public  define listing_map() % (scope, fun, [args])
 %\synopsis{Return an array of tagged lines.}
 %\usage{Array[String] listing_list_tags(scope=2, untag=0)}
 %\description
-%  Return an array of tagged lines. The lines will remain tagged.
-%  For a discussion of the scope parameter see \var{listing_map}
+%  Return an array of tagged lines.
+%  For a discussion of the \var{scope} and \var{untag} parameters 
+%  see \var{listing_map}
 %\seealso{listing_map, listing_mode, tag, tags_length}
 %!%-
 public  define listing_list_tags() % (scope=2, untag=0)
