@@ -362,7 +362,7 @@ define manedit_menu(menu) {  %{{{
 }
 %}}}
 
-define manedit_mode() {
+public define manedit_mode() {
   set_mode("manedit", 1);
   use_syntax_table("manedit");
   set_buffer_hook("par_sep", "manedit_parsep");
