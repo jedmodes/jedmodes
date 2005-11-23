@@ -19,6 +19,7 @@
 %                    empty lines (P. Boekholt)
 % 2005-03-31 1.9.7 * made slang-2 proof: A[[0:-2]] --> A[[:-2]]
 % 2005-11-08 1.9.8 * changed _implements() to implements()
+% 2005-11-23 1.9.9 * docu bugfix in listing_list_tags
 %                    
 % TODO:  * Shift-Click tags from point to Mousepoint
 %          may be also: right-drag tags lines
@@ -300,7 +301,7 @@ static define edit()
 %
 %\seealso{listing_mode, tag, list_tags}
 %!%-
- public define listing_map() % (scope, fun, [args])
+public  define listing_map() % (scope, fun, [args])
 {
    % get arguments
    variable scope, fun, args, buf = whatbuf();
@@ -350,13 +351,13 @@ static define edit()
 %!%+
 %\function{listing_list_tags}
 %\synopsis{Return an array of tagged lines.}
-%\usage{Array[String] listing_list_tags([scope])}
+%\usage{Array[String] listing_list_tags(scope=2, untag=0)}
 %\description
 %  Return an array of tagged lines. The lines will remain tagged.
 %  For a discussion of the scope parameter see \var{listing_map}
 %\seealso{listing_map, listing_mode, tag, tags_length}
 %!%-
- public define listing_list_tags() % (scope=2, untag=0)
+public  define listing_list_tags() % (scope=2, untag=0)
 {
    variable scope, untag;
    (scope, untag) = push_defaults(2, 0, _NARGS);
