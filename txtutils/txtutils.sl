@@ -26,6 +26,9 @@
 %  2.3.3 2005-10-14 * added documentation
 %  2.3.3 2005-11-21 * removed "public" from definitions of functions 
 %                     returning a value
+%  2.4   2005-11-24 * new function local_word_chars() that also probes
+%  	 	      mode_get_mode_info("word_chars")
+%  	 	      new (optional) arg 'lines' for get_buffer()
 
 
 % _debug_info = 1;
@@ -38,19 +41,52 @@ autoload("push_defaults", "sl_utils");
 %--- marking and regions ---------------------------------------------
 
 %!%+
+%\function{local_word_chars}
+%\synopsis{Return the locally valid set of word chars}
+%\usage{String local_word_chars()}
+%\description
+%  Returns the currently defined set of characters that constitute a word in
+%  the local context: (in order of preference)
+% 
+%    * the buffer local variable "Word_Chars"
+%    * the mode-info field "word_chars" (with \var{mode_get_mode_info})
+%    * the global definition (with \var{get_word_chars}).
+%\example
+%  Define a global set of word_chars with e.g.
+%#v+
+%  define_word("a-zA-Z")
+%#v-
+%  Define a mode-specific set of word_chars with e.g.
+%#v+
+%  mode_set_mode_info("word_chars", "a-zA-Z")
+%#v-
+%  Define a buffer-specific set of word_chars with e.g.
+%#v+
+%  define_blocal_var("word_chars", "a-zA-Z")
+%#v-
+%\seealso{}
+%!%-
+define local_word_chars()
+{
+   variable word_chars = get_blocal("Word_Chars");
+   if (word_chars != NULL)
+     return word_chars;
+   word_chars = mode_get_mode_info("word_chars");
+   if (word_chars != NULL)
+     return word_chars;
+   return get_word_chars();
+}
+  
+
+%!%+
 %\function{mark_word}
 %\synopsis{Mark a word}
-%\usage{ mark_word([word_chars], skip=0)}
+%\usage{ mark_word(word_chars=local_word_chars(), skip=0)}
 %\description
-% Mark a word as visible region. 
-% Get the idea of the characters a word is made of from (in order of 
-% preference):
-% 
-%    * the optional argument \var{word_chars},
-%    * the buffer local variable "Word_Chars", or
-%    * the jed function \var{get_word_chars}.
-% 
-% The optional argument \var{skip} tells how to skip non-word characters
+% Mark a word as visible region.  Get the idea of the characters
+% a word is made of from the optional argument \var{word_chars}
+% or  \var{local_word_chars}.  The optional argument \var{skip} tells how to
+% skip non-word characters:
 % 
 %   -1 skip backward
 %    0 don't skip (default)
@@ -58,12 +94,12 @@ autoload("push_defaults", "sl_utils");
 %    
 %\seealso{mark_line, get_word, define_word, define_blocal_var, push_visible_mark}
 %!%-
-public define mark_word() % ([word_chars], skip=0)
+public define mark_word() % (word_chars=local_word_chars(), skip=0)
 {
    variable word_chars, skip;
-   (word_chars, skip) = push_defaults(NULL, 0, _NARGS);
+   (word_chars, skip) = push_defaults( , 0, _NARGS);
    if (word_chars == NULL)
-     word_chars = get_blocal("Word_Chars", get_word_chars());
+     word_chars = local_word_chars();
    switch (skip)
      { case -1: skip_chars(word_chars);
 	bskip_chars("^"+word_chars); 
@@ -78,14 +114,14 @@ public define mark_word() % ([word_chars], skip=0)
 }
 
 % % mark a word (skip forward if between two words)
-% public define fmark_word() % fmark_word([word_chars])
+% public define fmark_word() % fmark_word(word_chars=local_word_chars())
 % {
 %    variable args = __pop_args (_NARGS);
 %    mark_word(__push_args(args), 1);
 % }
 
 % % mark a word (skip backward if not in a word)
-% public define bmark_word () % ([word_chars])
+% public define bmark_word () % (word_chars=local_word_chars())
 % {
 %    variable args = __pop_args (_NARGS);
 %    mark_word(__push_args(args), -1);
@@ -95,7 +131,7 @@ public define mark_word() % ([word_chars], skip=0)
 %!%+
 %\function{get_word}
 %\synopsis{Return the word at point as string}
-%\usage{String get_word([String word_chars], skip=0)}
+%\usage{String get_word(word_chars=local_word_chars(), skip=0)}
 %\description
 %  Return the word at point (or a visible region) as string.
 %  
@@ -103,19 +139,19 @@ public define mark_word() % ([word_chars], skip=0)
 %  and meaning of the optional arguments.
 %\seealso{bget_word, mark_word, define_word, push_visible_mark}
 %!%-
-define get_word() % ([word_chars], skip=0)
+define get_word() % (word_chars=local_word_chars(), skip=0)
 {
    % pass on optional arguments
-   variable args = __pop_args (_NARGS);
+   variable args = __pop_args(_NARGS);
    push_spot;
    !if (is_visible_mark)
-     mark_word (__push_args (args));
+     mark_word (__push_args(args));
    bufsubstr();
    pop_spot();
 }
 
 % % return the word at point as string (skip forward if between two words)
-% public define fget_word() %  ([word_chars])
+% public define fget_word() %  (word_chars=local_word_chars())
 % {
 %    variable word_chars = push_defaults( , _NARGS);
 %    get_word(word_chars(args), 1);
@@ -133,7 +169,7 @@ define get_word() % ([word_chars], skip=0)
 %  See \var{mark_word} for the "word finding algorithm"
 %\seealso{get_word, mark_word, define_word}
 %!%-
-define bget_word() %  ([word_chars])
+define bget_word() % (word_chars=local_word_chars())
 {
    variable word_chars = push_defaults( , _NARGS);
    get_word(word_chars, -1);
@@ -174,22 +210,31 @@ define get_line()
 %!%+
 %\function{get_buffer}
 %\synopsis{Return buffer as string}
-%\usage{String get_buffer(kill=0)}
+%\usage{String get_buffer(kill=0, lines=0)}
 %\description
 %  Return buffer as string. 
 %  If a visible region is defined, return it instead.
-%  The optional argument \var{kill} tells, whether the buffer/region 
-%  should be deleted in the process.
+%  If \var{kill} is not zero, the buffer/region will be deleted in the process.
+%  If \var{lines} is not zero, whole lines will be returned
 %\seealso{bufsubstr, push_visible_mark}
 %!%-
-define get_buffer() % (kill=0)
+define get_buffer() % (kill=0, lines=0)
 {
-   variable  kill;
-   kill = push_defaults(0,_NARGS);
+   variable  kill, lines;
+   (kill, lines) = push_defaults(0, 0, _NARGS);
 
    push_spot();
    !if(is_visible_mark())
      mark_buffer();
+   else if (lines)
+     {
+	check_region(0);
+	eol(); 
+	go_right_1();
+	exchange_point_and_mark();
+	bol();
+     }
+   
    if (kill)
      bufsubstr_delete(); % leave return value on stack
    else
@@ -225,10 +270,10 @@ public define indent_buffer()
 %\description
 %  Precede all lines in the buffer or a visible region with line numbers
 %\notes
-%  The numbers are not just shown, but actually inserted into the buffer. 
-%  You can remove them, e.g., by marking a region and calling 
-%  \var{kill_rect}.
-%\seealso{push_visible_mark}
+%  The numbers are not just shown, but actually inserted into the buffer.  
+%  Use \var{toggle_line_number_mode} (Buffers>Toggle>Line_Numbers) to show
+%  line numbers without inserting them in the buffer.
+%\seealso{set_line_number_mode, toggle_line_number_mode}
 %!%-
 public define number_lines ()
 {
@@ -347,6 +392,5 @@ define insert_block_markup(beg_tag, end_tag)
    insert_markup(beg_tag, end_tag);
    indent_region_or_line();
 }
-
 
 provide("txtutils");
