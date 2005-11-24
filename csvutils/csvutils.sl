@@ -7,7 +7,11 @@
 % We will call such a 2d-array of values a table
 %
 % Version    1.0 First public version
-% 2005-03-31 1.1 made slang-2 proof: A[[0:-2]] --> A[[:-2]]   
+% 2005-03-31 1.1 made slang-2 proof: A[[0:-2]] --> A[[:-2]]
+% 2005-11-24 1.2 new default "" for col_sep in get_table(), format_table()
+% 	         indent to beg-of-region and "wizard" for format_table()
+% 	         new function format_table_rect(): format the rectangular
+% 	         region as table.
 
 % requirements
 autoload("push_defaults", "sl_utils");
@@ -163,7 +167,7 @@ define strchop2d() % (str, col_sep='\t', line_sep='\n', quote=0)
 %!%+
 %\function{get_table}
 %\synopsis{Return a 2d-string-array with csv data in the region/buffer}
-%\usage{String get_table(col_sep=NULL, kill=0)}
+%\usage{String get_table(col_sep="", kill=0)}
 %\description
 % Return a 2d-string-array with the data in the region/buffer
 % The default col_sep==NULL means whitespace (any number of spaces or tabs).
@@ -172,45 +176,40 @@ define strchop2d() % (str, col_sep='\t', line_sep='\n', quote=0)
 %
 %\example
 %#v+
-%   get_table(" ")     columns are separated by single spaces
-%   get_table(" | ")   columns are separated by space-sourounded bars
-%   get_table(NULL)    columns are separated by whitespace (default)
+%   get_table(" ");   % columns are separated by single spaces
+%   get_table(" | "); % columns are separated by space-sourounded bars
+%   get_table("");    % columns are separated by any whitespace (default)
 %#v-
 %\seealso{strchop2d, format_table, insert_table}
 %!%-
-define get_table() % (col_sep=NULL, kill=0)
+define get_table() % (col_sep="", kill=0)
 {
    variable col_sep, kill;
-   (col_sep, kill) = push_defaults(NULL, 0, _NARGS);
+   (col_sep, kill) = push_defaults("", 0, _NARGS);
 
    variable cs, str;
 
-   str = get_buffer(kill);
+   str = get_buffer(kill, 1);
    % remove last newline, if present
    if (str[-1] == '\n')
      str = str[[:-2]];
 
-   if (typeof(col_sep) == String_Type)
-     {
-	if (strlen(col_sep) > 1)
+   if (col_sep == "") 
+     col_sep = "\t ";       % white-space delimited columns
+   else if (strlen(col_sep) == 1)
+     col_sep = col_sep[0];  % convert to Char_Type
+   else
+     {  % find an unused character -> use it as delimiter
+	cs = '~';
+	while (is_substr(str, char(cs)))
 	  {
-	     % find a unused character -> use it as delimiter
-	     cs = '~';
-	     while (is_substr(str, char(cs)))
-	       {
-		  cs++;
-		  if (cs > 255)
-		    error ("get_table: did not find unique replacement for multichar col_sep");
-	       }
-	     str = str_replace_all(str, col_sep, char(cs));
-	     col_sep = cs;
+	     cs++;
+	     if (cs > 255)
+	       error ("get_table: did not find unique replacement for multichar col_sep");
 	  }
-	else
-	  col_sep = col_sep[0];  % convert to Char_Type
+	str = str_replace_all(str, col_sep, char(cs));
+	col_sep = cs;
      }
-   if (col_sep == NULL) % white-space delimited columns
-     col_sep = "\t ";
-
    return strchop2d(str, col_sep, '\n', 0);
  }
 
@@ -265,21 +264,21 @@ define strjoin2d() %(a, col_sep="\t", line_sep="\n", align=NULL)
 %\description
 %   The function takes an 2d-array and writes it as an aligned table.
 %   The \var{col_sep} argument is a string to separate the items on a line,
-%   it defaults to " \t" (whitespace).
+%   it defaults to " " (space).
 %   The \var{align} argument is a string formed of the charaters:
 %     "l": left align,
 %     "r": right align,
 %     "c": center align, or
-%     " ": no align (actually every character other than "lrc"),
+%     "n": no align (actually every character other than "lrc"),
 %   one for each column. If the string is shorter than the number of columns,
 %   it will be repeated, i.e. if it contains only one character, the
 %   align is the same for all columns)
 %\example
 %   The call
 %#v+
-%       insert_table(a, "|", "llr ");
+%       insert_table(a, " | ", "llrn");
 %#v-
-%   inserts \var{a} as a table with elements separated by "|" and
+%   inserts \var{a} as a table with elements separated by " | " and
 %   first and second columns left aligned, third column right aligned
 %   and last column not aligned.
 %\seealso{get_table, strjoin2d, strjoin}
@@ -296,34 +295,96 @@ define insert_table() %(a, align="l", col_sep=" ")
 %!%+
 %\function{format_table}
 %\synopsis{Adjust a table to evenly spaced columns}
-%\usage{ format_table(col_sep=NULL, align="l", new_sep=col_sep)}
+%\usage{ format_table(col_sep="", align="l", new_sep=col_sep)}
 %\description
-%  Read a table into a 2d array, reformat and insert again.
-%  \var{col_sep} the string separating columns (defaults to all whitespace)
-%  \var{align} a string formed of the charaters:
-%     "l": left align,
-%     "r": right align,
-%     "c": center align, or
-%     " ": no align (actually every character other than "lrc"),
-%   one for each column. If the string is shorter than the number of columns,
-%   it will be repeated, i.e. if it contains only one character, the
-%   align is the same for all columns
-%  \var{new_col_sep} a string to separate the items on a line,
+%  Read a table into a 2d array, reformat and insert again. 
+%  The indention of the whole table is determined by the point or mark
+%  (whichever is more left) if a visible region is defined.
+%  If the arguments are not given, they will be asked for in the minibuffer:
+%    \var{col_sep}:     the string separating columns (default "" means whitespace)
+%    \var{align}:       string of "l", "r", "c", or "n" (see \var{insert_table})
+%    \var{new_col_sep}: string to separate the columns in the output.
 %\seealso{get_table, insert_table}
 %!%-
-public define format_table() % (col_sep=" \t", align="l", new_sep=col_sep)
+public define format_table() % (col_sep=" \t", align="l", new_sep=" ")
 {
    % optional arguments
    variable col_sep, align, new_sep;
-   (col_sep, align, new_sep) = push_defaults(NULL, "l", NULL, _NARGS);
+   (col_sep, align, new_sep) = push_defaults( ,  , , _NARGS);
+   if (col_sep == NULL)
+     col_sep = read_mini("Column separator (leave empty for 'whitespace'):", "", "");
+   if (align == NULL)
+     align = strlow(read_mini("Column alignment (Left Right Center None):", "", "l"));
    if (new_sep == NULL)
-     new_sep = col_sep;
-   if (new_sep == NULL)
-     new_sep = " ";
+     {  % set default
+        if (col_sep != "")
+          new_sep = col_sep;
+        else
+          new_sep = " ";
+        new_sep = read_mini("Output column separator:", "", new_sep);
+     }
+   
+   % get indention (least indention of region)
+   variable indent = 1;
+   if (is_visible_mark){
+      indent = what_column();
+      exchange_point_and_mark();
+      if (what_column() < indent)
+	indent = what_column();
+   }
 
    variable a = get_table(col_sep, 1); % delete after reading
+   
+   push_mark();
    insert_table(a, align, new_sep);
+
+   goto_column(indent);
+   open_rect();
 }
+
+%!%+
+%\function{format_table_rect}
+%\synopsis{Format the contents of the rectangle as table}
+%\usage{ format_table_rect(col_sep=" \t", align="l", new_sep=" ")}
+%\description
+% This functions calls \var{format_table} on a rectangle. A rectangle is
+% defined by the diagonal formed by the mark and the current point.
+%\seealso{format_table, kill_rect, insert_rect}
+%!%-
+public define format_table_rect() % (col_sep=" \t", align="l", new_sep=" ")
+{
+   variable args = __pop_args(_NARGS), buf = whatbuf(), 
+   tmpbuf = make_tmp_buffer_name("*format_table_rect*");
+   check_region();
+   exchange_point_and_mark();
+   kill_rect();
+   sw2buf(tmpbuf);
+   erase_buffer();  % paranoia
+   insert_rect();
+   
+   format_table(__push_args(args));
+      
+   % ensure to get everything into the returning rect
+   variable longest_line = 0;
+   bob;
+   push_mark();
+   do
+     {
+        eol();
+	if (what_column() > longest_line)
+	  longest_line = what_column();
+     }
+   while (down_1);
+   go_up_1();
+   goto_column(longest_line);
+   
+   kill_rect();
+   set_buffer_modified_flag(0);
+   % delbuf(tmpbuf);
+   sw2buf(buf);
+   insert_rect();
+}
+
 
 % Compute number of columns that fit into \var{width}
 % when a list \var{a} is rearranged as aligned 2d array
