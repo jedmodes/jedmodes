@@ -12,6 +12,7 @@
 % 	         indent to beg-of-region and "wizard" for format_table()
 % 	         new function format_table_rect(): format the rectangular
 % 	         region as table.
+% 2005-11-25 1.2.1 new functions max_column() and goto_max_column()
 
 % requirements
 autoload("push_defaults", "sl_utils");
@@ -104,6 +105,10 @@ public define buffer_compress(white)
    pop_spot();
 }
 
+
+% Tables
+% ------
+
 %!%+
 %\function{spaces2tab}
 %\synopsis{"Normalize" whitespace delimited data}
@@ -189,7 +194,7 @@ define get_table() % (col_sep="", kill=0)
 
    variable cs, str;
 
-   str = get_buffer(kill, 1);
+   str = get_buffer(kill, 1);  % (kill, get a region line-wise)
    % remove last newline, if present
    if (str[-1] == '\n')
      str = str[[:-2]];
@@ -343,6 +348,67 @@ public define format_table() % (col_sep=" \t", align="l", new_sep=" ")
 }
 
 %!%+
+%\function{max_column() }
+%\synopsis{Return maximal column number of the buffer (or region)}
+%\usage{Integer max_column(trim=0)}
+%\description
+% Returns the length of the longest line of the buffer (or, if visible,
+% region). If the optional parameter \var{trim} is nonzero, trailing
+% whitespace will be removed during the scan.
+%\seealso{goto_max_column, what_column}
+%!%-
+public define max_column()
+{
+   variable trim = push_defaults(0, _NARGS);
+   variable max_col = 0, mark_visible = is_visible_mark();
+   
+   if (mark_visible)
+     narrow();
+   push_spot_bob();
+   do
+     {
+	eol();
+	if (trim)
+	  trim();
+	if (what_column() > max_col)
+	  max_col = what_column();
+     }
+   while (down_1);
+   pop_spot;
+   if (mark_visible)
+     widen();
+   return (max_col);
+}
+
+
+%!%+
+%\function{goto_max_column}
+%\synopsis{Goto the maximal column of the buffer (or region)}
+%\usage{goto_max_column()}
+%\description
+% Goto the column of the longest line of the buffer (or, if visible, region).
+% Insert whitespace if needed. The region stays marked.
+% 
+% If the optional parameter \var{trim} is nonzero, trailing
+% whitespace will be removed during the scan.
+%\notes
+% This function comes handy, if you want to mark a rectagle but
+% the last line is shorter than preceding lines.
+%\seealso{max_column, goto_column, copy_rect}
+%!%-
+public define goto_max_column()
+{
+   variable trim = push_defaults(0, _NARGS);
+   if (is_visible_mark)
+     { % duplicate visible mark
+	exchange_point_and_mark();
+	push_visible_mark();
+	exchange_point_and_mark();
+     }
+   goto_column(max_column(trim))
+}
+
+%!%+
 %\function{format_table_rect}
 %\synopsis{Format the contents of the rectangle as table}
 %\usage{ format_table_rect(col_sep=" \t", align="l", new_sep=" ")}
@@ -364,20 +430,8 @@ public define format_table_rect() % (col_sep=" \t", align="l", new_sep=" ")
    
    format_table(__push_args(args));
       
-   % ensure to get everything into the returning rect
-   variable longest_line = 0;
-   bob;
-   push_mark();
-   do
-     {
-        eol();
-	if (what_column() > longest_line)
-	  longest_line = what_column();
-     }
-   while (down_1);
-   go_up_1();
-   goto_column(longest_line);
-   
+   goto_max_column();
+     
    kill_rect();
    set_buffer_modified_flag(0);
    % delbuf(tmpbuf);
