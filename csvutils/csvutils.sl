@@ -13,6 +13,7 @@
 % 	         new function format_table_rect(): format the rectangular
 % 	         region as table.
 % 2005-11-25 1.2.1 new functions max_column() and goto_max_column()
+% 2005-11-28 1.2.2 bugfix in goto_max_column() (report P. Boekholt)
 
 % requirements
 autoload("push_defaults", "sl_utils");
@@ -357,7 +358,7 @@ public define format_table() % (col_sep=" \t", align="l", new_sep=" ")
 % whitespace will be removed during the scan.
 %\seealso{goto_max_column, what_column}
 %!%-
-public define max_column()
+define max_column()
 {
    variable trim = push_defaults(0, _NARGS);
    variable max_col = 0, mark_visible = is_visible_mark();
@@ -401,11 +402,13 @@ public define goto_max_column()
    variable trim = push_defaults(0, _NARGS);
    if (is_visible_mark)
      { % duplicate visible mark
-	exchange_point_and_mark();
-	push_visible_mark();
-	exchange_point_and_mark();
-     }
-   goto_column(max_column(trim))
+	push_spot();
+        pop_mark_1();
+        loop (2)
+          push_visible_mark();
+        pop_spot();
+     }                        
+   goto_column(max_column(trim));
 }
 
 %!%+
