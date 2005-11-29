@@ -42,6 +42,9 @@
 % 2005-11-23  1.5   added documentation for public functions and custom vars
 %                   new function filelist_open_tagged() (initiated by T. Koeckritz)
 %                   removed dependency on grep.sl (now recommandation)
+% 2005-11-25  1.5.1 bugfix: mark directories and cleanup again
+% 	      	    code cleanup regarding FileList_Cleanup
+% 
 %
 % TODO: * more bindings of actions: filelist_cua_bindings
 % 	* detailed directory listing (ls -l)
@@ -147,7 +150,7 @@ custom_variable("FileList_KeyBindings", "mc");
 %  Close the directory listing when opening a file/dir from it?
 %  
 %    0 keep open,
-%    1 close when going to a directory, 
+%    1 close when going to a new directory, 
 %    2 always close, 
 %\seealso{filelist_mode}
 %!%-
@@ -375,6 +378,7 @@ static define filelist_delete_file(line)
    if (strlen(FileList_Trash_Bin))
        return filelist_rename_file(line, FileList_Trash_Bin);
    if (file_status(file) == 2)
+     % TODO: warn if dir is not empty
      () = rmdir(file);
    else
      () = delete_file(file);
@@ -388,9 +392,9 @@ static define filelist_delete_file(line)
 %\description
 %  Delete (or move to Trash_Bin) current or tagged files.
 %\notes
-%  If \var{FileList_Trash_Bin} is "" (default), only files can be deleted,
-%  no directories.  
-%\seealso{filelist_mode, filelist_copy_tagged, FileList_Action_Scope}
+%  If \var{FileList_Trash_Bin} is "" (default), directories can only be
+%  deleted if they are empty.
+%\seealso{filelist_mode, filelist_rename_tagged, FileList_Action_Scope}
 %!%-
 public  define filelist_delete_tagged()
 {
@@ -400,7 +404,6 @@ public  define filelist_delete_tagged()
      % not a directory, ask for another
      FileList_Trash_Bin = expand_filename(read_with_completion
      ("Trash Bin (leave empty for real delete)", "", FileList_Trash_Bin, 'f'));
-   % TODO: delete directories
    () = chdir(buffer_dirname());
    listing_map(FileList_Action_Scope, &filelist_delete_file);
    help_message();
@@ -441,23 +444,19 @@ public  define filelist_list_dir() % ([dir], ls_cmd="listdir")
    % get optional arguments
    variable dir, ls_cmd;
    (dir, ls_cmd) = push_defaults( , "listdir", _NARGS);
+   
+   variable calling_dir = buffer_dirname();
+   
    if (dir == NULL)
      dir = read_with_completion("Open directory:", "", "", 'f');
-
-   % append trailing directory separator
+   % make sure there is a trailing directory separator
    dir = path_concat(dir, "");
    % expand relative paths
    dir = expand_filename(path_concat(buffer_dirname(), dir));
    if (file_status(dir) != 2)
      error(dir + " is not a directory");
-
-   variable calling_dir = buffer_dirname();
-   % eventually close the calling buffer
-   if (get_blocal("FileList_Cleanup", 0))
-     close_buffer();
    % create (or reuse) the buffer
    popup_buffer(dir);
-   % () = chdir(dir);
    setbuf_info("", dir, dir, 0);
    erase_buffer();
 
@@ -470,7 +469,7 @@ public  define filelist_list_dir() % ([dir], ls_cmd="listdir")
 	insert("..\n");
 	insert(strjoin(files, "\n"));
 	do
-	  if (file_status(line_as_string()) == 2)
+	  if (file_status(dir + line_as_string()) == 2)
 	      insert(Dir_Sep);
 	while (up_1());
      }
@@ -479,13 +478,11 @@ public  define filelist_list_dir() % ([dir], ls_cmd="listdir")
 	shell_perform_cmd(ls_cmd,1);
 	% write_table([[8,[0:7],[9:length($1)-1]],*])
      }
-
    bob;
    % set point to the previous directory (when going up or using navigate_back)
    (calling_dir, ) = strreplace (calling_dir, buffer_dirname(), "", 1);
    () = fsearch(calling_dir);
 
-   define_blocal_var("FileList_Cleanup", FileList_Cleanup);
    define_blocal_var("generating_function", [_function_name, dir]);
    fit_window(get_blocal("is_popup", 0));
    filelist_mode();
@@ -517,8 +514,8 @@ public  define filelist_list_base_dir()
 % Open the file (or directory) in the current line in a buffer.
 % If scope != 0, open tagged files (see \var{FileList_Action_Scope})
 %\notes
-% If in a listing, the filename is not in the first position, 
-% the generating function should set the blocal variables
+% If the filename is not the first whitespace delimited token in the line,
+% the function generating the list must set the blocal variables
 %   "filename_position" (counting from 0) and 
 %   "delimiter"         (Char_Type, default == NULL, meaning 'whitespace')
 %\seealso{filelist_mode, FileList_Cleanup}
@@ -527,10 +524,8 @@ public  define filelist_open_file() % (scope=0)
 {
    variable scope = push_defaults(0, _NARGS);
    variable buf = whatbuf(), bufdir = buffer_dirname();
-   variable cleanup = get_blocal("FileList_Cleanup", 0);
    variable line, tag_lines = listing_list_tags(scope, 1);
-
-   FileList_Cleanup = 0; % unset to avoid multiple closings
+   variable open_dir = 0;
    
    foreach (tag_lines)
      {
@@ -542,8 +537,11 @@ public  define filelist_open_file() % (scope=0)
         filename = path_concat(bufdir, filename);
         
         % open the file or directory
-        if (file_status(filename) == 2) % directory
-          filelist_list_dir(filename);
+        if (file_status(expand_filename(filename)) == 2) % directory
+	  {
+	     open_dir = 1;
+	     filelist_list_dir(filename);
+	  }
         else if (andelse % tar archive
            {is_defined("check_for_tar")} % optional fun from tarhooks.sl
              {runhooks("check_for_tar", filename)}
@@ -556,9 +554,8 @@ public  define filelist_open_file() % (scope=0)
           goto_line(line_no);
      }
    % eventually close the calling buffer
-   if (cleanup >= 2 or (cleanup and file_status(filename) == 2))
+   if (FileList_Cleanup + open_dir >= 2)
      close_buffer(buf);
-   FileList_Cleanup = cleanup;  % restore
 }
 
 
@@ -611,19 +608,16 @@ public  define filelist_open_file_with() % (ask = 1)
 
    filename = extract_filename(listing_list_tags(0)[0]);
    extension = path_extname(filename);
+   % double extensions:
    if (extension == ".gz") % some programs can handle gzipped files
      extension = path_extname(path_sans_extname(filename)) + extension;
    
-   % check for directory
-   if (file_status(filename) == 2) 
-     return filelist_list_dir(filename);
-   
    cmd = FileList_Default_Commands[extension];
    if (ask)
-     cmd = read_mini(sprintf("Open %s with (Leave empty to open with jed):",
+     cmd = read_mini(sprintf("Open %s with (Leave empty to open in jed):",
 			     filename), cmd, "");
 
-   !if (strlen(cmd))
+   if (cmd == "")
      return filelist_open_file();
 
    () = chdir(buffer_dirname());
