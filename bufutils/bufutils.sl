@@ -47,7 +47,8 @@
 % 	           will reset the buffer's ctime field if the changed-on-disk
 % 	           flag is reset
 % 2005-11-21 1.8.5 removed public from popup_buffer() definition
-
+% 2005-11-25 1.8.6 bugfix in close_buffer(): 
+%                  switch back to current buffer if closing an different one
 
 % _debug_info = 1;
 
@@ -260,19 +261,19 @@ public define fit_window () % fit_window(max_rows = 1.0)
 %\usage{ Void close_buffer(buf = whatbuf())}
 %\description
 %   Close the current (or given) buffer.
-%   Run the blocal "close_buffer_hook" ( if (buf == whatbuf) )
-%\seealso{delbuf, close_window, popup_buffer}
+%   Run the blocal "close_buffer_hook"
+%\seealso{delbuf, close_window, popup_buffer, set_blocal_var}
 %!%-
 public define close_buffer() % (buf = whatbuf())
 {
-   % optional argument
    variable buf = push_defaults(whatbuf(), _NARGS);
-
    variable currbuf = whatbuf();
-   if (buf != currbuf)
-     setbuf(buf);
+   
+   sw2buf(buf);
    run_blocal_hook("close_buffer_hook", buf);
    delbuf(buf);
+   if (bufferp(currbuf))
+     sw2buf(currbuf);
 }
 
 % close buffer in second window if there are two windows
