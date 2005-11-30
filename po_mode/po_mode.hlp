@@ -1,0 +1,456 @@
+                     ***KEYBINDINGS FOR PO_MODE***
+
+          NAVIGATION:                              MODIFICATION:
+
+b        - scroll up one page        _             - undo
+f        - next fuzzy                TAB           - edit entry
+F        - previous fuzzy            ENTER         - edit entry
+@        - show current entry no.    w             - copy msgstr
+g        - go to entry number        y             - insert msgstr
+l        - toggle limited view       Backspace     - flag entry fuzzy or
+n        - next entry                                obsolete entry if already
+o        - next obsolete                             fuzzy
+O        - previous obsolete         ESC-Backspace - remove fuzzy flag
+p        - previous entry            ctrl-? F      - flag all entries fuzzy
+t        - next translated           ESC-Enter     - copy msgid to msgstr
+T        - previous translated       DEL           - delete obsolete entry
+u        - next untranslated         E             - edit entire file
+U        - previous untranslated     H             - replace headers
+ESC-#    - next translator comment   K             - cut msgstr
+.        - top justify entry         R             - replace in msgstrs
+                                     #             - edit translator comment
+                                     ctrl-? #      - remove translator comment
+          COMPENDIUMS:             
+                                   
+B        - add buffer to comp.                     MISC:
+I        - init. w/compendium(s)   
++        - make current translation  c             - compile *.po -> *.mo
+           preferred in compendium   C             - decompile *.mo -> *.po
+*        - get fuzzily matching      G             - grep in source dir
+           translation from comp.    ctrl-? s      - spell check po-file
+ctrl-? d - add dir to compendium     M             - mail team or robot
+                                     s             - view source reference
+                                     S             - set source path
+          WORDLISTS:                 V             - validate file
+                                     ctrl-? E      - change encoding
+d        - look up word in           ctrl-? u      - update po-file
+           wordlist(s)               \             - toggle wrapping
+D        - look up all words in      =             - po statistics
+           wordlists(s)              ?             - show this help file
+ctrl-d   - look up definitions     
+           for a word in all DICT  
+           dictionaries            
+
+
+                  
+                  ***KEYBINDINGS FOR PO_EDIT_MODE***
+
+
+TAB            - finish editing entry
+ctrl-? ctrl-c  - finish editing entry
+ctrl-? ctrl-k  - discard changes
+ESC +          - increase msgstr window
+ESC -          - decrease msgstr window
+
+
+NOTE: The question mark in the ctrl-? sequence refers to the binding
+for the letter in the reserved key prefix which varies with
+emulations. For Emacs and Jed emulations it is 'c' so you can exchange
+ctrl-? with ctrl-c in the key bindings above.
+                    
+                    
+                    ***MOUSE ACTIONS IN PO_MODE***
+
+- left button double click: look up translation for word at mouse point in
+  wordlist. May only work in xjed.
+
+
+                     2. Optional Helper Programs:
+
+- spellutils (http://home.worldonline.dk/byrial/spellutils/)
+  usually available as a rpm/deb package.
+
+- aspell or ispell
+
+- the gettext package (msgfmt, msgcat, msgmerge, msgconv, etc.)
+
+- grep.sl (necessary for grepping in source directory)
+  available from http://jedmodes.sourceforge.net/mode/grep/
+
+- the dict client and server programs plus one or more dictionaries
+
+- the file(1) utility
+
+                      3.  Notes on Customization:
+
+You should copy/paste the following block of variables into your .jedrc
+and edit their values to match your own settings. Here they are
+exemplified with mine:
+
+---- copy/paste begin -----
+
+%% User variables specific for po_mode
+
+variable
+  Translator                  = "Morten Bo Johansen <mojo@mbjnet.dk>",
+  Language                    = "Danish",
+  Team_Email                  = "<dansk@klid.dk>",
+  Charset                     = "iso-8859-1",
+  Nplurals                    = "2",
+  Plural                      = "(n != 1)",
+  Spell_Prg                   = "aspell",
+  Spell_Dict                  = "dansk",
+  Compendium                  = "/home/mojo/l10n/compendium_pomode",
+  Compendium_Gettext          = "/home/mojo/l10n/compendium_gettext",
+  Custom_Wordlist             = "/home/mojo/l10n/wordlist_pomode",
+  Dict_Dictionary             = "fd-eng-swe",
+  Revise_Date                 = 1,
+  Gettext_Use_Fuzzy           = 0,
+  Use_Compendium              = 3,
+  Use_Wordlist                = 3,
+  Dict_Minimum_Wordsize       = 4;
+
+%% Other useful variables
+
+variable
+  GrepCommand = "grep -H -n -r -i",
+  Dabbrev_Default_Buflist = 1,
+  Dabbrev_Look_in_Folds = 1;
+
+---- copy/paste end -----
+
+Explanation of the user variables:
+
+- Translator: full name and email address of you, the translator.
+
+- Language: your language - use English adjective, e.g. "German".
+
+- Team_Email: email address of your language team.
+
+- Charset: the default character set encoding in the header of the po-file
+           also used as encoding in the gettext compendium.
+
+- Nplurals: if po-file has plural forms: how many plural forms does your
+            language have? See /usr/share/doc/gettext-doc/gettext_10.html#SEC1.
+
+- Plural: See /usr/share/doc/gettext-doc/gettext_10.html#SEC1.
+
+- Spell_Prg: program to use for spell checking, use "ispell" or "aspell".
+
+- Spell_Dict: language dictionary for ispell/aspell,
+              (e.g. "deutsch" for German).
+
+- Compendium: path to native compendium file.
+
+- Compendium_Gettext: path to gettext compendium file, created with msgcat.
+
+- Custom_Wordlist: name and path of custom wordlist.
+
+- Dict_Dictionary: you must set the dict dictionary to use, you can get
+                   a listing of installed dictionaries with the shell
+                   command "dict -D".
+
+- Revise_Date: set revision date when saving: 0 = ask, 1 = always.
+
+- Gettext_Use_Fuzzy: if fuzzy matching is used with gettext compendiums.
+
+- Use_Compendium: what compendium(s) to use:
+                  1 = native po_mode compendium
+                  2 = gettext compendium
+                  3 = both
+
+- Use_Wordlist: what wordlist(s) to use:
+                1 = custom wordlist
+                2 = dict freedict translation dictionary
+                3 = both
+
+- Dict_Minimum_Wordsize: do not query dictd server for words less
+                         than n characters.
+
+                            4. Mode Hooks:
+
+There are two mode_hooks that may be used to control some settings
+relating to the po_mode and po_edit_mode buffers respectively. Thus in
+your .jedrc you might insert e.g.:
+
+   define po_mode_hook ()
+    {
+       use_dfa_syntax (1);
+    }
+
+   define po_edit_mode_hook ()
+    {
+       ispell_change_dictionary ("deutsch");
+       flyspell_mode;
+    }
+
+The former enables DFA syntax highlighting that conveniently draws
+attention to important things like blank space at beginning/end of
+lines and newline literals.
+
+                  5. Notes On Editing (po_edit mode):
+
+To a large extent this mode is emulating the Emacs po-mode, and as you
+may see from the key bindings above, the library actually contains two
+modes: when you read the po-file into the editor, you are in "po_mode"
+and the file is read-only. When you edit an entry, a new buffer is
+opened and you enter "po_edit_mode" where you are actually filling in
+the translation or editing an existing translation.
+
+The entries are either single-line or multi-line strings. Multi-line
+strings are always terminated at the point at which they are to be
+wrapped by the C-like newline escape character "\n". If there is one
+or more of these escape sequences in the msgid, it is a multi-line
+string. Thus the two types of strings may look like this:
+
+  Example single-line string:
+
+  msgid ""
+  "You may also specify modifaction to the actions which will be taken.  To do "
+  "so, type an action character followed by one or more package names (or "
+  "patterns).  The action will be applied to all the packages that you list. "
+  "The following actions are available:"
+
+  Example multi-line string:
+
+  msgid ""
+  "Usage: %s [OPTION]... [FILE]...\n"
+  "\n"
+  "Convert FILE(s) or standard input to PostScript.\n"
+  "\n"
+  "Mandatory arguments to long options are mandatory for short options too.\n"
+  "Long options marked with * require a yes/no argument, corresponding\n"
+  "short options stand for `yes'.\n"
+
+For single-line strings, just type along with the line being wrapped
+at column 78 and with a single space being inserted automatically at
+the end of the line, so you can follow what you're typing in. Do not
+use the enter-key here at all (it is disabled actually).
+
+For multi-line strings always use the enter-key to break the line at
+the point where you want the newline literal "\n" to be inserted.  Do
+not insert trailing newline literals or spaces. They are inserted
+automatically when you leave the po_edit buffer.
+
+For multi-line strings a hyphen (-) is inserted into the end of
+the po_edit buffer to draw your attention to where this is.
+
+To repeat: In general you do not need to worry about anything relating
+to the formatting of the message string, it is all taken care of
+automatically which means that newline literals "\n" are inserted in
+the right places, embedded double quotes are escaped and
+word-delimiting whitespace at the end of wrapped lines is inserted.
+
+                          6. Spell Checking:
+
+Keeping your work free from misspellings is an essential part of the
+work of a translator, and if you installed spellutils as mentioned
+above, you can spell check the entire po-file, isolating the msgstrs
+from within po_mode (typing ctrl-c s). Alternatively there is a cool
+mode called flyspell.sl available from
+http://jedmodes.sourceforge.net/ that will highlight misspelled words
+as you go ("on the fly"). Installing this mode and translating into
+e.g. German, you can put these two lines into your po_edit_mode_hook:
+
+   ispell_change_dictionary ("deutsch");
+   flyspell_mode;
+
+                            7. Compendiums:
+
+Compendiums are files with translatable strings and their accompanying
+translations. They are used as a reference whence to fetch
+translations and merge them into the current po-buffer. Gettext
+compendiums are in the gettext po-file format and the msgmerge program
+from the gettext utilities is being used to fetch translations from
+the compendium and merge them with a po-file. Msgmerge's matching of
+msgids can be exact and/or fuzzy. I think the fuzzy matching is too
+far off the mark so as to be really usable and it is also slow.
+Therefore I have added a native compendium which is in a different
+format. It is reasonably fast both to update and to fetch translations
+from and has a sort of fuzzy matching which leaves out punctuation,
+special characters, whitespace and newline literals in the comparison,
+in addition to being case-insensitive. So I should recommend the
+following settings in your .jedrc
+
+  variable Gettext_Use_Fuzzy = 0;
+  variable Use_Compendium = 3;
+
+The first ensures that only exact matching is used when getting
+translations from the gettext compendium, and the second ensures that
+both the gettext and the native compendiums are updated as well as
+translations being fetched from both. Entries filled out with
+translations fetched from the native compendium are flagged fuzzy.
+Thus, translations for all exactly matching msgids found in the
+gettext compendium are entered, in addition to all fuzzily matching
+msgids found in the native compendium. The exact matches will always
+take precedence.
+
+Menu items are available to update compendiums with the contents of
+the current buffer or to update the compendium with a directory of
+po-files. In the latter case only files with the ".po" extension will
+be added and an integrity check will be done on each file before it is
+added to the list of files to go into the compendium.
+
+When updating the Gettext compendium, you will be asked if you want to
+overwrite matching entries in the compendium. Answering yes here will
+let translations in the updating file(s) for msgids matching those in
+the compendium be overwritten. Conversely, answering no will keep
+translations in the compendium for matching msgids intact.
+
+If you feel that a translation fetched from the compendium is
+annoying, you can either edit the compendium manually or you can just
+modify the translation to your liking and then hit '+' in po-mode,
+then the new translation will overwrite the old one in the compendium
+and be used for the future. You can also update the compendium as per
+above by letting the entries be overwritten when you have finished
+editing the file.
+
+Fuzzily matching translations from the gettext compendium for a single
+entry may be fetched by typing "*". The matching is rather crude; it
+only matches the 20 first characters in the msgid as a substring in
+msgids in the compendium and stops at the first match.
+
+                            8.  Wordlists:
+
+Translations for words or phrases can be looked up either in a custom
+wordlist or in a freedict translation dictionary. Lookups in the two types
+of wordlists can be combined. You make the lookup by double clicking on a
+word with the mouse or by typing 'd' on a word. Double clicking may only
+work in xjed. If you have marked a region, a lookup for the phrase in that
+region will be performed. If a translation is found, you will be presented
+with a default translation. If you hit <tab> you will see a list of possible
+translations in case there is more than one. You can cycle between them with
+<space>. Hitting <return> will then insert the translation into the msgstr
+or into the po_edit buffer if you are in po_edit mode. Ctrl-g cancels.
+
+                  8.1. Format of the Custom Wordlist:
+
+The custom wordlist assumes the following line format:
+
+   word_to_translate:  translation_1, translation_2, translation_3, [...]
+
+i.e. the word to translate followed by a colon followed by one or more
+spaces and/or tabs followed by a comma-separated list of translations.
+Entries might look like this in a wordlist with some Danish translations:
+
+   memory:              hukommelse, internt lager
+   memory exhausted:    hukommelse opbrugt
+   memory leak:         hukommelseslæk
+
+The custom wordlist is chiefly meant to be a compilation of translations of
+technical or special words/terms that you or your language team maintain
+yourself.
+
+                8.2. Freedict Translation Dictionaries:
+
+The dict lookup function is designed to work with the freedict translation
+dictionaries. Currently (as of October 2005) the following
+English-<otherlanguage> dictionaries exist - with the Debian package names
+to the left:
+
+  dict-freedict-eng-deu           - Dict package for English-German
+  dict-freedict-eng-fra           - Dict package for English-French
+  dict-freedict-eng-hun           - Dict package for English-Hungarian
+  dict-freedict-eng-iri           - Dict package for English-Irish
+  dict-freedict-eng-ita           - Dict package for English-Italian
+  dict-freedict-eng-lat           - Dict package for English-Latin
+  dict-freedict-eng-nld           - Dict package for English-Netherlands
+  dict-freedict-eng-por           - Dict package for English-Portuguese
+  dict-freedict-eng-rus           - Dict package for English-Russian
+  dict-freedict-eng-spa           - Dict package for English-Spanish
+  dict-freedict-eng-swe           - Dict package for English-Swedish
+  dict-freedict-eng-wel           - Dict package for English-Welsh
+
+NB! At least in the Ubuntu packages, as of October 2005, the index
+files are not sorted correctly. If you experience that several words
+lack a translation where one should be, then do this (assuming that
+the index files are in /usr/share/dictd:
+
+  # cd /usr/share/dictd
+  # LC_ALL=C sort -t $'\t' -k1,1 -bdf freedict-eng-deu.index | \
+    tee freedict-eng-deu.index > /dev/null
+
+to sort e.g. the English-German freedict index file.
+
+You can combine lookups in both the custom wordlist and in a freedict
+dictionary. If a translation is found in both, the translation from the
+custom wordlist will be presented as the default.
+
+                 8.3 Auto-translating From Wordlists:
+
+You can look up a translation for every word in every msgid in a po-file in
+a batch run by typing 'D'. The default translations for every matching word
+are then inserted into the msgstrs automatically. Again you can choose to
+use the custom wordlist, the freedict dictionaries or both. Using the
+freedict dictionaries will probably yield some occasionally strange results.
+The variable "Dict_Minimum_Wordsize" controls how many characters a word
+must consist of before querying the dictd server. Setting it to a reasonably
+high number, like e.g. 5, is probably a good idea.
+
+    8.4. Lexicographical lookup in all installed Dict dictionaries:
+
+This will pop up a buffer with all available definitions for the word at
+point. The function is bound to ctrl-d and comes in handy where you want an
+in-depth explanation of a word from e.g. the dict-gcide dictionary.
+
+             9. View Source Files or Grep in Source Files:
+
+In addition to viewing the source file(s) referenced in the current entry,
+you can also grep for a string in the source files and get a window with a
+listing of all files that contain that expression which you can then select
+for easy viewing: If you have highlighted a string, e.g. with the mouse,
+this string will be seached for, otherwise the word at point will be seached
+for. The highlighting must be done with Jed's mark_region function, i.e. you
+should see an 'm' on the status line. The function is bound to 'G'.
+
+It also comes in handy when you have an archive with other language
+translations of the current po-file and want to see how a tricky translation
+was done by others.
+
+I recommend putting this line into your .jedrc:
+
+   variable GrepCommand = "grep -H -n -r -i";
+
+for a recursive, case-insensitive search.
+
+You must get grep.sl from http://jedmodes.sourceforge.net/grep/
+
+          10. Limit Display to Entries Containing Expression:
+
+If you are familiar with the mail user agent Mutt, you will probably have
+cherished its "limit" function whereby you can narrow the index of mail
+messages to a list containing a specified expression. A limit function is
+also useful in the context of editing po-files. The limit function in this
+mode lets you narrow the display to a list of entries containing a certain
+expression. Like for the grep function mentioned above the limit function
+also acts on either the word at point, a highlighted string or a typed in
+expression. The function is bound to 'l' by default (like in Mutt), and
+typing 'l' again in the limited view toggles off the limitation. It is of
+course useful, because it lets you see a uniform list of entries containing
+your expression, so you can e.g. easily compare translations containing this
+expression to see if it is translated consistently in all of them, or you
+can limit the display to similarly looking msgid in order to copy
+translations between them.
+
+                        11. Gettext Functions:
+
+Various wrapper functions using the gettext utilities are included for
+convenience, these are:
+
+- validation: parse po-file for syntax errors with msgfmt.
+- compile: compile current buffer into a binary mo-file with msgfmt.
+- decompile: decompile a binary mo-file into a po-file with msgunfmt
+- wrap/unwrap: wrap/unwrap entries with msgcat.
+- update: update current po-buffer to a newer version with msgmerge.
+- convert: convert character encoding with msgconv
+- flag all entries fuzzy with msgattrib
+- replace words in message strings using msgfilter and sed.
+
+They are all available from the menu.
+
+                                  --------
+
+Otherwise the explanation of the keybindings above should, I hope,
+make it clear what functionality is available.
+
+Send comments or suggestions to Morten Bo Johansen <mojo@mbjnet.dk>
