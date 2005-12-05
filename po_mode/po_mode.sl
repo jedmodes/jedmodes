@@ -14,14 +14,13 @@
 %% wordstar. You must edit several functions to make it usable on
 %% non-Unix systems.
 %%
-%% Installation: copy this file and po_mode.hlp to a directory in your
-%% jed library path, e.g. /usr/share/jed/lib
-%%
-%% In your .jedrc, insert the following lines:
-%%
-%% autoload ("po_mode", "po_mode");
-%% add_mode_for_extension ("po", "po");
-%% add_mode_for_extension ("po", "pot");
+%% Installation
+%% ------------
+%% 
+%% Copy this file and po_mode.hlp to a directory in your jed library path,
+%% e.g. /usr/share/jed/lib. For initialization, either use make_ini()
+%% (from jedmodes.sf.net/mode/make_ini/) or copy the content of the
+%% INITIALIZATION block to your .jedrc.
 %%
 %% For the rest, please refer to the po_mode.hlp file for the ins and outs
 %% of this mode. There is some rather important information therein, so you
@@ -82,7 +81,12 @@
 %%
 %% Revision 1.0  2004/11/06 16:37:30  mojo
 %% First public release
-%%
+
+#<INITIALIZATION>
+autoload ("po_mode", "po_mode");
+add_mode_for_extension ("po", "po");
+add_mode_for_extension ("po", "pot");
+#</INITIALIZATION>
 
 %{{{ static variables
 
