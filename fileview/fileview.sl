@@ -4,68 +4,21 @@
 % $Id: fileview.sl,v 1.1 2004/02/25 21:41:57 paul Exp paul $
 % Keywords: slang
 %
-% Copyright (c) 1997 Francesc Rocher; (c) 2004 Paul Boekholt.
+% Copyright (c) 1997 Francesc Rocher; (c) 2004, 2005 Paul Boekholt.
 % Released under the terms of the GNU GPL (version 2 or later).
 % 
 % This is a simplified version of the treepipe filtered viewer from
 % tree.sl. It should also be useful with dired or filelist.
-if (_featurep("fileview"))
-  use_namespace("fileview");
-else
-  implements("fileview");
+% This version requires the wildcard module.
 provide("fileview");
+require("wildcard");
+implements("fileview");
+
 
 variable fileview_pipe = String_Type[100, 3],
   fileview_pipe_last = 0;
 
 private variable in_x = (NULL != getenv("DISPLAY"));
-
-%!%+
-%\function{wc2regexp}
-%
-%\synopsis{convert a wildcard expression to a slang regexp}
-%
-%\usage{wc2regexp (wc, cs)}
-%
-%\description
-%  This does pretty much the same as \var{glob2regexp} in misc.sl, but
-%  since that is static and doesn't have a named namespace we have to
-%  define our own. Arguments:
-%    \var{wc}: the wildcard pattern
-%    \var{cs}: if 1, the regexp is case sensitive
-%
-%!%-
-public define wc2regexp      (wc, cs)
-{
-   variable ch;
-   ""; % delimiter
-   variable s = _stkdepth ();
-
-   !if (cs)
-     "\\C";
-
-   "^";
-
-   foreach(wc)
-     {
-        ch = ();
-        switch (ch)
-          {case '.': "\\.";}
-          {case '*': ".*";}
-          {case '?': ".";}
-	  {
-	     % default
-	     ch = char (ch);
-	     if (is_substr (ch, "[]\\^$+"))
-	       ch = strcat ("\\", ch);
-	     ch;
-	  }
-     }
-   
-   "$";
-   
-   return create_delimited_string(_stkdepth () - s);
-}
 
 %!%+
 %\function{fileview_add_pipe}
@@ -82,6 +35,8 @@ public define wc2regexp      (wc, cs)
 %                'T' Requires a terminal - use run_program
 %
 %  \var{wildcard} the pattern to match
+%    This should be a lowercase glob pattern.  The filename is lowercased
+%    before being matched.
 %  
 %  \var{command}
 %     the command to view the file. 
@@ -104,7 +59,7 @@ define fileview_add_pipe(mode, wildcard, command)
 	reshape (fileview_pipe, [length(fileview_pipe) / 3, 3]);
      }
    fileview_pipe[fileview_pipe_last, *] = 
-     [mode, wc2regexp(wildcard, 0), command];
+     [mode, wildcard, command];
    fileview_pipe_last++;
 }
 
@@ -126,13 +81,13 @@ define fileview_add_pipe(mode, wildcard, command)
 public  define fileview_view_pipe (file)
 {
    % Show a file through a pipe.
-   variable i, m;
+   variable i, m = 0;
 
    _for (0, fileview_pipe_last, 1)
      {
         i = ();
 	if (fileview_pipe[i,0]==NULL) break;
-        m = string_match (file, fileview_pipe[i,1], 1);
+        m = wildcard_match (strlow(path_basename(file)), fileview_pipe[i,1]);
         if (m)
 	  break;
      }
