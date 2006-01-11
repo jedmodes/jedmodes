@@ -1,6 +1,6 @@
 % flyspell.sl  -*- mode: SLang; mode: Fold -*-
 %
-% $Id: flyspell.sl,v 1.16 2005/06/16 08:40:18 paul Exp paul $
+% $Id: flyspell.sl,v 1.17 2006/01/11 14:34:41 paul Exp paul $
 % 
 % Copyright (c) 2003,2004 Paul Boekholt.
 % Released under the terms of the GNU GPL (version 2 or later).
@@ -221,12 +221,9 @@ static define toggle_local_flyspell() % on/off
 %%% DFA_CACHE_BEGIN %%%
 static define setup_dfa_callback (name)
 {
-   dfa_enable_highlight_cache( sprintf("%s.dfa", name), name);
    dfa_define_highlight_rule 
      (sprintf("[%s][%s]*[%s]",ispell_letters, flyspell_wordchars, ispell_letters),
-      "Kdelimiter", name);
-   % Kdelimiter means "Keyword delimiter" or something.  I found this in
-   % html.sl but there it needs fixing.
+      "Knormal", name);
    dfa_build_highlight_table (name);
 }
 %%% DFA_CACHE_END %%%
@@ -240,8 +237,24 @@ static define flyspell_make_syntax_table(name)
 
    create_syntax_table(name);
    set_syntax_flags(name, 0);
+#ifnexists _slang_utf8_ok
    define_syntax(ispell_wordchars, 'w', name);
    dfa_set_init_callback (&setup_dfa_callback, name);
+#else
+   if (_slang_utf8_ok)
+     {
+	% this won't highlight "thye're".
+	% OTOH using ispell_wordchars here would not highlight any word
+	% that has a "'" adjacent to it, and DFA would not work well if you
+	% have any UTF-8 characters not in your ispell_letters
+	define_syntax(ispell_letters, 'w', name);
+     }
+   else
+     {
+	define_syntax(flyspell_wordchars, 'w', name);
+	dfa_set_init_callback (&setup_dfa_callback, name);
+     }
+#endif
 }
 
 % A change in syntax table is from starting flyspell in a buffer with
