@@ -49,6 +49,9 @@
 % 2005-11-21 1.8.5 removed public from popup_buffer() definition
 % 2005-11-25 1.8.6 bugfix in close_buffer(): 
 %                  switch back to current buffer if closing an different one
+% 2006-01-11 1.9   bugfix in close_and_insert_word and close_and_replace_word
+%                  (report Paul Boekholt)
+%                  revised approach to "backswitching" after a buffer is closed
 
 % _debug_info = 1;
 
@@ -272,7 +275,8 @@ public define close_buffer() % (buf = whatbuf())
    sw2buf(buf);
    run_blocal_hook("close_buffer_hook", buf);
    delbuf(buf);
-   if (bufferp(currbuf))
+   % make sure to stay in the current buffer after closing a different one
+   if (currbuf != buf)
      sw2buf(currbuf);
 }
 
@@ -286,23 +290,52 @@ define close_other_buffer ()
      }
 }
 
-% Close buffer, insert current word in calling buffer
-% This doesnot always work, as it is generally undefined which buffer will
-% be active after closing a buffer.
+%!%+
+%\function{close_and_insert_word}
+%\synopsis{Close buffer, insert current word in calling buffer}
+%\usage{close_and_insert_word()}
+%\description
+%  Close buffer, insert current word in the buffer indicated by
+%  the buffer-local ("blocal") variable "calling_buffer".
+%\notes
+%  The \var{popup_buffer} function automatically records the calling
+%  buffer.
+%\seealso{close_and_replace_word, popup_buffer, close_buffer}
+%!%-
 define close_and_insert_word()
 {
-   variable word = get_word();
+   variable word = get_word(),
+   calling_buf = get_blocal("calling_buf", "");
    close_buffer();
+   if (bufferp(calling_buf))
+     sw2buf(calling_buf);
+   else
+     verror("calling buffer \"%s\" does not exist", calling_buf);
    insert(word);
 }
 
-% Close buffer, replace current word in calling buffer with current word
-% This doesnot always work, as it is generally undefined which buffer will
-% be active after closing a buffer.
+%!%+
+%\function{close_and_insert_word}
+%\synopsis{Close buffer, replace current word in calling buffer}
+%\usage{close_and_insert_word()}
+%\description
+%  Close buffer, insert current word in the buffer indicated by
+%  the buffer-local ("blocal") variable "calling_buffer" replacing
+%  the current word (or visible region) there.
+%\notes
+%  The \var{popup_buffer} function automatically records the calling
+%  buffer.
+%\seealso{close_and_insert_word, popup_buffer, close_buffer}
+%!%-
 define close_and_replace_word()
 {
-   variable word = get_word();
+   variable word = get_word(),
+   calling_buf = get_blocal("calling_buf", "");
    close_buffer();
+   if (bufferp(calling_buf))
+     sw2buf(calling_buf);
+   else
+     verror("calling buffer \"%s\" does not exist", calling_buf);
    !if (is_visible_mark)
      mark_word;
    del_region();
@@ -328,26 +361,27 @@ custom_variable("Max_Popup_Size", 0.7);          % max size of one popup window
 % close popup window, if the buffer is visible and resizable
 define popup_close_buffer_hook(buf)
 {
+   variable replaced_buf, calling_buf;
    % abort if buffer is not attached to a window
    !if (buffer_visible(buf))
      return;
    % resizable popup window: close it
-   if ( get_blocal_var("is_popup") != 0 )
+   if (get_blocal_var("is_popup") != 0)
      call("delete_window");
    else
      {
-	variable replaced_buf = get_blocal("replaced_buf", "");
+	replaced_buf = get_blocal("replaced_buf", "");
 	if (bufferp(replaced_buf))
 	  {
 	     sw2buf(replaced_buf);
-	     % resize popup windows
-	     fit_window(get_blocal("is_popup", 0));
+	     fit_window(get_blocal("is_popup", 0)); % resize popup window
 	  }
-	% otherwindow();
-%         variable calling_buf = get_blocal("calling_buf", "");
-%    if (bufferp(calling_buf))
-%      sw2buf(calling_buf);
      }
+   % Return to calling buffer, if it is visible (it might be annoying if
+   % a help buffer pops up some buffer no longer in active use when closed).
+   calling_buf = get_blocal("calling_buf", "");
+   if (buffer_visible(calling_buf))
+     sw2buf(calling_buf);
 }
 
 %!%+
@@ -384,7 +418,7 @@ define popup_buffer() % (buf, max_rows = Max_Popup_Size)
      open_windows = nwindows - MINIBUFFER_ACTIVE;
    % Open/go_to the buffer, store the replaced buffers name
    replaced_buf = pop2buf_whatbuf(buf);
-   % find out if we can savely fit the window
+   % find out if we can savely fit the window (set max_rows to 0 otherwise)
    if (open_windows > 1)
      {
 	sw2buf(replaced_buf);
@@ -394,8 +428,9 @@ define popup_buffer() % (buf, max_rows = Max_Popup_Size)
      }
    define_blocal_var("is_popup", max_rows);
    define_blocal_var("close_buffer_hook", &popup_close_buffer_hook);
-   if(replaced_buf != whatbuf())
-     define_blocal_var ("replaced_buf", replaced_buf);
+   define_blocal_var("replaced_buf", replaced_buf);
+   if (buf != calling_buf)
+     define_blocal_var("calling_buf", calling_buf);
 }
 
 % --- push_keymap/pop_keymap --- (turn on/off a minor mode) ----------------
@@ -434,23 +469,53 @@ define pop_keymap ()
   %Test	show("current keymap is:", what_keymap());
 }
 
-% Rebind all keys that are bound to old_fun to new_fun
-define rebind() % (old_fun, new_fun, keymap=what_keymap(), key_prefix="")
+%!%+
+%\function{rebind}
+%\synopsis{Rebind all keys bound to \var{old_fun} to \var{new_fun}.}
+%\usage{rebind(old_fun, new_fun, keymap=what_keymap(), prefix="")}
+%\description
+% The function acts on the local keymap (if not told otherwise by the
+% \var{keymap} argument. It scans for all bindings to \var{old_fun} with
+% \var{which_key} and sets them to \var{new_fun}. 
+%\example
+%  The email mode (email.sl) uses rebind to bind the mode-specific formatting
+%  function to the key(s) used for format_paragraph:
+%#v+
+%  rebind("format_paragraph", "email_reformat", mode);
+%#v-
+%\notes
+%  If the optional argument \var{prefix} is not empty, the prefix will be 
+%  prepended to the key to bind to. Use this to create "maps" of bindings
+%  that reflect the users normal binding, e.g. with \var{_Reserved_Key_Prefix}
+%  (this is what \var{rebind_reserved} does).
+%\seealso{setkey, local_setkey, definekey, definekey_reserved}
+%!%-
+define rebind() % (old_fun, new_fun, keymap=what_keymap(), prefix="")
 {
-   variable old_fun, new_fun, keymap, key_prefix;
-   (old_fun, new_fun, keymap, key_prefix) =
+   variable old_fun, new_fun, keymap, prefix;
+   (old_fun, new_fun, keymap, prefix) = 
      push_defaults( , , what_keymap(),"", _NARGS);
 
    variable key;
-   loop (which_key (old_fun))
+   loop (which_key(old_fun))
    {
       key = ();
-      definekey(new_fun, key_prefix + key, keymap);
+      definekey(new_fun, prefix + key, keymap);
    }
 }
 
-% Make a binding for new_fun for all bindings to old_fun
-% prepending the _Reserved_Key_Prefix
+
+%!%+
+%\function{rebind_reserved}
+%\synopsis{Rebind a function prepending the \var{_Reserved_Key_Prefix}}
+%\usage{ rebind_reserved(old_fun, new_fun, keymap)}
+%\description
+% Call \var{rebind} with \var{prefix} set to \var{_Reserved_Key_Prefix}.
+%\notes
+% The action is more a remodelling than a rebinding, the name should reflect
+% the close relation to the \var{rebind} function.
+%\seealso{rebind, definekey_reserved, setkey_reserved}
+%!%-
 define rebind_reserved(old_fun, new_fun, keymap)
 {
    rebind(old_fun, new_fun, keymap, _Reserved_Key_Prefix);
