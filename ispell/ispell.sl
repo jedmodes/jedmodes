@@ -1,6 +1,6 @@
 % ispell.sl	-*- mode: SLang; mode: fold -*-
 % 
-% $Id: ispell.sl,v 1.18 2005/06/16 08:40:18 paul Exp paul $
+% $Id: ispell.sl,v 1.19 2006/01/11 14:34:41 paul Exp paul $
 % 
 % Copyright (c) 2001-2004 Guido Gonzato, John Davis, Paul Boekholt.
 % Released under the terms of the GNU GPL (version 2 or later).
@@ -12,7 +12,6 @@ require("bufutils");
 use_namespace("ispell");
 !if (is_defined("ispell_process"))
   public variable ispell_process = -1;
-
 static variable buf, obuf, num_win;
 static variable ibuf = " *ispell*", corbuf = "*corrections*";
 
@@ -118,6 +117,7 @@ define get_ispell_command(word, key_array, corrections)
 	  {case 'u': send_process (ispell_process, strcat ("*", strlow(word), "\n#\n"));
 	     return NULL;}
 	  {case 'n': return -1;}
+	  {case 'x' or case 'X': error("quit!");}
 	if (corrections != NULL)
 	  {
 	     if (num == '')  return corrections[0];
@@ -202,17 +202,17 @@ define ispell_parse_output (is_auto)
 	  ("Misspelled: ", word,
 	   "\tKey: select correction\t r: enter correction\n",
 	   "space: skip\t a: accept this session\t n: next line\n", 
-	   "i: insert into dictionary\tu: uncapitalized insert\t^G: quit\n"));
+	   "i: insert into dictionary\tu: uncapitalized insert\tx: quit\n"));
    pop2buf(buf);
    % start_column expands tabs, but ispell_offset is the column info from
    % ispell, which counts tabs as one character (we gave ispell the line
-   % starting at start_column).  This is all right as long as we don't
-   % confuse the two.  We can use what_column() and goto_column() for
-   % start_column, and POINT and go_right() for ispell_offset.
+   % starting at start_column).  Aspell 0.60 counts multibyte characters
+   % as one character in utf-8 mode, we can use go_right() which does not
+   % expand tabs, but is utf-8 aware.
    goto_column(start_column);
    go_right(ispell_offset - 1); % we prepended a '^' to keep ispell
    % from interpreting the line as a command, this is included in
-   % ispell's column info (at least in my version)
+   % ispell's column info
    push_visible_mark();
    go_right(strlen(word));
    num_win = nwindows() - MINIBUFFER_ACTIVE;
@@ -322,7 +322,7 @@ define ispell_line()
 %\usage{ispell_region()}
 %\description
 %   If there is a visible mark, spell-check the region.  Otherwise,
-%   spell-check the entire buffer.
+%   spell-check the buffer from the current point.
 %\notes
 %   For checking html, it's better to use vispell or flyspell
 %\seealso{ispell, flyspell_region}
@@ -339,10 +339,13 @@ public define ispell_region()
    push_narrow();
    ERROR_BLOCK
      {
-	pop_narrow():
+	_clear_error();
      }
-   if (is_visible_mark) narrow();
-   bob();
+   if (is_visible_mark) 
+     {
+	narrow();
+	bob();
+     }
    if (is_list_element("TeX,LaTeX", get_mode_name(), ','))
      send_process (ispell_process,  "+\n");
    else

@@ -2,7 +2,7 @@
 %
 % Author:	Paul Boekholt
 %
-% $Id: ispell_common.sl,v 1.13 2005/10/22 18:21:39 paul Exp paul $
+% $Id: ispell_common.sl,v 1.14 2006/01/11 14:34:41 paul Exp paul $
 % 
 % Copyright (c) 2003,2004 Paul Boekholt.
 % Released under the terms of the GNU GPL (version 2 or later).
@@ -14,6 +14,7 @@
 provide ("ispell_common");
 
 require ("ispell_init");
+require("menutils");
 implements("ispell");
 
 variable
@@ -171,6 +172,27 @@ add_to_hook("_jed_switch_active_buffer_hooks", &ispell_switch_buffer_hook);
 
 
 %}}}
+
+%}}}
+%{{{ menu
+
+private variable menu_local_dummy; % menu_radio can't use blocals
+
+public define ispell_change_dictionary_callback (popup)
+{
+   menu_append_item (popup, "&Word", "ispell");
+   menu_append_item (popup, "&Region", "ispell_region");
+   menu_append_item (popup, "&Flyspell", "flyspell_mode");
+   menu_append_separator(popup);
+   variable lang, languages = assoc_get_keys(Ispell_Hash_Name);
+   languages = languages[array_sort(languages)];
+   menu_radio (popup, "dictionary", &Ispell_Dictionary, languages, ,
+	       &ispell_change_dictionary); 
+
+   menu_local_dummy= get_blocal("ispell_dictionary", Ispell_Dictionary);
+   menu_radio (popup, "&buffer dictionary", &menu_local_dummy, languages, , 
+	       &ispell_change_local_dictionary);
+}
 
 %}}}
 

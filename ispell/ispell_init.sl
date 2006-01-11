@@ -2,7 +2,7 @@
 %
 % Author:	Paul Boekholt
 %
-% $Id: ispell_init.sl,v 1.9 2005/06/16 08:48:37 paul Exp paul $
+% $Id: ispell_init.sl,v 1.10 2006/01/11 14:34:41 paul Exp paul $
 %
 % Copyright (c) 2003 Paul Boekholt.
 % Released under the terms of the GNU GPL (version 2 or later).
@@ -24,9 +24,8 @@ _autoload("ispell_change_dictionary", "ispell_common",
 	  "ispell_complete", "look",
 	  "flyspell_mode","flyspell",
 	  "flyspell_region", "flyspell",
-	  "auto_ispell", "ispell",
 	  "ispell_region", "ispell",
-	  "vispell", "vispell", 10);
+	  "vispell", "vispell", 9);
 _add_completion("ispell_change_dictionary",
 		"ispell_change_local_dictionary",
 		"flyspell_mode", "ispell_region", 
@@ -46,9 +45,7 @@ custom_variable("Ispell_Dictionary", "default");
 
 
 public variable Ispell_Hash_Name = Assoc_Type [String_Type, "default"];
-public variable Ispell_Letters = Assoc_Type 
-  [String_Type,
-   "a-zA-ZàèìòùáéíóúäÄëËïÏöÖßüÜâêîôûÀÈÌÒÙÁÉÍÓÚÄËÏÖÜÂÊÎÔÛçÇãÃñÑõÕæøåÆØÅæøåÆØŞşğĞ"];
+public variable Ispell_Letters = Assoc_Type[String_Type, "A-Za-z"];
 public variable Ispell_OtherChars = Assoc_Type [String_Type, "'"];
 public variable Ispell_Extchar = Assoc_Type [String_Type, ""];
 public variable Ispell_Options = Assoc_Type [String_Type, ""];
@@ -84,30 +81,14 @@ if (1 == file_status (Ispell_Cache_File))
 % else % otherwise, add your dictionaries here, or in your .jedrc after loading this file.
 % {
 %    ispell_add_dictionary("deutsch", "german", "", "", "latin1");
-%    ispell_add_dictionary("nederlands", "dutch", "", "-'");
 %    ispell_add_dictionary("british");
+%    % if you're using utf-8, try something like
+%    ispell_add_dictionary("nederlands", "nl", "a-zA-ZÃ„Ã‹ÃÃ–ÃœÃ¤Ã«Ã¯Ã¶Ã¼Ã¡Ã©Ã­Ã³Ãº", "-'", "", "-B");
 % }
 
 %}}}
 %{{{ menu
-private variable menu_local_dummy; % menu_radio can't use blocals
-
-public define ispell_change_dictionary_callback (popup)
-{
-   menu_append_item (popup, "&Word", "ispell");
-   menu_append_item (popup, "&Region", "ispell_region");
-   menu_append_item (popup, "&Flyspell", "flyspell_mode");
-   menu_append_separator(popup);
-   variable lang, languages = assoc_get_keys(Ispell_Hash_Name);
-   languages = languages[array_sort(languages)];
-   menu_radio (popup, "dictionary", &Ispell_Dictionary, languages, ,
-	       &ispell_change_dictionary); 
-
-   menu_local_dummy= get_blocal("ispell_dictionary", Ispell_Dictionary);
-   menu_radio (popup, "&buffer dictionary", &menu_local_dummy, languages, , 
-	       &ispell_change_local_dictionary);
-}
-
+autoload("ispell_change_dictionary_callback", "ispell_common");
 static define ispell_load_popup_hook (menubar)
 {
    variable menu = "Global.S&ystem";
