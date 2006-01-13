@@ -1,8 +1,8 @@
 % ispell.sl	-*- mode: SLang; mode: fold -*-
 % 
-% $Id: ispell.sl,v 1.19 2006/01/11 14:34:41 paul Exp paul $
+% $Id: ispell.sl,v 1.20 2006/01/13 16:33:54 paul Exp paul $
 % 
-% Copyright (c) 2001-2004 Guido Gonzato, John Davis, Paul Boekholt.
+% Copyright (c) 2001-2006 Guido Gonzato, John Davis, Paul Boekholt.
 % Released under the terms of the GNU GPL (version 2 or later).
 % 
 % Thanks to Günter Milde.
@@ -117,7 +117,7 @@ define get_ispell_command(word, key_array, corrections)
 	  {case 'u': send_process (ispell_process, strcat ("*", strlow(word), "\n#\n"));
 	     return NULL;}
 	  {case 'n': return -1;}
-	  {case 'x' or case 'X': error("quit!");}
+	  {case 'x' or case 'X' or case 'q': error("quit!");}
 	if (corrections != NULL)
 	  {
 	     if (num == '')  return corrections[0];
@@ -275,7 +275,7 @@ define ispell_parse_output (is_auto)
 %     \var{r}     Replace with one or more words
 %   These commands apply when checking a region:
 %     \var{n}     Skip this line
-%     \var{^G}    Stop spell-checking
+%     \var{x}, \var{X}, \var{q}    Stop spell-checking
 %\seealso{ispell_region, flyspell_mode, ispell_change_dictionary}
 %!%-
 public define ispell ()
@@ -351,16 +351,16 @@ public define ispell_region()
    else
      send_process (ispell_process,  "-\n");
    if (blocal_var_exists("ispell_region_hook"))
-       {
-	  variable ispell_hook = get_blocal_var("ispell_region_hook");
-	  forever
-	    {
-	       if (@ispell_hook)
-		 ispell_line;
-	       !if (down_1) break;
-	       skip_chars("\n");
-	    }
-       }
+     {
+	variable ispell_hook = get_blocal_var("ispell_region_hook");
+	forever
+	  {
+	     if (@ispell_hook)
+	       ispell_line;
+	     !if (down_1) break;
+	     skip_chars("\n");
+	  }
+     }
    else
      {
 	forever

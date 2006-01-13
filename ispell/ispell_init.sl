@@ -2,9 +2,9 @@
 %
 % Author:	Paul Boekholt
 %
-% $Id: ispell_init.sl,v 1.10 2006/01/11 14:34:41 paul Exp paul $
+% $Id: ispell_init.sl,v 1.11 2006/01/13 16:33:54 paul Exp paul $
 %
-% Copyright (c) 2003 Paul Boekholt.
+% Copyright (c) 2003-2006 Paul Boekholt.
 % Released under the terms of the GNU GPL (version 2 or later).
 %
 % This defines global variables and functions for the ispell package. 
@@ -13,7 +13,7 @@
 % ispell.sl
 provide ("ispell_init");
 
-variable ispell_version = "ispell.sl 1.18";
+variable ispell_version = "ispell.sl 1.20";
 
 %{{{ autoloads
 
