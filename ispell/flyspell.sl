@@ -1,8 +1,8 @@
 % flyspell.sl  -*- mode: SLang; mode: Fold -*-
 %
-% $Id: flyspell.sl,v 1.17 2006/01/11 14:34:41 paul Exp paul $
+% $Id: flyspell.sl,v 1.18 2006/01/15 17:43:11 paul Exp paul $
 % 
-% Copyright (c) 2003,2004 Paul Boekholt.
+% Copyright (c) 2003-2006 Paul Boekholt.
 % Released under the terms of the GNU GPL (version 2 or later).
 % 
 % This file provides a minor mode for on-the-fly spell checking.  We use
@@ -115,7 +115,6 @@ static define flyspell_init_process ()
 	pop2buf(whatbuf);
 	flyspell_process = -1;
 	pop2buf(buf);
-	toggle_local_flyspell(0);
 	verror ("Flyspell crashed!");
      }
    send_process(flyspell_process, "!\n");
@@ -134,8 +133,31 @@ static variable lastword = "", lastpoint = 0;
 public define flyspell_word()
 {
    variable word, point;
-   if (flyspell_process == -1) 
-     flyspell_init_process;
+#ifexists _slang_utf8_ok
+   if (flyspell_process == -1)
+     {
+	try
+	  {
+	     flyspell_init_process();
+	  }
+	catch AnyError:
+	  {
+	     toggle_local_flyspell(0);
+	     return;
+	  }
+     }
+#else
+   if (flyspell_process == -1)
+     {
+	ERROR_BLOCK
+	  {
+	     _clear_error;
+	     toggle_local_flyspell(0);
+	     return;
+	  }
+	flyspell_init_process();
+     }
+#endif
    push_spot();
    bskip_chars(ispell_non_letters);
    push_mark();
@@ -174,6 +196,10 @@ public define flyspell_word()
 
 static define after_key_hook ()
 {
+   ERROR_BLOCK
+     {
+	toggle_local_flyspell(0);
+     }
    if (is_substr(flyspell_chars, LASTKEY))
      flyspell_word();
 }
@@ -183,12 +209,11 @@ static define after_key_hook ()
 
 %{{{ Turning flyspell mode on/off
 
-static define flyspell_switch_active_buffer_hook(oldbuf)
+define flyspell_switch_active_buffer_hook()
 {
+   remove_from_hook ("_jed_after_key_hooks", &after_key_hook);
    if (get_blocal("flyspell", 0))
      add_to_hook ("_jed_after_key_hooks", &after_key_hook);
-   else
-     remove_from_hook ("_jed_after_key_hooks", &after_key_hook);
    flyspell_syntax_table = get_blocal("flyspell_syntax_table", "Flyspell_" + flyspell_current_dictionary);
 }
 
@@ -211,7 +236,7 @@ static define toggle_local_flyspell() % on/off
      {
 	set_status_line(Status_Line_String, 0);
      }
-   flyspell_switch_active_buffer_hook("");  % hook expects an argument
+   flyspell_switch_active_buffer_hook();
 }
 
 %}}}
@@ -261,7 +286,7 @@ static define flyspell_make_syntax_table(name)
 % another language, or from changing the language while flyspelling.  If
 % you just switch to a buffer with a different setting for language, it
 % should continue to use its own syntax table. 
-public define flyspell_change_syntax_table(language)
+static define flyspell_change_syntax_table(language)
 {
    variable table = get_blocal("flyspell_syntax_table", NULL);
    if(table != NULL)
@@ -310,8 +335,6 @@ public define flyspell_mode()
    toggle_local_flyspell();
    if (flyspell_use_keyword2)
      set_color("keyword2", "brightred", get_color("normal"), exch(), pop);
-   add_to_hook("_jed_switch_active_buffer_hooks",
-	       &flyspell_switch_active_buffer_hook);
 }
 
 

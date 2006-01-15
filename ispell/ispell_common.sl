@@ -2,9 +2,9 @@
 %
 % Author:	Paul Boekholt
 %
-% $Id: ispell_common.sl,v 1.14 2006/01/11 14:34:41 paul Exp paul $
+% $Id: ispell_common.sl,v 1.15 2006/01/15 17:43:11 paul Exp paul $
 % 
-% Copyright (c) 2003,2004 Paul Boekholt.
+% Copyright (c) 2003-2006 Paul Boekholt.
 % Released under the terms of the GNU GPL (version 2 or later).
 % 
 % This file provides some definitions common to ispell, flyspell and
@@ -28,6 +28,8 @@ variable
 
 variable ispell_current_dictionary = Ispell_Dictionary;
 variable flyspell_current_dictionary = Ispell_Dictionary;
+
+define flyspell_switch_active_buffer_hook();
 
 % make the ispell command (except for options only needed by some modes)
 % and set the ispell_language settings
@@ -161,9 +163,10 @@ public define ispell_local_dictionary_menu_item(language)
    ispell_change_local_dictionary(language);
 }
 
-public define ispell_switch_buffer_hook(old_buffer)
+static define ispell_switch_buffer_hook(old_buffer)
 {
    ispell_change_current_dictionary(get_blocal("ispell_dictionary", Ispell_Dictionary));
+   flyspell_switch_active_buffer_hook();
 }
 
 % The blocal may have been set from e.g. gdbmrecent.sl or a modehook

@@ -2,9 +2,9 @@
 % 
 % Author:        Paul Boekholt
 %
-% $Id: vispell.sl,v 1.7 2005/06/16 08:40:18 paul Exp paul $
+% $Id: vispell.sl,v 1.8 2006/01/15 17:43:11 paul Exp paul $
 % 
-% Copyright (c) 2003 Paul Boekholt.
+% Copyright (c) 2003-2006 Paul Boekholt.
 % Released under the terms of the GNU GPL (version 2 or later).
 % 
 % This file provides a full-screen interface to ispell, like in joe or vi.
@@ -26,7 +26,7 @@ public define vispell()
      { case "TeX" or case "LaTeX" : cmd += " -t";}
      { case  "nroff": cmd += " -n";}
      { case "html" or case "sgml" : cmd += " -h";}
-   
+   if(Ispell_Program_Name == "aspell") cmd += " check";
    tmp = make_tmp_file(tmp);
    !if (is_visible_mark)
      mark_buffer();
