@@ -2,18 +2,25 @@
 % 
 % Author:        Paul Boekholt <p.boekholt@hetnet.nl>
 % 
-% $Id: bufed_srch.sl,v 1.2 2003/05/10 17:47:19 paul Exp paul $
+% $Id: bufed_srch.sl,v 1.3 2006/01/16 19:25:29 paul Exp paul $
 % 
 % The search functions for bufed.sl, placed in a 
 % separate file to make bufed load faster.
+
+provide ("bufed_srch");
 
 require ("search");
 require ("srchmisc");
 require ("regexp");
 use_namespace("bufed");
 
-variable last_search_replace_cmd = "", continued = 0;
+% this is now a private function in regexp.sl
+private define research_search_function (pat)
+{
+   re_fsearch (pat) - 1;
+}
 
+variable last_search_replace_cmd = "", continued = 0;
 %{{{ search through marked buffers
 
 variable search_fun, pat;
@@ -32,13 +39,16 @@ static define bufed_search_buffer(line)
    if (buf == NULL) return 0;
    !if (bufferp (buf)) return 2; % buffer doesn't exist -> kill line
    setbuf(buf);
-   !if (continued) bob();
+   variable buf_mark = create_user_mark;
+   !if (continued)
+     bob();
    continued = 0;
    if (search_maybe_again (search_fun, pat, 1, &bufed_srch_ok_fun))
      {
 	listing->Dont_Ask = -1;
 	error("Quit!");
      }
+   goto_user_mark(buf_mark);
    pop2buf (Bufed_buf);
    return 1; % untag line
 }
@@ -72,7 +82,9 @@ static define bufed_replace_with_query (line)
    if (buf == NULL) return 0;
    !if (bufferp (buf)) return 2; % buffer doesn't exist -> kill line
    setbuf(buf);
-   !if (continued) bob();
+   variable buf_mark = create_user_mark();
+   !if (continued) 
+     bob();
    continued = 0;
    variable n, prompt, doit, err, ch, pat_len;
    variable undo_stack_type = struct
@@ -91,7 +103,7 @@ static define bufed_replace_with_query (line)
 
    while (pat_len = @rep_fun (rep_pat), pat_len >= 0)
      {
-	pop2buf (buf); % I like to see what I replace
+	pop2buf (buf);
 	if (listing->Dont_Ask)  % from listing.sl
 	  {
 	     tmp = create_user_mark ();
@@ -152,6 +164,8 @@ static define bufed_replace_with_query (line)
 	     () = input_pending (30); 
 	  }
      }
+   goto_user_mark(buf_mark);
+   pop2buf (Bufed_buf);
    return 1; % untag line
 }
 
@@ -167,8 +181,8 @@ public define bufed_replace_tagged ()
      rep_fun = &research_search_function;
    
    rep_pat = read_mini("Replace:", Null_String, Null_String);
-   !if (strlen (pat)) return;
-   prompt = strcat ("Replace '", pat, "' with:");
+   !if (strlen (rep_pat)) return;
+   prompt = strcat ("Replace '", rep_pat, "' with:");
    rep_rep = read_mini(prompt, "", "");
    listing_map(2, &bufed_replace_with_query);
 }
@@ -191,4 +205,3 @@ public define bufed_search_or_replace_continue()
 }
 %}}}
 
-provide ("bufed_srch");
