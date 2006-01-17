@@ -6,7 +6,7 @@
 %%  based on the original cua.sl by Reuben Thomas
 %% 
 %%  Versions:
-%%  1   first version by Guenter Milde <g.milde web.de>
+%%  1   first version by Guenter Milde <milde users.sf.net>
 %%  1.1 05-2003    * triple (optional single) ESC-keypress aborts functions
 %%                 * fixed missing definition of Key_Ins
 %%                 * Key_Ctrl_Del calls cua_delete_word (was delete_word)
@@ -21,6 +21,7 @@
 %%  1.5 2005-06-07 * load backwards compatibility code from compat17-16.sl
 %%  		     and compat16-15.sl (if needed)
 %%  1.5.1 2005-11-02 bugfix: bind ESC to "back_menu" in menu map
+%%  1.5.2 2006-01-17 more adaptions to the version of jed 0.99-17
 %% 
 %%  USAGE:
 %% 
@@ -28,11 +29,11 @@
 %%  %  () = evalfile ("cua");            % CUA-like key bindings
 %%  in your .jedrc/jed.rc file
 %% 
-%%  ESC-problem: unfortunately, some function keys return "\e\e<something>"
+%%  ESC-Key: unfortunately, some function keys return "\e\e<something>"
 %%  as keystring. To have a single ESC-press aborting, insert
 %%     autoload("cua_one_press_escape", "cuamisc");
 %%     cua_one_press_escape();
-%%  into your .jedrc. !! Attention, except for xjed, this is an experimental
+%%  into your .jedrc. **Attention**, except for xjed, this is an experimental
 %%  feature that can cause problems with functions that use getkey(),
 %%  (e.g. showkey(), wmark.sl (before jed 99.16), ...)
 %% 
@@ -54,18 +55,11 @@ if (_jed_version < 9916)
 
 require("cuamisc");   % "Outsourced" helper functions
 require("keydefs");   % Key definitions for Unix and DOS/Windos
-require("recent");    % save a list of recent files
-
 if(strlen(expand_jedlib_file("cuamark.sl")) and _jed_version >= 9916)
-  require("cuamark"); % cua-like marking (Jedmodes version)
-else if (strlen(expand_jedlib_file("cuamark.0.9.sl")))
-  require("cuamark.0.9.sl"); % cua-like marking (version without keyhooks)
+  require("cuamark");
 else
-  require("wmark");   % cua-like marking (standard version)
-
-if (is_defined("x_copy_region_to_selection"))     % XWINDOWS
-  if(strlen(expand_jedlib_file("cuamouse.sl")))
-    require("cuamouse"); % configurable cua-like mouse interface
+  require("wmark");   % cua-like marking, standard version
+require("recent");    % save a list of recent files
 
 % --- Variables --------------------------------------------------------
 set_status_line(" %b  mode: %m %n  (%p)   %t ", 1);
@@ -87,9 +81,9 @@ definekey("back_menu", "\e\e\e", "menu"); % close menus
 % Function keys
 setkey("menu_select_menu(\"Global.&Help\")",   Key_F1);
 %setkey("context_help",                        Key_Shift_F1); % with hyperhelp mode
-setkey("save_buffer",                          Key_F2);
+setkey("cua_save_buffer",                      Key_F2);
 setkey("write_buffer",                         Key_Shift_F2); % save as
-setkey("repeat_search",                        Key_F3);
+setkey("cua_repeat_search",                    Key_F3);
 % setkey("menu_select_menu(\"Global.&Search\")", Key_F3); % open Search menu
 
 % The "named" keys
@@ -158,11 +152,12 @@ else
 % setkey("self_insert_cmd", 	"^I");
 % setkey("",		   	"^J");   % Free!
 setkey("del_eol",		"^K");   % Kill line
-setkey("repeat_search",		"^L");
+setkey("cua_repeat_search",	"^L");
 %  ^M = Key_Return
 setkey("next_buffer",      	"^N");   % Next buffer
 setkey("find_file",		"^O");   % Open file (cua default)
 %setkey ("print_buffer", 	"^P");   % Print (with print.sl)
+%setkey("exit_with_query",  	"^Q");   % Quit (ask for confirmation)
 setkey("exit_jed",  		"^Q");   % Quit (without asking)
 % ^R: 					   Rectangles
 setkey("copy_rect",		"^RC");
@@ -171,7 +166,7 @@ setkey("kill_rect",		"^RX");  % delete and copy to rect-buffer
 setkey("open_rect",		"^R ");  % ^R Space: insert whitespace
 setkey("blank_rect",		"^RY");  % delete (replace with spaces)
 setkey("blank_rect",		"^R" + Key_Del);
-setkey("save_buffer",		"^S");   % Save
+setkey("cua_save_buffer",	"^S");   % Save 
 % 				 ^T      % still free
 setkey("yp_yank",              	"^V");   % insert/paste
 setkey("delbuf(whatbuf)",     	"^W");
@@ -179,20 +174,21 @@ setkey("yp_kill_region",        "^X");   % cut
 setkey("redo",		        "^Y");
 setkey("undo",		        "^Z");
 
-runhooks ("keybindings_hook", "cua");    % eventual modifications
+runhooks("keybindings_hook", "cua");    % user modifications
 
 % --- menu additions --------------------------------------------------
 
-static define cua_load_popup_hook (menubar)
+private define cua_load_popup_hook (menubar)
 {
    menu_delete_item ("Global.&File.&Close");
-   menu_insert_item("&Save", "Global.&File", "&Close", "delbuf(whatbuf)");
-   if(strlen(expand_jedlib_file("print.sl"))) % non standard mode
+   menu_insert_item("&Save", "Global.&File", "&Close Buffer", "delbuf(whatbuf)");
+   if (is_defined("print_buffer")) % print.sl or apsmode.sl from Jedmodes
      {
-     menu_insert_item("Canc&el Operation", "Global.&File", "&Print",
+     menu_insert_item("Canc&el Operation", "Global.&File", "&Print", 
 		      "print_buffer");
      menu_insert_separator("Canc&el Operation", "Global.&File");
      }
+   menu_insert_item (2, "Global.&Search", "Repeat &Search", "cua_repeat_search");
    menu_insert_item (3, "Global.&Search",
 		     "&Incremental Search Forward", "isearch_forward");
    menu_insert_item (4, "Global.&Search",
