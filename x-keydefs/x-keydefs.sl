@@ -22,6 +22,7 @@
 % 1.5.2 2006-01-17  documentation fix (warn about ESC redefinition, workaround)
 % 1.5.3 2006-01-17  jed compatible default for Key_Esc ("\e" not "\e\e\e")
 % 1.5.4 2006-01-18  added termcap entries for keypad keys (where possible)
+% 1.5.5 2006-01-19  updated the IBMPC definitions (not fully tested yet)
 %       
 % USAGE
 %
@@ -188,7 +189,7 @@ variable Key_Alt_Tab      = set_keyvar("", "", strcat(Key_Alt, Key_Tab));
 variable Key_Return       = set_keyvar("^M", "", "^M");    % alternative "\e[8~"
 variable Key_Shift_Return = set_keyvar("", "", "\e[8$");
 variable Key_Ctrl_Return  = set_keyvar("^J", "", "\e[8^");
-variable Key_Alt_Return   = strcat(Key_Alt, Key_Return);
+variable Key_Alt_Return   = set_keyvar("", "", strcat(Key_Alt, Key_Return));
 
 
 % Shift-Control Movement Keys
