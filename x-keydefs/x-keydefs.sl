@@ -21,6 +21,7 @@
 % 1.5.1 2005-11-21  documentation fix (autoload get_keystring from strutils)
 % 1.5.2 2006-01-17  documentation fix (warn about ESC redefinition, workaround)
 % 1.5.3 2006-01-17  jed compatible default for Key_Esc ("\e" not "\e\e\e")
+% 1.5.4 2006-01-18  added termcap entries for keypad keys (where possible)
 %       
 % USAGE
 %
@@ -100,18 +101,15 @@
 
 % ----------------------------------------------------------------------------
 
-% make sure we have tha basic definitions loaded:
+% make sure we have the basic definitions loaded:
 require("keydefs");
-% () = evalfile("keydefs");
 
 provide("x-keydefs");  % eXtended set of key definitions
 
-% auxiliary function to define symbolic keynames to count for
-% different operating systems
+% Auxiliary function to define symbolic keynames to count for different
+% operating systems. (Extended version of the auxiliary fun in keydefs.sl
+% including the ibmpc string.)
 private variable Is_Xjed = is_defined("x_server_vendor");
-
-% extended version of the auxiliary fun in keydefs.sl
-% This one also includes the ibmpc string in one definition
 static define set_keyvar(ibmpc, termcap, default)
 {
 #ifdef IBMPC_SYSTEM
@@ -132,26 +130,39 @@ static define set_keyvar(ibmpc, termcap, default)
 % Numeric Keypad
 % --------------
 
-% (without Num Lock, strings as in rxvt)
+% * variable names are chosen to match X-Window's keysymdef.h
+% 
+% * default strings as in rxvt without active Num Lock
+%   and in X-Windows (where Num Lock only affects the string sent by [,|Del])
+%   
+% * By default, KP_Divide, KP_Multiply, and KP_Add send "/", "*", and "+" in 
+%   xjed (their keysym does not change with Num Lock). 
+%   x-keydefs.sl uses x_set_keysym to change this to the variables values
+%   (therefore you should use the x_keydefs_hook() to change the value so xjed 
+%   will see the changes)
+% 
+% * ibmpc strings correspond to VT220 codes
+% 
 % TODO: check IBMPC keystrings, if different use set_keyvar()
 
 variable Key_KP_Return    = "\eOM";
-variable Key_KP_Multiply  = set_keyvar("\eOR", "", "\eOj");   % key sends "*"  by default
-variable Key_KP_Subtract  = set_keyvar("\eOS", "", "\eOm");
-variable Key_KP_Add       = set_keyvar("\eOm", "", "\eOk");   % key sends "+"  by default
-variable Key_KP_Separator = "\eOn";   % key sends "\eOl" with Num Lock
-variable Key_KP_Divide    = set_keyvar("\eOQ", "", "\eOT");   % key sends  "/" by default
+variable Key_KP_Divide    = set_keyvar("\eOQ", "", "\eOo"); 
+variable Key_KP_Multiply  = set_keyvar("\eOR", "", "\eOj"); 
+variable Key_KP_Add       = set_keyvar("\eOm", "", "\eOk"); 
+variable Key_KP_Subtract  = set_keyvar("\eOS", "", "\eOm"); 
+variable Key_KP_Separator = "\eOl";   % numeric_comma: [,|Del] with Num Lock in X
+variable Key_KP_Delete    = "\eOn";   % numeric_period: [,|Del] without Num Lock in X
 
 variable Key_KP_0         = "\eOp";
-variable Key_KP_1         = "\eOq";
+variable Key_KP_1         = set_keyvar("\eOq", "K4", "\eOq");
 variable Key_KP_2         = "\eOr";
-variable Key_KP_3         = "\eOs";
+variable Key_KP_3         = set_keyvar("\eOs", "K5", "\eOs");
 variable Key_KP_4         = "\eOt";
-variable Key_KP_5         = "\eOu";
+variable Key_KP_5         = set_keyvar("\eOu", "K2", "\eOu");
 variable Key_KP_6         = "\eOv";
-variable Key_KP_7         = "\eOw";
+variable Key_KP_7         = set_keyvar("\eOw", "K1", "\eOw");
 variable Key_KP_8         = "\eOx";
-variable Key_KP_9         = "\eOy";
+variable Key_KP_9         = set_keyvar("\eOy", "K3", "\eOy");
 
 % Alt and Escape
 % --------------
@@ -239,10 +250,10 @@ if (is_defined("x_server_vendor"))
    @x_set_keysym_p(0xFE20, '$',  Key_Shift_Tab);
 #endif
 
-   % numeric keypad (without Num Lock)
-   @x_set_keysym_p(0xFFAF , 0,   Key_KP_Divide);
+   % numeric keypad (keys whose keysym does not change with Num Lock)
    @x_set_keysym_p(0xFFAA , 0,   Key_KP_Multiply);
    @x_set_keysym_p(0xFFAB , 0,   Key_KP_Add);
+   @x_set_keysym_p(0xFFAF , 0,   Key_KP_Divide);
    
    % Shift-Control Movement Keys
    @x_set_keysym_p(0xFF50 , '%', Key_Ctrl_Shift_Home);
