@@ -18,7 +18,21 @@ public define check_for_tar (file)
 }
 
 % This checks if file is a tar, and if so opens it read-only.
-% To be added to _jed_find_file_before_hooks.
+% 
+
+
+%!%+
+%\function{check_for_tar_hook}
+%\synopsis{hook for opening a tar archive in tar mode}
+%\usage{public define check_for_tar_hook (file)}
+%\description
+%  If the filename argument has a tar extension, open it in \var{tar}
+%  mode and return 1, otherwise return 0.  To be added to
+%  _jed_find_file_before_hooks.
+%\notes
+%   This hook opens the archive read-only - you can't delete members.
+%\seealso{tar}
+%!%-
 public define check_for_tar_hook (file)
 {
    if (check_for_tar( file))

@@ -1,27 +1,22 @@
-% File:		tar.sl  -*- mode: SLang; mode: fold -*-
+% File:		tar.sl  -*- mode: SLang -*-
 %
-% Author:	Paul Boekholt <p.boekholt@hetnet.nl>
+% $Id: tar.sl,v 1.11 2006/01/19 21:02:09 paul Exp paul $
+%
+% Copyright (c) 2003-2006 Paul Boekholt
+% Released under the terms of the GNU GPL (version 2 or later).
 % 
-% $Id: tar.sl,v 1.10 2003/04/03 22:51:35 paul Exp paul $
-%
 % this is a jed interface to GNU tar
 % It works like emacs' tar-mode or dired.
 % Except that in emacs' tar-mode, changes do not become permanent until you 
 % save them.
 % You can view the contents of a tar file, view and extract 
 % members and delete them if the tar is not compressed.
-% See INSTALL for more information.
+% If you want want tar archives to be opened automatically in tar-mode, add
+% add_to_hook("_jed_find_file_before_hooks", &check_for_tar_hook);
+% to .jedrc
 % Thanks to Günter Milde for his ideas, comments, patches and bug reports.
-% 
-% what doesn't work yet? (I haven't tried myself)
-%   -multi volume archives
-%   -tagging lots of members (member names are sent to tar on the command line)
-%   
-% if tar's error messages mess up your screen, run emacs_recenter (bound to
-% ^L in emacs mode) or type M-x redraw.
-% 
-% This is alpha software, beware!
-require("tarlib");
+
+require("view");
 
 % binding scheme may be dired or mc.  We use a variable from filelist.sl
 % for consistency.
@@ -44,11 +39,41 @@ help_string["mc"] =
 help_string["dired"] = 
   "e:edit C:copy v:view d:tag u:untag x:delete tagged r:rescan h:help q:quit";
 
+%{{{ set the member's mode
+% This is from site.sl - I don't want the modeline from tar members processed
+% because script kiddies can use it for evil.
+private define set_mode_from_extension (ext)
+{
+   variable n, mode;
+   if (@Mode_Hook_Pointer(ext)) return;
+   
+   n = is_list_element (Mode_List_Exts, ext, ',');
+
+   if (n)
+     {
+	n--;
+	mode = extract_element (Mode_List_Modes, n, ',') + "_mode";
+	if (is_defined(mode) > 0)
+	  {
+	     eval (mode);
+	     return;
+	  }
+     }
+
+   mode = strcat (strlow (ext), "_mode");
+   if (is_defined (mode) > 0)
+     {
+	eval (mode);
+	return;
+     }
+}
+
+%}}}
 
 %{{{ reading a tar
-static define tar_init_menu ();
+private define tar_init_menu ();
 
-static define tar_mode ()
+private define tar_mode ()
 {
    set_mode( "tar", 0);
    use_keymap("Tar");
@@ -61,11 +86,11 @@ static define tar_mode ()
    bob;   
 }
 
-static define tar_options (file)
+private define tar_options (file)
 {
    variable exts = strchopr(file, '.', 0);
    if (1 == length(exts))
-     error ("file doesn't have a tar extension");
+     error ("file doesn't have a tar extension: " + file);
    switch (exts[0])
      { case "tar" : return "";}
      { case "tgz" : return "-z";}
@@ -80,15 +105,15 @@ static define tar_options (file)
      { error ("file doesn't have a tar extension");}
 }
 
-static define tar_get_vars ()
+private define tar_get_vars ()
 {
    !if (blocal_var_exists("tar")) error("not a tar buffer?");
    return get_blocal_var("tar");
 }
 
-static define tar_get_member ()
+private define tar_get_member ()
 {
-   return str_quote_string(line_as_string[[2:]], " ", '\\');
+   return line_as_string[[2:]];
 }
 
 public define tar_list ()
@@ -110,6 +135,23 @@ public define tar_list ()
    message(help_string[FileList_KeyBindings]);
 }
 
+%!%+
+%\function{tar}
+%\synopsis{tar [ filename [readonly]] }
+%\usage{public define tar ()}
+%\description
+%   A mode for viewing the contents of tar archives.  It resembles
+%   Emacs' tar-mode, but works by calling the GNU tar program.  You
+%   can mark archive members with the 'd' key, like in dired.  Set
+%   \var{FileList_KeyBindings} to "mc" if you want keybindings like
+%   in Midnight Commander.  When you mark a directory member, it's
+%   submembers are also marked.  Delete tagged members with 'x'.
+%\notes
+%   Unlike in Emacs' tar-mode, when you delete members they are gone - no
+%   need to save the file.  To protect unwary users, there is the
+%   readonly argument.
+%\seealso{tar_copy, check_for_tar_hook}
+%!%-
 public define tar () % [ filename [ RO ] ]
 {
    variable tar = @Tarvars;
@@ -144,67 +186,49 @@ public define tar_set_root (tar)
    return tar.root;
 }
 
-static define extract_to_buf (buf, uncompress)
-{
-   variable tar, member, buffer;
-   tar = tar_get_vars;
-   member = tar_get_member;
-   if (member[-1] == '/') error("this is a directory");
-   variable cmd = create_delimited_string 
-     (" ", "tar -xO", tar.options, "-f", tar.file, member, 5);
-   if (uncompress and member[[-3:]] == ".gz") cmd += "|gzip -d"; 
-   % autocompression mode doesn't uncompress tar members
-   sw2buf(buf);
-   erase_buffer;
-   () = run_shell_cmd(cmd);
-   set_buffer_modified_flag(0);
-   bob;
-}
-
 
 public define tar_view_member ()
 {
    variable tar, member, buffer;
    tar = tar_get_vars;
    member = tar_get_member;
-   buffer = path_basename(member);
+   buffer = sprintf("%s (%s)", path_basename(member), path_basename(tar.file));
    if(bufferp(buffer)) sw2buf(buffer);
    else
      {
-	extract_to_buf(buffer, 1);
+	if (member[-1] == '/') error("this is a directory");
+	variable cmd = create_delimited_string 
+	  (" ", "tar -xO", tar.options, "-f", tar.file, "'" + member + "'", 5);
+	if (member[[-3:]] == ".gz") cmd += "|gzip -d"; 
+	% autocompression mode doesn't uncompress tar members
+	sw2buf(buffer);
+	erase_buffer;
+	() = run_shell_cmd(cmd);
+	set_buffer_modified_flag(0);
+	bob;
 	if (member[[-3:]] == ".gz")
 	  set_mode_from_extension (file_type(member[[:-4]]));
 	else set_mode_from_extension (file_type (member));
      }
-   less_mode;
+   view_mode;
 }
 
-static define tar_copy_member ()
+private define tar_copy_member ()
 {
-   variable autocompress, name =
-     read_with_completion("where to copy this file to", "" , "", 'f');
+   variable tar = tar_get_vars(),
+   member = tar_get_member();
+   if (member[-1] == '/') error("this is a directory");
+   variable name = read_file_from_mini("where to copy this file to");
    if (2 == file_status(name))
-     name = dircat(name, path_basename(line_as_string()[[2:]]));
-   extract_to_buf(" *tar_copy_buffer*", 0);
-   % compress.sl provides a function for turning autocompression_mode on, off
-   % and for toggling, but not for checking whether it's on or off.  I want
-   % it off.  Fortunately it does give a message.
-   if (is_list_element(".gz,.Z,.bz2,.bz", path_extname(name), ','))
-     {
-	auto_compression_mode; % if it was on, it will now be off!
-	autocompress = (MESSAGE_BUFFER[[:-1]] == 'F');
-	ERROR_BLOCK { auto_compression_mode(autocompress); }
-	auto_compression_mode(0);
-	write_buffer(name);
-	auto_compression_mode(autocompress);
-     }
-   else write_buffer(name);
-   delbuf(whatbuf);
+     name = dircat(name, path_basename(member));
+   variable cmd = create_delimited_string 
+     (" ", "tar -xO", tar.options, "-f", tar.file, "'"+member+"'", ">", name, 7);
+   () = run_shell_cmd(cmd);
 } 
 
 %{{{ tagging members
 
-static define set_tag (tag)
+private define set_tag (tag)
 {
    bol;
    go_right_1;
@@ -212,13 +236,13 @@ static define set_tag (tag)
    del;   
 }
 
-static define tag_submembers (path, tag)
+private define tag_submembers (path, tag)
 {
    for (bob; re_fsearch("^ [ xD]" + path + ".+"); go_down_1)
      set_tag(tag);
 }
 
-static define tag_member (on)
+private define tag_member (on)
 {
    push_spot;
    variable member;
@@ -227,10 +251,10 @@ static define tag_member (on)
    if (on) (tag,subtag) = 'D','x';
    else (tag,subtag) = ' ',' ';
 
-   set_readonly(0);
    bol;
    go_right_1;
    if (looking_at_char('x')) return;
+   set_readonly(0);
    set_tag(tag);
    % tag any other members with this name
    for (bob; re_fsearch("^ [x ]" + member + "$"); go_down_1)
@@ -241,7 +265,6 @@ static define tag_member (on)
    pop_spot;
    set_readonly(1);
    set_buffer_modified_flag(0);
-
 }
 
 public define tar_tag_member(dir) % (on/off)
@@ -285,16 +308,16 @@ public define tar_tag_all()
 }
 
 
-static define get_tagged_members ()
+private define get_tagged_members ()
 {
    variable members = "", allmembers="";
    push_spot_bob;
    do
      {
 	if (looking_at(" D"))
-	  members += tar_get_member() + " ";
+	  members += tar_get_member() + "\n";
 	else if (looking_at(" x"))
-	  allmembers += tar_get_member() + " ";
+	  allmembers += tar_get_member() + "\n";
      }
    while (down_1);
    pop_spot;
@@ -314,45 +337,52 @@ public define tar_delete ()
    variable members, allmembers;
    (members, allmembers) = get_tagged_members;
    if (members == "") return;
-   whatbuf;
+   variable buf=whatbuf;
    sw2buf(" *Deletions*");
    erase_buffer();
-   insert(strjoin(strchop(members + allmembers, ' ', '\\'),"\n"));
+   insert(members + allmembers);
    buffer_format_in_columns();
    !if (1 == get_yes_no("Do you wish to PERMANENTLY delete these members"))
-     {
-	sw2buf;
-	return;
-     }
-  sw2buf;
-  variable cmd = "tar --delete -f " + tar.file + " " + members;
-  () = run_shell_cmd(cmd);
-  what_line;
-  tar_list;
-  goto_line;
+     return sw2buf(buf);
+   sw2buf(buf);
+   variable cmd = popen("tar --delete -f " + tar.file + " -T -", "w");
+   ()=fputs(members, cmd);
+   variable status = pclose(cmd);
+   if (status) verror("tar exited with %d", status);
+   variable line=what_line;
+   tar_list;
+   goto_line(line);
 }
 
-static define tar_extract (all)
+private define tar_extract (all)
 {
    variable tar, members ="";
    tar = tar_get_vars;
    if (tar.root == "") tar.root = tar_set_root(tar);
    !if (all)
      (members, ) = get_tagged_members;
-   variable cmd = strcat("tar -x ", tar.options, " -C ", tar.root,
-			 " -f ", tar.file, " ", members);
-   () = run_shell_cmd(cmd);
+   variable cmd = popen(strcat("tar -x ", tar.options, " -C ", tar.root,
+			 " -f ", tar.file, " -T -"), "w");
+   ()=fputs(members, cmd);
+   variable status = pclose(cmd);
+   if (status) verror("tar exited with %d", status);
 }
 
 % are there tagged members?
-static define are_there_tagged()
+private define are_there_tagged()
 {
    push_spot_bob;
    bol_fsearch (" D");
    pop_spot;
 }
 
-% extract tagged members, if none are tagged extract member at point
+%!%+
+%\function{tar_copy}
+%\description
+%   If there are tagged tar members, copy them.  Otherwise copy the
+%   member at point.
+%\seealso{tar}
+%!%-
 public define tar_copy()
 {
    if (are_there_tagged) tar_extract(0);
@@ -369,7 +399,7 @@ public define tar_copy()
 create_syntax_table ("tar");
 
 %%% DFA_CACHE_BEGIN %%%
-static define setup_dfa_callback(mode)
+private define setup_dfa_callback(mode)
 {
    dfa_enable_highlight_cache(mode + ".dfa", mode);
    dfa_define_highlight_rule("^  .*/$", "keyword", mode);
@@ -384,7 +414,7 @@ enable_dfa_syntax_for_mode("tar");
 
 % Keybindings:
 !if (keymap_p ("Tar"))
-  make_keymap("Tar");
+  copy_keymap("Tar", "view");
 % dired bindings do not do any harm (as we are in readonly) so they
 % should be available also to mc-Freaks (so the menu gives keybindings)
 definekey("tar_tag_all", "a", "Tar");
@@ -417,7 +447,7 @@ if (FileList_KeyBindings == "mc")
 }
 
 
-static define tar_init_menu (menu) 
+private define tar_init_menu (menu) 
 {
    menu_append_item(menu, "&view", "tar_view_member");
    menu_append_item(menu, "&tag", "tar_tag_member(1,1)");
