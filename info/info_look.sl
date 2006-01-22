@@ -1,18 +1,18 @@
 % info_look.sl
 % mode-sensitive Info index lookup facility.
 % 
-% $Id: info_look.sl,v 1.1 2003/08/03 20:08:13 paul Exp paul $
+% $Id: info_look.sl,v 1.2 2006/01/22 14:46:30 paul Exp paul $
 % Keywords: help languages
 % 
-% Copyright (c) 2003 Paul Boekholt <p.boekholt@hetnet.nl>
+% Copyright (c) 2003-2005 Paul Boekholt
 % Released under the terms of the GNU GPL (version 2 or later).
 % 
 % Some functions to use hyperhelp's help_for_word_hook with
 % hyperman and info.
 
-require("infospace");
-use_namespace("info");
 autoload("unix_apropos", "hyperman");
+require("info");
+use_namespace("info");
 % Look up word in manpage in mode-dependent section
 public define manpage_lookup(word)
 {
