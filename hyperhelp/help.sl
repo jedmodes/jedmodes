@@ -1,18 +1,17 @@
-% Hypertext help browser, a drop-in replacement for the standard help.sl
+% help.sl
+% 
+% Hypertext help browser as drop-in replacement for the standard help.sl
 %
 % Copyright (c) 2003 Günter Milde
 % Released under the terms of the GNU General Public License (ver. 2 or later)
 %
-%   Version 1.0
-%   - added Guido Gonzatos function_help (renamed to help_for_word_at_point)
-%   - when no documentation is available, give message in minibuffer
-%     instead of popping up a help window (customizable)
-%   - help-mode (Return and 2click: help_for_word_at_point,
-%     		  Q                  close help,
-%     		  TAB                go to next defined object
-%     		  W                  where is command
-%     		  ...)
-%   Versions
+% Versions
+% --------
+%   1.0   - added Guido Gonzatos function_help (renamed to
+%   	    help_for_word_at_point()) 
+%   	  - when no documentation is available, give message in minibuffer
+%     	    instead of popping up a help window (customizable)
+%   	  - help-mode
 %   1.1   - set variable
 %   	  - grep the definition of a library function
 %   	  - mini-help: a one-line help string for display in the minibuffer
@@ -53,10 +52,14 @@
 %   1.6.1 2005-11-01  bugfix in describe_bindings()
 %   1.6.2 2005-11-08  changed _implements() to implements()
 %   1.6.3 2005-11-22  hide functions with autoloads in site.sl from make_ini()
-%           	      
+%   1.7   2006-01-25  rewrite of help history feature using #ifexists
+%                     removing the custom_variable `Help_with_history'
+%                     provide("hyperhelp") so modes depending on stuff not in
+%                     the standard help could require("hyperhelp") 
+%
 %   TODO: use _get_namespaces() to make apropos aware of functions in
 %   	  "named namespaces" (When called with a numeric prefix arg [PB])
-%           	      
+%
 % ------------------------------------------------------------------------
 % USAGE:
 %
@@ -65,32 +68,36 @@
 % Optionally, place grep.sl, filelist.sl, and circle.sl in the path too.
 %
 % (I recommend a separate directory for the local extensions --
-%  thus they won't be overwritten by upgrading to a new jed version.
-%  See the home-lib mode for an example how to do this)
+% so they won't be overwritten by upgrading to a new jed version.
+% See http://jedmodes.sf.net/mode/libdir/ for a more info on how to do this)
 %
-%  To increase the comfort, you can replace the "help_prefix" binding
-%  (^H in emacs emulation) with "help_for_help"
-%  (shows you all the bindings in a popup window)
-%  or define your own help-map, e.g.
-%    ^H map: 				   Help ...
-%    setkey("apropos", 		"^HA");
-%    setkey("grep_definition",	"^HD");
-%    setkey("describe_function", 	"^HF");
-%    setkey("help",   		"^HH");
-%    setkey("info_mode", 		"^HI");
-%    setkey("showkey", 		"^HK");
-%    setkey("describe_mode", 	"^HM");
-%    setkey("set_variable",		"^HS");
-%    setkey("unix_man",	      	"^HU");
-%    setkey("describe_variable", 	"^HV");
-%    setkey("where_is", 		"^HW");
-%  (these bindings will then show up in the Help menu)
-%  And/Or bind a key to open the help menu, e.g.
-%    setkey("menu_select_menu(\"Global.&Help\")", Key_F1); % Jed 99.16
-%    setkey("ungetkey('h'); call(\"select_menubar\")", Key_F1); % Jed 99.15
+% To increase the comfort, you can replace the "help_prefix" binding (^H in
+% emacs emulation) with menu_select_menu("Global.&Help") so it pops up the
+% Help menu for better visual feedback or define your own help-map, e.g.
+% 
+%    % ^H map:	       	         Help ...
+%    setkey("apropos", 		 "^HA");
+%    setkey("grep_definition",	 "^HD");
+%    setkey("describe_function", "^HF");
+%    setkey("help",   		 "^HH");
+%    setkey("info_mode", 	 "^HI");
+%    setkey("showkey", 		 "^HK");
+%    setkey("describe_mode", 	 "^HM");
+%    setkey("set_variable",	 "^HS");
+%    setkey("unix_man",	      	 "^HU");
+%    setkey("describe_variable", "^HV");
+%    setkey("where_is", 	 "^HW");
+%    
+%  (these bindings will then show up in the Help menu) and optionally bind
+%  another key to open the help menu, e.g.
+%  
+%    setkey("menu_select_menu(\"Global.&Help\")", Key_F1); % Jed >= 99.16
+%  or  
+%    setkey("ungetkey('h'); call(\"select_menubar\")", Key_F1); % Jed <= 99.15
 %
 %  you will need autoloads for all functions you want to bind
 %  that are not present in the standard help.sl
+%  
 %    _autoload("help_for_help", "help",
 %              "grep_definition", "help",
 %              "set_variable", "help",
@@ -101,18 +108,20 @@
 % for debugging:
 % _debug_info = 1;
 
-% --- Requirements ---------------------------------------------------------
+% Requirements
+% ------------
 
-% distributed with jed but not loaded by default
+% Standard modes, distributed with jed but not loaded by default
 autoload("add_keyword_n", "syntax.sl");
 require("keydefs");
-% needed auxiliary functions, not distributed with jed
+
+% Functions from utility modes at http://jedmodes.sourceforge.net/
 require("view"); %  readonly-keymap
-autoload("bget_word",           "txtutils");
 autoload("run_function",        "sl_utils");
 autoload("get_blocal",          "sl_utils");
 autoload("push_array",          "sl_utils");
 autoload("prompt_for_argument", "sl_utils");
+autoload("bget_word",           "txtutils");
 autoload("popup_buffer",        "bufutils");
 autoload("close_buffer",        "bufutils");
 autoload("strread_file",        "bufutils");
@@ -121,12 +130,14 @@ autoload("set_help_message",    "bufutils");
 autoload("help_message",        "bufutils");
 autoload("string_get_match",	"strutils");
 
-% --- Optional helpers (not really needed but nice to have)
+% Optional modes from http://jedmodes.sourceforge.net/
+% (not really needed but nice to have)
 
-% nice formatting of apropos list
-if(strlen(expand_jedlib_file("csvutils.sl")))   % also needs datutils
+% formatting of apropos list
+if(andelse{strlen(expand_jedlib_file("csvutils.sl"))}
+   {strlen(expand_jedlib_file("datutils.sl"))})
 {
-   autoload("list2table", "csvutils.sl"); 
+   autoload("list2table", "csvutils.sl");
    autoload("strjoin2d", "csvutils.sl");
    autoload("array_max", "datutils.sl");
 }
@@ -140,22 +151,21 @@ if (strlen(expand_jedlib_file("circle.sl")))
    autoload("circ_get", "circle");
    autoload("circ_append", "circle");
 }
-else
-   public variable Help_with_history = 0;
+
+% This superset of the standard help mode can be used as drop-in replacement.
+provide("help");
+% Modes depending on this modes extensions should require("hyperhelp").
+provide("hyperhelp");  % help browser (with "hyperlinks")
 
 % --- name it
-provide("help");
 implements("help");
 private variable mode = "help";
-
 
 % --- variables for user customization ----------------------
 
 % How big shall the help window be maximal
 % (set this to 0 if you don't want it to be fitted)
 custom_variable("Help_max_window_size", 0.7);
-% enable history (using circ.sl)
-custom_variable("Help_with_history", 1);
 % for one line help texts, just give a message instead of open up a buffer
 custom_variable("Help_message_for_one_liners", 0);
 % Do you want full- or mini-help with help_for_word_at_point?
@@ -184,7 +194,7 @@ help_for_help_string =
 set_help_message(help_for_help_string, mode);
 
 % reserved keywords, taken from Klaus Schmidts sltabc  %{{{
-static variable Keywords = 
+static variable Keywords =
   [
    "ERROR_BLOCK",         % !if not used here
    "EXECUTE_ERROR_BLOCK", % from syntax table
@@ -242,23 +252,20 @@ public  define read_variable_from_mini(prompt, default)
    read_object_from_mini(prompt, default, 0xC);
 }
 
-% --- History ---
-
-% The history stack
-
-if(Help_with_history)
-  static variable Help_History =
-    runhooks("create_circ", Array_Type, 30, "linear");
+% History
+#ifexists create_circ
+public variable Help_History = create_circ(Array_Type, 30, "linear");
 
 define previous_topic()
 {
-   ()= run_function(push_array(runhooks("circ_previous", Help_History)));
+   runhooks(push_array(circ_previous(Help_History)));
 }
 
 define next_topic()
 {
-   ()= run_function(push_array(runhooks("circ_next", Help_History)));
+   runhooks(push_array(circ_next(Help_History)));
 }
+#endif
 
 % Open a help buffer, insert str, set to help mode, and add to history list
 define help_display(str)
@@ -275,11 +282,11 @@ define help_display(str)
    bob();
    fit_window(get_blocal("is_popup", 0));
    help_mode();
-   if (Help_with_history)
-     if (length(where(current_topic != runhooks("circ_get", Help_History))))
-       runhooks("circ_append", Help_History, @current_topic);
+#ifexists create_circ
+   if (length(where(current_topic != circ_get(Help_History))))
+     circ_append(Help_History, @current_topic);
+#endif   
 }
-
 
 static define help_display_list(a)
 {
@@ -317,13 +324,13 @@ public define help() % (help_file=Help_File)
    help_file = push_defaults(Help_File, _NARGS);
 
    current_topic = [_function_name, help_file];
-   variable hf = help_file;
-   !if (path_is_absolute (hf))
-     hf = expand_jedlib_file(hf);
-   if (file_status(hf) != 1)
+   variable path = help_file;
+   !if (path_is_absolute (path))
+     path = expand_jedlib_file(path);
+   if (file_status(path) != 1)
      verror ("Help error: File %s not found", help_file);
    % get the file and display in the help buffer
-   help_display(strread_file(hf));
+   help_display(strread_file(path));
 }
 
 %!%+
@@ -349,7 +356,7 @@ define help_for_help() {help("help.hlp");}
 %!%-
 public  define apropos() % ([pattern])
 {
-   variable pattern = prompt_for_argument(&read_mini, 
+   variable pattern = prompt_for_argument(&read_mini,
 					  "apropos:", "", "", _NARGS);
    variable list = _apropos("Global", pattern, 0xF);
    vmessage ("Found %d matches.", length(list));
@@ -359,12 +366,11 @@ public  define apropos() % ([pattern])
    help_display_list(list[array_sort(list)]);
 }
 
-
 % Search for \var{str} in the \var{Jed_Doc_Files}
 define _do_help_search(str)
 {
    variable result = String_Type[100], i=0;
-   !if(strlen(str)) 
+   !if(strlen(str))
      error("nothing to search for");
    variable this_str, strs = strchop(str, ' ', '\\');
    variable docfile, matches_p;
@@ -374,7 +380,7 @@ define _do_help_search(str)
      {
 	docfile=();
 	fp = fopen(docfile, "r");
-	if (fp == NULL) 
+	if (fp == NULL)
 	  continue;
 
 	forever
@@ -399,7 +405,7 @@ define _do_help_search(str)
 	       }
 	     entry=buf[[pos-1:beg]];
 	     matches_p=1;
-	     
+
 	     foreach (strs)
 	       {
 		  this_str=();
@@ -420,21 +426,20 @@ define _do_help_search(str)
    return result[[:i-1]];
 }
 
-
 %!%+
 %\function{help_search}
 %\synopsis{Search for \var{str} in the \var{Jed_Doc_Files}}
 %\usage{help_search([str])}
 %\description
 %  This function does a full text search in the online help documents
-%  and returns the function/variable names where \var{str} occures in 
+%  and returns the function/variable names where \var{str} occures in
 %  the help text.
 %\seealso{apropos, describe_function, describe_variable, Jed_Doc_Files}
 %!%-
 public define help_search() % ([str])
 {
-   variable str = prompt_for_argument(&read_mini, 
-				      "Search in help docs:", "", "", 
+   variable str = prompt_for_argument(&read_mini,
+				      "Search in help docs:", "", "",
 				      _NARGS);
    variable list = _do_help_search(str);
    vmessage ("Found %d matches.", length(list));
@@ -443,7 +448,6 @@ public define help_search() % ([str])
    current_topic = [_function_name, str];
    help_display_list(list[array_sort(list)]);
 }
-   
 
 % --- showkey and helpers
 
@@ -489,8 +493,8 @@ public  define expand_keystring(key)
    if (strlen(Keydef_Keys[key]))
      key = sprintf("%s (\"%s\")", Keydef_Keys[key], key);
    % two more readability replacements
-   (key, ) = strreplace(key, "^I", "\\t", strlen (key));
-   (key, ) = strreplace(key, "^[", "\\e", strlen (key));
+   key = str_replace_all(key, "^I", "\\t");
+   key = str_replace_all(key, "^[", "\\e");
    return key;
 }
 
@@ -553,9 +557,9 @@ public  define showkey() % ([keystring])
 %!%-
 public  define where_is()
 {
-   variable cmd = prompt_for_argument(&read_function_from_mini, 
+   variable cmd = prompt_for_argument(&read_function_from_mini,
 				      "Where is command:",
-				      bget_word(Slang_word_chars), 
+				      bget_word(Slang_word_chars),
 				      _NARGS);
    variable n, help_str = cmd + " is on ";
 
@@ -663,7 +667,7 @@ define help_for_object(obj)
 public  define describe_function () % ([fun])
 {
    variable fun = prompt_for_argument(&read_function_from_mini,
-				      "Describe Function:", 
+				      "Describe Function:",
 				      bget_word(Slang_word_chars),
 				      _NARGS);
    current_topic = [_function_name, fun];
@@ -682,7 +686,7 @@ public  define describe_function () % ([fun])
 public  define describe_variable() % ([var])
 {
    variable var = prompt_for_argument(&read_variable_from_mini,
-				      "Describe Variable:", 
+				      "Describe Variable:",
 				      bget_word(Slang_word_chars),
 				      _NARGS);
    current_topic = [_function_name, var];
@@ -724,7 +728,7 @@ public  define describe_mode ()
 %!%-
 public  define describe_bindings() % (keymap=what_keymap())
 {
-   variable keymap = prompt_for_argument(&read_mini, 
+   variable keymap = prompt_for_argument(&read_mini,
                                          "Keymap:", what_keymap(), "", _NARGS);
    flush("Building bindings..");
    variable buf = whatbuf();
@@ -748,7 +752,7 @@ public  define describe_bindings() % (keymap=what_keymap())
 
 % grep commands (need grep.sl)
 
-% #ifeval expand_jedlib_file("grep.sl") != "" 
+% #ifeval expand_jedlib_file("grep.sl") != ""
 % % fails with preparse (leaves '^A' on stack) ?????
 #ifexists grep
 
@@ -771,7 +775,7 @@ public define grep_slang_sources() % ([what])
      (&read_mini, "Grep in Slang sources:", "", bget_word(), _NARGS);
    % build the search string and filename mask
    variable files = strchop(get_jed_library_path, ',', 0);
-   files = files[where(files != ".")]; % filter the current dir 
+   files = files[where(files != ".")]; % filter the current dir
    files = array_map(String_Type, &path_concat, files, "*.sl");
    files = strjoin(files, " ");
    grep(what, files);
@@ -787,13 +791,13 @@ public define grep_slang_sources() % ([what])
 %  jed_library_path.
 %\notes
 %  The \var{grep} function is provided by grep.sl and needs the 'grep'
-%  system command. It is checked for at evaluation (or byte_compiling) 
+%  system command. It is checked for at evaluation (or byte_compiling)
 %  time of help.sl by a preprocessor directive.
 %\seealso{describe_function, grep, grep_slang_sources, get_jed_library_path}
 %!%-
 public define grep_definition() % ([obj])
 {
-   variable obj = prompt_for_argument(&read_object_from_mini, 
+   variable obj = prompt_for_argument(&read_object_from_mini,
 				      "Grep Definition:",
 				      bget_word(Slang_word_chars), 0xF,
 				      _NARGS);
@@ -991,8 +995,10 @@ public define mini_help_for_object(obj)
 %   function defined in the blocal variable "help_for_word_hook".
 %\notes
 %   If a mode needs a different set of word_chars (like including the point
-%   for object help in python), its help_for_word_hook can simply discard
-%   the provided word and call bget_word("mode_word_chars").
+%   for object help in python), it can either set the buffer-local variable
+%   "word_chars", use mode_set_mode_info("word_chars") or, if this is
+%   not  desired, its help_for_word_hook can discard the provided word and
+%   call e.g. bget_word("mode_word_chars").
 %\seealso{describe_function, describe_variable, context_help}
 %!%-
 public define help_for_word_at_point()
@@ -1033,11 +1039,11 @@ define skip_word() % ([word_chars])
    (word_chars, skip) = push_defaults(NULL, 0, _NARGS);
    if (word_chars == NULL)
      word_chars = get_blocal("Word_Chars", get_word_chars());
-   
+
    skip_chars(word_chars);
    while (skip_chars("^"+word_chars), eolp())
      {
-	!if (right(1)) 
+	!if (right(1))
 	  break;
      }
 }
@@ -1049,7 +1055,7 @@ define bskip_word() % ([word_chars])
    (word_chars, skip) = push_defaults(NULL, 0, _NARGS);
    if (word_chars == NULL)
      word_chars = get_blocal("Word_Chars", get_word_chars());
-   
+
    bskip_chars(word_chars);
    while (bskip_chars("^"+word_chars), bolp())
      {
@@ -1098,7 +1104,7 @@ define goto_next_object()
 % goto previous word that is a defined function or variable
 define goto_prev_object ()
 {
-   if (is_list_element("help_search,apropos", current_topic[0], ',')) 
+   if (is_list_element("help_search,apropos", current_topic[0], ','))
      return bskip_word(Slang_word_chars);
    !if(andelse {push_spot, re_bsearch("^ +SEE ALSO"), pop_spot}
 	 {bskip_word(Slang_word_chars), not looking_at("ALSO")})
@@ -1154,7 +1160,6 @@ dfa_set_init_callback(&helplist_dfa_callback, helplist);
 enable_dfa_syntax_for_mode(helplist);
 #endif
 
-
 static define _add_keyword(keyword)
 {
    variable word = strtrim(keyword, "`', \t");
@@ -1169,7 +1174,7 @@ static define _add_keyword(keyword)
 static define help_mark_keywords()
 {
    variable keyword, word, pattern,
-     patterns = ["\\\`[_a-zA-Z0-9]+\\\'", 
+     patterns = ["\\\`[_a-zA-Z0-9]+\\\'",
 		 " [_a-zA-Z0-9]+,",
 		 " [_a-zA-Z0-9]+$"
 		 ];
@@ -1185,12 +1190,11 @@ static define help_mark_keywords()
 	  }
 	% test for a SEE ALSO section (for second and third pattern)
 	bob();
-	!if (re_fsearch("^ *SEE ALSO")) 
+	!if (re_fsearch("^ *SEE ALSO"))
 	  break;
      }
    pop_spot();
 }
-
 
 % --- A dedicated mode for the help buffer -------------------------------
 
@@ -1215,13 +1219,12 @@ definekey("unix_man",                   "u",           mode);
 definekey("set_variable",               "s",           mode);
 definekey("describe_variable",          "v",           mode);
 definekey("where_is",     		"w",           mode);
-if(Help_with_history)
-{
-   definekey ("help->next_topic",       Key_Alt_Right, mode); % Browser-like
-   definekey ("help->previous_topic",   Key_Alt_Left,  mode); % Browser-like
-   definekey ("help->next_topic",       ".", mode); % dillo-like
-   definekey ("help->previous_topic",   ",", mode); % dillo-like
-}
+#ifexists create_circ
+definekey ("help->next_topic",          ".",           mode); % dillo-like
+definekey ("help->previous_topic",      ",",           mode); % dillo-like
+definekey ("help->next_topic",       Key_Alt_Right,    mode); % Browser-like
+definekey ("help->previous_topic",   Key_Alt_Left,     mode); % Browser-like
+#endif
 
 public define help_mode()
 {
