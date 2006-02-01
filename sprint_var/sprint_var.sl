@@ -29,10 +29,16 @@
 %     		  (test with is_struct_type that also works for structures of
 %     		   types other than Struct_Type)
 %     		  added tm documentation
+% 1.2 2006-02-01  added provide()    		  
 
+
+% Requirements
+% ------------
 
 autoload("array_product", "datutils");
 autoload("array_repeat", "datutils");
+
+provide("sprint_var");
 
 %!%+
 %\variable{Sprint_Indent}
@@ -90,7 +96,7 @@ public define sprint_variable(var)
 }
 
 % Return a 1d array of indices for multidim-array with dimensions dims
-define multidimensional_indices(dims)
+define  multidimensional_indices(dims)
 {
    variable i, j, N = length(dims);          % dimensionality
    variable L = array_product(dims);
