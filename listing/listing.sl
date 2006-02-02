@@ -1,7 +1,7 @@
 % A mode for listings of e.g. files or findings
 % to be used by more specific modes like dired, grep, locate, ...
 %
-% Copyright (c) 2003 Dino Sangoi, Günter Milde
+% Copyright (c) 2006 Dino Sangoi, Günter Milde
 % Released under the terms of the GNU General Public License (ver. 2 or later)
 % 
 % Version    0.1   Dino Sangoi   first version
@@ -20,6 +20,7 @@
 % 2005-03-31 1.9.7 * made slang-2 proof: A[[0:-2]] --> A[[:-2]]
 % 2005-11-08 1.9.8 * changed _implements() to implements()
 % 2005-11-23 1.9.9 * docu bugfix in listing_list_tags
+% 2006-01-24 2.0   * new keybinding: Key_Return calls "listing_return_hook"
 %                    
 % TODO:  * Shift-Click tags from point to Mousepoint
 %          may be also: right-drag tags lines
@@ -35,6 +36,7 @@ require("view"); % readonly-keymap depends on bufutils.sl
 autoload("array", "datutils");
 autoload("array_delete", "datutils");
 autoload("array_append", "datutils");
+autoload("run_blocal_hook", "bufutils");
 autoload("push_defaults", "sl_utils");
 
 % --- name it
@@ -143,7 +145,7 @@ static define delete_tag_lines(tags)
 %   get_confirmation(prompt) instead of get_y_or_n(prompt) to offer more 
 %   choices. The keybindings are a subset from jed's replace command: 
 %   y: yes, n: no, !: all, q:quit
-%   The optional argument default sets the action for pressing Enter 
+%   The optional argument default sets the action for pressing Return
 %   (defaulting to no action).
 %\notes
 %   The static variable listing->Dont_Ask saves the "!: all" decision
@@ -356,6 +358,26 @@ public  define listing_map() % (scope, fun, [args])
 %  Return an array of tagged lines.
 %  For a discussion of the \var{scope} and \var{untag} parameters 
 %  see \var{listing_map}
+%\example
+%  Pop up a listing and let the user select some items.
+%#v+
+% private define select_database_enter_hook()
+% {
+%    variable database = listing_list_tags(1);
+%    close_buffer();
+%    % show(strjoin(database, ","));
+%    dict_set_database(database);
+% }   
+% define dict_select_database()
+% {
+%    dictionary_list = shell_command(dict_cmd + " --dbs", 3);
+%    popup_buffer("*dict database*");
+%    insert(dictionary_list);
+%    bob();
+%    listing_mode();
+%    define_blocal_var("key_return_hook", &select_database_enter_hook);
+%    message("Select and press Return to apply");
+%#v-
 %\seealso{listing_map, listing_mode, tag, tags_length}
 %!%-
 public  define listing_list_tags() % (scope=2, untag=0)
@@ -376,45 +398,39 @@ static define listing_update_hook()
 
 % --- Keybindings
 
-!if (keymap_p (mode))
-  copy_keymap (mode, "view");
+!if (keymap_p(mode))
+  copy_keymap(mode, "view");
 
-definekey (mode+"->edit",              "e", mode);
-definekey (mode+"->tag(2)",            "t", mode); % toggle tag
-definekey (mode+"->tag(1); go_down_1", "d", mode); % dired-like
-definekey (mode+"->tag(0); go_down_1", "u", mode); % untag (dired-like)
-definekey (mode+"->tag_matching(1)",   "+", mode);
-definekey (mode+"->tag_matching(0)",   "-", mode);
-definekey (mode+"->tag_all(2)",        "*", mode); % toggle all tags
-definekey (mode+"->tag_all(1)",        "a", mode);
-definekey (mode+"->tag_all(0)",        "z", mode);
-definekey (mode+"->tag_all(0)",        "\e\e\e",        mode); % "meta-escape"
-definekey (mode+"->tag(2); go_down_1", Key_Ins,        mode); % MC like
-definekey ("go_up_1;"+mode+"->tag(2)",   Key_BS,   mode);     % Dired
-definekey (mode+"->tag(2); go_down_1", Key_Shift_Down, mode); % CUA style
-definekey (mode+"->tag(2); go_up_1",   Key_Shift_Up,   mode); % CUA style
+definekey(mode+"->edit",              "e", mode);
+definekey(mode+"->tag(2)",            "t", mode); % toggle tag
+definekey(mode+"->tag(1); go_down_1", "d", mode); % dired-like
+definekey(mode+"->tag(0); go_down_1", "u", mode); % untag (dired-like)
+definekey(mode+"->tag_matching(1)",   "+", mode);
+definekey(mode+"->tag_matching(0)",   "-", mode);
+definekey(mode+"->tag_all(2)",        "*", mode); % toggle all tags
+definekey(mode+"->tag_all(1)",        "a", mode);
+definekey(mode+"->tag_all(0)",        "z", mode);
+definekey(mode+"->tag_all(0)",        "\e\e\e",       mode); % "meta-escape"
+definekey(mode+"->tag(2); go_down_1", Key_Ins,        mode); % MC like
+definekey("go_up_1;"+mode+"->tag(2)", Key_BS,         mode); % Dired
+definekey(mode+"->tag(2); go_down_1", Key_Shift_Down, mode); % CUA style
+definekey(mode+"->tag(2); go_up_1",   Key_Shift_Up,   mode); % CUA style
+definekey("run_blocal_hook(\"key_return_hook\")", "\r", mode); % Return
 
 % --- the mode dependend menu
 static define listing_menu (menu)
 {
-   menu_append_item (menu, "&Tag/Untag",      mode+"->tag(2)");
-   menu_append_item (menu, "Tag &All", 	      mode+"->tag_all(1)");
-   menu_append_item (menu, "Untag A&ll",      mode+"->tag_all(0)");
-   menu_append_item (menu, "Tag &Matching",   mode+"->tag_matching(1)");
-   menu_append_item (menu, "&Untag Matching", mode+"->tag_matching(0)");
-   menu_append_item (menu, "&Invert Tags",    mode+"->tag_all(2)");
-   menu_append_item (menu, "&Edit Listing",   mode+"->edit");
+   menu_append_item(menu, "&Tag/Untag",      mode+"->tag(2)");
+   menu_append_item(menu, "Tag &All", 	      mode+"->tag_all(1)");
+   menu_append_item(menu, "Untag A&ll",      mode+"->tag_all(0)");
+   menu_append_item(menu, "Tag &Matching",   mode+"->tag_matching(1)");
+   menu_append_item(menu, "&Untag Matching", mode+"->tag_matching(0)");
+   menu_append_item(menu, "&Invert Tags",    mode+"->tag_all(2)");
+   menu_append_item(menu, "&Edit Listing",   mode+"->edit");
 }
 
-public define listing_mode ()
+public define listing_mode()
 {
-   % % delete last empty line
-   % push_spot();
-   % eob();
-   % if (bolp and  eolp)
-   %   call("backward_delete_char");
-   % pop_spot();
-   
    set_buffer_modified_flag (0); % so delbuf doesnot ask whether to save first
    set_readonly(1);
    set_mode(mode, 0);
@@ -426,4 +442,5 @@ public define listing_mode ()
    set_buffer_hook("update_hook", &listing_update_hook); % mark current line
    run_mode_hooks(mode+"_mode_hook");
 }
-
+  
+  
