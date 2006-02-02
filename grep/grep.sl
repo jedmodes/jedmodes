@@ -1,6 +1,6 @@
 % JED interface to the grep command
 %
-% Copyright (c) 2003 Günter Milde
+% Copyright (c) 2006 Günter Milde
 % Released under the terms of the GNU General Public License (ver. 2 or later)
 %
 % Versions
@@ -13,15 +13,17 @@
 %   * bugfix contract_filename did not work properly (needs chdir() first)
 % 0.9.3 2004-01-30
 %   * solved bug with only one file (using -H option) [Peter Bengtson]
-%   * recursive grep with special filename bang (!) (analog to kpathsea)
-%     -> grep("pat" "dir/!") gets translated to `grep -r "pat" "dir/"`
+%   * recursive grep with special filename bang (!) (analog to kpathsea),
+%     i.e. grep("pat" "dir/!") gets translated to `grep -r "pat" "dir/"`
 % 0.9.4 2004-04-28
 %   * close grep buffer, if the return value of the grep cmd is not 0
 % 0.9.5 2005-11-07
 %   * change _implements() to implements() (this will only affect re-evaluating
 %     sl_utils.sl in a JED < 0.99.17, so if you are not a developer on an older
 %     jed version, it will not harm).
-%  
+% 0.9.6 2006-02-02 bugfix and code cleanup in grep_replace_*
+%                  (using POINT instead of what_column(), as TAB expansion
+%                   might differ between grep output and referenced buffer)
 %
 % USAGE
 %
@@ -81,28 +83,35 @@ custom_variable("GrepCommand", "grep -nH"); % print filename and linenumbers
 % remember the string to grep (as default for the next run) (cf. LAST_SEARCH)
 static variable LAST_GREP = "";
 
-% Buffer opened by grep_replace
-private variable Replace_Buffer = "";
-
 %}}}
 
 % --- Replace across files ------------------------------------- %{{{
+
+% Return the number of open buffers
+static define count_buffers()
+{
+   variable n = buffer_list();  % returns names and number of buffers
+   _pop_n(n);                   % pop the buffer names
+   return n;
+}   
+
 
 % Compute the length of the statistical data in the current line
 % (... as we have to skip spurious search results in this area)
 static define grep_prefix_length()
 {
    push_spot_bol();
+   EXIT_BLOCK { pop_spot(); }
    loop(2)
      {
 	() = ffind_char(get_blocal("delimiter", ':'));
 	go_right_1();
      }
-   what_column()-1;  % leave on stack as return value
-   pop_spot();
+   return POINT; % POINT starts with 0, this offsets the go_right_1
 }
 
 % fsearch in the grep results, skipping grep's statistical data
+% return the length of the pattern found or -1
 static define grep_fsearch(pat)
 {
    variable pat_len;
@@ -110,93 +119,87 @@ static define grep_fsearch(pat)
      {
 	pat_len = fsearch(pat);
 	!if(pat_len)
-	  return -1;
-	if (what_column > grep_prefix_length())
+	  break;
+	if (POINT > grep_prefix_length())
 	  return pat_len;
      }
    while(right(1));
+   return -1;
 }
 
-% save and close a buffer, make sure to come back to current buffer
-static define save_and_close_buf(buf)
-{
-   variable cbuf = whatbuf();
-   if (bufferp(buf))
-     {
-	sw2buf(buf);
-	save_buffer();
-	delbuf(buf);
-     }
-   if(cbuf != buf)
-     sw2buf(cbuf);
-}
 
-% The actual replace function (replace in both, the grep output and the file)
-define grep_replace(new, pat_len)
+% The actual replace function 
+% (replace in both, the grep output and the referenced file)
+define grep_replace(new, len)
 {
-   variable old, nbuf_before, nbuf_after,
-     buf = whatbuf(),
-     col = what_column() - grep_prefix_length();
+   variable buf = whatbuf(),
+   no_of_bufs = count_buffers(),
+   pos = POINT - grep_prefix_length(), 
+   old;
 
-   % get the pattern to be replaced
-   push_mark();
-   () = right(pat_len);
+   % get (and delete) the string to be replaced
+   push_mark(); () = right(len);
    old = bufsubstr_delete();
-
+   push_spot();
+   
    ERROR_BLOCK
      {
+	% close referenced buffer, if it was not open before
+	if (count_buffers > no_of_bufs)
+	  {
+	     save_buffer();
+	     delbuf(whatbuf);
+	  }
+	% insert the replacement into the grep buffer
 	sw2buf(buf);
-	insert(old);
+	pop_spot();
+        set_readonly(0);
+        insert(old);
      }
-
-   % get the number of opened buffers
-   nbuf_before = buffer_list(); _pop_n(nbuf_before); % pop the buffer names
-
-   % open the file pointed to and goto the right line and col
+   
+   % open the referenced file and goto the right line and pos
    filelist_open_file();
-   () = goto_column_best_try(col);
-
-   nbuf_after = buffer_list(); _pop_n(nbuf_after); % pop the buffer names
-
-   if (nbuf_after > nbuf_before)
-     {
-	save_and_close_buf(Replace_Buffer);
-	Replace_Buffer = whatbuf();
-     }
-
-   % replace (if everything is ok)
+   bol;
+   go_right(pos);
+   
+   % abort if looking at something different
    !if (looking_at(old))
-     verror("File differs from grep output (looking at %s)", get_word);
-   replace_chars(pat_len, new); % leave strlen(new) on stack
-   sw2buf(buf);
-   insert(new);
-   return; % (strlen(new));
+     {
+	push_mark(); () = right(len);
+	verror("File differs from grep output (looking at %s)", bufsubstr());
+     }
+   
+   len = replace_chars(len, new);
+
+   old = new;
+   EXECUTE_ERROR_BLOCK; % close newly opened buffer, return to grep results
+
+   return len; 
 }
 
 % Replace across files found by grep (interactive function)
 define grep_replace_cmd()
 {
-   variable old, new, prompt;
+   variable old, new;
 
-   % find default value: region or word under cursor
+   % find default value (region or word under cursor) 
+   % and set point to begin of region
    if (is_visible_mark)
      check_region(0);
    else
-     mark_word ();
+     mark_word();
    exchange_point_and_mark; % set point to begin of region
 
    old = read_mini("Grep-Replace:", "", bufsubstr());
-   !if (strlen (old)) return;
-   prompt = strcat("Grep-Replace '", old, "' with:");
-   new = read_mini(prompt, "", "");
+   !if (strlen (old)) 
+     return;
+   new = read_mini(sprintf("Grep-Replace '%s' with:", old), "", "");
 
    ERROR_BLOCK
      {
 	REPLACE_PRESERVE_CASE_INTERNAL = 0;
 	set_readonly(1);
 	set_buffer_modified_flag(0);
-	save_and_close_buf(Replace_Buffer);
-	Replace_Buffer = "";
      }
 
    set_readonly(0);
