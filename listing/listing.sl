@@ -21,6 +21,9 @@
 % 2005-11-08 1.9.8 * changed _implements() to implements()
 % 2005-11-23 1.9.9 * docu bugfix in listing_list_tags
 % 2006-01-24 2.0   * new keybinding: Key_Return calls "listing_return_hook"
+% 2006-02-03 2.1   * removed the "listing_return_hook" again, as
+%    	     	      set_buffer_hook("newline_indent_hook", &my_return_hook);
+%    	     	     can be used instead. (tip by Paul Boekholt)
 %                    
 % TODO:  * Shift-Click tags from point to Mousepoint
 %          may be also: right-drag tags lines
@@ -36,7 +39,6 @@ require("view"); % readonly-keymap depends on bufutils.sl
 autoload("array", "datutils");
 autoload("array_delete", "datutils");
 autoload("array_append", "datutils");
-autoload("run_blocal_hook", "bufutils");
 autoload("push_defaults", "sl_utils");
 
 % --- name it
@@ -361,21 +363,20 @@ public  define listing_map() % (scope, fun, [args])
 %\example
 %  Pop up a listing and let the user select some items.
 %#v+
-% private define select_database_enter_hook()
+% private define select_database_return_hook()
 % {
 %    variable database = listing_list_tags(1);
 %    close_buffer();
-%    % show(strjoin(database, ","));
-%    dict_set_database(database);
+%    return strjoin(database, ",");
 % }   
-% define dict_select_database()
+% define select_database()
 % {
 %    dictionary_list = shell_command(dict_cmd + " --dbs", 3);
 %    popup_buffer("*dict database*");
 %    insert(dictionary_list);
 %    bob();
 %    listing_mode();
-%    define_blocal_var("key_return_hook", &select_database_enter_hook);
+%    set_buffer_hook("newline_indent_hook", &select_database_return_hook);
 %    message("Select and press Return to apply");
 %#v-
 %\seealso{listing_map, listing_mode, tag, tags_length}
@@ -415,7 +416,6 @@ definekey(mode+"->tag(2); go_down_1", Key_Ins,        mode); % MC like
 definekey("go_up_1;"+mode+"->tag(2)", Key_BS,         mode); % Dired
 definekey(mode+"->tag(2); go_down_1", Key_Shift_Down, mode); % CUA style
 definekey(mode+"->tag(2); go_up_1",   Key_Shift_Up,   mode); % CUA style
-definekey("run_blocal_hook(\"key_return_hook\")", "\r", mode); % Return
 
 % --- the mode dependend menu
 static define listing_menu (menu)
