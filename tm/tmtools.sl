@@ -3,6 +3,10 @@
 % Copyright (c) 2005 Dino Leonardo Sangoi, Günter Milde
 % Released under the terms of the GNU General Public License (ver. 2 or later)
 % 
+%             0.1 first public release (as part of mode/tm)
+% 2006-01-24  0.2 bugfix: missing autoload for bget_word()
+% 2006-02-03  0.3 bugfix: wrong source file name for string_nth_match() 
+% 
 % _debug_info=1;
 
 % Requirements
@@ -13,8 +17,9 @@
 %require("cext");
 require("comments");
 autoload("get_word", "txtutils");
+autoload("bget_word", "txtutils");
 autoload("insert_markup", "txtutils");
-autoload("string_nth_match", "stringutils");
+autoload("string_nth_match", "strutils");
 
 % Uhm, the word should be defined by mode, I guess (but currently is not)
 % More accurate: it should be mode specific: when I edit a latin1 encoded
@@ -30,11 +35,19 @@ static define tm_make_var_doc()
    !if (string_match(line, "custom_variable ?(\"\\(.*\\)\", ?\\(.*\\));", 1))
      return;
    (name, value) = (string_nth_match(line,1), string_nth_match(line, 2));
-   if (is_substr(value, "\""))
-     tm = "%%!%%+\n%%\\variable{%s}\n%%\\synopsis{}\n%%\\usage{String_Type %s = \"%s\"}\n%%\\description\n%%  \n%%\\seealso{}\n%%!%%-\n";
-   else % assume it's an integer TODO: check value, auto-guess type
-     tm = "%%!%%+\n%%\\variable{%s}\n%%\\synopsis{}\n%%\\usage{Int_Type %s = %s}\n%%\\description\n%%  \n%%\\seealso{}\n%%!%%-\n";
-   tm = sprintf(tm, name, name, value);
+   tm = ["%%!%%+",
+         "%%\\variable{%s}",
+         "%%\\synopsis{}",
+         "%%\\usage{variable %s = %s}",
+         "%%\\description",
+         "%%  ",
+         "%%\\example",
+         "%%#v+",
+         "%%  ",
+         "%%#v-",
+         "%%\\seealso{}",
+         "%%!%%-\n"];
+   tm = sprintf(strjoin(tm, "\n"), name, name, value);
    bol;
    insert(tm);
 }
