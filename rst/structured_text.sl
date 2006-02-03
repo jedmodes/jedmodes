@@ -1,128 +1,190 @@
-% structured_text Mode:
-
-% FIXME show(re_fsearch("^[ |\t]*\\([0-9]+\. \\)"));  
-
-% return length of list-mark or 0
-% > 0 if line start with "[*|+|-] " or "[0-9]+\. "
-define st_is_list()  
-{
-   variable rv = 0, col; % return value
-   % show("line", what_line, "calling st_is_list");
-   push_spot ();
-   bol_skip_white ();
-   % unordered list
-   if ( orelse{looking_at ("- ")}{looking_at ("* ")}{looking_at("+ ")} )
-     rv = 2;
-   % ordered list
-   else
-     {
-	col = what_column;
-	skip_chars ("0-9#");
-	if ( looking_at (". ") )			  
-	  rv = (what_column - col + 2);
-     }
-   pop_spot();
-   return rv;
-}
-  
-  
-% lines that start or end a paragraph:  empty line or list
-define st_is_paragraph_separator()
-{
-   variable rv;
-   % show("line", what_line, "calling st_is_paragraph_separator");
-   push_spot ();
-   EXIT_BLOCK {pop_spot ();}
-   bol_skip_white ();
-   
-   if (eolp) % empty line
-     rv = 1;
-   else % check for list
-     {
-	go_down_1();
-	rv = st_is_list(); 
-     }
-   pop_spot ();
-   return rv;
-}
-% Todo: Lines that are marked as paragraph separator don't get
+% structured_text: formatting hooks for "ASCII markup"
+%
+%  Copyright (c) 2006 Günter Milde
+%  Released under the terms of the GNU General Public License (ver. 2 or later)
+%
+%  Versions:
+%
+%             0.1  first version published together with rst.sl
+%  2006-01-20 0.2  including the regular expressions from JED
+%                  documentation
+%  2006-01-23 0.3  added st_backward_paragraph() and st_mark_paragraph()
+%                  set "mark_paragraph_hook" to format first line of list item
+%  2006-02-03 0.4  bugfix in the Text_List_Patterns (* needs to be escaped)
+%
+% TODO: Lines that are marked as paragraph separator don't get
 % formatted when calling format_paragraph :-(
 
+% the set of regular expressions matching a list mark
+custom_variable("Text_List_Patterns",
+   ["[0-9]+\\.[ \t]+ ", %  enumeration
+    % "[a-z]+\\) ",    %  alpha enumeration
+    "[\\*+-] "           %  itemize (bullet list)
+    ]);
 
-
-% indent for structured text  (expanded from example in hooks.txt)
-define st_indent ()
+%!%+
+%\function{line_is_list}
+%\synopsis{Return length of a list marker}
+%\usage{ line_is_list()}
+%\description
+% Check if the current line starts with a list marker matching one of the
+% regular expressions defined in \var{Rst_List_Patterns}.
+% Return length of the list marker (excluding leading whitespace)
+%
+%  This function leaves the editing point at the first non-whitespace
+%  character or the end of the line.
+%\notes
+% Thanks to JED for the regular expressions variant
+%\seealso{line_is_empty, Text_List_Patterns}
+%!%-
+define line_is_list()
 {
-   variable indendation;
+   variable len = 0, re;
+   % get the current line without leading whitespace
+   variable line = strtrim_beg(line_as_string());
+   bol_skip_white();
+
+   foreach (Text_List_Patterns)
+     {
+        re = ();
+        if (1 != string_match(line, re, 1))
+          continue;
+        (,len) = string_match_nth(0);
+     }
+   return len;
+}
+
+%!%+
+%\function{line_is_empty}
+%\synopsis{Check if the line is empty (not counting whitespace)}
+%\usage{ line_is_empty()}
+%\description
+%  This is the same as the default is_paragraph_separator test.
+%
+%  This function leaves the editing point at the first non-whitespace
+%  character or the end of the line.
+%\seealso{line_is_list}
+%!%-
+define line_is_empty()
+{
+   push_spot();
+   EXIT_BLOCK {pop_spot();}
+   bol_skip_white();
+   return eolp();
+}
+
+%
+%!%+
+%\function{st_is_paragraph_separator}
+%\synopsis{paragraph separator hook for structured text}
+%\usage{st_is_paragraph_separator()}
+%\description
+% Return 1 if the current line separates a paragraph, i.e. it
+% is empty or a list item
+%\notes
+% Actually, this misses an important difference between empty lines and
+% first lines of a list item: While an empty line must not be filled
+% when reformatting, a list item should.
+% This is why Emacs has 2 Variables, paragraph-separator and paragraph-start.
+%\seealso{line_is_empty, line_is_list}
+%!%-
+define st_is_paragraph_separator()
+{
+   % show("line", what_line, "calling st_is_paragraph_separator");
+   return orelse{line_is_empty()}{line_is_list()>0};
+   % attention: there is a segfault if the paragraph_separator_hook returns
+   % values higher than 1!
+}
+
+% go to the beginning of the current paragraph
+define st_backward_paragraph()
+{
+   while (not(line_is_list()))
+     {
+        !if (up(1))
+          break;
+        if (line_is_empty())
+          {
+             go_right_1();
+             break;
+          }
+     }
+}
+
+% Mark the current paragraph
+% This can also be used for format_paragraph's
+% "mark_paragraph_hook"
+define st_mark_paragraph()
+{
+   st_backward_paragraph();
+   push_visible_mark;
+   forward_paragraph();
+}
+
+%!%+
+%\function{st_indent}
+%\synopsis{indent-line for structured text}
+%\usage{st_indent()}
+%\description
+% Indent the current line,  taking care of list markers as defined in
+% \var{Text_List_Patterns}.
+%\notes
+%  Expanded from example in hooks.txt
+%\seealso{st_is_paragraph_separator, line_is_list, Text_List_Patterns}
+%!%-
+define st_indent()
+{
+   variable indent;
    % show("line", what_line, "calling st_indent");
    % get indendation of previous line
    push_spot();
    go_up_1;
    bol_skip_white();
-   indendation = what_column - 1;        
-   indendation += st_is_list();  % returns length of list indicator or 0
+   indent = what_column - 1 + line_is_list();
    go_down_1;
-   indendation -= st_is_list();  % indent a list to the level of a preceding list
+   indent -= line_is_list();  % de-dent the list marker
    bol_trim();
-   whitespace(indendation);
+   whitespace(indent);
    pop_spot();
    if (bolp)
      skip_white();
 }
 
-% indent to the level of the last non-empty line
-define st_indent_relative ()
-{
-   variable indendation;
-   push_spot();
-   bol();
-   push_spot(); % second_spot
-   % search for preceding non-empty line
-   bskip_chars ("\n\t ");         % bskip white + newlines
-   % determine indendation level
-   bol_skip_white ();
-   indendation = what_column() - 1;
-   % indent line and return to starting point
-   pop_spot();        % second spot (beg of line)
-   trim();
-   whitespace (indendation);
-   pop_spot();
-   if (bolp)
-     skip_white();
-}
-
-% newline_and_indent for structured text: indent to level of preceding line
-% we have to redefine, as the default uses the indent_hook which does
-% something different
-define st_newline_and_indent ()
+%!%+
+%\function{st_newline_and_indent}
+%\synopsis{newline_and_indent for structured text}
+%\usage{ st_newline_and_indent ()}
+%\description
+% Indent to level of preceding line
+%\notes
+% We need a separate definition, as by default newline_and_indent()  uses the
+% indent_hook (which structured_text.sl sets to st_indent (considering list
+% markers) while with Enter we want more likely to start a new list topic.
+%\seealso{st_indent, st_indent_relative}
+%!%-
+define st_newline_and_indent()
 {
    % show("line", what_line, "calling st_newline_and_indent");
-   variable indendation, col = what_column();
+   variable indent, col = what_column();
    % get number of leading spaces
    push_spot();
    bol_skip_white();
-   indendation = what_column();
+   indent = what_column();
    pop_spot();
    newline();
-   if (indendation > col)  % more whitespace than the calling points column
-     indendation = col;
-   whitespace(indendation-1);
+   if (indent > col)  % more whitespace than the calling points column
+     indent = col;
+   whitespace(indent-1);
 }
 
-% --- Create and initialize the syntax tables.
-% $1 = "structured_text";
-% create_syntax_table ($1);
-% define_syntax ("#", "", '%', $1);    % Comments
-% % define_syntax (">", "", '%', $1);    % Comments  Mail citations
-% define_syntax ("-*+", '+', $1);      % Operators
+% autoload("mark_paragraph", "txtutils");
 
-
-public define text_mode_hook ()
+public define text_mode_hook()
 {
-   % set_comment_info ("Text"   , "% "   , ""    , 1|2|4);
    set_buffer_hook("wrap_hook", &st_indent);
    set_buffer_hook("indent_hook", &st_indent);
+   % set_buffer_hook("backward_paragraph_hook", &st_backward_paragraph);
+   set_buffer_hook("mark_paragraph_hook", "st_mark_paragraph");
    set_buffer_hook("newline_indent_hook", &st_newline_and_indent);
-   set_buffer_hook("par_sep", & st_is_paragraph_separator);
-   % use_syntax_table ("structured_text");
+   set_buffer_hook("par_sep", &st_is_paragraph_separator);
 }
