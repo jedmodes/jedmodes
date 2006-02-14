@@ -2,7 +2,7 @@
 % 
 % Hypertext help browser as drop-in replacement for the standard help.sl
 %
-% Copyright (c) 2003 Günter Milde
+% Copyright (c) 2006 Günter Milde
 % Released under the terms of the GNU General Public License (ver. 2 or later)
 %
 % Versions
@@ -55,7 +55,7 @@
 %   1.7   2006-01-25  rewrite of help history feature using #ifexists
 %                     removing the custom_variable `Help_with_history'
 %                     provide("hyperhelp") so modes depending on stuff not in
-%                     the standard help could require("hyperhelp") 
+%                     the standard help could require("hyperhelp")
 %
 %   TODO: use _get_namespaces() to make apropos aware of functions in
 %   	  "named namespaces" (When called with a numeric prefix arg [PB])
@@ -125,7 +125,6 @@ autoload("bget_word",           "txtutils");
 autoload("popup_buffer",        "bufutils");
 autoload("close_buffer",        "bufutils");
 autoload("strread_file",        "bufutils");
-autoload("run_blocal_hook",     "bufutils");
 autoload("set_help_message",    "bufutils");
 autoload("help_message",        "bufutils");
 autoload("string_get_match",	"strutils");
@@ -254,7 +253,7 @@ public  define read_variable_from_mini(prompt, default)
 
 % History
 #ifexists create_circ
-public variable Help_History = create_circ(Array_Type, 30, "linear");
+variable Help_History = create_circ(Array_Type, 30, "linear");
 
 define previous_topic()
 {
@@ -294,10 +293,10 @@ static define help_display_list(a)
    a = list2table(a);
    help_display(strjoin2d(a, " ", "\n", "l"));
 #else                 % align columns by setting TAB
-   variable help_str = strjoin(a, "\t");
-   help_display(help_str);
+   help_display(strjoin(a, "\t"));
    set_readonly(0);
    TAB = runhooks("array_max", array_map(Int_Type, &strlen, a))+1;
+   % unset_buffer_hook("format_paragraph_hook");
    call ("format_paragraph");
    set_buffer_modified_flag(0);
    set_readonly(1);
