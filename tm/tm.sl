@@ -4,7 +4,7 @@
 % $Id$
 % Keywords: slang, doc, tools
 %
-% Copyright (c) 2004 Paul Boekholt, Guenter Milde
+% Copyright (c) 2004 Paul Boekholt, Günter Milde
 % Released under the terms of the GNU GPL (version 2 or later).
 %
 % This extracts tm documentation from S-Lang sources the *hard* way. It
@@ -29,7 +29,8 @@
 %  	         tm_make_ascii_doc() and tm_preview() united to
 %  	         tm_view([args])  -- args are filenames to extract doc from
 %  	                             no arg: extract from current buffer/region
-%  2005-11-08  changed _implements() to implements()	                             
+%  2005-11-08  changed _implements() to implements()
+%  2006-02-15  added support for the \sfun{} attribute
 %
 %  TODO: let this work for tm-documented C-code too
 
@@ -64,9 +65,11 @@ static define tm2ascii(str)
      (str, "\\\\function{\\([^\}]+\\)}", "\\1");
    str = str_re_replace_all
      (str, "\\\\variable{\\([^\}]+\\)}", "\\1");
-   % \var, \em
+   % \var, \sfun, \em
    str = str_re_replace_all
      (str, "\\\\var\{\\([^\}]+\\)\}", "`\\1'");
+   str = str_re_replace_all
+     (str, "\\\\sfun\{\\([^\}]+\\)\}", "`\\1'");
      % this breaks generated doc and tm_preview in jed <= 99.17
      % (str, "\\\\var\{\\([^\}]+\\)\}", "\e[1m\\1\e[0m");
    str = str_re_replace_all
@@ -96,7 +99,7 @@ static define tm2ascii(str)
 	variable v_str = str[[pos + len + 1: pos2 - 1]];
 	v_str = str_replace_all(v_str, "\n", "\n ");
 	v_str = str_replace_all(v_str, "\\", "\\\\");
-	str = strcat(str[[:pos]], "\n",
+	str = strcat(str[[:pos]], % "\n", % no double empty line above examples [GM]
 	       v_str,
 	       "\n", str[[pos2+len2:]]);
      }
