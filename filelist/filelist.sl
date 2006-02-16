@@ -1,7 +1,7 @@
 % filelist.sl
 % A special mode for file listings (ls, ls -a, locate)
 % -> replace/extend dired mode
-% 
+%
 % Copyright (c) 2005 Günter Milde
 % Released under the terms of the GNU General Public License (ver. 2 or later)
 %
@@ -44,7 +44,8 @@
 %                   removed dependency on grep.sl (now recommandation)
 % 2005-11-25  1.5.1 bugfix: mark directories and cleanup again
 % 	      	    code cleanup regarding FileList_Cleanup
-% 
+% 2006-02-16  1.5.2 added fit_window() to autoloads (report Mirko Rzehak)
+%
 %
 % TODO: * more bindings of actions: filelist_cua_bindings
 % 	* detailed directory listing (ls -l)
@@ -56,16 +57,16 @@
 %         ^X kill:  yp_kill_region und kill_tagged    ""   ""        ""
 %         ^V filelist_insert (im filelist modus)
 %         bzw die bindungen abfragen.
-%       * use MIME_types and mailcap (view and edit commands) for 
+%       * use MIME_types and mailcap (view and edit commands) for
 %         FileList_Default_Commands
 %
 % USAGE:
-% * Place filelist.sl, listing.sl and bufutils.sl in your library path.
+% * Place filelist.sl and required files in your library path.
 
 % * Use filelist_list_dir() to open a directory in the "jed-file-manager"
 
-% * To make file finding functions list the directory contents 
-%   if called with a directory path as argument (instead of reporting an 
+% * To make file finding functions list the directory contents
+%   if called with a directory path as argument (instead of reporting an
 %   error), insert the INITALIZATION block into your .jedrc (or jed.rc)
 %   (or use the "make_ini" and "home-lib" modes from jedmodes.sf.net)
 
@@ -92,29 +93,29 @@ append_to_hook("_jed_find_file_before_hooks",
 
 % _debug_info = 1;
 
-
 % --- Requirements ------------------------------------------------------
 
 require("listing");  % the listing widget, depends on datutils
-_autoload("get_blocal", "sl_utils",
-   "run_function", "sl_utils",
-   "push_defaults", "sl_utils",
-   "push_array", "sl_utils",
-   "buffer_dirname", "bufutils",
-   "close_buffer", "bufutils",
-   "popup_buffer", "bufutils",
-   "string_get_match", "strutils",
-   "get_line", "txtutils",
-   9);
+"get_blocal", "sl_utils";
+"run_function", "sl_utils";
+"push_defaults", "sl_utils";
+"push_array", "sl_utils";
+"buffer_dirname", "bufutils";
+"close_buffer", "bufutils";
+"popup_buffer", "bufutils";
+"fit_window", "bufutils";
+"string_get_match", "strutils";
+"get_line", "txtutils";
+_autoload(10);
 % optional extensions
 if(strlen(expand_jedlib_file("filelistmsc")))
   _autoload("filelist_do_rename_regexp", "filelistmsc",
 	    "filelist_do_tar", "filelistmsc", 2);
 
 provide("filelist");
-implements("filelist");
-private variable mode = "filelist";
 
+implements("filelist");
+variable mode = "filelist";
 
 % --- Custom Variables ----------------------------------------------------
 
@@ -148,10 +149,10 @@ custom_variable("FileList_KeyBindings", "mc");
 %\usage{Int_Type FileList_Cleanup = 1}
 %\description
 %  Close the directory listing when opening a file/dir from it?
-%  
+%
 %    0 keep open,
-%    1 close when going to a new directory, 
-%    2 always close, 
+%    1 close when going to a new directory,
+%    2 always close,
 %\seealso{filelist_mode}
 %!%-
 custom_variable("FileList_Cleanup", 1);
@@ -161,10 +162,10 @@ custom_variable("FileList_Cleanup", 1);
 %\synopsis{}
 %\usage{Int_Type FileList_max_window_size = 1.0}
 %\description
-%  How big shall the filelist window be maximal 
-%    Integer: no. of rows, 
+%  How big shall the filelist window be maximal
+%    Integer: no. of rows,
 %             0 do not fit to content size
-%    Float:   screen-fraction, 
+%    Float:   screen-fraction,
 %             1.0 no limit
 %\seealso{filelist_mode, fit_window}
 %!%-
@@ -172,14 +173,14 @@ custom_variable("FileList_max_window_size", 1.0);  % my default is full screen
 
 %!%+
 %\variable{FileList_Trash_Bin}
-%\synopsis{Trash bin for files deleted in \var{filelist_mode}}
+%\synopsis{Trash bin for files deleted in \sfun{filelist_mode}}
 %\usage{String_Type FileList_Trash_Bin = ""}
 %\description
-% Directory, where deleted files are moved to. 
-% The default "" means real deleting. 
+% Directory, where deleted files are moved to.
+% The default "" means real deleting.
 % KDE users might want to set this to "~/Desktop/Trash"
-% \notes 
-%  The value will be expanded with \var{expand_filename}.
+% \notes
+%  The value will be expanded with \sfun{expand_filename}.
 %  The Trash_Bin will be checked for existence in filelist_delete_tagged,
 %\seealso{filelist_mode, filelist_delete_tagged}
 %!%-
@@ -264,7 +265,7 @@ static define extract_line_no(str)
    variable nr_str = extract_element(str, np, get_blocal("delimiter", ' '));
    if (nr_str == NULL)
      return 0;
-   ERROR_BLOCK 
+   ERROR_BLOCK
      {
 	_clear_error();
 	return 0;
@@ -350,7 +351,6 @@ public  define filelist_copy_tagged()
    help_message();
 }
 
-
 %!%+
 %\function{filelist_make_directory}
 %\synopsis{Create a new directory}
@@ -425,17 +425,16 @@ public  define filelist_reread()
    goto_line(line);
 }
 
-
 %!%+
 %\function{filelist_list_dir}
 %\synopsis{List all files in \var{dir}}
 %\usage{filelist_list_dir([dir], ls_cmd="listdir")}
 %\description
 %  List all files in the current (or given) directory and set the buffer to
-%  \var{filelist_mode}.
+%  \sfun{filelist_mode}.
 %\notes
 %  With the filelist_find_file_hook() as proposed in the <INITIALIZATION>
-%  block of filelist.sl, Jed will open directories as a file listing instead 
+%  block of filelist.sl, Jed will open directories as a file listing instead
 %  of issuing an error.
 %\seealso{filelist_mode, FileList_Cleanup, listdir}
 %!%-
@@ -444,9 +443,9 @@ public  define filelist_list_dir() % ([dir], ls_cmd="listdir")
    % get optional arguments
    variable dir, ls_cmd;
    (dir, ls_cmd) = push_defaults( , "listdir", _NARGS);
-   
+
    variable calling_dir = buffer_dirname();
-   
+
    if (dir == NULL)
      dir = read_with_completion("Open directory:", "", "", 'f');
    % make sure there is a trailing directory separator
@@ -494,7 +493,7 @@ public  define filelist_list_dir() % ([dir], ls_cmd="listdir")
 %\usage{filelist_list_base_dir()}
 %\description
 %  List the base directory of the current file. This is usefull e.g. in
-%  \var{locate} or \var{grep} listings, where the files come from different
+%  \sfun{locate} or \sfun{grep} listings, where the files come from different
 %  directories.
 %\seealso{filelist_mode}
 %!%-
@@ -516,7 +515,7 @@ public  define filelist_list_base_dir()
 %\notes
 % If the filename is not the first whitespace delimited token in the line,
 % the function generating the list must set the blocal variables
-%   "filename_position" (counting from 0) and 
+%   "filename_position" (counting from 0) and
 %   "delimiter"         (Char_Type, default == NULL, meaning 'whitespace')
 %\seealso{filelist_mode, FileList_Cleanup}
 %!%-
@@ -526,16 +525,16 @@ public  define filelist_open_file() % (scope=0)
    variable buf = whatbuf(), bufdir = buffer_dirname();
    variable line, tag_lines = listing_list_tags(scope, 1);
    variable open_dir = 0;
-   
+
    foreach (tag_lines)
      {
         line = ();
-        
+
         % extract filename and line number
         variable filename = extract_filename(line);
         variable line_no = extract_line_no(line);
         filename = path_concat(bufdir, filename);
-        
+
         % open the file or directory
         if (file_status(expand_filename(filename)) == 2) % directory
 	  {
@@ -549,7 +548,7 @@ public  define filelist_open_file() % (scope=0)
           runhooks("tar", filename, 0); % open in tar-mode, read-write
         else
           () = find_file(filename);
-        
+
         if (line_no)              % line_no == 0 means don't goto line
           goto_line(line_no);
      }
@@ -558,14 +557,13 @@ public  define filelist_open_file() % (scope=0)
      close_buffer(buf);
 }
 
-
 %!%+
 %\function{filelist_open_tagged}
 %\synopsis{Open all tagged files in jed}
 %\usage{filelist_open_tagged()}
 %\description
-%  This function calls \var{filelist_open_file} with 
-%  the \var{FileList_Action_Scope} argument to open 
+%  This function calls \sfun{filelist_open_file} with
+%  the \var{FileList_Action_Scope} argument to open
 %  the set of tagged files (or the current)
 %  in JED.
 %\seealso{filelist_mode}
@@ -580,7 +578,7 @@ public define filelist_open_tagged()
 %\synopsis{Open the file in view mode}
 %\usage{  filelist_view_file()}
 %\description
-%  Open the file in \var{view_mode} (readonly).
+%  Open the file in \sfun{view_mode} (readonly).
 %\seealso{filelist_mode, view_mode}
 %!%-
 public  define filelist_view_file()
@@ -611,7 +609,7 @@ public  define filelist_open_file_with() % (ask = 1)
    % double extensions:
    if (extension == ".gz") % some programs can handle gzipped files
      extension = path_extname(path_sans_extname(filename)) + extension;
-   
+
    cmd = FileList_Default_Commands[extension];
    if (ask)
      cmd = read_mini(sprintf("Open %s with (Leave empty to open in jed):",
@@ -636,7 +634,7 @@ public  define filelist_open_file_with() % (ask = 1)
 %  Grep for a string in the tagged files.
 %  Prompts for the pattern in the minibuffer.
 %\notes
-%  This function is only available, when the \var{grep} function is defined at
+%  This function is only available, when the \sfun{grep} function is defined at
 %  the time of evaluation or preparsing of filelist.sl
 %\seealso{grep, filelist_mode}
 %!%-
@@ -750,11 +748,11 @@ public  define filelist_mouse_2click_hook (line, col, but, shift)
 %\usage{filelist_mode()}
 %\description
 %  This mode transforms JED into a file manager (somewhat similar to
-%  the  Midnight commander, MC). It can be used as a \var{dired} replacement
+%  the  Midnight commander, MC). It can be used as a \sfun{dired} replacement
 %  and gives (IMHO) a superiour look and feel. It works for directory listings
-%  as well as the result of \var{locate}, \var{grep} or \var{find} actions.
+%  as well as the result of \sfun{locate}, \sfun{grep} or \sfun{find} actions.
 %  Files can be listed, tagged, copied, moved, deleted, viewed, and opened
-%  with ease. 
+%  with ease.
 %\seealso{filelist_list_dir, filelist_open_tagged}
 %\seealso{FileList_KeyBindings, FileList_Action_Scope, FileList_max_window_size}
 %!%-
@@ -771,7 +769,6 @@ public define filelist_mode()
 }
 
 % ---------------------------------------------------------------------------
-
 
 %!%+
 %\function{locate}
@@ -793,7 +790,7 @@ public define locate() % (what=<Ask>)
    if (what == "")
      {
 	what = read_mini("Locate: ", "", LAST_LOCATE);
-	!if ( strlen(what) ) 
+	!if ( strlen(what) )
 	  return;
 	LAST_LOCATE = what;
      }
