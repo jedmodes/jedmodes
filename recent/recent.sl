@@ -51,9 +51,14 @@
 % 3.2.1  2005-11-08
 %        * changed _implements() to implements()
 % 3.3    2006-02-16
-%        * code cleanup 
+%        * code cleanup (introduced bug fixed in 3.4!)
 %        * bugfix: pop spurious save_cache() return value in recent_toggle_local()
 %        * new function recent_file_goto_point() (idea by Lechee Lai)
+% 3.4  2006-02-17
+%        * new values for Recent_Use_Local_Cache: {-1, 0, 1} -> {0, 1, 2}
+%        * rename Restore_Last_Session --> Recent_Restore_Last_Session
+%          to have all custom variables start with "Recent_"
+% 	 * bugfix: reopen-flag was 1 for every new record.       
 %
 % USAGE:
 %
@@ -65,8 +70,8 @@
 %   % variable Recent_Files_Cache_File = ".jedrecent";
 %   % variable Recent_Max_Cached_Files  = 15;
 %   % variable Recent_Files_Exclude_Pattern = "/tmp"; % don't add tmp files
-%   % variable Recent_Use_Local_Cache = -1; % use local if existent
-%   % variable Restore_Last_Session = 0;    % reopen files from last session
+%   % variable Recent_Use_Local_Cache = 1; % use local if existent
+%   % variable Recent_Restore_Last_Session = 0;    % reopen files from last session
 %
 %   % Load recent.sl (assuming it is in the jed library path)
 %   require("recent");
@@ -113,14 +118,14 @@ custom_variable("Recent_Files_Cache_File", ".jedrecent");
 % Should recent.sl use a local recent Recent_Files_Cache_File?
 % (i.e. stored in directory where jed was started)
 %
-%   -1 -- local if local cache file is present at jed startup,
 %    0 -- no,
-%    1 -- always local.
+%    1 -- local if local cache file is present at jed startup,
+%    2 -- always local.
 %
 % Toggle (0/1) with recent_toggle_local() or the menu entry
-%\seealso{Recent_Files_Cache_File, Recent_Files_Exclude_Pattern, Restore_Last_Session}
+%\seealso{Recent_Files_Cache_File, Recent_Files_Exclude_Pattern, Recent_Restore_Last_Session}
 %!%-
-custom_variable("Recent_Use_Local_Cache", -1);
+custom_variable("Recent_Use_Local_Cache", 1);
 
 %!%+
 %\variable{Recent_Max_Cached_Files}
@@ -147,9 +152,9 @@ custom_variable("Recent_Max_Cached_Files", 15);
 custom_variable("Recent_Files_Exclude_Pattern", "/tmp");
 
 %!%+
-%\variable{Restore_Last_Session}
+%\variable{Recent_Restore_Last_Session}
 %\synopsis{Reopen the buffers that were open in the last session?}
-%\usage{Int_Type Restore_Last_Session = 0}
+%\usage{Int_Type Recent_Restore_Last_Session = 0}
 %\description
 %  Should recent.sl reopen the buffers that were open in the last session?
 %
@@ -162,12 +167,10 @@ custom_variable("Recent_Files_Exclude_Pattern", "/tmp");
 %  restores the last session from the local \var{Recent_Files_Cache_File}.
 %
 %  \sfun{recent->restore_session} will not open files still open in another
-%  running session if \var{Recent_Files_Synchronize_Cache} is true.
-%
-%
+%  running session, even if \var{Recent_Files_Synchronize_Cache} is TRUE.
 %\seealso{Recent_Files_Exclude_Pattern, Recent_Max_Cached_Files}
 %!%-
-custom_variable("Restore_Last_Session", 0);
+custom_variable("Recent_Restore_Last_Session", 0);
 
 %!%+
 %\variable{Recent_Files_Column_Width}
@@ -189,7 +192,7 @@ custom_variable("Recent_Files_Column_Width", 20);
 %   
 % If it is not likely that you will run several instances of Jed in
 % parallel (e.g. on DOS), setting this variable to 0 saves ressources.  
-%\seealso{Recent_Files_Cache_File, Recent_Use_Local_Cache, Restore_Last_Session}
+%\seealso{Recent_Files_Cache_File, Recent_Use_Local_Cache, Recent_Restore_Last_Session}
 %!%-
 custom_variable("Recent_Files_Synchronize_Cache", 1);
 
@@ -199,7 +202,9 @@ if (__get_reference("WANT_RECENT_FILES_LIST") != NULL)
   if (@__get_reference("WANT_RECENT_FILES_LIST") == 0)
     error("Use Recent_Files_Exclude_Pattern to stop adding of files to the recent files list");
 
-% --- Variables ----------------------------------------------------
+
+% internal Variables
+% ------------------
 
 % expand the cache file path
 !if (path_is_absolute(Recent_Files_Cache_File))
@@ -215,17 +220,16 @@ static variable recent_cachefile_name =
   [Recent_Files_Cache_File,
    dircat(getcwd(), extract_filename(Recent_Files_Cache_File))];
 
-% set local_session from 1 to 0, if no local recent file found
-if (andelse{Recent_Use_Local_Cache != 1 }
-     {file_status(recent_cachefile_name[1]) != 1} )
-  Recent_Use_Local_Cache = 0;
+% decrease local_session Recent_Use_Local_Cache if there is no local cache file
+% and make it boolean (as we use it as array index)
+if (file_status(recent_cachefile_name[1]) != 1)
+  Recent_Use_Local_Cache--;
+Recent_Use_Local_Cache = Recent_Use_Local_Cache > 0;
 
 % Cache of recent files
-%  (a "\n" delimited stringlist of recent file records (latest last))
-%    * initialized from recent_cachefile_name[Recent_Use_Local_Cache]
-%      on startup and by recent_toggle_local()
-%    * updated when loading or saving to a file
-%    * saved to Recent_Files_Cache_File on exit
+% (a "\n" delimited stringlist of recent file records (latest last))
+%    * initialized|update with load_cache()
+%    * saved with save_cache()
 static variable recent_files_cache;
 
 % --------------------------------------------------------------------------
@@ -252,7 +256,7 @@ static define load_cache()
 % ------------------------------
 
 % Parse a file record of the recent files cache and return as array
-% result = ["filename", "line", "column", "is_open"]
+% result = ["filename", "line", "column", "reopen"]
 static define chop_filerecord(filerecord)
 {
    variable fields = strchop(filerecord, ':', 0);
@@ -317,22 +321,22 @@ static define add_buffer_to_cache()
 {
    _pop_n(_NARGS); % remove spurious arguments from stack (when used as hook)
    
-   variable fp, filerecord_string = getbuf_filerecord();
-
-   if (filerecord_string == "")
+   variable fp, filerecord_str = getbuf_filerecord();
+   if (filerecord_str == "")
      return;
 
-   filerecord_string += ":1\n";
+   % add the "open at exit flag (only at exit it might be set to 1)
+   filerecord_str = strcat(filerecord_str, ":0\n"); 
    if (Recent_Files_Synchronize_Cache)
      {
 	variable file = recent_cachefile_name[Recent_Use_Local_Cache];
 	fp = fopen(file, "a+");
 	if (fp == NULL) verror("%s could not be opened", file);
-	() = fputs(filerecord_string, fp);
+	() = fputs(filerecord_str, fp);
 	() = fclose(fp);
      }
    else
-     recent_files_cache += filerecord_string;
+     recent_files_cache += filerecord_str;
 }
 
 % purge doublettes in the cache and reduce to Recent_Max_Cached_Files
@@ -346,7 +350,7 @@ static define update_cache()
    loop(buffer_list)
      {
 	sw2buf(());
-	openfiles[buffer_filename()] = getbuf_filerecord();
+	openfiles[buffer_filename()] = strcat(getbuf_filerecord(), ":1");
      }
    % there will be a spurious element openfiles[""] == ""
    % (for buffers with filename == "")
@@ -359,7 +363,7 @@ static define update_cache()
 
    foreach(chop_filerecords(recent_files_cache))
      {
-	filerecord = ();     % ["filename", "line", "column", "is_open"]
+	filerecord = ();     % ["filename", "line", "column", "reopen"]
 	filename = filerecord[0];
 	% show(filerecord);
 
@@ -375,7 +379,7 @@ static define update_cache()
 
 	% update file flags and convert to string
 	if (assoc_key_exists(openfiles, filename))
-          filerecord = strcat(openfiles[filename], ":1");
+          filerecord = openfiles[filename];
 	else
 	  filerecord = strjoin(filerecord,":");
 
@@ -422,7 +426,7 @@ static define goto_point(filerecord)
 
 
 % Find a file and goto given positon
-% filerecord == ["filename", "line", "column", "is_open"]
+% filerecord == ["filename", "line", "column", "reopen"]
 static define recent_load_file(filerecord)
 {
    % show("loading record", filerecord);
@@ -436,6 +440,7 @@ static define recent_load_file(filerecord)
 }
 
 % reopen the files that were open in the last session of jed
+% (i.e. files with the 'reopen' flag == 1
 static define restore_session()
 {
    variable record, records = chop_filerecords(recent_files_cache);
@@ -444,7 +449,7 @@ static define restore_session()
 	record = ();
 	if (andelse
 	    { record[3] == "1" }
-	    { orelse { Restore_Last_Session != 2 }
+	    { orelse { Recent_Restore_Last_Session != 2 }
 		   { path_dirname(getcwd()) != path_dirname(record[0]) }
 	    }
 	    { file_status(record[0]) }
@@ -560,7 +565,7 @@ public define recent_file_goto_point()
 % ---------------------------------------------
 
 % Load the filerecords list
-if (Restore_Last_Session or not(Recent_Files_Synchronize_Cache))
+if (Recent_Restore_Last_Session or not(Recent_Files_Synchronize_Cache))
   recent_files_cache = load_cache();
 
 % Hooks
@@ -578,7 +583,7 @@ append_to_hook("_jed_exit_hooks", &recent->save_cache);
 append_to_hook ("load_popup_hooks", &add_recent_files_popup_hook);
 
 % Restore the last session
-% !! A strange bug lets the last line count (instead of AND) when
+% !! A strange bug considers only the last line (instead of AND) when
 %    the arguments of andelse are on several lines and _debug_info is 1 !!
-if ( andelse {__argc == 1} {not BATCH} {Restore_Last_Session} {Restore_Last_Session != 3 or Recent_Use_Local_Cache})
+if ( andelse {__argc == 1} {not BATCH} {Recent_Restore_Last_Session} {Recent_Restore_Last_Session != 3 or Recent_Use_Local_Cache})
   add_to_hook("_jed_startup_hooks", &restore_session);
