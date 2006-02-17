@@ -1,6 +1,6 @@
 % --- Formatted info about variable values ---
 % 
-% Copyright (c) 2003 Günter Milde
+% Copyright (c) 2006 Günter Milde
 % Released under the terms of the GNU General Public License (ver. 2 or later)
 % 
 % Provides the function sprint_variable() that can handle complex variables 
@@ -13,7 +13,7 @@
 % 
 % NOTES
 %
-% The latest snapshot of slang 2 has a print.sl library file that does many
+% Newer versions of slsh come with a print.sl library file that does many
 % of the things sprint_var.sl does:
 % 
 % print.sl		sprint_var.sl
@@ -29,7 +29,8 @@
 %     		  (test with is_struct_type that also works for structures of
 %     		   types other than Struct_Type)
 %     		  added tm documentation
-% 1.2 2006-02-01  added provide()    		  
+% 1.2 2006-02-01  added provide()
+% 1.3 2006-02-17  added special cases to sprint_char
 
 
 % Requirements
@@ -46,7 +47,7 @@ provide("sprint_var");
 %\usage{String_Type Sprint_Indent = "   "}
 %\description
 % How much shall a sub-list be indented in a variable listing with
-% \var{sprint_variable}?
+% \sfun{sprint_variable}?
 % 
 % Set as literal string of spaces.
 %\seealso{sprint_variable}
@@ -64,7 +65,7 @@ define sprint_struct() {}
 %\synopsis{Print a variable to a string (verbosely)}
 %\usage{String_Type sprint_variable(var)}
 %\description
-% A more verbose variant of \var{string} that recurses into elements
+% A more verbose variant of \sfun{string} that recurses into elements
 % of compound data types.
 %\notes
 % The latest snapshot of slang 2 has a print.sl library file that does many
@@ -229,7 +230,15 @@ define sprint_string(str)
 
 define sprint_char(ch)
 {
-   return ("'" + char(ch) + "'");
+   switch (ch)
+     { case '\'': return "'\''";}   %  single quote
+     { case '\\': return "'\\'";}   %  backslash
+     { case '\a': return "'\a'";}   %  bell character (ASCII 7)
+     { case '\t': return "'\t'";}   %  tab character (ASCII 9)
+     { case '\n': return "'\n'";}   %  newline character (ASCII 10)
+     { case '\e': return "'\e'";}   %  escape character (ASCII 27)
+     { case 0:    return "'\000'";} %  binary zero
+   return strcat("'", char(ch), "'");
 }
 
 define sprint_any(any)
