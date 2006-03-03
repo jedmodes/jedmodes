@@ -1,0 +1,105 @@
+# console_keys.map
+# 
+# make shift-arrow etc. work under linux-console
+# original by Matti-Oskari Leppänen <mongrel@mindless.com>
+# Adopted to keydefs.sl order and extended by Guenter Milde <g.milde web.de>
+
+# USAGE 
+# 
+# use console_keys.sl or call
+#     loadkeys console_keys.map
+# (maybe in a jed wrapper script) to get the keysyms expected in keydefs.sl
+# 
+# Drawbacks:   this changes the keysyms for all virtual konsoles and might 
+#              break other programs
+# Workaraound: save you previous setting with 
+#                 dumpkeys > standard_keys.map
+#	       and load after finishing jed
+#            On some distributions, loadkeys needs root privilegues
+
+# TODO: * add TAB and BS
+
+# Keymaps may not contain "\e" for escape, therefore "\033" is used
+
+# Shifted Keys:
+# Key_Shift_Up
+shift keycode 103 = F100
+string F100 = "\033[a"
+
+# Key_Shift_Down
+shift keycode 108 = F101
+string F101 = "\033[b"
+
+# Key_Shift_Right
+shift keycode 106 = F102
+string F102 = "\033[c"
+
+# Key_Shift_Left
+shift keycode 105 = F103
+string F103 = "\033[d"
+
+# Key_Shift_Ins
+shift keycode 110 = F104
+string F104="\033[2$"
+
+# Key_Shift_Del
+shift keycode 111 = F105
+string F105 = "\033[3$"
+
+# Key_Shift_Home
+shift keycode 102 = F106
+string F106 = "\033[1$"
+
+# Key_Shift_End
+shift keycode 107 = F107
+string F107 = "\033[4$"
+
+# Key_Shift_PgUp
+shift keycode 104 = F108
+string F108 = "\033[5$"
+
+# Key_Shift_PgDn
+shift keycode 109 = F109
+string F109 = "\033[6$"
+
+# Ctrl Keys:
+
+# Key_Ctrl_Up
+control keycode 103 = F110
+string F110 = "\033["
+
+# Key_Ctrl_Down
+control keycode 108 = F111
+string F111 = "\033["
+
+# Key_Ctrl_Right
+control keycode 106 = F112
+string F112 = "\033["
+
+# Key_Ctrl_Left
+control keycode 105 = F113
+string F113 = "\033["
+
+# Key_Ctrl_Ins
+control keycode 110 = F114
+string F114="\033[2^"
+
+# Key_Ctrl_Del
+control keycode 111 = F115
+string F115 = "\033[3^"
+
+# Key_Ctrl_Home
+control keycode 102 = F116
+string F116 = "\033[1^"
+
+# Key_Ctrl_End
+control keycode 107 = F117
+string F117 = "\033[4^"
+
+# Key_Ctrl_PgUp
+control keycode 104 = F118
+string F118 = "\033[5^"
+
+# Key_Ctrl_PgDn
+control keycode 109 = F119
+string F119 = "\033[6^"
