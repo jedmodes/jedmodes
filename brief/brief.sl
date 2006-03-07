@@ -16,8 +16,13 @@
 %   - more Brief-like region marking, copying, yanking
 %   - page up/dn (mostly) leaves cursor on same screen line
 %   - Brief-like macro recording (F7)
+%   
 % 2005-10-12 Guenter Milde
 %   - fixed dependency on x-keydefs (kp_keydefs is obsolete)
+%   
+% 2006-03-07 Marko Mahnic
+%   - added support for named scraps with region type info in blocal vars
+%   
 _Jed_Emulation = "brief";
 
 % load the extended set of symbolic key definitions (variables Key_*)
@@ -157,22 +162,110 @@ define brief_replace_cmd()
 %%  1 - Normal    3 - Line
 %%  2 - Column    4 - Noninclusive
 variable Brief_Mark_Type = 0;
+
+#ifdef HAS_BLOCAL_VAR
+
+private variable Brief_Scrap_Type = "Brief_Scrap_Type";
+private define brief_get_scrap_type(scbuf)
+{
+   variable b, v = 1;
+   !if (bufferp(scbuf)) return 1;
+   b = whatbuf();
+   setbuf(scbuf);
+   if (blocal_var_exists(Brief_Scrap_Type))
+      v = get_blocal_var(Brief_Scrap_Type);
+   setbuf(b);
+   return v;
+}
+
+private define brief_set_scrap_type(scbuf, sctype)
+{
+   variable b;
+   !if (bufferp(scbuf)) return;
+   b = whatbuf();
+   setbuf(scbuf);
+   create_blocal_var(Brief_Scrap_Type);
+   set_blocal_var(sctype, Brief_Scrap_Type);
+   setbuf(b);
+}
+
+#else
+
 private variable Brief_Scrap_Type = 0;
+private define brief_get_scrap_type(scbuf)
+{
+   return Brief_Scrap_Type;
+}
+
+private define brief_set_scrap_type(scbuf, sctype)
+{
+   Brief_Scrap_Type = sctype;
+}
+
+#endif %% HAS_BLOCAL_VAR
+
+private variable Brief_Scrap_Buf_Format = " <scrap-%s>";
+private define brief_get_scrap_name ()
+{
+   variable b, scrps;
+   scrps = "";
+   loop (buffer_list ())
+   {
+      b = ();
+      if (1 == is_substr(b, " <scrap-"))
+      {
+         b = strtrim(b[[8:]], ">");
+         if (scrps == "") scrps = b;
+         else scrps = scrps + "," + b;
+      }
+   }
+   variable name = read_with_completion (scrps, "Scrap name:", "", "", 's');
+   name = strtrim (name);
+   if (name == "") name = NULL;
+   return name;
+}
+
 define brief_yank_lines ()
 {
    call ("mark_spot");
    bol (); 
    call ("yank"); 
-   message ("Lines inserted.");
    pop_spot ();
 }
 
 define brief_yank ()
 {
-   switch (Brief_Scrap_Type)
-     { case 2: insert_rect (); message ("Columns inserted"); }
-     { case 3: brief_yank_lines (); }
+   switch (brief_get_scrap_type(" <paste>"))
+     { case 2: insert_rect (); message ("Columns inserted."); }
+     { case 3: brief_yank_lines (); message ("Lines inserted."); }
      { call ("yank"); message ("Scrap inserted.");}
+}
+
+define brief_yank_named ()
+{
+   variable sctype, scbuf, b;
+   variable scrapname = brief_get_scrap_name();
+   
+   if (scrapname == NULL) return;
+   scbuf = sprintf(Brief_Scrap_Buf_Format, scrapname);
+   !if (bufferp(scbuf))
+   {
+      message ("No such scrap.");
+      return;
+   }
+   b = whatbuf();
+   
+   sctype = brief_get_scrap_type(scbuf);
+   if (sctype == 2) setbuf(" <rect>");
+   else setbuf(" <paste>");
+   erase_buffer();
+   insbuf(scbuf);
+   setbuf(b);
+
+   switch (sctype)
+     { case 2: insert_rect (); vmessage ("Columns from scrap '%s' inserted.", scrapname); }
+     { case 3: brief_yank_lines (); vmessage ("Lines from scrap '%s' inserted.", scrapname);}
+     { call ("yank"); vmessage ("Scrap '%s' inserted.", scrapname);}
 }
 
 % Prototype: brief_complete_line_region ()
@@ -207,57 +300,75 @@ define brief_check_marked_automark ()
    return (0);
 }
 
-define brief_copy_region ()
+private define brief_region_to_scrap(opinfo, macro, rectmacro, namedscrap)
 {
-   variable what = NULL;   
+   variable b, what = NULL;   
 
    if (brief_check_marked_automark()) what = "Line";
    
    if (Brief_Mark_Type == 2) {
-      copy_rect ();
+      if (is_internal(rectmacro)) call (rectmacro);
+      else eval(rectmacro);
       what = "Columns";
    }
    else if (Brief_Mark_Type == 3) {
       push_spot ();
       brief_complete_line_region ();
-      call ("copy_region");
+      if (is_internal(macro)) call (macro);
+      else eval(macro);
       pop_spot ();
       if (what == NULL) what = "Lines";
    }
    else {
-      call ("copy_region");
+      if (is_internal(macro)) call (macro);
+      else eval(macro);
       what = "Region";
    }
-   vmessage ("%s copied to scrap.", what);
-   Brief_Scrap_Type = Brief_Mark_Type;
+   
+   if (namedscrap == NULL or namedscrap == "")
+   {
+      vmessage ("%s %s to scrap.", what, opinfo);
+      brief_set_scrap_type(" <paste>", Brief_Mark_Type);
+   }
+   else
+   {
+      vmessage ("%s %s to scrap '%s'.", what, opinfo, namedscrap);
+      
+      b = whatbuf();
+      what = sprintf(Brief_Scrap_Buf_Format, namedscrap);
+      setbuf(what);
+      erase_buffer();
+      if (Brief_Mark_Type == 2) insbuf(" <rect>");
+      else insbuf(" <paste>");
+      brief_set_scrap_type(what, Brief_Mark_Type);
+      setbuf(b);
+   }
+   
    Brief_Mark_Type = 0;
+}
+
+define brief_copy_region ()
+{
+   brief_region_to_scrap("copied", "copy_region", "copy_rect", NULL);
 }
 
 define brief_kill_region ()
 {
-   variable what = NULL, c;
+   brief_region_to_scrap("cut", "kill_region", "kill_rect", NULL);
+}
 
-   c = what_column();
+define brief_copy_region_named ()
+{
+   variable name = brief_get_scrap_name();
+   if (name != NULL)
+      brief_region_to_scrap("copied", "copy_region", "copy_rect", name);
+}
 
-   if (brief_check_marked_automark()) what = "Line";
-   
-   if (Brief_Mark_Type == 2) {
-      kill_rect ();
-      what = "Columns";
-   }
-   else if (Brief_Mark_Type == 3) {
-      brief_complete_line_region ();
-      call ("kill_region");
-      c = goto_column_best_try (c);
-      if (what == NULL) what = "Lines";
-   }
-   else {
-      call ("kill_region");
-      what = "Region";
-   }
-   vmessage ("%s cut to scrap.", what);
-   Brief_Scrap_Type = Brief_Mark_Type;
-   Brief_Mark_Type = 0;
+define brief_kill_region_named ()
+{
+   variable name = brief_get_scrap_name();
+   if (name != NULL)
+      brief_region_to_scrap("cut", "kill_region", "kill_rect", name);
 }
 
 define brief_delete ()
@@ -479,6 +590,10 @@ setkey ("brief_open_line",       Key_Ctrl_Return);
 setkey ("undo",                  Key_KP_Multiply );
 setkey ("brief_copy_region",     Key_KP_Add      );
 setkey ("brief_kill_region",     Key_KP_Subtract );
+
+% setkey ("brief_copy_region_named",     Key_Ctrl_KP_Add);
+% setkey ("brief_kill_region_named",     Key_Ctrl_KP_Subtract);
+% setkey ("brief_yank_named",            Key_Ctrl_Ins);
 
 setkey  ("other_window",             Key_F1         );
 setkey  ("one_window",               Key_Alt_F2     );
