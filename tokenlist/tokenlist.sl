@@ -47,7 +47,9 @@
 %% See tkl_list_tokens().
 %% 
 %% Changes:
-%%   2006-03-08 Marko Mahnic
+%%   2000: Marko Mahnic
+%%     First version
+%%   2006-03-08: Marko Mahnic
 %%     - added isearch and filter commands
 %%     - documented
 %%     
