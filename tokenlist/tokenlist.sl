@@ -63,6 +63,7 @@
 %%     - _list_routines_regexp can also be a list
 %%      and it may contain references to functions
 %%     - TokenList_Startup_Mode custom variable
+%%     - keybindings slightly changed
 %%     
 
 %% Controls what happens right after the list is displayed:
