@@ -22,17 +22,25 @@
 %%      reqiure("tkl-modes");
 %%      
 %% When the results are displayed in token list:
-%%    f, SPACE:   display selected line in other buffer
+%%    d, SPACE:   display selected line in other buffer
 %%    g, RETURN:  goto selected line, close tokel list
-%%    i, s:       isearch_forward
-%%    r, /:       filter the displayed results (hides nonmatching lines)
+%%    :, s:       isearch_forward
+%%    /, f:       filter the displayed results (hides nonmatching lines)
+%%    q:          hide results
 %%    
 %% Extending:
 %%    To use list_routines in a new mode MODENAME:
 %% 
 %%    for mode MODENAME write:
-%%       variable MODENAME_list_routines_regexp = ["regexp0", "regexp1",...];
-%%          A set of regular expressions.
+%%       variable MODENAME_list_routines_regexp = {"regexp0", "regexp1", &search_fn};
+%%          A set of regular expressions or references to function like:
+%%             
+%%             % Int_Type searc_fn(Int_Type array_index)
+%%             % returns 0 when no more matches
+%%             define searc_fn(idx)
+%%             {
+%%                return fsearch("something");
+%%             }
 %% 
 %%       String   MODENAME_list_routines_extract  (Integer I)
 %%          Extractor function to extract the match from the currnet
@@ -52,10 +60,21 @@
 %%   2006-03-08: Marko Mahnic
 %%     - added isearch and filter commands
 %%     - documented
+%%     - _list_routines_regexp can also be a list
+%%      and it may contain references to functions
+%%     - TokenList_Startup_Mode custom variable
 %%     
+
+%% Controls what happens right after the list is displayed:
+%%   0 - normal mode
+%%   1 - start in isearch mode
+%%   2 - start in filter mode
+custom_variable ("TokenList_Startup_Mode", 0);
 
 private variable tkl_TokenBuffer = "*TokenList*";
 private variable tkl_ExtractMacro = "_list_routines_extract";
+
+define _list_routines_extract(); % forward declaration
 
 %% Function: tkl_list_tokens
 %% \usage{Void tkl_list_tokens (String[] arr_regexp, String fn_extract)}
@@ -83,24 +102,43 @@ define tkl_list_tokens (arr_regexp, fn_extract) %{{{
    vinsert ("Buffer: %s\n", buf);
    setbuf (buf);
 
-   if (String_Type == typeof(arr_regexp)) arr_regexp = [arr_regexp];
-   if (fn_extract == Null_String or fn_extract == NULL) 
-      fn_extract = tkl_ExtractMacro;
+   if (List_Type != typeof(arr_regexp) and Array_Type != typeof(arr_regexp))
+      arr_regexp = { arr_regexp };
+   if (fn_extract == NULL) 
+      fn_extract = &_list_routines_extract;
    
+   variable i, rv, rtype, extype;
+   extype = typeof(fn_extract);
+   if (extype != Ref_Type and extype != String_Type) return;
+   
+   if (extype == String_Type) if (fn_extract == Null_String)
+   {
+      extype = Ref_Type;
+      fn_extract = &_list_routines_extract;
+   }
+      
    push_spot();
-   bob();
-
-   variable i;
    for (i = 0; i < length(arr_regexp); i++)
    { 
       % The array may be larger than the number of needed regular expressions.
-      % We can end the search with a Null_String.
-      if (arr_regexp[i] == Null_String) break;
+      % We can end the search with a Null_String or NULL.
+      if (arr_regexp[i] == NULL) break;
       
-      while (re_fsearch (arr_regexp[i]))
+      rtype = typeof(arr_regexp[i]);
+      if (rtype != Ref_Type and rtype != String_Type) continue;
+      if (rtype == String_Type) if (arr_regexp[i] == Null_String) break;
+
+      bob();
+      while (1)
       {
+         if (rtype == Ref_Type) rv = (@arr_regexp[i])(i);
+         else rv = re_fsearch (arr_regexp[i]);
+         
+         if (not rv) break;
+         
 	 push_spot();
-	 eval (sprintf ("%s(%ld)", fn_extract, i));
+         if (extype == Ref_Type) (@fn_extract)(i);
+         else eval (sprintf ("%s(%ld)", fn_extract, i));
 	 token = ();
 	 pop_spot();
 	 while (str_replace(token, "\n", " ")) token = ();
@@ -117,8 +155,6 @@ define tkl_list_tokens (arr_regexp, fn_extract) %{{{
 	 go_down(1);
 	 bol();
       }
-      
-      bob ();
    }
 
    pop_spot();
@@ -143,16 +179,17 @@ $1 = "tokenlist";
 !if (keymap_p ($1))
 {
    make_keymap ($1);
+   definekey ("tkl_display_token", " ", $1);
+   definekey ("tkl_display_token", "d", $1);
+   definekey ("tkl_goto_token", "\r", $1);
+   definekey ("tkl_goto_token", "g", $1);
+   definekey ("isearch_forward", "s", $1);
+   definekey ("isearch_forward", ":", $1);
+   definekey ("tkl_filter_list", "f", $1);
+   definekey ("tkl_filter_list", "/", $1);
+   definekey ("tkl_quit", "q", $1);
 }
 
-definekey ("tkl_display_token", " ", $1);
-definekey ("tkl_display_token", "f", $1);
-definekey ("tkl_goto_token", "\r", $1);
-definekey ("tkl_goto_token", "g", $1);
-definekey ("isearch_forward", "s", $1);
-definekey ("isearch_forward", "i", $1);
-definekey ("tkl_filter_list", "r", $1);
-definekey ("tkl_filter_list", "/", $1);
 
 % \usage{(String, Int) tkl_get_token_info()}
 private define tkl_get_token_info()
@@ -189,7 +226,7 @@ private define tkl_get_token_info()
 define tkl_filter_list()
 {
    variable flt;
-   flt = read_mini("Filter: ", "", "");
+   flt = read_mini("Filter:", "", "");
    push_spot();
    bob();
    if (flt == "") 
@@ -201,10 +238,8 @@ define tkl_filter_list()
       else set_line_hidden(1);
    }
    pop_spot();
-   if (is_line_hidden())
-   {
-      do {} while (up_1 and is_line_hidden());
-   }
+   if (is_line_hidden()) call("previous_line_cmd");
+   if (what_line() <= 1) call("next_line_cmd");
 }
 
 % \usage{Void tkl_display_token()}
@@ -227,6 +262,12 @@ define tkl_goto_token()
    onewindow();
    sw2buf (buf);
    goto_line (line);
+}
+
+define tkl_quit()
+{
+   otherwindow();
+   onewindow();
 }
 
 private variable Line_Mark;
@@ -272,6 +313,11 @@ define tkl_display_results()
    sw2buf (tkl_TokenBuffer);
    set_buffer_hook ("update_hook", &tkl_update_token_hook);
    use_keymap ("tokenlist");
+   
+   switch (TokenList_Startup_Mode)
+   { case 0: return; }
+   { case 1: isearch_forward(); }
+   { case 2: tkl_filter_list(); }
 }
 
 define tkl_sort_by_value ()
@@ -358,7 +404,7 @@ define list_routines()
    else arr_regexp = "^[a-zA-Z].*(";
    
    fn_extract = sprintf ("%s%s", mode, tkl_ExtractMacro);
-   !if (+2 == is_defined (fn_extract)) fn_extract = tkl_ExtractMacro;
+   !if (+2 == is_defined (fn_extract)) fn_extract = &_list_routines_extract;
    
    tkl_list_tokens (arr_regexp, fn_extract);
    tkl_display_results();
@@ -379,13 +425,13 @@ define _list_routines_extract (nRegexp)
    return (line_as_string());
 }
 
-
 %%  
 %%        C
 %%  
 variable c_list_routines_regexp = 
-   ["^[a-zA-Z_][a-zA-Z0-9_]*[ \t*&].*(",  % Ordinary function or method
-    "^[a-zA-Z_][a-zA-Z0-9_]*::~.+("];     % Destructor
+{     "^[a-zA-Z_][a-zA-Z0-9_]*[ \t*&].*(",  % Ordinary function or method
+      "^[a-zA-Z_][a-zA-Z0-9_]*::~.+("       % Destructor
+};
 
 define c_list_routines_extract (nRegexp)
 {
@@ -424,12 +470,12 @@ define c_list_routines_hook()
 %%        SLang
 %%  
 variable slang_list_routines_regexp =
-   ["^define[ \t]",
-    "^variable[ \t]",
-    "^public[ \t]+[dv]",
-    "^private[ \t]+[dv]",
-    "^static[ \t]+[dv]"
-    ];
+{     "^define[ \t]",
+      "^variable[ \t]",
+      "^public[ \t]+[dv]",
+      "^private[ \t]+[dv]",
+      "^static[ \t]+[dv]"
+};
 
 define slang_list_routines_extract (nRegexp)
 {
