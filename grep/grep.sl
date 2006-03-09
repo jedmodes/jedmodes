@@ -14,7 +14,7 @@
 % 0.9.3 2004-01-30
 %   * solved bug with only one file (using -H option) [Peter Bengtson]
 %   * recursive grep with special filename bang (!) (analog to kpathsea),
-%     i.e. grep("pat" "dir/!") gets translated to `grep -r "pat" "dir/"`
+%     i.e. grep("pat", "dir/!") gets translated to `grep -r pat dir/`
 % 0.9.4 2004-04-28
 %   * close grep buffer, if the return value of the grep cmd is not 0
 % 0.9.5 2005-11-07
@@ -24,6 +24,14 @@
 % 0.9.6 2006-02-02 bugfix and code cleanup in grep_replace_*
 %                  (using POINT instead of what_column(), as TAB expansion
 %                   might differ between grep output and referenced buffer)
+% 1.0   2006-03-09
+%   * provide for --include pattern with recursive grep,
+%   * escape the `what' argument with quotes 
+%     (this prevents ugly surprises with shell expansion but disables the
+%     trick to put command line options into  `what').
+%       grep("pat", "dir/*.sl!") --> `grep -r --include='*.sl', 'pat' dir/`
+%   * change name of the custom var to Grep_Cmd to adhere to the
+%     "<capitalized-modenaem>_*" convention.
 %
 % USAGE
 %
@@ -39,7 +47,7 @@
 % CUSTOMIZATION
 %
 % You can set the grep command with e.g in your .jedrc
-%   variable GrepCommand = "rgrep -nH";
+%   variable Grep_Cmd = "rgrep -nH";
 %
 % Optionally customize the jedgrep_mode using the "grep_mode_hook", e.g.
 %   % give the result-buffer a number
@@ -78,7 +86,20 @@ private variable mode = "grep";
 % --- Variables -------------------------------------------------%{{{
 
 % the grep command
-custom_variable("GrepCommand", "grep -nH"); % print filename and linenumbers
+%!%+
+%\variable{Grep_Cmd}
+%\synopsis{shell command used by \slfun{grep}}
+%\usage{variable Grep_Cmd = "grep -nH"}
+%\description
+%  The shell command which is called by \slfun{grep}.
+%  Customize this to provide command line options or use a variant of grep 
+%  like `agrep`, `egrep`, or `fgrep`.
+%\notes
+%  In order to go to the filename and line-number, grep_mode assumes the 
+%  -n and -H argument set.
+%\seealso{grep, grep_mode}
+%!%-
+custom_variable("Grep_Cmd", "grep -nH");
 
 % remember the string to grep (as default for the next run) (cf. LAST_SEARCH)
 static variable LAST_GREP = "";
@@ -271,40 +292,51 @@ public define grep_mode()
 % TODO: What does gnu grep expect on DOS, What should this be on VMS and OS2 ?
 %!%+
 %\function{grep}
-%\synopsis{Grep wizard}
-%\usage{grep(String what=NULL, String files=NULL)}
+%\synopsis{Grep interface}
+%\usage{grep(String what=NULL, String path=NULL)}
 %\description
-%  Grep for "what" in the file(s) "files" (use shell wildcards).
-%  If the optional arguments are missing, they will be asked for in the 
-%  minibuffer. The grep command can be set with the custom variable 
-%  \var{GrepCommand}.
+%  Grep for "what" in the file(s) "path". 
 %  
-%  The buffer is set to grep_mode, so you can go to the matching lines 
-%  or find-and-replace accross the matches.
+%  If the optional arguments are missing, they will be asked for in
+%  the  minibuffer. 
 %  
-%  grep adds one extension to the shell pattern replacement mechanism
+%  \sfun{grep} adds an extension to the shell pattern replacement mechanism:
 %  the special filename bang (!) indicates a recursive grep in subdirs
-%  (analog to kpathsea), i.e. grep("pat" "dir/!") translates to 
-%  `grep -r "pat" "dir/"`
-%\notes
-%  In order to go to the file and line-number, grep_mode assumes the 
-%  -n and -H argument set.
-%\seealso{grep_mode, grep_replace, GrepCommand}
+%  (analog to kpathsea), i.e. grep("pat" "path/*.sl!") translates to 
+%  `$Grep_Cmd -r --include='*.sl', 'pat' path`
+%  
+%  Other than this, normal shell expansion is applied to "path".
+%  
+%  The grep command and options can be set with the custom
+%  variable  \var{Grep_Cmd}.
+%  
+%  The buffer is set to \sfun{grep_mode}, so you can go to the matching
+%  lines  or find-and-replace accross the matches.
+%  
+%\seealso{grep_mode, grep_replace, Grep_Cmd}
 %!%-
-public define grep() % ([what], [files])
+public define grep() % ([what], [path])
 {
    % optional arguments, ask if not given
-   variable what, files;
-   (what, files) = push_defaults( , , _NARGS);
+   variable what, path;
+   (what, path) = push_defaults( , , _NARGS);
    if (what == NULL)
      {
-	what = read_mini("(Flags and) String to grep: ", LAST_GREP, "");
+	what = read_mini("String to grep: ", LAST_GREP, "");
 	LAST_GREP = what;
      }
-   if (files == NULL)
-     files = read_with_completion ("Where to grep: ", "", "", 'f');
+   if (path == NULL)
+     path = read_with_completion ("Where to grep: ", "", "", 'f');
 
-   variable cmd, dir = buffer_dirname(), allfiles = "", status;
+   variable cmd, options = "", dir = buffer_dirname(), allfiles, status, 
+     basename = path_basename(path);
+#ifdef UNIX
+   allfiles = "*";
+#elifdef IBMPC_SYSTEM
+   allfiles = "*.*";
+#else
+   allfiles = "";
+#endif
 
    % set the working directory
    () = chdir(dir);
@@ -314,24 +346,22 @@ public define grep() % ([what], [files])
    % The output buffer will be set to the active buffer's dir
    % If the path starts with dir, we can strip it.
    % (Note: this maight fail on case insensitive filesystems).
-   files = contract_filename(files);
+   path = contract_filename(path);
 
-   % recursive grep with special filename bang (!) (analog to kpathsea)
-   if (path_basename(files) == "!")
+   % recursive grep with special char '!' (analog to kpathsea)
+   if (is_substr(basename, "!") == strlen(basename))
      {
-	what = "-r " + what;
-	files = path_dirname(files);
+	options = "-r";
+	path = path_dirname(path);
+	basename = strtrim_end(basename, "!");
+	if (basename != "")
+	  options += sprintf(" --include='%s'", basename);
      }
    % append wildcard, if no filename (or pattern) is given
-#ifdef UNIX
-   allfiles = "*";
-#elifdef IBMPC_SYSTEM
-   allfiles = "*.*";
-#endif
-   if (path_basename(files) == "")
-     files = path_concat(files, allfiles);
+   if (basename == "")
+     path = path_concat(path, allfiles);
 
-   cmd = GrepCommand + " " + what + " " + files;
+   cmd = strjoin([Grep_Cmd, options, what, path], " ");
 
    % Prepare the output buffer
    popup_buffer("*grep_output*", FileList_max_window_size);
