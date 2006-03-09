@@ -27,6 +27,7 @@
 %%    :, s:       isearch_forward
 %%    /, f:       filter the displayed results (hides nonmatching lines)
 %%    q:          hide results
+%%    w:          other window
 %%    
 %% Extending:
 %%    To use list_routines in a new mode MODENAME:
@@ -189,6 +190,7 @@ $1 = "tokenlist";
    definekey ("tkl_filter_list", "f", $1);
    definekey ("tkl_filter_list", "/", $1);
    definekey ("tkl_quit", "q", $1);
+   definekey ("other_window", "w", $1);
 }
 
 
@@ -243,6 +245,36 @@ define tkl_filter_list()
    if (what_line() <= 1) call("next_line_cmd");
 }
 
+private define tkl_make_line_visible()
+{
+   if (is_line_hidden())
+   {
+      if (2 == is_defined("fold_open_fold"))
+      {
+         try
+         {
+            variable n = 5; % foldnig depth
+            do
+            {
+               push_spot();
+               eval("fold_open_fold");
+               pop_spot();
+               n--;
+            } while (n > 0 and is_line_hidden());
+            
+            if (is_line_hidden())
+            {
+               if (2 == is_defined("fold_open_buffer")) eval("fold_open_buffer");
+            }
+         }
+         catch AnyError:
+         {
+         }
+      }
+      else set_line_hidden(0);
+   }
+}
+
 % \usage{Void tkl_display_token()}
 define tkl_display_token()
 {
@@ -251,6 +283,7 @@ define tkl_display_token()
    
    pop2buf (buf);
    goto_line (line);
+   tkl_make_line_visible();
    pop2buf (tkl_TokenBuffer);
 }
 
@@ -263,6 +296,7 @@ define tkl_goto_token()
    onewindow();
    sw2buf (buf);
    goto_line (line);
+   tkl_make_line_visible();
 }
 
 define tkl_quit()
@@ -392,7 +426,7 @@ define occur ()
 % \usage{Void list_routines()}
 define list_routines()
 {
-   variable mode, arr_regexp = String_Type[1], fn_extract;
+   variable buf, mode, arr_regexp = String_Type[1], fn_extract;
    
    (mode,) = what_mode();
    mode = strlow(mode);
@@ -409,10 +443,13 @@ define list_routines()
    
    tkl_list_tokens (arr_regexp, fn_extract);
    
+   buf = whatbuf();
+   setbuf(tkl_TokenBuffer);
    set_readonly(0);
    runhooks (sprintf ("%s_list_routines_hook", mode));
    set_buffer_modified_flag(0);
    set_readonly(1);
+   setbuf(buf);
 
    tkl_display_results();
 }
