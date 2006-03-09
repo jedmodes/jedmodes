@@ -408,12 +408,13 @@ define list_routines()
    !if (+2 == is_defined (fn_extract)) fn_extract = &_list_routines_extract;
    
    tkl_list_tokens (arr_regexp, fn_extract);
-   tkl_display_results();
    
    set_readonly(0);
    runhooks (sprintf ("%s_list_routines_hook", mode));
    set_buffer_modified_flag(0);
    set_readonly(1);
+
+   tkl_display_results();
 }
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%  MODES %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
