@@ -12,20 +12,27 @@
 %%      occur                                  overrides the default occur
 %%      (tkl_list_tokens, tkl_display_results  for further extensions)
 %%    OR:
-%%      require("tokenlist");
+%%      require("tokenlist");                  % evaluate at startup
 %% 
 %%    Example keybindings:
 %%      setkey("list_routines", "^R");
 %%      setkey("occur", "^O");
+%%      
 %% 
 %%    To add more language definitions for list_routines:
-%%      reqiure("tkl-modes");
+%%      require("tkl-modes");
+%%    or e.g.
+%%    define python_mode_hook ()
+%%    {
+%%      % <other customizations for python mode>
+%%      require("tkl-modes");
+%%    }
 %%      
 %% When the results are displayed in token list:
 %%    d, SPACE:   display selected line in other buffer
 %%    g, RETURN:  goto selected line, close tokel list
-%%    :, s:       isearch_forward
-%%    /, f:       filter the displayed results (hides nonmatching lines)
+%%    /, s:       isearch_forward
+%%    :, f:       filter the displayed results (hides nonmatching lines)
 %%    q:          hide results
 %%    w:          other window
 %%    
@@ -65,6 +72,8 @@
 %%      and it may contain references to functions
 %%     - TokenList_Startup_Mode custom variable
 %%     - keybindings slightly changed
+%%   2006-03-10: Guenter Milde, Marko Mahnic
+%%     - prepared for make_ini()
 %%     
 
 %% Controls what happens right after the list is displayed:
@@ -186,9 +195,9 @@ $1 = "tokenlist";
    definekey ("tkl_goto_token", "\r", $1);
    definekey ("tkl_goto_token", "g", $1);
    definekey ("isearch_forward", "s", $1);
-   definekey ("isearch_forward", ":", $1);
+   definekey ("isearch_forward", "/", $1);
    definekey ("tkl_filter_list", "f", $1);
-   definekey ("tkl_filter_list", "/", $1);
+   definekey ("tkl_filter_list", ":", $1);
    definekey ("tkl_quit", "q", $1);
    definekey ("other_window", "w", $1);
 }
@@ -406,7 +415,7 @@ define tkl_sort_by_line ()
 %% #######################################################################
 #iftrue
 % \usage{Void occur ()}
-define occur ()
+public define occur ()
 {
    variable sRegexp;
    if (_NARGS == 0)
@@ -424,7 +433,7 @@ define occur ()
 %% #######################################################################
 
 % \usage{Void list_routines()}
-define list_routines()
+public define list_routines()
 {
    variable buf, mode, arr_regexp = String_Type[1], fn_extract;
    
