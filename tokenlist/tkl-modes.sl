@@ -46,6 +46,58 @@ define python_list_routines_hook()
    tkl_sort_by_line();
 }
 
+%%  
+%%        reStructuredText
+%%  
+private variable rst_levels = NULL;
+variable rst_list_routines_regexp =
+{
+   "^[!-/:-@\\[-`{-~]+"
+};
+
+private define get_rst_level(ch)
+{
+   variable lev, N;
+   if (rst_levels == NULL) rst_levels = {};
+   N = length(rst_levels);
+   for (lev = 0; lev < N; lev++)
+      if (rst_levels[lev] == ch) return lev;
+   
+   list_append(rst_levels, ch);
+   return N;
+}
+
+define rst_list_routines_extract (nRegexp)
+{
+   variable ch, col, sec, fmt;
+   ch = what_char();
+   skip_chars(sprintf("%c", ch));
+   col = what_column();
+   skip_white();
+   !if (eolp()) return Null_String;
+
+   if (1 == up(1))
+   {
+      eol();
+      bskip_white();
+      if ( not bolp() and what_column() < col)
+      {
+         push_mark();
+         bol_skip_white();
+         sec = bufsubstr();
+         fmt = sprintf(".%%%ds%%s", -get_rst_level(ch));
+         return(sprintf(fmt, "", sec));
+      }
+   }
+   
+   return Null_String;
+}
+
+define rst_list_routines_hook()
+{
+   rst_levels = NULL;
+   tkl_sort_by_line();
+}
 
 #iffalse
 %%  
