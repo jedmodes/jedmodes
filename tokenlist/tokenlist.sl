@@ -74,7 +74,8 @@
 %%     - keybindings slightly changed
 %%   2006-03-10: Guenter Milde, Marko Mahnic
 %%     - prepared for make_ini()
-%%     
+%%   2006-03-13: Mahnic Mahnic
+%%     - filter command is now interactive
 
 %% Controls what happens right after the list is displayed:
 %%   0 - normal mode
@@ -237,21 +238,63 @@ private define tkl_get_token_info()
 
 define tkl_filter_list()
 {
-   variable flt;
-   flt = read_mini("Filter:", "", "");
-   push_spot();
-   bob();
-   if (flt == "") 
-      while (down_1) set_line_hidden(0);
-   else while (down_1)
+   variable c, curflt, flt = "";
+   message("Filter:");
+   while(input_pending(0)) () = getkey();
+   update_sans_update_hook (0);
+   forever
    {
-      bol(); 
-      if (ffind(flt)) set_line_hidden(0);
-      else set_line_hidden(1);
+      c = getkey();
+      
+      curflt = flt;
+      switch(c)
+      { case 0x08 or case 0x7F: 
+         if (flt != "") flt = substr(flt, 1, strlen(flt)-1);
+      }
+      { case '\e':
+         if (input_pending (3))
+            ungetkey (c);
+         break;
+      }
+#ifdef IBMPC_SYSTEM
+      { case 0xE0:
+         if (input_pending (3))
+         {
+            ungetkey(c);
+            break;
+         }
+      }
+#endif 
+      { c < 32 :
+         ungetkey (c);
+         break;
+      }
+      { flt += char(c); }
+      
+      vmessage("Filter: %s", flt);
+      if (curflt != flt)
+      {
+         push_spot();
+         bob();
+         if (flt == "") 
+            while (down_1) set_line_hidden(0);
+         else while (down_1)
+         {
+            bol(); 
+            if (ffind(flt)) set_line_hidden(0);
+            else set_line_hidden(1);
+            if (input_pending(0)) break;
+         }
+         pop_spot();
+         try if (is_line_hidden()) call("previous_line_cmd");
+         catch AnyError: ;
+         try if (what_line() <= 1) call("next_line_cmd");
+         catch AnyError: ;
+         update(0);
+      }
    }
-   pop_spot();
-   if (is_line_hidden()) call("previous_line_cmd");
-   if (what_line() <= 1) call("next_line_cmd");
+
+   message("");
 }
 
 private define tkl_make_line_visible()
