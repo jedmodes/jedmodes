@@ -23,6 +23,10 @@
 % 2006-03-07 Marko Mahnic
 %   - added support for named scraps with region type info in blocal vars
 %   
+% 2006-03-15 Marko Mahnic
+%   - disabled the "\em" keybinding that prevented menu access
+%   - disabled the "\es" keybinding (Search menu)
+%   
 _Jed_Emulation = "brief";
 
 % load the extended set of symbolic key definitions (variables Key_*)
@@ -623,13 +627,13 @@ setkey  ("goto_line_cmd",         "\eg" ); % Alt G
 setkey  ("bkmrk_goto_mark",       "\ej" ); % Alt J
 setkey  ("kill_line",             "\ek" ); % Alt K
 setkey  ("brief_line_mark",       "\el" ); % Alt L
-setkey  (". 1 brief_set_mark_cmd","\em" ); % Alt M
+%setkey  (". 1 brief_set_mark_cmd","\em" ); % Alt M Menu access prefix
 setkey  ("brief_next_buffer(1)",  "\en" ); % Alt N
 %setkey ("write_buffer",          "\eo" ); % Alt O Mode    menu
 setkey  ("brief_next_buffer(-1)", "\ep" ); % Alt P; should be: print region
 %setkey ("quote_next_key",        "\eq" ); % Alt Q
 setkey  ("insert_file",           "\er" ); % Alt R
-setkey  ("brief_search_cmd",      "\es" ); % Alt S Search  menu
+%setkey  ("brief_search_cmd",      "\es" ); % Alt S Search  menu
 setkey  ("brief_replace_cmd",     "\et" ); % Alt T
 setkey  ("undo",                  "\eu" ); % Alt U
 %setkey ("brief_show_version",    "\ev" ); % Alt V
