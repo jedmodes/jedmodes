@@ -265,7 +265,7 @@ define tkl_filter_list()
          }
       }
 #endif 
-      { c < 32 :
+      { c < 32 and c >= 0:
          ungetkey (c);
          break;
       }

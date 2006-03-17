@@ -80,7 +80,7 @@ define rst_list_routines_extract (nRegexp)
    {
       eol();
       bskip_white();
-      if ( not bolp() and what_column() < col)
+      if ( not bolp() and what_column() <= col)
       {
          push_mark();
          bol_skip_white();
