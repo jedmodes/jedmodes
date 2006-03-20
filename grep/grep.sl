@@ -24,7 +24,7 @@
 % 0.9.6 2006-02-02 bugfix and code cleanup in grep_replace_*
 %                  (using POINT instead of what_column(), as TAB expansion
 %                   might differ between grep output and referenced buffer)
-% 1.0   2006-03-09
+% 1.0 2006-03-09
 %   * provide for --include pattern with recursive grep,
 %   * escape the `what' argument with quotes 
 %     (this prevents ugly surprises with shell expansion but disables the
@@ -32,6 +32,8 @@
 %       grep("pat", "dir/*.sl!") --> `grep -r --include='*.sl', 'pat' dir/`
 %   * change name of the custom var to Grep_Cmd to adhere to the
 %     "<capitalized-modenaem>_*" convention.
+% 1.1 2006-03-20
+%   * better cleanup in zero-output handling in grep().
 %
 % USAGE
 %
@@ -372,20 +374,16 @@ public define grep() % ([what], [path])
    % call the grep command
    flush("calling " + cmd);
    status = run_shell_cmd(cmd);
-
-   % handle result
-   switch (status)
-     { case 1:
+   
+   variable msg = ["No results for ", "Error (or file not found) in "];
+   if (status)
+     {
 	close_buffer();
-	message("No results for " + cmd);
+        message(msg[status-1] + cmd);
 	return;
      }
-     { case 2:
-	message("Error (or file not found) in " + cmd);
-     }
-   % remove empty last line (if present)
    if (bolp() and eolp())
-     call("backward_delete_char");
+     delete_line;
    fit_window(get_blocal("is_popup", 0));
    bob();
    set_status_line("Grep: " + cmd + " (%p)", 0);
