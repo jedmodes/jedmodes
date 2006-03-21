@@ -1,6 +1,6 @@
 % URI -- let jed handle Universal Ressource Indicators
 %
-% Copyright (c) 2003 Günter Milde
+% Copyright (c) 2006 Günter Milde
 % Released under the terms of the GNU General Public License (ver. 2 or later)
 %
 % This mode parses the filename and if it forms an URI (scheme:path), calls 
@@ -26,6 +26,8 @@
 %                   assume the path to be no URI but a simple path 
 %                   containing a colon.
 % 1.3 2005-10-14    Bugfix in write_uri() and documentation update
+% 1.3.1 2006-03-21  write_uri() uses now save_buffer_as() as fallback fun
+%                   (thus asking before overwriting a file).
 % 
 % USAGE:
 % 
@@ -130,7 +132,7 @@ static define parse_uri(uri)
 %   "http://example.org" becoming "/example.org" (and no uri opened)
 
 %   A partial workaround is to bind find_uri() or ffap() from ffap.sl 
-%   to the key used for find_file() (e.g. using \var{rebind}).
+%   to the key used for find_file() (e.g. using \sfun{rebind}).
 %\seealso{find_uri, ffap, find_file, write_uri_hook}
 %!%-
 define find_uri_hook(uri)
@@ -225,7 +227,7 @@ define write_uri_hook(uri)
 
 %!%+
 %\function{write_uri}
-%\synopsis{Open a universal ressource indicator}
+%\synopsis{Write buffer to a URI}
 %\usage{write_uri(String_Type uri)}
 %\description
 %  Save the buffer to a universal resource indicator (URI).
@@ -242,7 +244,7 @@ public define write_uri() % (uri=ask)
    !if (write_uri_hook(uri))
      message("No scheme found for writing URI " + uri);
    !if(is_substr(uri, ":"))
-     write_buffer(uri);
+     save_buffer_as(uri);
 }
 
 provide("uri");
