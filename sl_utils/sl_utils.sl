@@ -1,6 +1,6 @@
 % Various programming utils that are used by most of my other modes.
 %
-% Copyright (c) 2003 Günter Milde
+% Copyright (c) 2006 Günter Milde
 % Released under the terms of the GNU General Public License (ver. 2 or later)
 %
 % Version    1.0   first public release
@@ -22,6 +22,7 @@
 % 2005-10-05 1.5.3 Simplified _implements(). Developers working with SLang2 
 %                  should switch to using the standard implements().
 %                  (Normal users will will usually not re-evaluate.)
+%            1.5.4 Documentation update for run_function mentioning call_function      
 
 % _debug_info = 1;
 
@@ -82,8 +83,8 @@ define push_defaults() % args, n
 %  This function facilitates the definition of function with optional
 %  arguments.
 %
-%  The first argument is a prompt function (e.g. \var{read_mini} or
-%  \var{read_with_completion}, followed by its arguments and the
+%  The first argument is a prompt function (e.g. \sfun{read_mini} or
+%  \sfun{read_with_completion}, followed by its arguments and the
 %  \var{use_stack} argument.
 %
 %  If \var{use_stack} is non-zero, this function simply returns and
@@ -178,12 +179,15 @@ define get_blocal() % (name, default=NULL)
 %\synopsis{Run a function if it exists.}
 %\usage{Int_Type run_function(fun, [args])}
 %\description
-% Run a function if it exists. Return whether it exists or not
-% The function can be given by name or by reference (this allows both:
-% yet undefined function (as string) as well as static functions
-% (as reference)
-% Any arguments following the function argument will be passed to the
-% function.
+% Run a function (if it exists) pushing \var{args} as argument list.
+% In contrast to \sfun{call_function}, there is a return value:
+% 
+%  1 the function is defined (or internal)
+%  0 the function is not defined
+%  
+% The \var{fun} can be a function name or reference (this allows both:
+% yet undefined function (as string) as well as private or static functions
+% (as reference).
 %\example
 %#v+
 %
@@ -194,9 +198,11 @@ define get_blocal() % (name, default=NULL)
 %       message("\"foo\" is not defined");
 %#v-
 %\notes
-% If fun is (solely) an internal function, the optional arguments will
-% be popped.
-%\seealso{runhooks, run_blocal_hook}
+% If fun is (solely) an internal function, the optional arguments will be
+% silently popped. If there are both, internal and internal|library variant
+% of a function, the non-internal takes precedence. Use \sfun{call} to
+% explicitely call an internal function. 
+%\seealso{call_function, runhooks, run_local_hook, call}
 %!%-
 define run_function()  % (fun, [args])
 {
@@ -272,7 +278,7 @@ define what_line_if_wide ()
 %\synopsis{Create or reuse a new static namespace
 %\usage{_implements(Str name)}
 %\description
-%  The \var{_implements} function creates a new static namespace 
+%  The \sfun{_implements} function creates a new static namespace 
 %  and associates it with the current compilation unit.
 %  
 %  If a namespace with the specified name already exists, behaviour 
