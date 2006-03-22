@@ -28,6 +28,7 @@
 % 1.3 2005-10-14    Bugfix in write_uri() and documentation update
 % 1.3.1 2006-03-21  write_uri() uses now save_buffer_as() as fallback fun
 %                   (thus asking before overwriting a file).
+% 1.3.2 2006-03-22  bugfix in write_uri()
 % 
 % USAGE:
 % 
@@ -231,6 +232,9 @@ define write_uri_hook(uri)
 %\usage{write_uri(String_Type uri)}
 %\description
 %  Save the buffer to a universal resource indicator (URI).
+%\notes
+%  Uses \sfun{save_buffer_as} from Jed >= 0.99.17 
+%  or cuamisc.sl (http://jedmodes.sf.net/mode/cuamisc/))
 %\seealso{find_uri, write_uri_hook, write_buffer, save_buffer_as}
 %!%-
 public define write_uri() % (uri=ask)
@@ -244,7 +248,11 @@ public define write_uri() % (uri=ask)
    !if (write_uri_hook(uri))
      message("No scheme found for writing URI " + uri);
    !if(is_substr(uri, ":"))
-     save_buffer_as(uri);
+     {
+	% push back uri + ^M (Key_Return) to simulate minibuffer input
+	buffer_keystring(uri+"\r"); 
+	save_buffer_as();
+     }
 }
 
 provide("uri");
