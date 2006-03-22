@@ -1,29 +1,41 @@
 % ffap.sl
 % 
-% $Id: ffap.sl,v 1.5 2006/03/13 18:46:03 paul Exp paul $
+% $Id: ffap.sl,v 1.6 2006/03/22 09:08:38 paul Exp paul $
 % 
 % Copyright (c) 2003-2006 Paul Boekholt.
 % Released under the terms of the GNU GPL (version 2 or later).
 % 
-% Find File At Point, something like Emacs' ffap.
+% Find File At Point, something like Emacs' ffap.  You can use this as a
+% replacement for find_file() by adding
+% require("ffap");
+% setkey("ffap", "^x^f); or whatever you use for find_file
+% to .jedrc
 
-% Function to open a directory: 
-% "dired_read_dir":    Jeds standard directory reader/editor
-% "filelist_list_dir": the more advanced filelist_mode
-% "": 		       get a find_file prompt for the dir
-custom_variable("Ffap_Dir_Reader", "filelist_list_dir");
 
-% Function to open a URL:
+%!%+
+%\variable{Ffap_URL_Reader}
+%\synopsis{Function to open a URL}
+%\usage{variable Ffap_URL_Reader = "find_url"}
+%\description
 % "browse_url"  open the URL in an external browser
 % "find_url"    open the URL in a jed buffer (as is)
 % "view_url"    open an ASCII rendering of the URL in a jed buffer
+%\seealso{ffap}
+%!%-
 custom_variable("Ffap_URL_Reader", "find_url");
 
-% Should a file|dir|URL be opened with prompt?
+
+%!%+
+%\variable{Ffap_Prompt_Level}
+%\synopsis{Should a file|dir|URL be opened with prompt?}
+%\usage{variable Ffap_Prompt_Level = 3}
+%\description
 %    0: no (if file|dir|URL could be guessed from the word-at-point)
 %    1: only when the extension is added from the Ext-list
 %    2: always except for an URL
 %    3: always (even for an URL)
+%\seealso{ffap}
+%!%-
 custom_variable("Ffap_Prompt_Level", 3);
 
 autoload("get_word", "txtutils");
@@ -153,7 +165,7 @@ static define ffap_find()
      }
    else
      {
-	path = add_list_element(path, substr(dir, 1, strlen(dir) - 1), ','); % dir ends in '/'
+	path = add_list_element(path, strtrim_end(dir, "/"), ',');
 	if (strncmp(word, ".", 1)) % this is to look for dotfile in HOME
 	  path = add_list_element(path, getenv("HOME"), ',');
      }
@@ -193,11 +205,15 @@ static define ffap_find()
 %\synopsis{Find File At Point}
 %\usage{ffap()}
 %\description
-%   \sfun{ffap} is meant as an extension of \sfun{find_file}. It checks if the
-%   word at point is a filename, or can be expanded to a filename.  It then
-%   prompts for a filename, with the expanded filename if any as default, and
-%   opens the file.
-%\seealso{ffap_set_info}
+%   \sfun{ffap} is meant as an extension of \sfun{find_file}. It checks if
+%   the word at point is a filename, or can be expanded to a filename.  It
+%   then prompts for a filename, with the expanded filename if any as default,
+%   and opens the file using the intrinsic \sfun{find_file}, not the internal
+%   one.  The difference is that when the user enters a directory, the internal
+%   \sfun{find_file} will expand it to the filename of the working buffer in
+%   the directory entered, with the intrinsic \sfun{find_file} you can set
+%   your own handling of directories in the _jed_find_file_before_hooks.
+%\seealso{ffap_set_info, Ffap_Prompt_Level, Ffap_URL_Reader, filelist_list_dir}
 %!%-
 public define ffap()
 {
@@ -215,25 +231,15 @@ public define ffap()
 	file = "";
 	status = -1;
      }
-   
-   if ((status == 2) and is_defined(Ffap_Dir_Reader))  % Directory
+   if (Ffap_Prompt_Level - status > 0)
      {
-	if (Ffap_Prompt_Level - status > 0)
-	  file = read_with_completion("Open directory:", "", file, 'f');
-	runhooks(Ffap_Dir_Reader, file);
+	if (is_defined("recent_get_files"))
+	  rimini_array=runhooks("recent_get_files");
+	ERROR_BLOCK { rimini_array = NULL; }
+	file = read_with_completion("Find file:", "", file, 'f');
+	EXECUTE_ERROR_BLOCK;
      }
-   else
-     {
-	if (Ffap_Prompt_Level - status > 0)
-	  {
-	     if (is_defined("recent_get_files"))
-	       rimini_array=runhooks("recent_get_files");
-	     ERROR_BLOCK { rimini_array = NULL; }
-	     file = read_with_completion("Find file:", "", file, 'f');
-	     EXECUTE_ERROR_BLOCK;
-	  }
-	() = find_file(file);
-     }
+   () = find_file(file);
 }
 
 %}}}
