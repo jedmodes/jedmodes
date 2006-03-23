@@ -1,6 +1,6 @@
 % cuamisc.sl: helper functions for the cua suite
 %
-% Copyright (c) 2003 Günter Milde
+% Copyright (c) 2006 Guenter Milde <milde users.sf.net>
 % Released under the terms of the GNU General Public License (ver. 2 or later)
 %
 % Changelog:
@@ -8,7 +8,6 @@
 %            1.1 repeat search opens the Search menu if LAST_SEARCH is empty
 %            1.2 menu_select_menu to keep bw compatibility with jed < 0.9.16
 % 2004-01-23 1.3 "region aware" functions delete_cmd, bdelete_cmd
-%                call to menu in repeat_search wrapped in runhooks()
 %            1.3.1 new implementation of redo by JED
 %            1.4 next_buffer cycles in two directions (Dave Kuhlman)
 % 2004-08-26 1.4.1 fixed small documentation typo in bdelete_cmd
@@ -21,7 +20,45 @@
 % 2005-06-07 1.5.1 * removed the "generic" functions
 % 	     	     (for older jed versions, they are now accessible
 % 	     	     in compat17-16.sl, compat16-15.sl)
-% 2006-01-17 1.5.2 * some more tweaks and upload to jedmodes	     	     
+% 2006-01-17 1.5.2 * some more tweaks and upload to jedmodes
+% 2006-03-20 1.6   * name change: cua_meta_escape_cmd() -> cua_escape_handler()
+%                  * [cua_]indent_region_or_line() moved to txtutils.sl
+%                    (http://jedmodes.sf.net/mode/txtutils/)
+% 2006-03-23 1.6.1 * cua_repeat_search() now searches across lines and has
+%                    optional arg `direction'
+
+autoload("search_across_lines", "search");
+
+%!%+
+%\function{cua_delete_char}
+%\synopsis{Delete current character (or a visible region)}
+%\usage{Void cua_delete_char()}
+%\description
+%   Bind to the Key_Delete, if you want it to work "region aware"
+%\seealso{bcua_delete_char, del, del_region}
+%!%-
+public define cua_delete_char()
+{
+   if (is_visible_mark)
+     del_region;
+   else 
+     del;
+}
+
+%!%+
+%\function{cua_bdelete_char}
+%\synopsis{Delete the char before the cursor (or a visible region)}
+%\usage{Void cua_bdelete_char ()}
+%\description
+%   Bind to the Key_BS, if you want it to work "region aware"
+%\seealso{cua_delete_char, backward_delete_char, backward_delete_char_untabify}
+%!%-
+public define cua_bdelete_char()
+{
+   if (is_visible_mark)
+     del_region;
+   else call("backward_delete_char_untabify");
+}
 
 %!%+
 %\function{cua_delete_word}
@@ -36,8 +73,8 @@
 %  This way, you can do a "piecewise" deletion by repeatedly pressing
 %  the same key-combination.
 %\notes
-%  This is a modified version of \var{ide_delete_word} from Guido Gonzatos
-%  ide emulatio, put here to be usable with other emulations too.
+%  This is a modified version of \sfun{ide_delete_word} from Guido Gonzatos
+%  ide emulation, put here to be usable with other emulations too.
 %\seealso{delete_word, cua_bdelete_word, cua_delete_char, cua_kill_region}
 %!%-
 public define cua_delete_word ()		% ^T, Key_Ctrl_Del
@@ -66,7 +103,7 @@ public define cua_delete_word ()		% ^T, Key_Ctrl_Del
 %   This way, you can do a "piecewise" deletion by repeatedly pressing
 %   the same key-combination.
 %\notes
-%  This is a modified version of \var{ide_bdelete_word}, put here to be usable
+%  This is a modified version of \sfun{ide_bdelete_word}, put here to be usable
 %  with other emulations too.
 %\seealso{cua_delete_word, cua_delete_char}
 %!%-
@@ -81,52 +118,36 @@ define cua_bdelete_word ()              % Key_Ctrl_BS
 }
 
 %!%+
-%\function{cua_delete_char}
-%\synopsis{Delete current character (or a visible region)}
-%\usage{Void cua_delete_char()}
-%\description
-%   Bind to the Key_Delete, if you want it to work "region aware"
-%\seealso{bcua_delete_char, del, del_region}
-%!%-
-public define cua_delete_char()
-{
-   if (is_visible_mark)
-     del_region;
-   else del;
-}
-
-%!%+
-%\function{cua_bdelete_char}
-%\synopsis{Delete the char before the cursor (or a visible region)}
-%\usage{Void cua_bdelete_char ()}
-%\description
-%   Bind to the Key_BS, if you want it to work "region aware"
-%\seealso{cua_delete_char, backward_delete_char, backward_delete_char_untabify}
-%!%-
-public define cua_bdelete_char()
-{
-   if (is_visible_mark)
-     del_region;
-   else call("backward_delete_char_untabify");
-}
-
-%!%+
 %\function{cua_repeat_search}
 %\synopsis{continue searching with last searchstring}
-%\usage{define repeat_search ()}
+%\usage{cua_repeat_search(direction=1)}
 %\description
-%  Search forward for the next occurence of \var{LAST_SEARCH}.
+%  Search for the next occurence of \var{LAST_SEARCH}.
+%  If \var{direction} => 0, search forward, 
+%  else search backward.
+%\notes
+%  I'd like to see this function as repeat_search() in search.sl.
+%  It could be used in ide_repeat_search, ws_repeat_search and most.
 %\seealso{search_forward, search_backward, isearch_forward}
 %!%-
-public define cua_repeat_search ()
+public define cua_repeat_search() % (direction=1)
 {
+   variable steps, direction = 1;
+   if (_NARGS)
+     direction = ();
    !if (strlen(LAST_SEARCH))
      return menu_select_menu("Global.&Search");
-   go_right (1);
-   !if (fsearch(LAST_SEARCH)) error ("Not found.");
+   steps = right(1);
+   if (search_across_lines (LAST_SEARCH, direction) < 0)
+     {
+        go_left(steps);
+        error ("Not found.");
+     }
 }
 
 % --- Use the ESC key as abort character (still experimental)
+
+custom_variable("Key_Esc", "\e\e\e");
 
 %!%+
 %\function{cua_escape_cmd}
@@ -146,45 +167,48 @@ define cua_escape_cmd()
 }
 
 %!%+
-%\function{cua_meta_escape_cmd}
+%\function{cua_escape_handler}
 %\synopsis{Distinguish the ESC key from other keys starting with "\e"}
-%\usage{Void cua_meta_escape_cmd()}
+%\usage{Void cua_escape_handler()}
 %\description
-%   If there is input pending (i.e. if the keycode is multi-character),
-%   "\\e" will be put back to the input stream. Otherwise (if the
-%   ESC key is pressed, "\\e\\e\\e" is pushed back. With ALT_CHAR = 27, the Alt 
-%   key can be used as Meta-key as usual (i.e. press both ALT + <some-key> 
-%   to get the equivalent of the ESC <some-key> key sequence.
-%\seealso{cua_escape_cmd, cua_one_press_escape, kbd_quit, map_input, setkey}
+%  If there is input pending (i.e. if the keycode is multi-character), "\\e"
+%  will be put back to the input stream. Otherwise (assuming the ESC key
+%  is pressed), the value of \var{Key_Esc} is pushed back. 
+%  
+%  With ALT_CHAR = 27, the Alt  key can be used as Meta-key as usual (i.e.
+%  press both ALT + <some-key>  to get the equivalent of the ESC <some-key>
+%  key sequence.
+%\seealso{cua_escape_cmd, cua_one_press_escape}
 %!%-
-define cua_meta_escape_cmd ()
+define cua_escape_handler ()
 {
    if (input_pending(0))
      ungetkey (27);
    else
-     buffer_keystring("\e\e\e");
+     buffer_keystring(Key_Esc);
 }
 
 %!%+
 %\function{cua_one_press_escape}
-%\synopsis{Redefine the ESC key to issue "\\e\\e\\e"}
+%\synopsis{Let the ESC key issue the value of \var{Key_Esc}}
 %\usage{cua_one_press_escape()}
 %\description
-%   Dependend on the jed-version, either x_set_keysym or 
-%   meta_escape_cmd is used to map the ESC key to "\\e\\e\\e"
+% Dependend on the jed-version, either \sfun{x_set_keysym} or
+% \sfun{meta_escape_cmd} is used to map the ESC key to the value of
+% \var{Key_Esc}.
 %\example
 % To let the ESC key abort functions but retain bindings for
 % keystrings that start with "\\e" do
 %#v+
 %    cua_one_press_escape();
-%    setkey ("cua_escape_cmd", "\e\e\e");     % Triple-Esc -> abort
+%    setkey("cua_escape_cmd", Key_Esc);     % Esc -> abort
 %#v-
 %\notes
 %   The function is experimental and has sideeffects if not using xjed.
 %   For not-x-jed:
 % 
 %   It uses the "^^" character for temporarily remapping, i.e. Ctrl-^ will
-%   call cua_meta_escape_cmd().
+%   call cua_escape_handler().
 % 
 %   In order to work, it must be loaded before any mode-specific keymaps are
 %   defined -- otherwise this modes will be widely unusable due to not 
@@ -194,7 +218,7 @@ define cua_meta_escape_cmd ()
 %   wmark(pre 99.16), ...). These functions see ctrl-^ instead of \\e.
 %   
 %   It will not work in keybord macros and might fail on slow terminal links.
-%\seealso{cua_escape_cmd, cua_meta_escape_cmd, getkey, setkey, x_set_keysym}
+%\seealso{cua_escape_cmd, cua_escape_handler, getkey, setkey, x_set_keysym}
 %!%-
 define cua_one_press_escape()
 {
@@ -203,11 +227,10 @@ define cua_one_press_escape()
    else
      {
 	map_input(27, 30);  % "\e" -> "^^" ("^6" on most keybords, undo in wordstar)
-	setkey ("cua_meta_escape_cmd", "^^");
+	setkey ("cua_escape_handler", "^^");
      }
 }
 
-%{{{ cua_save_buffer()
 %!%+
 %\function{cua_save_buffer}
 %\synopsis{Save the current buffer}
@@ -222,7 +245,7 @@ define cua_save_buffer()
    variable file;
    
    file = buffer_filename();
-   if (file == "")
+   if (file == "")           % buffer was never saved
      {
         save_buffer_as();
         return;
@@ -237,6 +260,5 @@ define cua_save_buffer()
    () = write_buffer(file);
 
 } add_completion("cua_save_buffer");
-%}}}
 
 provide ("cuamisc");
