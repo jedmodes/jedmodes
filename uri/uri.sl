@@ -28,7 +28,6 @@
 % 1.3 2005-10-14    Bugfix in write_uri() and documentation update
 % 1.3.1 2006-03-21  write_uri() uses now save_buffer_as() as fallback fun
 %                   (thus asking before overwriting a file).
-% 1.3.2 2006-03-22  bugfix in write_uri()
 % 
 % USAGE:
 % 
@@ -67,6 +66,8 @@
 %     
 %   CAUTION: hooks.txt says that this hook should not be customized by
 %   	     the user.  
+
+provide("uri");
 
 % Requirements
 autoload("run_function", "sl_utils");
@@ -246,13 +247,14 @@ public define write_uri() % (uri=ask)
     uri = read_with_completion ("Write to URI:", "", whatbuf, 'f');
 
    !if (write_uri_hook(uri))
-     message("No scheme found for writing URI " + uri);
-   !if(is_substr(uri, ":"))
      {
-	% push back uri + ^M (Key_Return) to simulate minibuffer input
-	buffer_keystring(uri+"\r"); 
-	save_buffer_as();
+        !if(is_substr(uri, ":"))
+          {
+             % push back uri + ^M (Key_Return) to simulate minibuffer input
+             buffer_keystring(uri+"\r"); 
+             save_buffer_as();
+          }
+        else
+          message("No scheme found for writing URI " + uri);
      }
 }
-
-provide("uri");
