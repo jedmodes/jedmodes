@@ -1,5 +1,79 @@
 require("tokenlist");
 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%  MODES %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%%  
+%%        C
+%%  
+variable c_list_routines_regexp = 
+{     "^[a-zA-Z_][a-zA-Z0-9_]*[ \t*&].*(",  % Ordinary function or method
+      "^[a-zA-Z_][a-zA-Z0-9_]*::~.+("       % Destructor
+};
+
+define c_list_routines_extract (nRegexp)
+{
+   push_spot();
+   if (ffind_char(';')) {
+      pop_spot();
+      return Null_String;
+   }
+   pop_spot();
+   if (nRegexp == 0) {
+      () = ffind_char ('(');         % Extract function name
+      bskip_chars (" \t");
+      () = bfind ("::");             % Skip operator header
+      bskip_chars ("a-zA-Z0-9_:");
+
+      push_mark();
+      eol();
+      return (bufsubstr());
+   }
+   else if (nRegexp == 1) {
+      push_mark();
+      eol();
+      return (bufsubstr());
+   }
+   else return (line_as_string());
+   
+   return Null_String;
+}
+
+define c_list_routines_sort()
+{
+   tkl_sort_by_value();
+}
+
+%%  
+%%        SLang
+%%  
+variable slang_list_routines_regexp =
+{     "^define[ \t]",
+      "^variable[ \t]",
+      "^public[ \t]+[dv]",
+      "^private[ \t]+[dv]",
+      "^static[ \t]+[dv]"
+};
+
+define slang_list_routines_extract (nRegexp)
+{
+   bol();
+   % skip static, public
+   if (nRegexp >= 2) {
+      skip_chars ("a-z");
+      skip_chars (" ");
+   }
+   push_mark();
+   eol();
+   return (strtrim(bufsubstr()));
+}
+
+define slang_list_routines_sort()
+{
+   tkl_sort_by_value();
+}
+
+provide("tokenlist");
+
 %%  
 %%        HTML
 %%  
@@ -20,11 +94,6 @@ variable latex_list_routines_regexp =
     "\\\\subsubsection"
     ];
 
-define latex_list_routines_hook()
-{
-   % tkl_sort_by_line();
-}
-
 %%  
 %%        Python
 %%  
@@ -38,7 +107,7 @@ define python_list_routines_extract (nRegexp)
    bol();
    push_mark();
    eol();
-   return ("." + bufsubstr());
+   return (bufsubstr());
 }
 
 define python_list_routines_hook()
@@ -93,10 +162,9 @@ define rst_list_routines_extract (nRegexp)
    return Null_String;
 }
 
-define rst_list_routines_hook()
+define rst_list_routines_sort()
 {
    rst_levels = NULL;
-   tkl_sort_by_line();
 }
 
 #iffalse
