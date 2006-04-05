@@ -1,6 +1,6 @@
 % libdir.sl: Support for library directories with jed extensions
 % 
-% % Copyright (c) Günter Milde and released under the terms 
+% Copyright (c) 2005 Günter Milde and released under the terms 
 % of the GNU General Public License (version 2 or later).
 % 
 % Versions
@@ -9,6 +9,7 @@
 % 0.9.2 2005-10-12  documentation fix
 % 0.9.3 2005-11-03  evaluation of ini.sl now customizable with optional arg
 % 0.9.4 2005-11-06  added provide() statement
+% 0.9.5 2006-04-05  added year to copyright statement
 % 
 % FEATURES
 % 
