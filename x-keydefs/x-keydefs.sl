@@ -1,11 +1,12 @@
+
 % x-keydefs.sl: Extended set of key variables
 %
 %   * add key definitions
-%     (Key_Escape, Key_Alt, Key_*_Return, Key_*_Tab, Key_KP_*)
+%     (Key_Esc, Key_Alt, Key_*_Return, Key_*_Tab, Key_KP_*)
 %
 %   * On xjed, call x_set_keysym for "special_keys"
 %
-% Copyright (c) 2003 Günter Milde
+% Copyright (c) 2006 Günter Milde
 % Released under the terms of the GNU General Public License (ver. 2 or later)
 %
 % VERSIONS
@@ -23,17 +24,25 @@
 % 1.5.3 2006-01-17  jed compatible default for Key_Esc ("\e" not "\e\e\e")
 % 1.5.4 2006-01-18  added termcap entries for keypad keys (where possible)
 % 1.5.5 2006-01-19  updated the IBMPC definitions (not fully tested yet)
+% 1.5.6 2006-01-20  changed back IBMPC for Key_Alt_Return after report by
+%                   M Mahnic that it works in wjed. (it will not harm in DOS
+%                   or jed in a DOS window).
+% 1.6   2006-03-29  renamed KP_Return to KP_Enter (Thei Wejnen)
 %       
 % USAGE
 %
 % Place in the jed library path.
 %
 % Do not byte-compile, if you plan to use this file for both, Unix and
-% DOS/Windows from one libdir!
+% DOS/Windows from one libdir! Byte compiling is OK for xjed and jed on a
+% console or terminal emulator.
 %
 % To make the Key_Vars available, write (e.g. in your jed.rc or .jedrc file)
 %
 %    require("x-keydefs");
+% 
+% x-keydefs in turn do require("keydefs"), so the full set of key variables
+% is available.
 %
 % !! Attention !!
 % 
@@ -51,11 +60,11 @@
 %    define x_keydefs_hook()
 %    {
 %       % Let the ESC key send a triple "\e" (e.g. for "cua" emulation):
-%       Key_Escape = "\e\e\e";
-%       % Altenative keystring values:
+%       Key_Esc = "\e\e\e";
+%       % Alternative keystring values:
 %       Key_Return = "\e[8~";
-%       Key_BS    = "\e[16~";
-%       Key_Tab   = "\e[z";
+%       Key_BS     = "\e[16~";
+%       Key_Tab    = "\e[z";
 %       % new definitions:
 %       global variable Key_Shift_Ctrl_Right = "\e[^c"
 %    }
@@ -82,8 +91,8 @@
 % }
 %
 % Attention: In JED <= 99.16, x_set_keysym() works only for keysyms in the
-%            range `0xFF00' to `0xFFFF'.
-%            Since JED 99.17 this restriction is gone.
+%            range `0xFF00' to `0xFFFF'. Since JED 99.17 this restriction is
+%            gone.
 %
 % Shift-Tab on X-Windows
 % ----------------------
@@ -91,10 +100,11 @@
 % Unfortunately, Shift-Tab doesnot send any keystring in most X-Window setups.
 % as it is bound to "ISO_Left_Tab", Keysym 0xFE20
 %
-% This is no longer an issue with jed >= 99.17. For jed < 99.17, a line
+% x-keydefs solves this with x_set_keysym in jed >= 99.17. 
+% For jed < 99.17, a line
 %      keycode 23 = Tab
 % in ~/.Xmodmap can cure this problem. However, this doesnot work
-% with xkb keyboard handling in X11-4
+% with the XKB keyboard driver
 %
 %
 % TODO: test IBMPC keystrings, 
@@ -128,6 +138,13 @@ static define set_keyvar(ibmpc, termcap, default)
 #endif
 }
 
+#ifdef Test
+putenv("TERM=foo");
+vmessage("TERM is '%s'", getenv("TERM"));
+show("Key_Up", get_termcap_string("ku"));
+show("Key_Shift_Tab", get_termcap_string("bt"));
+#endif
+
 % Numeric Keypad
 % --------------
 
@@ -146,13 +163,13 @@ static define set_keyvar(ibmpc, termcap, default)
 % 
 % TODO: check IBMPC keystrings, if different use set_keyvar()
 
-variable Key_KP_Return    = "\eOM";
+variable Key_KP_Enter    = "\eOM";
 variable Key_KP_Divide    = set_keyvar("\eOQ", "", "\eOo"); 
 variable Key_KP_Multiply  = set_keyvar("\eOR", "", "\eOj"); 
 variable Key_KP_Add       = set_keyvar("\eOm", "", "\eOk"); 
 variable Key_KP_Subtract  = set_keyvar("\eOS", "", "\eOm"); 
-variable Key_KP_Separator = "\eOl";   % numeric_comma: [,|Del] with Num Lock in X
-variable Key_KP_Delete    = "\eOn";   % numeric_period: [,|Del] without Num Lock in X
+variable Key_KP_Separator = "\eOl";   % [.|Del] with Num Lock in Xjed
+variable Key_KP_Delete    = "\eOn";   % [.|Del] without Num Lock in Xjed
 
 variable Key_KP_0         = "\eOp";
 variable Key_KP_1         = set_keyvar("\eOq", "K4", "\eOq");
@@ -189,7 +206,7 @@ variable Key_Alt_Tab      = set_keyvar("", "", strcat(Key_Alt, Key_Tab));
 variable Key_Return       = set_keyvar("^M", "", "^M");    % alternative "\e[8~"
 variable Key_Shift_Return = set_keyvar("", "", "\e[8$");
 variable Key_Ctrl_Return  = set_keyvar("^J", "", "\e[8^");
-variable Key_Alt_Return   = set_keyvar("", "", strcat(Key_Alt, Key_Return));
+variable Key_Alt_Return   = strcat(Key_Alt, Key_Return);
 
 
 % Shift-Control Movement Keys
@@ -219,8 +236,9 @@ runhooks("x_keydefs_hook");
 % Additional keystrings with Xjed
 % -------------------------------
 
-% We need to trick the function check for non-X jed (we cannot use #ifdef XJED,
-% as the byte-compiled file should be usable with jed on a console as well.)
+% We need to trick the function check for non-X jed (we cannot use #ifdef
+% XWINDOWS, as the byte-compiled file should be usable with jed on a console
+% as well.)
 private variable x_set_keysym_p = __get_reference("x_set_keysym");
 
 if (is_defined("x_server_vendor"))
