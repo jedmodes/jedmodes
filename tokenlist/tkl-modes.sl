@@ -38,7 +38,7 @@ define c_list_routines_extract (nRegexp)
    return Null_String;
 }
 
-define c_list_routines_sort()
+define c_list_routines_done()
 {
    tkl_sort_by_value();
 }
@@ -67,7 +67,7 @@ define slang_list_routines_extract (nRegexp)
    return (strtrim(bufsubstr()));
 }
 
-define slang_list_routines_sort()
+define slang_list_routines_done()
 {
    tkl_sort_by_value();
 }
@@ -110,7 +110,7 @@ define python_list_routines_extract (nRegexp)
    return (bufsubstr());
 }
 
-define python_list_routines_hook()
+define python_list_routines_done()
 {
    tkl_sort_by_line();
 }
@@ -162,7 +162,7 @@ define rst_list_routines_extract (nRegexp)
    return Null_String;
 }
 
-define rst_list_routines_sort()
+define rst_list_routines_done()
 {
    rst_levels = NULL;
 }

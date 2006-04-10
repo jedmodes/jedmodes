@@ -56,7 +56,7 @@
 %%          If it is not defined, the default _list_routines_extract
 %%          extracts the whole current line.
 %% 
-%%       Void MODENAME_list_routines_hook (Void)
+%%       Void MODENAME_list_routines_done (Void)
 %%          Optional. When this hook is called, the buffer with
 %%          the extracted lines is the current buffer.
 %% 
@@ -81,6 +81,10 @@
 %%     - Tokenlist_Operation_Type structure
 %%     - definitions moved to tkl-modes.sl
 %%     - HTML documentation added
+%%   2006-03-30 Marko Mahnic
+%%     - tokenlist menu
+%%     - moccur; prepared for mlist_routines
+%%     - simple syntax coloring
 
 %% Controls what happens right after the list is displayed:
 %%   0 - normal mode
@@ -91,6 +95,8 @@ custom_variable ("TokenList_Startup_Mode", 0);
 private variable tkl_TokenBuffer  = "*TokenList*";
 private variable tkl_ExtractMacro = "_list_routines_extract";
 private variable tkl_DoneMacro    = "_list_routines_done";
+private variable tkl_mode = "tokenlist";
+private variable tkl_BufferMark = "[Buffer]:";
 
 %% Default extraction routine
 define _list_routines_extract (nRegexp)
@@ -131,11 +137,7 @@ define _list_routines_extract (nRegexp)
 define tkl_list_tokens (opt) %{{{
 {
    variable buf = whatbuf(), line, token;
-   setbuf (tkl_TokenBuffer);
-   set_readonly (0);
-   erase_buffer ();
-   vinsert ("Buffer: %s\n", buf);
-   setbuf (buf);
+   variable found = 0;
 
    if (List_Type != typeof(opt.list_regex) and Array_Type != typeof(opt.list_regex))
       opt.list_regex = { opt.list_regex };
@@ -152,6 +154,9 @@ define tkl_list_tokens (opt) %{{{
       opt.fn_extract = &_list_routines_extract;
    }
       
+   setbuf (tkl_TokenBuffer);
+   set_readonly (0);
+   setbuf (buf);
    push_spot();
    for (i = 0; i < length(opt.list_regex); i++)
    { 
@@ -182,7 +187,12 @@ define tkl_list_tokens (opt) %{{{
 	 {
 	    line = what_line();
 	    setbuf (tkl_TokenBuffer);
-	    vinsert ("%6d: %s\n", line, token);
+            if ( not found)
+            {
+               found = 1;
+               vinsert ("%s %s\n", tkl_BufferMark, buf);
+            }
+	    vinsert ("%7d: %s\n", line, token);
 	    setbuf (buf);
 	 }
 	 
@@ -211,13 +221,12 @@ define tkl_list_tokens (opt) %{{{
 
 %}}}
 
-
 %% #######################################################################
 %% #####################  DISPLAY OF RESULTS #############################
 %% #######################################################################
 %{{{
 
-$1 = "tokenlist";
+$1 = tkl_mode;
 !if (keymap_p ($1))
 {
    make_keymap ($1);
@@ -233,6 +242,28 @@ $1 = "tokenlist";
    definekey ("other_window", "w", $1);
 }
 
+create_syntax_table($1);
+define_syntax(tkl_BufferMark, "", '%', $1);
+
+private define tkl_menu(menu)
+{
+   menu_append_item (menu, "&Display", "tkl_display_token");
+   menu_append_item (menu, "&Go To", "tkl_goto_token");
+   menu_append_item (menu, "Incremental &search", "isearch_forward");
+   menu_append_item (menu, "&Filter buffer", "tkl_filter_list");
+   menu_append_item (menu, "Other &window", "other_window");
+   menu_append_item (menu, "&Quit", "tkl_quit");
+}
+
+private define tkl_erase_buffer()
+{
+   variable buf = whatbuf();
+   setbuf (tkl_TokenBuffer);
+   set_readonly (0);
+   erase_buffer ();
+   set_readonly (1);
+   setbuf(buf);
+}
 
 % \usage{(String, Int) tkl_get_token_info()}
 private define tkl_get_token_info()
@@ -241,7 +272,7 @@ private define tkl_get_token_info()
    
    setbuf (tkl_TokenBuffer);
    push_spot();
-   bob ();
+   if (not bol_bsearch(tkl_BufferMark)) bob();
    () = ffind_char (':');
    go_right (2);
    push_mark();
@@ -315,7 +346,8 @@ define tkl_filter_list()
          else while (down_1)
          {
             bol(); 
-            if (ffind(flt)) set_line_hidden(0);
+            if (looking_at(tkl_BufferMark)) continue;
+            else if (ffind(flt)) set_line_hidden(0);
             else set_line_hidden(1);
             if (input_pending(0)) break;
          }
@@ -430,14 +462,16 @@ private define tkl_two_windows (bottom_size)
    }  
 }
 
-% \usage{Void tkl_display_results()}
 define tkl_display_results()
 {
    Line_Mark = NULL;
    tkl_two_windows (SCREEN_HEIGHT / 2);
    sw2buf (tkl_TokenBuffer);
+   set_mode(tkl_mode, 0);
    set_buffer_hook ("update_hook", &tkl_update_token_hook);
-   use_keymap ("tokenlist");
+   mode_set_mode_info (tkl_mode, "init_mode_menu", &tkl_menu);
+   use_keymap (tkl_mode);
+   use_syntax_table(tkl_mode);
    
    switch (TokenList_Startup_Mode)
    { case 0: return; }
@@ -508,7 +542,33 @@ public define occur ()
       
    runhooks("tokenlist_occur_setup_hook", tkopt);
 
+   tkl_erase_buffer();
    tkl_list_tokens(tkopt);
+   tkl_display_results();
+}
+
+public define moccur ()
+{
+   variable buf;
+   variable tkopt = @Tokenlist_Operation_Type;
+   if (_NARGS == 0)
+      tkopt.list_regex = read_mini("Find All (Regexp):", LAST_SEARCH, Null_String);
+   else
+      tkopt.list_regex = ();
+
+   tkopt.fn_extract = NULL;
+      
+   runhooks("tokenlist_occur_setup_hook", tkopt);
+
+   tkl_erase_buffer();
+   loop(buffer_list())
+   {
+      buf = ();
+      if (buf == tkl_TokenBuffer) continue;
+      if (is_substr("* ", buf[[0]])) continue;
+      setbuf(buf);
+      tkl_list_tokens(tkopt);
+   }
    tkl_display_results();
 }
 #endif
@@ -548,6 +608,7 @@ public define list_routines()
    
    runhooks("tokenlist_routine_setup_hook", tkopt);
    
+   tkl_erase_buffer();
    tkl_list_tokens (tkopt);
    tkl_display_results();
 }
