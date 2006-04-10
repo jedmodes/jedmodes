@@ -423,7 +423,7 @@ define create_windows()
 %   create_windows(30, 60, 10) 
 %#v-
 %  will create 3 windows: 
-%    * the topmost one will be 20% of total height
+%    * the topmost one will be 30% of total height
 %    * the middle one will be 60% of total height
 %    * the bottom one will be 10% of total height
 %    
