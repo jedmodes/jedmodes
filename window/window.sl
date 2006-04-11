@@ -3,7 +3,15 @@
 % Copyright (c) 2004 Marko Mahnic
 % Released under the terms of the GNU General Public License (ver. 2 or later)
 % 
+% 2004-12-11: Marko Mahnic
+%   - first version
+%   
+% 2006-04-11: Marko Mahnic
+%   - bugfix in do_create_windows
+%   - applied patch by G. Milde
+%   - added more tets
 
+provide("window");
 
 %!%+
 %\variable{WindowInfo_Type}
@@ -36,16 +44,15 @@ static variable Windows = NULL;
 %!%+
 %\function{select_top_window}
 %\synopsis{Select the window at the top of the screen}
-%\usage{Void select_next_window()}
+%\usage{select_top_window()}
 %\description
 % Select the window at the top of the screen.
-% 
 %\seealso{select_prev_window, select_next_window, select_bottom_window}
 %!%-
 public define select_top_window()
 {
    variable i;
-   for (i = nwindows(); i > 0; i--)
+   loop (nwindows())
    {
       if (TOP_WINDOW_ROW == window_info('t')) break;
       otherwindow();
@@ -56,7 +63,7 @@ public define select_top_window()
 %!%+
 %\function{select_bottom_window}
 %\synopsis{Select the window at the bottom of the screen}
-%\usage{Void select_next_window()}
+%\usage{select_bottom_window()}
 %\description
 % Select the window at the bottom of the screen. 
 % The minibuffer is never selected even if it is active.
@@ -70,19 +77,13 @@ public define select_bottom_window()
    
    select_top_window();
    if (togo > 0)
-   {
-      while (togo > 0)
-      {
-         otherwindow();
-         togo--;
-      }
-   }
+      loop (togo) otherwindow();
 }
 
 %!%+
 %\function{select_next_window}
 %\synopsis{Select the next window}
-%\usage{Void select_next_window()}
+%\usage{select_next_window()}
 %\description
 % Select the next window. Same as otherwindow().
 % 
@@ -97,7 +98,7 @@ define select_next_window()
 %!%+
 %\function{select_prev_window}
 %\synopsis{Select the previous window}
-%\usage{Void select_prev_window()}
+%\usage{select_prev_window()}
 %\description
 % Select the previous window.
 % 
@@ -112,16 +113,15 @@ public define select_prev_window()
 %!%+
 %\function{select_window}
 %\synopsis{Select the nth. window from top}
-%\usage{}
+%\usage{select_window(Integer_Type n)}
 %\description
 % Select the nth. window from top. 
-% The top window is #1.
-% 
+% The top window is 1.
 % \seealso{what_window, nwindows}
 %!%-
 define select_window(n)
 {
-   if (n < 1) n = 1;
+   while (n < 1) n += nwindows();
    n = (n - 1) mod nwindows();
    select_top_window();
    loop(n) otherwindow();
@@ -133,8 +133,7 @@ define select_window(n)
 %\usage{Integer_Type what_window()}
 %\description
 % Return the number of the current window. Windows are numbered
-% from 1 to nwindows(). The top window is #1.
-% 
+% from 1 to nwindows(). The top window is 1.
 % \seealso{select_window, nwindows}
 %!%-
 define what_window()
@@ -153,18 +152,17 @@ define what_window()
 
 %!%+
 %\function{save_windows}
-%\synopsis{Save window configuration with buffer positions}
+%\synopsis{Return window configuration with buffer positions}
 %\usage{WindowInfo_Type save_windows ()}
 %\description
-% Save window configuration with buffer positions.
-% 
+% Return window configuration with buffer positions.
 %\returns
-% Linked list of window information (WindowInfo_Type).
+% Return a linked list of window information (WindowInfo_Type).
 %\seealso{restore_windows}
 %!%-
 define save_windows ()
 {
-   variable curwin = window_info('t');
+   variable curwin = what_window();
    variable list, pwin;
 
    % Save screen
@@ -182,7 +180,6 @@ define save_windows ()
    pwin.buffer = whatbuf();
    pwin.line = what_line();
    pwin.offs = window_line();
-   
    
    % Save other windows
    otherwindow();
@@ -206,12 +203,7 @@ define save_windows ()
    }
    
    % Activate current window
-   if (curwin != TOP_WINDOW_ROW)
-   {
-      otherwindow();
-      while ((window_info('t') != curwin) and (window_info('t') != TOP_WINDOW_ROW))
-         otherwindow();
-   }
+   select_window(curwin);
    
    return list;
 }
@@ -220,11 +212,10 @@ define save_windows ()
 %!%+
 %\function{restore_windows}
 %\synopsis{Restore a previously saved configuration of windows}
-%\usage{Void restore_windows(WindowInfo_Type list)}
+%\usage{restore_windows(WindowInfo_Type list)}
 %\description
 % Restore a configuration of windows that was previously stored
 % with save_windows().
-% 
 %\seealso{save_windows} 
 %!%-
 define restore_windows(list)
@@ -280,13 +271,12 @@ define restore_windows(list)
 
 %!%+
 %\function{save_windows_cmd}
-%\synopsis{Save window configuration with buffer positions into a local variable}
+%\synopsis{Save window configuration with buffer positions into a static variable}
 %\usage{Void save_windows_cmd()}
 %\description
-% Save window configuration with buffer positions into a local variable.
+% Save window configuration with buffer positions into a static variable.
 % 
 % Suitable for a menu entry.
-% 
 % \seealso{restore_windows_cmd, save_windows}
 %!%-
 public define save_windows_cmd()
@@ -302,7 +292,6 @@ public define save_windows_cmd()
 %\description
 % Restore a previously saved configuration of windows. The configuration
 % must have been stored with save_windows_cmd().
-% 
 % Suitable for a menu entry.
 % 
 % \seealso{save_windows_cmd, restore_windows}
@@ -312,24 +301,18 @@ public define restore_windows_cmd()
    restore_windows(Windows);
 }
 
-
 static define do_create_windows(nwin)
 {
    variable i, s, diff, ifill;
    variable wins;
    
-   if (nwin == 0) onewindow();
-   if (nwin == 1)
-   {
-      pop();
-      onewindow();
-   }
+   onewindow();
+   if (nwin == 1) pop();
    if (nwin < 2) return;
    
    wins = Integer_Type[nwin];
 
    % Create windows
-   onewindow();
    for (i = 0; i < nwin - 1; i++) splitwindow();
    
    % Read window info and find the 'elastic' window
@@ -338,7 +321,7 @@ static define do_create_windows(nwin)
    {
       s = ();
       wins[nwin - 1 - i] = s;
-      if (ifill < 0 and s == 0) ifill = i;
+      if (ifill < 0 and s == 0) ifill = nwin - 1 - i;
    }
    
    if (ifill < 0) ifill = nwin - 1;
@@ -347,7 +330,7 @@ static define do_create_windows(nwin)
    select_top_window();
    for (i = 0; i < ifill; i++) otherwindow();
    for (i = 0; i < SCREEN_HEIGHT - nwindows(); i++) enlargewin();
-   
+
    % Enlarge other windows
    otherwindow();
    if (window_info('t') >= SCREEN_HEIGHT - 1)
@@ -401,10 +384,9 @@ static define do_create_windows(nwin)
 % 
 %\notes
 % If the screen is too small, the function may fail.
-% 
 %\seealso{create_windows_rel, save_windows, restore_windows}
 %!%-
-define create_windows()
+public define create_windows()
 {
    do_create_windows(_NARGS);
 }
@@ -501,6 +483,7 @@ define create_windows_rel()
 % ----------------------------------------------------------
 % Demo/Testing code
 % ----------------------------------------------------------
+#stop
 #iffalse
 define pause(m)
 {
@@ -553,18 +536,28 @@ define Test()
 
    onewindow();
    pause("onewindow");
+   
+   create_windows(10, 0);
+   pause("create_windows: 10, 0");
+ 
+   create_windows(0, 10);
+   pause("create_windows: 0, 10");
+ 
+   create_windows(10, 0, 10);
+   pause("create_windows: 10, 0, 10");
+
    restore_windows(TestWin1);
-   pause("TestWin1: 30, 30, 30");
+   pause("Saved create_windows_rel, TestWin1: 30, 30, 30");
    restore_windows(TestWin2);
-   pause("TestWin1: 20, 20, 60");
+   pause("Saved create_windows_rel, TestWin1: 20, 20, 60");
    restore_windows_cmd();
-   pause("Internal: 10, 20, 30, 40");
+   pause("Saved create_windows_rel, Static: 10, 20, 30, 40");
    
    restore_windows(Current);
+   pause("restored");
 }
 
 Test();
 
 #endif
 
-provide("window");
