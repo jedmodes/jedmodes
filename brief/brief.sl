@@ -4,7 +4,7 @@
 % because of the heavy dependence on "exotic" keys.
 % Try with DOS, MS-Windows, or X-Windows and an IBMPC keyboard
 % 
-% Copyright (c) 2005 John E Davis, Günter Milde
+% Copyright (c) 2005 John E Davis, Günter Milde, Marko Mahnic
 % Released under the terms of the GNU General Public License (ver. 2 or later)
 %
 % 2003-08-18 Guenter Milde 
