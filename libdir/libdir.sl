@@ -10,6 +10,9 @@
 % 0.9.3 2005-11-03  evaluation of ini.sl now customizable with optional arg
 % 0.9.4 2005-11-06  added provide() statement
 % 0.9.5 2006-04-05  added year to copyright statement
+% 0.9.6 2006-04-13  replaced continue with return 
+%                   and binary string ops with strcat
+% 0.9.7 2006-05-17  added remove_libdir()                  
 % 
 % FEATURES
 % 
@@ -38,98 +41,151 @@ provide("libdir");
 %!%+
 %\function{add_libdir}
 %\synopsis{Register a library dir for use by jed}
-%\usage{add_libdir(path, initialize=1)}
+%\usage{add_libdir(lib, initialize=1)}
 %\description
-%  * Prepend \var{path} to the library path
-%  * Add \var{path} to \var{Color_Scheme_Path}, \var{Jed_Doc_Files},
-%    and \var{Jed_Highlight_Cache_Path}
-%  * Evaluate (if existent and \var{initialize} is TRUE) the file \var{ini.sl} 
-%    in this library to enable initialization (autoloads etc)
+% Perform the following actions if the relevant paths are valid:
+%  * Prepend \var{lib} to the library path and the \var{Jed_Highlight_Cache_Path}
+%  * Add \var{lib}/colors to \var{Color_Scheme_Path} and
+%    \var{lib}/libfuns.txt to \var{Jed_Doc_Files}.
+%  * If \var{initialize} is TRUE, evaluate the file \var{lib}/ini.sl 
+%    to enable initialization (autoloads etc)
 %\example
+% The following lines in jed.rc
 %#v+
+%  require("libdir", "/FULL_PATH_TO/libdir.sl");
 %  add_libdir("usr/local/jed/lib/", 0));  % do not initialize
 %  add_libdir(path_concat(Jed_Home_Directory, "lib"));
 %#v-
 % will register the local and user-specific library-dir
-%\seealso{append_libdir, make_ini, set_jed_library_path, Jed_Doc_Files}
-%\seealso{Color_Scheme_Path, Jed_Highlight_Cache_Dir, Jed_Highlight_Cache_Path}
+%\notes
+%  The function \sfun{make_ini} (from jedmodes.sf.net/mode/make_ini/) 
+%  can be used to auto-create an ini.sl file for a library dir.
+%\seealso{append_libdir, set_jed_library_path, add_doc_file}
 %!%-
 define add_libdir()
 {
-   variable lib, initialize=1;
+   variable lib, path, initialize;
+   
    if (_NARGS == 2)
      initialize = ();
+   else
+     initialize = 1; % backwards compatibility
    lib = ();
    
    % abort, if directory doesnot exist
    if (orelse{lib == ""}{2 != file_status(lib)}) 
-     continue;
+     return;
    
-   variable path;
    % jed library path
-   set_jed_library_path(lib + "," + get_jed_library_path());
+   set_jed_library_path(strcat(lib, ",", get_jed_library_path()));
    % colors
    path = path_concat(lib, "colors");
    if (2 == file_status(path))
-     Color_Scheme_Path = path + "," + Color_Scheme_Path;
+     Color_Scheme_Path = strcat(path, ",", Color_Scheme_Path);
    % documentation
    path = path_concat(lib, "libfuns.txt");
    if (1 == file_status(path))
-     Jed_Doc_Files = path + "," + Jed_Doc_Files;
+     Jed_Doc_Files = strcat(path, ",", Jed_Doc_Files);
    % dfa cache
 #ifdef HAS_DFA_SYNTAX
    % Jed_Highlight_Cache_Dir = lib;
-   Jed_Highlight_Cache_Path = lib + "," + Jed_Highlight_Cache_Path;
+   Jed_Highlight_Cache_Path = strcat(lib, ",", Jed_Highlight_Cache_Path);
 #endif
    % Check for a file ini.sl containing initialization code
    % (e.g. autoload declarations) and evaluate it.
    path = path_concat(lib, "ini.sl");
-   if (initialize and 1 == file_status(path))
+   if (andelse{initialize}{1 == file_status(path)})
      () = evalfile(path);
 }
 
 %!%+
 %\function{append_libdir}
 %\synopsis{Register a library dir for use by jed}
-%\usage{append_libdir(path, initialize=1)}
+%\usage{append_libdir(lib, initialize=1)}
 %\description
-%  * Append \var{path} to the library path
-%  * Append \var{path} to \var{Color_Scheme_Path}, \var{Jed_Doc_Files},
-%    and \var{Jed_Highlight_Cache_Path}
-%  * Evaluate (if existent and \var{initialize} is TRUE) the file \var{ini.sl} 
-%    to enable initialization (autoloads etc)
-%\seealso{add_libdir}
+%  This is similar to \sfun{add_libdir} but appends the library to the path
+%  lists.
+%\seealso{add_libdir, set_jed_library_path}
 %!%-
 define append_libdir()
 {
-   variable lib, initialize=1;
+   variable lib, path, initialize;
+   
    if (_NARGS == 2)
      initialize = ();
+   else
+     initialize = 1; % backwards compatibility
    lib = ();
    
    % abort, if directory doesnot exist
    if (orelse{lib == ""}{2 != file_status(lib)}) 
-     continue;
+     return;
    
-   variable path;
    % jed library path
-   set_jed_library_path(get_jed_library_path() + "," + lib);
+   set_jed_library_path(strcat(get_jed_library_path(), ",", lib));
    % colors
    path = path_concat(lib, "colors");
    if (2 == file_status(path))
-     Color_Scheme_Path = Color_Scheme_Path + "," + path;
+     Color_Scheme_Path = strcat(Color_Scheme_Path, ",", path);
    % documentation
    path = path_concat(lib, "libfuns.txt");
    if (1 == file_status(path))
-     Jed_Doc_Files = Jed_Doc_Files + "," + path;
+     Jed_Doc_Files = strcat(Jed_Doc_Files, ",", path);
    % dfa cache
 #ifdef HAS_DFA_SYNTAX
-   Jed_Highlight_Cache_Path = Jed_Highlight_Cache_Path + "," + lib;
+   % Jed_Highlight_Cache_Dir = lib;
+   Jed_Highlight_Cache_Path = strcat(Jed_Highlight_Cache_Path, ",", lib);
 #endif
    % Check for a file ini.sl containing initialization code
    % (e.g. autoload declarations) and evaluate it.
    path = path_concat(lib, "ini.sl");
-   if (initialize and 1 == file_status(path))
+   if (andelse{initialize}{1 == file_status(path)})
      () = evalfile(path);
 }
 
+
+%!%+
+%\function{remove_libdir}
+%\synopsis{Remove a library dir from search paths}
+%\usage{remove_libdir(lib)}
+%\description
+% Revert the actions of \sfun{add_libdir} or \sfun{append_libdir}.
+%  * Remove \var{lib} from the jed library path and the \var{Jed_Highlight_Cache_Path}
+%  * Remove \var{lib}/colors from \var{Color_Scheme_Path}
+%  * Remove \var{lib}/libfuns.txt from \var{Jed_Doc_Files}.
+%\example
+%#v+
+%  
+%#v-
+%\notes
+%  As it is impossibly to revert the evaluation of \var{lib}/ini.sl,
+%  only add_libdir(dir, 0); or append_libdir(dir, 0)
+%  can be fully reversed.
+%\seealso{set_jed_library_path, add_libdir, append_libdir, str_replace_all}
+%!%-
+define remove_libdir(lib)
+{
+   variable path, dir;
+   % jed library path
+   dir =  strcat(",", lib, ",");
+   path = strcat(",", get_jed_library_path(), ",");
+   path = str_replace_all(path, dir, ",");
+   set_jed_library_path(strtrim(path, ","));
+   % colors
+   dir =  strcat(",", path_concat(lib, "colors"), ",");
+   path = strcat(",", Color_Scheme_Path, ",");
+   path = str_replace_all(path, dir, ",");
+   Color_Scheme_Path = strtrim(path, ",");
+   % documentation
+   dir =  strcat(",", path_concat(lib, "libfuns.txt"), ",");
+   path = strcat(",", Jed_Doc_Files, ",");
+   path = str_replace_all(path, dir, ",");
+   Jed_Doc_Files = strtrim(path, ",");
+   % dfa cache
+#ifdef HAS_DFA_SYNTAX
+   dir =  strcat(",", lib, ",");
+   path = strcat(",", Jed_Highlight_Cache_Path, ",");
+   path = str_replace_all(path, dir, ",");
+   Jed_Highlight_Cache_Path = strtrim(path, ",");
+#endif
+}
