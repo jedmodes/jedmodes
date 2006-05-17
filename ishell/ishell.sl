@@ -1,6 +1,6 @@
 % Interactive shell mode (based on ashell.sl by J. E. Davis)
 %
-% Copyright (c) 2003 Günter Milde
+% Copyright (c) 2006 Günter Milde
 % Released under the terms of the GNU General Public License (ver. 2 or later)
 %
 % Run interactive programs (e.g. mupad/python/gnuplot) in a "workbook".
@@ -73,6 +73,8 @@
 %       temporary file if no region is defined
 % 1.8.1 2005-11-18
 %       added documentation for custom variables and all public functions
+% 1.8.2 2006-05-10
+% 	bugfix: added missing autoload for normalized_modename()       
 %
 % USAGE ishell()              opens a shell in a buffer on its own
 %  	ishell_mode([cmd])    attaches an interactive process to the
@@ -120,9 +122,10 @@ autoload("rebind", "bufutils");
 autoload("buffer_dirname", "bufutils");
 autoload("popup_buffer", "bufutils");
 autoload("close_buffer", "bufutils");
+autoload("normalized_modename", "bufutils");
 autoload("get_blocal", "sl_utils");
 autoload("push_defaults", "sl_utils");
-autoload("run_blocal_hook", "bufutils");
+autoload("run_local_hook", "bufutils");
 autoload("bufsubfile", "bufutils");
 autoload("view_mode", "view");
 
@@ -142,7 +145,7 @@ autoload("view_mode", "view");
 %    "o"           output buffer
 %    "."           point (also the default for not listed strings)
 %\notes
-% This is an extended version of the options for \var{set_process}
+% This is an extended version of the options for \sfun{set_process}
 %\seealso{ishell, ishell_mode, set_process}
 %!%-
 custom_variable("Ishell_default_output_placement", ">");
@@ -174,7 +177,7 @@ custom_variable("Ishell_Max_Popup_Size", 10);
 %\synopsis{Default interactive shell}
 %\usage{Int_Type Ishell_Default_Shell = getenv ("SHELL")}
 %\description
-% The default process started by \var{ishell_mode}.
+% The default process started by \sfun{ishell_mode}.
 % 
 % In UNIX, the interactive shell has the interacitve flag but might also be a
 % completely different one (say `sh` for normal but `bash -i` for interactive.
@@ -284,7 +287,7 @@ define ishell_insert_output (pid, str)
    % show("ispell_output:", str);
    % filter the output string (call a filter-output-hook)
    if (blocal_var_exists("Ishell_output_filter"))
-     str = run_blocal_hook("Ishell_output_filter", str);
+     str = run_local_hook("Ishell_output_filter", str);
    % abort, if filter returns empty string
    !if (strlen(str))
      return;
@@ -366,7 +369,8 @@ define ishell_set_output_placement(key)
 % ishell menu, appended to an existing mode menu
 static define ishell_menu(menu)
 {
-   variable init_menu = get_blocal_var("init_mode_menu");
+   variable init_menu = 
+     mode_get_mode_info(normalized_modename(), "init_mode_menu");
    if (init_menu != NULL)
      {
 	@init_menu(menu);
@@ -388,11 +392,11 @@ static define ishell_menu(menu)
 %!%+
 %\function{ishell_mode}
 %\synopsis{Open a process and attach it to the current buffer.}
-%\usage{ ishell_mode(command_line=Ishell_Default_Shell)}
+%\usage{ ishell_mode(cmd=Ishell_Default_Shell)}
 %\description
 % Open an interactive process and attach to the current buffer.
 % By default, the process is \var{Ishell_Default_Shell},
-% the optional argument String "command_line" overrides this.
+% the optional argument String "cmd" overrides this.
 %\example
 % Open an interactive python session in a new buffer:
 %#v+
@@ -401,9 +405,9 @@ static define ishell_menu(menu)
 %#v-
 %\seealso{ishell, Ishell_default_output_placement, Ishell_Max_Popup_Size}
 %!%-
-public define ishell_mode() % (command_line=Ishell_Default_Shell)
+public define ishell_mode() % (cmd=Ishell_Default_Shell)
 {
-   variable command_line = push_defaults(Ishell_Default_Shell, _NARGS);
+   variable cmd = push_defaults(Ishell_Default_Shell, _NARGS);
 
    % set the working dir to the active buffers dir
    () = chdir(buffer_dirname());
@@ -412,9 +416,7 @@ public define ishell_mode() % (command_line=Ishell_Default_Shell)
 #endif
 
    % start the process
-   ishell_open_process(command_line);
-
-   define_blocal_var("init_mode_menu", mode_get_mode_info("init_mode_menu"));
+   ishell_open_process(cmd);
 
    % modifiy keybindings (use an own keymap):
    variable ishell_map = what_keymap()+" ishell";
@@ -440,7 +442,7 @@ public define ishell_mode() % (command_line=Ishell_Default_Shell)
 %\synopsis{Interactive shell}
 %\usage{ ishell()}
 %\description
-% Open an interactive shell in buffer *ishell* and set to \var{ishell_mode}.
+% Open an interactive shell in buffer *ishell* and set to \sfun{ishell_mode}.
 %\seealso{ishell_mode, Ishell_Default_Shell}
 %!%-
 public define ishell()
@@ -501,9 +503,6 @@ public define terminal() % (cmd = Ishell_Default_Shell)
 %       4   message output
 %  "<name>" name of a new buffer for the output
 % Default is \var{prefix_argument}(0)
-%\notes
-%  This version from ishell.sl is a drop in replacement for the standard
-%  version from shell.sl with extended configurability.
 %\seealso{run_shell_cmd, shell_cmd, filter_region, shell_cmd_on_region}
 %!%-
 public define shell_command() % (cmd="", output_handling=0)
@@ -523,7 +522,7 @@ public define shell_command() % (cmd="", output_handling=0)
    
    % Init variables
    variable status, file, result, buf = whatbuf(), outbuf = "*shell-output*";
-   % if second arg is a String, its the name of the output buffer
+   % if second arg is a String, it is the name of the output buffer
    if (typeof(output_handling) == String_Type)
      {
 	outbuf = output_handling;
@@ -549,9 +548,8 @@ public define shell_command() % (cmd="", output_handling=0)
    % Redirect error messages
 # ifdef OS2
    cmd += " 2>&1";
-# elifdef UNIX
-   % cmd += " 2>&1 < /dev/null"; % this in shell.sl's do_shell_cmd()
-   cmd += " 2>&1";
+% # elifdef UNIX
+   % cmd += " 2>&1 < /dev/null"; % this is in shell.sl's do_shell_cmd()
 # endif
 
    % Run the command
@@ -585,25 +583,6 @@ public define shell_command() % (cmd="", output_handling=0)
 }
 
 
-%!%+
-%\function{shell_cmd_on_region}
-%\synopsis{Save region to a temp file and run a command on it}
-%\usage{Void shell_cmd_on_region(cmd="", output_handling=0, postfile_args="")}
-%\usage{Void shell_cmd_on_region(cmd="", String output_buffer, postfile_args="")}
-%\description
-% Run \var{cmd} in a shell. (If \var{cmd}=="", the user will be prompted for 
-% a command to execute.)
-%
-% Output handling is controlled by the second argument (see \var{shell_command})
-% 
-% The region will be saved to a temporary file and the filename appended to 
-% the arguments. If no region is defined, the whole buffer is saved.
-%
-% The third argument \var{postfile_args} will be appended to the command
-% string after the filename argument. Use it e.g. for the outfile in commands 
-% like "rst2html infile outfile".
-% \seealso{shell_command, filter_region, run_shell_cmd}
-%!%-
 public define shell_cmd_on_region_or_buffer() % (cmd="", output_handling=0, postfile_args="")
 {
    variable cmd, output_handling, postfile_args;
@@ -633,6 +612,25 @@ public define shell_cmd_on_region_or_buffer() % (cmd="", output_handling=0, post
    shell_command(strjoin([cmd, file, postfile_args], " "), output_handling);
 }
 
+%!%+
+%\function{shell_cmd_on_region}
+%\synopsis{Save region to a temp file and run a command on it}
+%\usage{Void shell_cmd_on_region(cmd="", output_handling=0, postfile_args="")}
+%\usage{Void shell_cmd_on_region(cmd="", String output_buffer, postfile_args="")}
+%\description
+% Run \var{cmd} in a shell. (If \var{cmd}=="", the user will be prompted for 
+% a command to execute.)
+%
+% Output handling is controlled by the second argument (see \var{shell_command})
+% 
+% The region will be saved to a temporary file and the filename appended to 
+% the arguments. If no region is defined, the whole buffer is saved.
+%
+% The third argument \var{postfile_args} will be appended to the command
+% string after the filename argument. Use it e.g. for the outfile in commands 
+% like "rst2html infile outfile".
+% \seealso{shell_command, filter_region, run_shell_cmd}
+%!%-
 public define shell_cmd_on_region() % (*args)
 {
    variable args = __pop_args(_NARGS);
