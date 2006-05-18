@@ -4,22 +4,20 @@
 %  Released under the terms of the GNU General Public License (ver. 2 or later)
 %
 %  Versions:
-%
 %             0.1  first version published together with rst.sl
 %  2006-01-20 0.2  including the regular expressions from JED
 %                  documentation
 %  2006-01-23 0.3  added st_backward_paragraph() and st_mark_paragraph()
 %                  set "mark_paragraph_hook" to format first line of list item
 %  2006-02-03 0.4  bugfix in the Text_List_Patterns (* needs to be escaped)
-%
-% TODO: Lines that are marked as paragraph separator don't get
-% formatted when calling format_paragraph :-(
+%  2006-05-17 0.4.1 code cleanup
+
 
 % the set of regular expressions matching a list mark
 custom_variable("Text_List_Patterns",
    ["[0-9]+\\.[ \t]+ ", %  enumeration
-    % "[a-z]+\\) ",    %  alpha enumeration
-    "[\\*+-] "           %  itemize (bullet list)
+    % "[a-z]+\\) ",     %  alpha enumeration
+    "[\\*\\+\\-] "      %  itemize (bullet list)
     ]);
 
 %!%+
@@ -31,8 +29,7 @@ custom_variable("Text_List_Patterns",
 % regular expressions defined in \var{Rst_List_Patterns}.
 % Return length of the list marker (excluding leading whitespace)
 %
-%  This function leaves the editing point at the first non-whitespace
-%  character or the end of the line.
+% Leaves the editing point at first non-whitespace or eol
 %\notes
 % Thanks to JED for the regular expressions variant
 %\seealso{line_is_empty, Text_List_Patterns}
@@ -60,15 +57,11 @@ define line_is_list()
 %\usage{ line_is_empty()}
 %\description
 %  This is the same as the default is_paragraph_separator test.
-%
-%  This function leaves the editing point at the first non-whitespace
-%  character or the end of the line.
+%  Leaves the editing point at first non-white space.
 %\seealso{line_is_list}
 %!%-
 define line_is_empty()
 {
-   push_spot();
-   EXIT_BLOCK {pop_spot();}
    bol_skip_white();
    return eolp();
 }
@@ -99,16 +92,20 @@ define st_is_paragraph_separator()
 % go to the beginning of the current paragraph
 define st_backward_paragraph()
 {
-   while (not(line_is_list()))
+   if (line_is_empty())
+     go_up_1();
+   do 
      {
-        !if (up(1))
+        if (line_is_list())
           break;
         if (line_is_empty())
           {
+             eol();
              go_right_1();
              break;
           }
      }
+   while (up(1));
 }
 
 % Mark the current paragraph
@@ -183,7 +180,7 @@ public define text_mode_hook()
 {
    set_buffer_hook("wrap_hook", &st_indent);
    set_buffer_hook("indent_hook", &st_indent);
-   % set_buffer_hook("backward_paragraph_hook", &st_backward_paragraph);
+   set_buffer_hook("backward_paragraph_hook", &st_backward_paragraph);
    set_buffer_hook("mark_paragraph_hook", "st_mark_paragraph");
    set_buffer_hook("newline_indent_hook", &st_newline_and_indent);
    set_buffer_hook("par_sep", &st_is_paragraph_separator);
