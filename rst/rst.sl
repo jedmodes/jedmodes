@@ -23,6 +23,8 @@
 %                  removed dependency on ishell.sl
 %                  merged export help into set_rst2*_options()
 %                  nagivation buffer with tokenlist
+% 1.4.1 2006-05-18 fix syntax for sub- and supscript
+% 		   conservative highlight of list markers
 
 % For debugging purposes:
 % _debug_info = 1;
@@ -130,11 +132,12 @@ static variable Underline_Regexp = sprintf("^\\([%s]\\)\\1+[ \t]*$",
 private variable helpbuffer = "*rst export help*";
 
 % Layout Character (inline)
-Markup_Tags["strong"]     = ["**", "**"];     % bold
-Markup_Tags["emphasis"] = ["*",  "*"];        % usually typeset as italics
-Markup_Tags["literal"]  = ["``", "``"];
-Markup_Tags["subscript"] = [":sub:``", "``"];
-Markup_Tags["superscript"] = [":sup:``", "``"];
+Markup_Tags["strong"]      = ["**", "**"];     % bold
+Markup_Tags["emphasis"]    = ["*",  "*"];      % usually typeset as italics
+Markup_Tags["literal"]     = ["``", "``"];     % usually fixed width
+Markup_Tags["interpreted"] = ["`", "`"];
+Markup_Tags["subscript"]   = [":sub:`", "`"];
+Markup_Tags["superscript"] = [":sup:`", "`"];
 
 % Layout Pragraph (block)
 Markup_Tags["hrule"]         = ["\n-------------\n", ""];  % alias transition
@@ -482,8 +485,8 @@ static define setup_dfa_callback(mode)
    %  itemize
    dfa_define_highlight_rule("^[ \t]*[\\-\\*\\+][ \t]+", "Q"+color_list_marker, mode);
    %  enumerate
-   dfa_define_highlight_rule("^[ \t]*[0-9a-zA-Z]+\\.[ \t]+", color_list_marker, mode);
-   dfa_define_highlight_rule("^[ \t]*\\(?[0-9a-zA-Z]+\\)[ \t]+", color_list_marker, mode);
+   dfa_define_highlight_rule("^[ \t]*[0-9a-zA-Z][0-9a-zA-Z]?\\.[ \t]+", color_list_marker, mode);
+   dfa_define_highlight_rule("^[ \t]*\\(?[0-9a-zA-Z][0-9]?\\)[ \t]+", color_list_marker, mode);
    dfa_define_highlight_rule("^[ \t]*#\\.[ \t]+", color_list_marker, mode);
    %  field list
    dfa_define_highlight_rule("^[ \t]*:.+:[ \t]+", "Q"+color_list_marker, mode);
