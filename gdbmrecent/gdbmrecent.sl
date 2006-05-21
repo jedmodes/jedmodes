@@ -1,9 +1,9 @@
 % gdbmrecent.sl
 % 
-% $Id: gdbmrecent.sl,v 1.3 2005/10/23 11:11:26 paul Exp paul $
+% $Id: gdbmrecent.sl,v 1.4 2006/05/21 10:27:35 paul Exp paul $
 % Keywords: convenience
 %
-% Copyright (c) 2004, 2005 Paul Boekholt.
+% Copyright (c) 2004, 2005, 2006 Paul Boekholt.
 % Released under the terms of the GNU GPL (version 2 or later).
 % 
 % Yet another recent mode. This one was written to test my gdbm module.
@@ -17,8 +17,7 @@
 % -stores line and column information
 % -goes to last line and column even when file is not opened from recent menu
 % -recent menu shows only the most recent `Recent_Max_Cached_Files' files, but line and
-%  column information is remembered for a week for all files. This is as much
-%  a save-place mode as a recent mode.
+%  column information is remembered for Recent_Files_Expire_Time days.
 % -Make buffer-local variables persistent.  For now this can be used to make
 %  a buffer's ispell dictionary setting persist - make sure to upgrade
 %  ispell_common.sl to revision 1.13.
@@ -37,6 +36,8 @@ custom_variable("Recent_Db", dircat(Jed_Home_Directory, "recent_db"));
 custom_variable("Recent_Max_Cached_Files", 15);
 % regexp for files not to be added to the recent list (/tmp/mutt-1234)
 custom_variable("Recent_Files_Exclude_Pattern", "/tmp");
+% Time before entries expire (in days)
+custom_variable("Recent_Files_Expire_Time", 7);
 
 % This is a comma-separated list of blocal variables that are stored in the
 % recent files database.  The entry is still purged if a file is not opened
@@ -217,7 +218,7 @@ private define purge_not_so_recent(db)
 {
    variable key, keys, values, dates;
    (keys, values) = gdbm_get_keys_and_values(db);
-   variable cutoff_date = _time() - 604800; % 1 week, or 604800 seconds
+   variable cutoff_date = _time() - 86400 * Recent_Files_Expire_Time;
    dates = array_map(Integer_Type, &atoi, values);
    keys = keys[where(dates < cutoff_date)];
    % it's not possible to use foreach(db) here
