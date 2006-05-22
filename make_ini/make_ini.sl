@@ -18,7 +18,7 @@
 %
 % TODO:  * Consider preprocessor options (How?)
 %
-% Versions:  0.9 initial release     Guenter Milde <g.milde web.de>
+% Versions:  0.9 initial release     Günter Milde <g.milde web.de>
 %            1.0 non-interactive functions and support for batch use
 %            1.1 08/07/03 made compatible to txtutils 2.2 (change in get_word)
 %            1.2 only write _autoload statements, do not add_completion
@@ -68,6 +68,10 @@
 % 2005-11-18 2.9.4 * removed the if(BATCH) clause as it does not work as expected
 %                    and prevents the use from another script with jed-script
 % 2005-11-22 2.9.5 * code cleanup
+% 2006-01-10 2.9.6 * documentation cleanup
+% 2006-03-15 2.10  * tighten the rules for <INITIALIZATION> block: now it must
+%                    be a preprocessor cmd ("#<INITIALIZATION>" at bol)
+
 
 % _debug_info=1;
 
@@ -79,6 +83,7 @@ if (strlen(expand_jedlib_file("tm.sl")))
    autoload("tm_parse", "tm");
 }
 
+provide("make_ini");
 
 % --- Settings -----------------------------------------------------------
 
@@ -87,10 +92,10 @@ if (strlen(expand_jedlib_file("tm.sl")))
 %\synopsis{Scope for automatic generation of autoload commands}
 %\usage{Int_Type Make_ini_Scope = 1}
 %\description
-%  Set the scope for automatic generation of autoload commands
-%   0 no declarations
-%   1 only explicitly public definitions
-%   2 public definitions and (if no namespace is declared) simple definitions
+%  Set the scope for automatic generation of \sfun{autoload} commands
+%   0 no autoloads
+%   1 only explicitly public definitions: bol_fsearch("public define ")
+%   2 all global definitions
 %\seealso{make_ini, make_ini_look_for_functions}
 %!%-
 custom_variable("Make_ini_Scope", 1);
@@ -112,7 +117,7 @@ custom_variable("Make_ini_Verbose", 0);
 %\synopsis{Bytecompile the files with update_ini()}
 %\usage{Int_Type Make_ini_Bytecompile = 1}
 %\description
-% Let \var{update_ini} and \var{update_home_lib} bytecompile 
+% Let \sfun{update_ini} and \sfun{update_home_lib} bytecompile 
 % the files as well.
 % This gives considerable evalutation speedup but might introduce problems.
 %\notes 
@@ -143,8 +148,8 @@ custom_variable("Make_ini_Exclusion_List", ["ini.sl"]);
 %\synopsis{Array of files to exclude from bytecompiling}
 %\usage{Int_Type Make_ini_Bytecompile_Exclusion_List = []}
 %\description
-% Exlude these files from bytecompiling with \var{update_ini} and 
-% \var{update_home_lib}.
+% Exlude these files from bytecompiling with \sfun{update_ini} and 
+% \sfun{update_home_lib}.
 %\seealso{Make_ini_Exclusion_List}
 %!%-
 custom_variable("Make_ini_Bytecompile_Exclusion_List", String_Type[0]);
@@ -169,10 +174,13 @@ custom_variable("Make_ini_Extract_Documentation", 1);
 %!%+
 %\variable{Make_ini_Add_Completions}
 %\synopsis{Insert add_completion commands into ini.sl}
-%\usage{Int_Type Make_ini_Add_Completions = 0}
+%\usage{Int_Type Make_ini_Add_Completions = 1}
 %\description
-%  Should make_ini() insert add_completion commands into ini.sl?
-%\seealso{Make_ini_Bytecompile, Make_ini_Extract_Documentation, Make_ini_Verbose}
+%  Should \sfun{make_ini} insert \sfun{add_completion} commands into ini.sl?
+%   0 no
+%   1 only explicitly public definitions
+%   2 all global definitions
+%\seealso{Make_ini_Scope, Make_ini_Extract_Documentation, Make_ini_Verbose}
 %!%-
 custom_variable("Make_ini_Add_Completions", 1);
 
@@ -200,44 +208,37 @@ static define _get_function_name()
 %\usage{Str = make_ini_look_for_functions(file)}
 %\description
 %  Browse file and insert 
-%    either an explicit <INITIALIZATION> </INITIALIZATION> block 
+%    either the #<INITIALIZATION> #</INITIALIZATION> block 
 %    or autoload commands for function definitions
-%  in the current buffer. The variable \var{Make_ini_Scope} can be used to
-%  control whether only explicitly public definitions are tracked
+%  in the current buffer.  The variables \var{Make_ini_Scope} and
+%  \var{Make_ini_Add_Completions} can be used to control which function
+%  definitions are handled
 %\notes
-%  The slang documentation file preprocess.txt list the preprocessor 
-%  directives
-%#v+
-%    #<TAG>  % - start embedded text region
-%      ...  embedded text region ...
-%    #</TAG> % - end embedded text region
-%#v-
-%  but they did not work with my S-Lang Version: 1.4.9
+%  If there is an INITIALIZATION block, no automatic search for function
+%  definitions is done. You must explicitely list the required autoload()
+%  commands! (This way, people not using make_ini can copy the content of the
+%  INITIALIZATION block directly to their .jedrc file.
 %  
-%  My workaround is a construct of type
+%  The preprocessor directives
 %#v+
 %  #<INITIALIZATION>
 %     ... initialisation block ...
 %  #</INITIALIZATION>
 %#v-
-%
-%  If there is an INITIALIZATION block, no automatic search for 
-%  function definitions is done. You need to explicitely list the required 
-%  autoload commands! (This way, people not using make_ini can copy the 
-%  INITIALIZATION block directly to their .jedrc file.
-%  
+%  will hide the initialisation block from normal slang processing/preparsing
+%  (see slang documentation file "preprocess.txt").
 %\seealso{make_ini, update_ini, Make_ini_Scope,}
 %!%-
 define make_ini_look_for_functions(file)
 {
-   variable str = "",
-     funs = "", no_of_funs, funs_n_files,
+   variable str = "", public_funs = "",
+     simple_funs = "", funs, funs_n_files,
      named_namespace = 0,
      currbuf = whatbuf();
 
    % show("processing", whatbuf(), file);
 
-   % Parse the file in a special buffer, without setting the mode
+   % Parse the file in a temp buffer, without setting the mode
    % (saves time and does not interfere with open files)
    sw2buf(Parsing_Buffer);
    erase_buffer(); % paranoia
@@ -274,59 +275,69 @@ define make_ini_look_for_functions(file)
        }
    % find out if the mode defines/uses a namespace
    bob();
-   if (orelse{bol_fsearch("implements")}  {bol_fsearch("_implements")} 
-	 {bol_fsearch("use_namespace")})
+   if (orelse{bol_fsearch("implements")}  
+        {bol_fsearch("_implements")} 
+        {bol_fsearch("use_namespace")})
      {
 	named_namespace = 1;
         str += "% private namespace: " + line_as_string + "\n";
      }
 
-   % Look for an <INITIALIZATION> </INITIALIZATION> block
+   % Look for an #<INITIALIZATION> block
    bob();
-   if (fsearch("<INITIALIZATION>"), bol() and looking_at_char('#'))
+   if (bol_fsearch("#<INITIALIZATION>"))
      {
 	go_down_1(); bol();
 	push_mark();
-	if (fsearch("</INITIALIZATION>"))
-	  {
-	     bol();
-	     str += bufsubstr();
-	  }
+	if (bol_fsearch("#</INITIALIZATION>"))
+          str += bufsubstr();
 	else
 	  {
-	     str += "no </INITIALIZATION> end tag found";
 	     pop_mark(0);
+	     str += "no </INITIALIZATION> end tag found";
 	  }
      }
    else 
      {
 	% Search function definitions
 	% 1. explicitly public definitions
-	if (Make_ini_Scope)
-	  while (bol_fsearch("public define "))
-	    funs += _get_function_name() + "\n";
+        while (bol_fsearch("public define "))
+          public_funs += _get_function_name() + "\n";
+        
 	bob;
-	% 2. "normal" (i.e. unspecified) definitions
-	if (Make_ini_Scope - named_namespace > 1)
-	  while (bol_fsearch("define "))
-	    funs += _get_function_name() + "\n";
-	% convert to Array 
-	% (strchop would append an empty element because of the trailing \n)
-	funs = strtok(funs, "\n");
-	no_of_funs = length(funs); 
-	if (no_of_funs)
+	% 2. "simple" (i.e. unspecified) definitions
+        !if (named_namespace)
+          while (bol_fsearch("define "))
+            simple_funs += _get_function_name() + "\n";
+        
+        % autoloads
+	switch (Make_ini_Scope)
+          { case 0: funs = String_Type[0]; }
+          { case 1: funs = strtok(public_funs, "\n"); }
+          { case 2: funs = strtok(public_funs+simple_funs, "\n"); }
+        
+	if (length(funs))
 	  {
 	     funs = "\"" + funs + "\"";
-	     funs_n_files = funs + sprintf(", \"%s\";", 
-					   str_quote_string(file, "", '\\'));
-	     % autoloads
-	     str += strjoin(funs_n_files, "\n") 
-	       + sprintf("\n_autoload(%d);\n", no_of_funs);
-	     % add_completions
-	     if (Make_ini_Add_Completions)
-	     str += "\n" + strjoin(funs, ";\n") 
-		 + sprintf(";\n_add_completion(%d);\n", no_of_funs);
+	     funs_n_files = 
+               funs + sprintf(", \"%s\";", str_quote_string(file, "", '\\'));
+	     str += strjoin(funs_n_files, "\n") + "\n"
+	          + sprintf("_autoload(%d);\n", length(funs));
 	  }
+        
+        % add_completions
+	switch (Make_ini_Add_Completions)
+          { case 0: funs = String_Type[0]; }
+          { case 1: funs = strtok(public_funs, "\n"); }
+          { case 2: funs = strtok(public_funs+simple_funs, "\n"); }
+        
+	if (length(funs))
+	  {
+	     funs = "\"" + funs + "\";";
+	     str += "\n" + strjoin(funs, "\n") + "\n"
+		 + sprintf("_add_completion(%d);\n", length(funs));
+          }
+        
      }
    % cleanup
    delbuf(Parsing_Buffer);
@@ -410,8 +421,8 @@ public define make_ini() % ([dir])
 %\synopsis{Byte compile all *.sl files in a directory}
 %\usage{ byte_compile_libdir(dir)}
 %\description
-%  Call \var{byte_compile_file} on all files returned by 
-%  \var{list_slang_files}(dir).
+%  Call \sfun{byte_compile_file} on all files returned by 
+%  \sfun{list_slang_files}(dir).
 %\seealso{byte_compile_file, update_home_lib, Make_ini_Bytecompile_Exclusion_List}
 %!%-
 define byte_compile_libdir(dir)
@@ -486,7 +497,7 @@ public define update_ini() % (directory=buffer_dirname())
      dir = buffer_dirname(); % default
 
    !if (length(list_slang_files(dir)))
-     verror("no SLang files in %s", dir);
+     return vmessage("no SLang files in %s", dir);
    make_ini(dir);
    save_buffer();
    delbuf(whatbuf());
@@ -510,7 +521,7 @@ public define update_ini() % (directory=buffer_dirname())
 %\synopsis{update Jed_Home_Directory/lib/ini.sl}
 %\usage{ update_home_lib()}
 %\description
-%   Run \var{update_ini} for the "jed-home-library-dir"
+%   Run \sfun{update_ini} for the "jed-home-library-dir"
 %\seealso{update_ini, make_ini, Jed_Home_Directory}
 %!%-
 public define update_home_lib()
