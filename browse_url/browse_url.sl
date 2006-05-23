@@ -14,19 +14,19 @@
 % 1.0 first public version (outsourced from jedscape by PB
 %     and modified by GM)
 % 1.1 changed the Browse_Url_Viewer default, as html2txt has problems
-%     downloading "complicated" URL (no negotiating with the server)
+%     downloading "complicated" URLs (no negotiating with the server)
 %     that can be avoided by using a text mode browser with --dump
 % 1.2 made SLang2 proof
 % 1.2.1 2005-10-13 bugfix in find_program()
 % 1.2.1 2005-11-18 correct bugfix in find_program() (changed order of redirections)
+% 1.3   2006-05-23 dropped implementing of a named namespace
 
 % _debug_info=1;
 
 autoload("popup_buffer", "bufutils");
 
-private variable mode = "browse_url";
-provide(mode);
-implements(mode);
+provide("browse_url");
+% implements("browse_url");
 
 
 %{{{ finding the programs    
@@ -49,9 +49,11 @@ implements(mode);
 %\notes
 %   Uses the Unix system command 'which'. 
 %   (Simply returns "" if the call to `which` fails)
+%   Newer versions of jed (or slang?) come with a similar function 
+%   (but what is its name?)
 %\seealso{}
 %!%-
-define find_program(programs)
+static define find_program(programs)
 {
    variable program, file;
    foreach (strchop(programs, ',', 0))
@@ -203,7 +205,7 @@ public define view_url() %(url=read_mini, cmd= Browse_Url_Viewer)
 %   as background process in a separate window.
 %\seealso{browse_url, find_url, view_url, Browse_Url_X_Browser}
 %!%-
- public define browse_url_x() %(url, cmd=Browse_Url_X_Browser)
+public  define browse_url_x() %(url, cmd=Browse_Url_X_Browser)
 {
    variable status, url, cmd;
    (url, cmd) = push_defaults(, Browse_Url_X_Browser, _NARGS);
