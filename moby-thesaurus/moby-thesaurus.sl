@@ -78,6 +78,8 @@
 %%   it will be looked up.
 
 #<INITIALIZATION>
+autoload("thesaurus_popup_menu", "thesaurus.sl");
+autoload("thesaurus_popup_completions", "thesaurus.sl");
 private define thesaurus_load_popup_hook(menubar)
 {
    variable menu = "Global.S&ystem";
@@ -86,8 +88,6 @@ private define thesaurus_load_popup_hook(menubar)
    menu_set_select_popup_callback(menu, &thesaurus_popup_menu ());
 }
 append_to_hook("load_popup_hooks", &thesaurus_load_popup_hook);
-autoload("thesaurus_popup_menu", "thesaurus.sl");
-autoload("thesaurus_popup_completions", "thesaurus.sl");
 #</INITIALIZATION>
 
 custom_variable ("Thesaurus_Charset", "iso-8859-1");
