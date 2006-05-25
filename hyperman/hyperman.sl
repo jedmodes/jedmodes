@@ -1,9 +1,9 @@
 % hyperman.sl
 %
-% $Id: hyperman.sl,v 1.26 2005/10/30 13:58:03 paul Exp paul $
+% $Id: hyperman.sl,v 1.27 2006/05/25 14:39:47 paul Exp paul $
 % Keywords: help, hypermedia, unix
 %
-% Copyright (c) 2000-2005 JED, Paul Boekholt, Günter Milde
+% Copyright (c) 2000-2006 JED, Paul Boekholt, Günter Milde
 % Released under the terms of the GNU GPL (version 2 or later).
 % hypertextish man pager
 
@@ -171,6 +171,16 @@ static define man_clean_manpage ()
    while (fsearch ("\010"))	% remove overstrike
      deln (2);
 #else
+   % fix hyphens if in utf-8 mode
+   if (_slang_utf8_ok)
+     {
+	while(fsearch_char(173))
+	  {
+	     del;
+	     insert_char(173);
+	  }
+	bob();
+     }
    while(fsearch("_\010"))
      {
 	insert(italic_marker);
