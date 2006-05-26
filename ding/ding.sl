@@ -1,6 +1,6 @@
 % ding.sl   Ding dictionary lookup
 % 
-% Copyright (c) 2003 Günter Milde
+% Copyright (c) 2006 Günter Milde
 % Released under the terms of the GNU General Public License (ver. 2 or later)
 %
 % inspired by the tcl/tk program "ding" for german-english translation
@@ -9,6 +9,7 @@
 % Version    1     Adapted to the new format of the ding dictionary
 % 2005-04-07 1.1   bugfix: added missing autoloads
 % 2005-11-07 1.2   changed _implements() to implements()
+% 2006-05-26 1.2.1 bugfix: missing forward def. for ding() (J. Sommer)
 % 
 % REQUIREMENTS
 % * A bilingual wordlist in ASCII format (e.g. the one that comes
@@ -179,7 +180,8 @@ static define string_wc(str)
    return length(strtok(str));
 }
 
-define ding_mode(); % dummy definition
+define ding();      % forward definition
+define ding_mode(); % forward definition
 
 public define ding() % ([word], direction=Ding_Direction)
 {
