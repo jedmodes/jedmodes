@@ -24,7 +24,9 @@
 
 % _debug_info=1;
 
+autoload("push_defaults", "slutils");
 autoload("popup_buffer", "bufutils");
+autoload("close_buffer", "bufutils");
 
 provide("browse_url");
 % implements("browse_url");
