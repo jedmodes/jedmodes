@@ -41,40 +41,34 @@
 %       an input cache tries to solve this (see also cached-process.sl)
 %     * New blocal var Process_Handle holds "metadata" for the attached
 %       process, replacing most "IShell_*" blocal vars
-% 1.4.1 (2003-12-08)
-%     * ishell-version of process_region() deleted (was buggy)
-%       (take the original one from pipe.sl or use shell_cmd_on_region(cmd, 2)
-%     * shell_cmd_on_region: new output option 4: message
-%     * ishell_mode sets the blocal run_buffer_hook
-%     * new function bufsubfile (might rather go to bufutils?)
-%     * renamed custom variables IShell_* to Ishell_*
-% 1.5 (2004-04-17)
-%     * moved bufsubfile() to bufutils
-%     * filter_region() convenience-function equal to shell_cmd_on_region(,2)
-% 1.5.1 (2004-05-07)
-%     * shell_cmd_on_region: code cleanup; added a sw2buf(buf);
-% 1.5.2 (2004-06-03)
-%     * added ^M-Filter in ishell_insert_output() (tip P. Boekholt)
-% 1.5.3 2004-09-17
-%     * bugfix: do not set blocal_var run_buffer, as this will not work with
-%               push_mode()/pop_mode()
-% 1.6   2004-11-30
-%     * added new optional argument "postfile_args" to shell_cmd_on_region
-% 1.6.1 2005-04-07
-%     * bugfix: autoload for view_mode
-% 1.7   2005-04-14
-%     * new command do_shell_cmd() replacing the one from shell.sl with
-%       a more configurable one by using code from shell_cmd_on_region()
-% 1.7.1 2005-07-08
-%     * as the reuse of the do_shell_cmd() name lead to conflicts, ishell's
-%       version is renamed to shell_command().
-% 1.8   2005-07-28
-%       new function shell_cmd_on_region_or_buffer(): Doesnot save to a
-%       temporary file if no region is defined
-% 1.8.1 2005-11-18
-%       added documentation for custom variables and all public functions
-% 1.8.2 2006-05-10
-% 	bugfix: added missing autoload for normalized_modename()       
+% 1.4.1 2003-12-08 * ishell-version of process_region() deleted (was buggy)
+%                    (take the original one from pipe.sl or use 
+%                    shell_cmd_on_region(cmd, 2)
+%                  * shell_cmd_on_region: new output option 4: message
+%                  * ishell_mode sets the blocal run_buffer_hook
+%                  * new function bufsubfile (might rather go to bufutils?)
+%                  * renamed custom variables IShell_* to Ishell_*
+% 1.5   2004-04-17 moved bufsubfile() to bufutils
+%                  filter_region() convenience-function equal to s
+%                  hell_cmd_on_region(,2)
+% 1.5.1 2004-05-07 shell_cmd_on_region: code cleanup; added a sw2buf(buf);
+% 1.5.2 2004-06-03 added ^M-Filter in ishell_insert_output() (tip P. Boekholt)
+% 1.5.3 2004-09-17 bugfix: do not set blocal_var run_buffer, 
+%                  as this will not work with push_mode()/pop_mode()
+% 1.6   2004-11-30 optional argument "postfile_args" to shell_cmd_on_region()
+% 1.6.1 2005-04-07 bugfix: autoload for view_mode
+% 1.7   2005-04-14 new command do_shell_cmd() replacing the one from shell.sl 
+%                  with a more configurable one by using code 
+%                  from shell_cmd_on_region()
+% 1.7.1 2005-07-08 as the reuse of the do_shell_cmd() name lead to conflicts, 
+%                  ishell's version is renamed to shell_command().
+% 1.8   2005-07-28 new function shell_cmd_on_region_or_buffer(): 
+%                  Doesnot save to a temporary file if no region is defined
+% 1.8.1 2005-11-18 added documentation for custom variables and all 
+%                  public functions
+% 1.8.2 2006-05-10 bugfix: added missing autoload for normalized_modename()
+% 1.8.3 2006-05-19 better cursor placement in shell_command(cmd, 0)
+% 1.8.4 2006-05-26 fixed autoloads (J. Sommer)
 %
 % USAGE ishell()              opens a shell in a buffer on its own
 %  	ishell_mode([cmd])    attaches an interactive process to the
@@ -123,6 +117,7 @@ autoload("buffer_dirname", "bufutils");
 autoload("popup_buffer", "bufutils");
 autoload("close_buffer", "bufutils");
 autoload("normalized_modename", "bufutils");
+autoload("fit_window", "bufutils");
 autoload("get_blocal", "sl_utils");
 autoload("push_defaults", "sl_utils");
 autoload("run_local_hook", "bufutils");
@@ -565,6 +560,7 @@ public define shell_command() % (cmd="", output_handling=0)
 	else
 	  {
 	     () = bol_bsearch("------------------------------------");
+             go_down(2);
 	     view_mode();
 	  }
      }

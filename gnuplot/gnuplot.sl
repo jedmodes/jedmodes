@@ -1,6 +1,6 @@
 % Editing mode for the Gnuplot plotting program
 %
-% Copyright (c) 2003 Günter Milde
+% Copyright (c) 2006 Günter Milde
 % Released under the terms of the GNU General Public License (ver. 2 or later)
 %
 % based on a gnuplot highligting mode by Michele Dondi <bik.mido@tiscalinet.it>
@@ -14,7 +14,8 @@
 %  	      1.1.1 gnuplot-help uses view-mode (from bufutils)
 %  2004-05-06 1.1.2 Added doc for custom variables
 %  	            code cleanup after getting version 1.5 of ishell
-%  2005-11-02 1.13  fixed the "public" statements 
+%  2005-11-02 1.1.3 fixed the "public" statements
+%  2006-05-26 1.1.4 fixed autoloads (J. Sommer)
 %
 %
 %  TODO
@@ -58,16 +59,17 @@ require("keydefs");
 autoload("info_find_dir", "info");
 autoload("info_find_node", "info");
 
-% Extensions by GM
+% Extensions from http://jedmodes.sourceforge.net/
 autoload("popup_buffer", "bufutils");
 autoload("close_buffer", "bufutils");
+autoload("get_blocal", "sl_utils");
+autoload("fit_window", "bufutils");
 autoload("view_mode", "bufutils");
 autoload("ishell_mode", "ishell");
 autoload("shell_cmd_on_region", "ishell");
 
 % --- user adjustable settings ------------------------------------
 
-% debugging
 % _debug_info = 1;
 
 % -- Variables
@@ -185,7 +187,7 @@ define gnuplot_help() %([topic])
 %\synopsis{Runs the gnuplot plotting program}
 %\usage{Void gnuplot_run()}
 %\description
-% The \var{gnuplot_run} function starts gnuplot in a subshell. The region
+% The \sfun{gnuplot_run} function starts gnuplot in a subshell. The region
 % will be handed over as skript-file.
 % if no region is defined, the whole buffer is taken instead. By default,
 % a new buffer *gnuplot-output* is opened for the output (if there is any).
@@ -216,7 +218,7 @@ public define gnuplot_shell()
 %\synopsis{Plots a gnuplot skript to the display}
 %\usage{Void gnuplot_plot(hardcopy=0)}
 %\description
-% The \var{gnuplot_plot} function uses gnuplot to plot a skript to
+% The \sfun{gnuplot_plot} function uses gnuplot to plot a skript to
 % gnuplots default display. To achive this, the buffer is copied to a temporal
 % buffer and the lines
 %    set terminal ...
@@ -229,7 +231,7 @@ public define gnuplot_shell()
 % overriding the values in the skript (actually, you will be asked for the
 % output filename with the above default).
 % If you want other output options either change the custom variables or set
-% terminal and output in the skript and use \var{gnuplot_run}
+% terminal and output in the skript and use \sfun{gnuplot_run}
 %\seealso{gnuplot_mode, gnuplot_run, Gnuplot_Print_Terminal, Gnuplot_Output_Extension}
 %!%-
 define gnuplot_plot () % (hardcopy = 0)
@@ -287,7 +289,7 @@ define gnuplot_plot () % (hardcopy = 0)
 % basename as the skript and the extension "Gnuplot_Output_Extension",
 % overriding the values in the skript.
 % If you want other output options either change these variables or set
-% terminal and output in the skript and use \var{gnuplot_run}.
+% terminal and output in the skript and use \sfun{gnuplot_run}.
 %\seealso{gnuplot_mode, gnuplot_run, gnuplot_plot, Gnuplot_Print_Terminal, Gnuplot_Output_Extension}
 %!%-
 define gnuplot_print()
@@ -435,10 +437,10 @@ static define gnuplot_menu(menu)
 public define gnuplot_mode ()
 {
    set_mode(mode, 4);
-   use_syntax_table (mode);
-   use_keymap (mode);
-   mode_set_mode_info (mode, "fold_info", "#{{{\r#}}}\r\r");
-   mode_set_mode_info (mode, "init_mode_menu", &gnuplot_menu);
+   use_syntax_table(mode);
+   use_keymap(mode);
+   mode_set_mode_info(mode, "fold_info", "#{{{\r#}}}\r\r");
+   mode_set_mode_info(mode, "init_mode_menu", &gnuplot_menu);
    define_blocal_var("help_for_word_hook", &gnuplot_help);
    define_blocal_var("run_buffer_hook", &gnuplot_run);
    run_mode_hooks("gnuplot_mode_hook");

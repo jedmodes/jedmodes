@@ -25,6 +25,7 @@
 %                  nagivation buffer with tokenlist
 % 1.4.1 2006-05-18 fix syntax for sub- and supscript
 % 		   conservative highlight of list markers
+% 1.4.2 2006-05-26 fixed autoloads (J. Sommer)		   
 
 % For debugging purposes:
 % _debug_info = 1;
@@ -40,8 +41,11 @@ require("structured_text");  % text_mode_hook for lists formatting
 autoload("push_defaults", "sl_utils");
 autoload("push_array", "sl_utils");
 autoload("prompt_for_argument", "sl_utils");
+autoload("get_blocal", "sl_utils");
 autoload("popup_buffer", "bufutils");
 autoload("buffer_dirname", "bufutils");
+autoload("close_buffer", "bufutils");
+autoload("fit_window", "bufutils");
 autoload("insert_markup", "txtutils");   % >= 2.3
 autoload("insert_block_markup", "txtutils");   % >= 2.3
 autoload("string_repeat", "strutils");

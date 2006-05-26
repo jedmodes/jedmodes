@@ -5,7 +5,8 @@
 % 
 %             0.1 first public release (as part of mode/tm)
 % 2006-01-24  0.2 bugfix: missing autoload for bget_word()
-% 2006-02-03  0.3 bugfix: wrong source file name for string_nth_match() 
+% 2006-02-03  0.3 bugfix: wrong source file name for string_nth_match()
+% 2006-05-26  0.3.1 fixed autoloads (J. Sommer)
 % 
 % _debug_info=1;
 
@@ -20,6 +21,7 @@ autoload("get_word", "txtutils");
 autoload("bget_word", "txtutils");
 autoload("insert_markup", "txtutils");
 autoload("string_nth_match", "strutils");
+autoload("c_top_of_function", "cmisc");
 
 % Uhm, the word should be defined by mode, I guess (but currently is not)
 % More accurate: it should be mode specific: when I edit a latin1 encoded
@@ -134,7 +136,7 @@ public define tm_make_doc()
    vinsert("%s\\function{%s}\n", cm, name);
    insert (cm + "\\synopsis{}\n");
    % TODO: check for a return value
-   vinsert("%s\\usage{ %s}\n", cm, name_with_args);
+   vinsert("%s\\usage{%s}\n", cm, name_with_args);
    insert (cm + "\\description\n");
    insert (cm + "  \n");
    insert (cm + "\\example\n");
