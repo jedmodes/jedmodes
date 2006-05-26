@@ -20,6 +20,7 @@
 % 1.2.1 2005-10-13 bugfix in find_program()
 % 1.2.1 2005-11-18 correct bugfix in find_program() (changed order of redirections)
 % 1.3   2006-05-23 dropped implementing of a named namespace
+% 1.3.1 2006-05-26 documentation update, added curl to list of download commands
 
 % _debug_info=1;
 
@@ -92,7 +93,7 @@ custom_variable("Browse_Url_Browser", find_program("links, lynx, w3m"));
 %\seealso{find_url, Browse_Url_Browser}
 %!%-
 custom_variable("Browse_Url_Download_Cmd", 
-   find_program("wget --output-document=-, w3c -n, dog"));
+   find_program("wget --output-document=-, curl, w3c -n, dog"));
 if (Browse_Url_Download_Cmd == "")
    Browse_Url_Download_Cmd = Browse_Url_Browser + " -source";
    
@@ -100,10 +101,12 @@ if (Browse_Url_Download_Cmd == "")
 %\variable{Browse_Url_Viewer}
 %\synopsis{Web viewer}
 %\description
-%   Helper app for viewing an URL-s ASCII rendering with view_url().
-%   Must dump an ASCII-rendering of the given URL to stdout.
+%  Helper app for viewing an URL-s ASCII rendering with view_url().
+%  Must dump an ASCII-rendering of the given URL to stdout.
 %\notes
-%   I have problems with html2text and remote URLs (file: works)
+%  While html2txt accepts URLs as input, it has problems
+%  downloading "redirected" URLs (no negotiating with the server)
+%  that can be avoided by using a text mode browser with --dump
 %\seealso{view_url, Browse_Url_Browser}
 %!%-
 custom_variable("Browse_Url_Viewer", Browse_Url_Browser + " -dump");
