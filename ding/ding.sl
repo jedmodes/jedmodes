@@ -9,7 +9,8 @@
 % Version    1     Adapted to the new format of the ding dictionary
 % 2005-04-07 1.1   bugfix: added missing autoloads
 % 2005-11-07 1.2   changed _implements() to implements()
-% 2006-05-26 1.2.1 bugfix: missing forward def. for ding() (J. Sommer)
+% 2006-05-26 1.2.1 missing autoload and forward def. for ding() (J. Sommer)
+% 
 % 
 % REQUIREMENTS
 % * A bilingual wordlist in ASCII format (e.g. the one that comes
@@ -50,6 +51,7 @@ autoload("close_buffer", "bufutils");
 autoload("popup_buffer", "bufutils");
 autoload("close_and_insert_word", "bufutils");
 autoload("close_and_replace_word", "bufutils");
+autoload("fit_window", "bufutils");
 autoload("get_word", "txtutils");
 autoload("bget_word", "txtutils");
 autoload("array", "datutils");

@@ -1,6 +1,6 @@
 % A cua-compatible mouse mode
 %
-% Copyright (c) 2003 Günter Milde
+% Copyright (c) 2006 Günter Milde
 % Released under the terms of the GNU General Public License (ver. 2 or later)
 %
 % Version     1   1998 (published 15. 01. 03)
@@ -9,6 +9,8 @@
 % 2005-03-18  1.2 added some tm documentation
 % 2005-07-05  1.3 added `xclip` workaround for interaction with QT applications
 %                 (idea by Jaakko Saaristo)
+% 2006-02-15  1.4 made auxiliary variables static
+% 2006-05-26  1.4.1 added missing autoload (J. Sommer)
 %
 % What does it do:
 %
@@ -64,13 +66,14 @@ custom_variable("CuaMouse_Use_Xclip", 0);
 
 require ("mouse");
 autoload("run_function", "sl_utils");
+autoload("cua_mark", "cuamark");
 
-variable CuaMouse_Drag_Mode = 0;     % 0 no previous drag, 1 drag
-variable CuaMouse_Return_Value = 1;  % return value for the mouse_hooks
+static variable CuaMouse_Drag_Mode = 0;     % 0 no previous drag, 1 drag
+static variable CuaMouse_Return_Value = 1;  % return value for the mouse_hooks
   % -1 Event not handled, pass to default hook.
   %  0 Event handled, return active window prior to event
   %  1 Event handled, stay in current window.
-variable CuaMouse_Clipboard = "";    % string where a mouse-drag is stored
+static variable CuaMouse_Clipboard = "";    % string where a mouse-drag is stored
 
 %!%+
 %\function{click_in_region}

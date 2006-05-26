@@ -1,7 +1,7 @@
 % Diagnostic functions for SLang programmers
 % show the value of variables (nice for debugging)
 % 
-% Copyright (c) 2003 Günter Milde
+% Copyright (c) 2006 Günter Milde
 % Released under the terms of the GNU General Public License (ver. 2 or later)
 % 
 % Version 1.0 2003-07-09  * first public version
@@ -9,6 +9,7 @@
 
 
 autoload("popup_buffer", "bufutils");
+autoload("fit_window", "bufutils");
 autoload("view_mode", "view");
 require("sprint_var");
 
@@ -55,7 +56,7 @@ public define show_string(str)
 %\usage{Str sprint_args(args)}
 %\description
 %   Take a variable number of arguments, convert to a strings with
-%   \var{sprint_variable()} and return the concatenated strings.
+%   \sfun{sprint_variable()} and return the concatenated strings.
 %\seealso{show, mshow}
 %!%-
 public define sprint_args() % args
@@ -132,6 +133,15 @@ public define mshow() % args
 {
    variable args = __pop_args(_NARGS);
    message(sprint_args(__push_args(args)));
+}
+
+public define show_in_scratch() % args
+{
+   variable args = __pop_args(_NARGS);
+   variable buf = whatbuf();
+   sw2buf("*scratch*");
+   insert(sprint_args(__push_args(args)));
+   sw2buf(buf);
 }
 
 %!%+
@@ -299,7 +309,7 @@ public define show_eval() % args
 }
 
 
-static variable last_stkdepth = 0;
+private variable last_stkdepth = 0;
 
 % modus: 0 set, 1 warn, 2 error
 define stack_check(modus)
