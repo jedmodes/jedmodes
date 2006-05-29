@@ -1,7 +1,7 @@
 % Interface to mtools (http://mtools.linux.lu/) 
 % for easy floppy read/write under UNIX
 % 
-% Copyright (c) 2003 Günter Milde
+% Copyright (c) 2006 Günter Milde
 % Released under the terms of the GNU General Public License (ver. 2 or later)
 %
 % Versions:
@@ -9,7 +9,9 @@
 % 1.1 2004-02-16  use a temp-file for mtools_find_file to preserve the CR-LFs
 %                 (bugreport P. Boekholt)
 %                 separate the directory listing to mtools_list_dir()
-% 1.1.1 2004-06-03 bugfix in mtools_find_file (normalize pathname)                
+% 1.1.1 2004-06-03 bugfix in mtools_find_file (normalize pathname)
+% 1.2   2006-05-29 renamed Jed_Temp_Dir to Jed_Tmp_Directory as this is what
+%                  make_tmp_file() uses since 0.99.17-165
 % 
 % USAGE:
 % 
@@ -42,11 +44,11 @@
 custom_variable("Mtools_Write_Args", "-D a");  % autorename the new file
 
 % Directory for temporary files
-custom_variable("Jed_Temp_Dir", getenv("TEMP"));
-if (Jed_Temp_Dir == NULL)
-  Jed_Temp_Dir = getenv("TMP");
-if (Jed_Temp_Dir == NULL)
-  Jed_Temp_Dir = "/tmp";
+custom_variable("Jed_Tmp_Directory", getenv("TEMP"));
+if (Jed_Tmp_Directory == NULL)
+  Jed_Tmp_Directory = getenv("TMP");
+if (Jed_Tmp_Directory == NULL)
+  Jed_Tmp_Directory = "/tmp";
 
 % call mdir for path
 define mtools_list_dir(path)
@@ -76,7 +78,7 @@ define mtools_list_dir(path)
 define mtools_find_file(path)
 {
    variable status, flags,
-     tmp_file = make_tmp_file(path_concat(Jed_Temp_Dir, path))
+     tmp_file = make_tmp_file(path_concat(Jed_Tmp_Directory, path))
                 + path_extname(path); % (to get the mode right)
    
    % standardize the name of the root dir (so path_basename() works)
