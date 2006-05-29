@@ -5,6 +5,9 @@
 %
 % Versions:
 % 0.1 2006-02-02  proof of concept (works for me)
+% 0.2 2006-05-29  remove custom-var Jed_Temp_Dir 
+%                 after learning that make_tmp_file() uses Jed_Tmp_Directory
+%                 since 0.99.17-165.
 %
 % USAGE
 % -----
@@ -22,10 +25,8 @@
 %
 % On some systems (e.g. SuSE), loadkeys requires superuser privileges.
 %
-% In the current state, console_keys.sl doesnot provide a workaround. There is
-% an earlier version that comes with a suid wrapper script `kjed` but the IMO
-% cleaner approach would be to grant selected users the right to change the
-% keymap.
+% The sysadmin could provide a wrapper, a "console" group or some sudo
+% configuration to share the privileges with trustworthy users. 
 %
 % In any case, on such systems console_keys.sl will fail if you do not have
 % access to  the "root" account.
@@ -44,15 +45,8 @@
 %              that resets the keys and switches the console (as well as
 %              loads the console_keys after coming back with a _before_key_hook
 
-% Directory for temporary files
-custom_variable("Jed_Temp_Dir", getenv("TEMP"));
-if (Jed_Temp_Dir == NULL)
-  Jed_Temp_Dir = getenv("TMP");
-if (Jed_Temp_Dir == NULL)
-  Jed_Temp_Dir = "/tmp";
-
 static variable keymap_cache =
-  make_tmp_file(path_concat(Jed_Temp_Dir, "console_keys_"));
+  make_tmp_file("console_keys_");
 
 % restore the keymap to previous state
 define restore_console_keys()
