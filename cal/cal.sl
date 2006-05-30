@@ -1,9 +1,9 @@
 % cal.sl    -*- mode: Slang; mode: fold -*-
 %
-% $Id: cal.sl,v 1.13 2005/06/18 11:53:18 paul Exp paul $
+% $Id: cal.sl,v 1.14 2006/05/30 14:57:57 paul Exp paul $
 % Keywords: calendar, Emacs
 %
-% Copyright (c) 2000-2003 JED, Eero Tamminen, Paul Boekholt
+% Copyright (c) 2000-2006 JED, Eero Tamminen, Paul Boekholt
 % Released under the terms of the GNU GPL (version 2 or later).
 %
 % This is a clone of the Emacs calendar package.  You can move around,
@@ -16,6 +16,7 @@ _autoload("cal_print_iso_date", "calmisc.sl",
 "cal_print_day_of_year", "calmisc.sl", 3);
 
 require("diary");
+require("keydefs");
 use_namespace("calendar");
 variable mode = "calendar";
 
@@ -57,7 +58,7 @@ variable cal_nlines = 8;
 
 % is yearnum a leap year
 % if it's not divisible by 4, it won't be divisible by 100 or 400
-static define cal_leap_year_p (year)
+define cal_leap_year_p (year)
 {
    andelse
      {not(year & 3)}
@@ -70,7 +71,7 @@ variable days_in_month = [0, 31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
 variable days_to_month =[0, 0, 31, 59, 90, 120, 151, 181, 212, 243, 273, 304, 334];
 
 % The last day in MONTH during YEAR
-static define last_day_of_month(month, year)
+define last_day_of_month(month, year)
 {
    if (andelse
      {month == 2}
@@ -80,7 +81,7 @@ static define last_day_of_month(month, year)
 }
 
 % calculate day of year for given date
-static define cal_day_number(month, day, year)
+define cal_day_number(month, day, year)
 {
    day + days_to_month[month] +
      (andelse
@@ -89,7 +90,7 @@ static define cal_day_number(month, day, year)
 }
 
 % calculate day of week for given date, from Sunday + CalStartWeek
-static define cal_day_of_week(month, day, year)
+define cal_day_of_week(month, day, year)
 {
    variable c, a;
    cal_day_number(month, day, year);
@@ -103,14 +104,14 @@ static define cal_day_of_week(month, day, year)
 }
 
 % return current (month, day, year) as integers
-static define cal_get_date()
+define cal_get_date()
 {
    variable now = localtime(_time());
    return 1 + now.tm_mon, now.tm_mday, 1900 + now.tm_year;
 }
 
 % convert month number or localized name string into integer
-static define cal_convert_month (month_name)
+define cal_convert_month (month_name)
 {
    variable m;
    m = is_list_element(strlow(CalMonths), strlow(month_name), ',');
@@ -122,7 +123,7 @@ static define cal_convert_month (month_name)
 % The number of days elapsed between the Gregorian date 12/31/1 BC and DATE.
 % The Gregorian date Sunday, December 31, 1 BC is imaginary.
 % This won't work with 16 bit integers.
-static define absolute_from_gregorian (month, day, year)
+define absolute_from_gregorian (month, day, year)
 {
    cal_day_number(month, day, year);
    --year;
@@ -133,7 +134,7 @@ static define absolute_from_gregorian (month, day, year)
      + year / 400;
 }
 
-static define gregorian_from_absolute (day)
+define gregorian_from_absolute (day)
 {
    variable n400, n100, n4, n1, month, year, mdays;
    day--;
@@ -159,9 +160,9 @@ static define gregorian_from_absolute (day)
 %{{{ calendar drawing functions
 variable today_visible;
 
-static define cal_cursor_to_visible_date (month, day, year);
+define cal_cursor_to_visible_date (month, day, year);
 
-static define generate_calendar (month, year)
+define generate_calendar (month, year)
 {
    today_visible = 0;
    set_readonly(0); erase_buffer();
@@ -237,7 +238,7 @@ static define generate_calendar (month, year)
 %{{{ calendar movement functions
 
 % save a few tokens
-static define cursor_date()
+define cursor_date()
 {
    return cursor_month, cursor_day, cursor_year;
 }
@@ -245,7 +246,7 @@ static define cursor_date()
 % This function will actually move to any of the 3 visible months, like in
 % Emacs, but I find Emacs' calendar motion confusing. I can still use this
 % for marking diary entries.
-static define cal_cursor_to_visible_date (month, day, year)
+define cal_cursor_to_visible_date (month, day, year)
 {
    goto_line ((day + 20 + cal_day_of_week (month, 1, year)) / 7);
    goto_column (2
@@ -254,7 +255,7 @@ static define cal_cursor_to_visible_date (month, day, year)
 }
 
 
-static define cal_goto_date (month, day, year)
+define cal_goto_date (month, day, year)
 {
    !if (month == displayed_month and year == displayed_year)
      generate_calendar (month, year);
@@ -262,14 +263,14 @@ static define cal_goto_date (month, day, year)
    runhooks("calendar_move_hook");
 }
 
-static define goto_absolute_date(date)
+define goto_absolute_date(date)
 {
    cursor_absolute_date=date;
    (cursor_month, cursor_day, cursor_year) = gregorian_from_absolute (date);
    cal_goto_date (cursor_date());
 }
 
-static define goto_gregorian_date() % (month, day, year)
+define goto_gregorian_date() % (month, day, year)
 {
    (cursor_month, cursor_day, cursor_year) = ();
    cursor_absolute_date = absolute_from_gregorian(cursor_date());
@@ -278,13 +279,39 @@ static define goto_gregorian_date() % (month, day, year)
 
 % Move the cursor forward ARG days.
 % Moves backward if ARG is negative.
-static define forward_day (arg)
+define forward_day (arg)
 {
    variable prefix = prefix_argument(-1);
    if (prefix == -1) prefix = 1;
    goto_absolute_date(cursor_absolute_date + arg * prefix);
 }
    
+
+%}}}
+
+%{{{ calendar mark functions
+
+variable marked_date;
+
+define cal_set_mark()
+{
+   marked_date = cursor_absolute_date;
+}
+
+define cal_exchange_point_and_mark()
+{
+   if (marked_date == NULL) verror ("calendar mark is not set");
+   variable this_date = cursor_absolute_date;
+   goto_absolute_date(marked_date);
+   marked_date = this_date();
+}
+
+define cal_count_days_region()
+{
+   if (marked_date == NULL) verror ("calendar mark is not set");
+   vmessage("region has %d days (inclusive)", 1 + abs(cursor_absolute_date - marked_date));
+}
+  
 
 %}}}
 
@@ -333,7 +360,7 @@ public define show_diary_entries()
    pop2buf("*calendar*");
 }
 
-public define show_all_diary_entries()
+define show_all_diary_entries()
 {
    open_diary;
    push_spot;
@@ -345,12 +372,12 @@ public define show_all_diary_entries()
 }
 
 % calendar requires continuation lines to begin with a tab.
-static define diary_indent_hook()
+define diary_indent_hook()
 {
    !if (looking_at_char('\t')) insert_char ('\t');
 }
 
-static define diary_wrap_hook()
+define diary_wrap_hook()
 {
    push_spot_bol();
    diary_indent_hook();
@@ -360,14 +387,14 @@ static define diary_wrap_hook()
 public define mark_diary_entries();
 
 % insert a string in the diary file
-static define make_diary_entry (string)
+define make_diary_entry (s)
 {
    open_diary();
    pop2buf(dbuf);
    eob();
    !if(bolp()) newline();
    set_line_hidden(0);
-   insert(string + "\t");
+   insert(s + "\t");
    set_buffer_hook("wrap_hook", &diary_wrap_hook);
    set_buffer_hook("indent_hook", &diary_indent_hook);
    setbuf("*calendar*");
@@ -376,7 +403,7 @@ static define make_diary_entry (string)
 }
 
 % insert a diary entry for date at point
-public define insert_diary_entry ()
+define insert_diary_entry ()
 {
    if (DiaryEuropeanFormat)
      make_diary_entry(sprintf("%d/%d/%d", cursor_day, cursor_month, cursor_year));
@@ -385,14 +412,14 @@ public define insert_diary_entry ()
 }
 
 % and for this day of the week
-public define insert_weekly_diary_entry ()
+define insert_weekly_diary_entry ()
 {
    make_diary_entry
      (CalWeekdays[cal_day_of_week(cursor_date())]);
 }
 
 % and for this day of every month
-public define insert_monthly_diary_entry ()
+define insert_monthly_diary_entry ()
 {
    if (DiaryEuropeanFormat)
      make_diary_entry(string(cursor_day) + "/*");
@@ -401,7 +428,7 @@ public define insert_monthly_diary_entry ()
 }
 
 % and for this day of every year
-public define insert_yearly_diary_entry ()
+define insert_yearly_diary_entry ()
 {
    if (DiaryEuropeanFormat)
      make_diary_entry(string(cursor_day) + "/" +  string(cursor_month));
@@ -537,7 +564,7 @@ public define mark_diary_entries()
 %{{{ other functions
 
 % read a month and year
-static define read_date ()
+define read_date ()
 {
    variable t, default, month, year;
    default = sprintf ("%s %d", extract_element(CalMonths, this_month-1, ','), this_year);
@@ -551,7 +578,7 @@ static define read_date ()
    return month, year;
 }
 
-static define other_month ()
+define other_month ()
 {
    variable month, day, year;
    (month, year) = read_date();
@@ -564,7 +591,7 @@ static define other_month ()
 }
 
 
-static define quit()
+define quit()
 {
    otherwindow();
    if (whatbuf() == dbuf)
@@ -580,27 +607,26 @@ static define quit()
 
 %{{{ calendar mode
 
-static define cal_menu(menu)
+define cal_menu(menu)
 {
    menu_append_item (menu, "view appointments", "show_diary_entries");
    menu_append_item (menu, "mark diary entries", "mark_diary_entries");
-   menu_append_item (menu, "&show all entries", "show_all_diary_entries");
+   menu_append_item (menu, "&show all entries", "calendar->show_all_diary_entries");
    menu_append_separator(menu);
-   menu_append_item (menu, "insert &diary entry", "insert_diary_entry");
-   menu_append_item (menu, "insert &weekly entry", "insert_weekly_diary_entry");
-   menu_append_item (menu, "insert &monthly entry", "insert_monthly_diary_entry");
-   menu_append_item (menu, "insert &yearly entry", "insert_yearly_diary_entry");
+   menu_append_item (menu, "insert &diary entry", "calendar->insert_diary_entry");
+   menu_append_item (menu, "insert &weekly entry", "calendar->insert_weekly_diary_entry");
+   menu_append_item (menu, "insert &monthly entry", "calendar->insert_monthly_diary_entry");
+   menu_append_item (menu, "insert &yearly entry", "calendar->insert_yearly_diary_entry");
    menu_append_separator(menu);
    menu_append_item (menu, "&other month", "calendar->other_month");
    menu_append_item (menu, "day of year", "cal_print_day_of_year");
    menu_append_item (menu, "iso date", "cal_print_iso_date");
    menu_append_item (menu, "go to iso date", "cal_goto_iso_date");
-   menu_append_item (menu, "report bug", ". mail bob eol push_mark \"Cnhy <cnhy\d64obrxubbyg.pbwz>\" \"bw\" strcompress insert rot13");
    menu_append_item (menu, "&quit", "calendar->quit");
 }
 
 
-static define calendar_mode()
+define calendar_mode()
 {
    set_mode("calendar", 0);
    use_keymap ("Calendar_Map");
@@ -617,7 +643,7 @@ static define calendar_mode()
 #ifdef HAS_DFA_SYNTAX
 create_syntax_table (mode);
 %%% DFA_CACHE_BEGIN %%%
-static define setup_dfa_callback (mode)
+define setup_dfa_callback (mode)
 {
    dfa_enable_highlight_cache("calendar.dfa", mode);
    dfa_define_highlight_rule ("[0-9][0-9]?\t", "Qkeyword", mode);
@@ -723,13 +749,20 @@ definekey( "calendar->forward_day( -7)", Key_Up   , $2);
 definekey( "calendar->forward_day(  7)", Key_Down , $2);
 definekey( "calendar->forward_day(-91)", Key_PgUp , $2);
 definekey( "calendar->forward_day( 91)", Key_PgDn , $2);
+#ifdef IBMPC_SYSTEM
+definekey( "calendar->cal_set_mark",		"^@^C", $2);
+#else
+definekey( "calendar->cal_set_mark", "^@", $2);
+#endif
+definekey( "calendar->cal_exchange_point_and_mark", "^x^x", $2);
+definekey( "calendar->cal_count_days_region", "\e=", $2);
 definekey( "calendar->quit"       , "q", $2);
 definekey( "show_diary_entries", "d", $2);
-definekey( "show_all_diary_entries", "s", $2);
-definekey( "insert_diary_entry", "id", $2);
-definekey( "insert_weekly_diary_entry", "iw", $2);
-definekey( "insert_monthly_diary_entry","im", $2);
-definekey( "insert_yearly_diary_entry", "iy", $2);
+definekey( "calendar->show_all_diary_entries", "s", $2);
+definekey( "calendar->insert_diary_entry", "id", $2);
+definekey( "calendar->insert_weekly_diary_entry", "iw", $2);
+definekey( "calendar->insert_monthly_diary_entry","im", $2);
+definekey( "calendar->insert_yearly_diary_entry", "iy", $2);
 definekey( "calendar->other_month", "o", $2);
 definekey( "mark_diary_entries", "m", $2);
 definekey( "cal_print_iso_date", "pc", $2);
