@@ -116,6 +116,7 @@ define cua_mark()
 
 
 % Copy region to system clipboards (The region stays marked)
+% see also copy_region_to_clipboard() in cuamouse.sl
 static define copy_to_clipboard()
 {
    () = dupmark();                  % \ 

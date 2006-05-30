@@ -5,48 +5,56 @@ This are the source files of the CVS repository of the Jed Modes Repository,
 a collection of S-Lang scripts (modes) contributed by Jed users.
 
 Some of the modes are experimental (while others work stable for their 
-authors for ages), so USE AT YOUR OWN RISK.
+authors for ages), so **USE AT YOUR OWN RISK**.
 
 Copyright
 ---------
 
+The modes at Jedmodes are `free software`__.
+
 If not stated otherwise in the individual file, all modes at Jedmodes are
-free software copyrighted by their respective creator and released under
-the GNU General Public License (GPL_) 
+copyrighted by their respective creator and released under the 
+*GNU General Public License* (`GPL`_) 
 
-The programs are distributed in the hope that they will be useful, but
+No Warranty
+-----------
+
+The modes are distributed in the hope that they will be useful, but
 WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
-or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
-more details.
+or FITNESS FOR A PARTICULAR PURPOSE.  See the `GPL`_
+for more details.
 
-.. _GPL: http://www.gnu.org/copyleft/gpl.html
+__ http://www.gnu.org/philosophy/free-sw.html
+.. _GPL:  http://www.gnu.org/copyleft/gpl.html
 
 
 Usage
 -----
-
-Generally: 
  
- * Place the files you want to use in the search path for jed library files
-   (cf. Help>Describe_Function get_jed_library_path)
+* Place the files you want to use in the search path for jed library files
+  (cf. Help>Describe_Function get_jed_library_path)
 
- * See the individual modes for detailled usage instructions.
+* See the individual modes for detailled usage instructions.
 
 
-The `libdir` and `make_ini` modes provide an jed extension framework. 
+The `libdir`_ and `make_ini`_ modes provide an jed extension framework. 
 
-* The functions add_libdir(dir, initialize=1) and 
-  append_libdir(dir, initialize=1) register a library dir for use by jed
+* The functions ``add_libdir(dir, initialize=1)`` and 
+  ``append_libdir(dir, initialize=1)`` register a library dir for use by Jed
 
-  * Prepend|Append `path' to the library path
-  * Set `Color_Scheme_Path', `Jed_Doc_Files',
-    and `Jed_Highlight_Cache_Path'
-  * Evaluate (if existent) the file `ini.sl` in this library
+  * Prepend|Append ``path`` to the library path
+  * Set ``Color_Scheme_Path``, ``Jed_Doc_Files``,
+    and ``Jed_Highlight_Cache_Path``
+  * Evaluate (if existent) the file ``ini.sl`` in this directory
     to enable initialization (autoloads etc.). This is customizable by the
     optional second argument.
 
-* The functions in `make_ini` can be used to create such an ini.sl file.
+* The functions in `make_ini`_ can be used to create such an ini.sl file.
   They can also preparse SLang files and create dfa syntax tables.
+
+
+.. _libdir: http://jedmodes.sourceforge.net/mode/libdir/
+.. _make_ini: http://jedmodes.sourceforge.net/mode/make_ini/
 
 Contact
 -------
@@ -58,4 +66,4 @@ Mail hints, bug reports, praise and ideas to
 
 Have fun
 
-G. E. Milde
+G Milde
