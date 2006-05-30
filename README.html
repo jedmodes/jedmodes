@@ -1,0 +1,70 @@
+<?xml version="1.0" encoding="iso-8859-1" ?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1" />
+<meta name="generator" content="Docutils 0.3.10: http://docutils.sourceforge.net/" />
+<title>Jedmodes - Doc</title>
+<link rel="stylesheet" href="jedmodes-docutils.css" type="text/css" />
+</head>
+<body>
+<div class="document" id="jedmodes-readme">
+<h1 class="title">Jedmodes README</h1>
+<p>This are the source files of the CVS repository of the Jed Modes Repository,
+a collection of S-Lang scripts (modes) contributed by Jed users.</p>
+<p>Some of the modes are experimental (while others work stable for their 
+authors for ages), so <strong>USE AT YOUR OWN RISK</strong>.</p>
+<div class="section">
+<h1><a id="copyright" name="copyright">Copyright</a></h1>
+<p>The modes at Jedmodes are <a class="reference" href="http://www.gnu.org/philosophy/free-sw.html">free software</a>.</p>
+<p>If not stated otherwise in the individual file, all modes at Jedmodes are
+copyrighted by their respective creator and released under the 
+<em>GNU General Public License</em> (<a class="reference" href="http://www.gnu.org/copyleft/gpl.html">GPL</a>)</p>
+</div>
+<div class="section">
+<h1><a id="no-warranty" name="no-warranty">No Warranty</a></h1>
+<p>The modes are distributed in the hope that they will be useful, but
+WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
+or FITNESS FOR A PARTICULAR PURPOSE.  See the <a class="reference" href="http://www.gnu.org/copyleft/gpl.html">GPL</a>
+for more details.</p>
+</div>
+<div class="section">
+<h1><a id="usage" name="usage">Usage</a></h1>
+<ul class="simple">
+<li>Place the files you want to use in the search path for jed library files
+(cf. Help&gt;Describe_Function get_jed_library_path)</li>
+<li>See the individual modes for detailled usage instructions.</li>
+</ul>
+<p>The <a class="reference" href="http://jedmodes.sourceforge.net/mode/libdir/">libdir</a> and <a class="reference" href="http://jedmodes.sourceforge.net/mode/make_ini/">make_ini</a> modes provide an jed extension framework.</p>
+<ul class="simple">
+<li>The functions <tt class="docutils literal"><span class="pre">add_libdir(dir,</span> <span class="pre">initialize=1)</span></tt> and 
+<tt class="docutils literal"><span class="pre">append_libdir(dir,</span> <span class="pre">initialize=1)</span></tt> register a library dir for use by Jed<ul>
+<li>Prepend|Append <tt class="docutils literal"><span class="pre">path</span></tt> to the library path</li>
+<li>Set <tt class="docutils literal"><span class="pre">Color_Scheme_Path</span></tt>, <tt class="docutils literal"><span class="pre">Jed_Doc_Files</span></tt>,
+and <tt class="docutils literal"><span class="pre">Jed_Highlight_Cache_Path</span></tt></li>
+<li>Evaluate (if existent) the file <tt class="docutils literal"><span class="pre">ini.sl</span></tt> in this directory
+to enable initialization (autoloads etc.). This is customizable by the
+optional second argument.</li>
+</ul>
+</li>
+<li>The functions in <a class="reference" href="http://jedmodes.sourceforge.net/mode/make_ini/">make_ini</a> can be used to create such an ini.sl file.
+They can also preparse SLang files and create dfa syntax tables.</li>
+</ul>
+</div>
+<div class="section">
+<h1><a id="contact" name="contact">Contact</a></h1>
+<p>Mail hints, bug reports, praise and ideas to</p>
+<blockquote>
+<a class="reference" href="mailto:jedmodes-users&#64;lists.sourceforge.net">jedmodes-users&#64;lists.sourceforge.net</a></blockquote>
+<p>Have fun</p>
+<p>G Milde</p>
+</div>
+</div>
+<div class="footer">
+<hr class="footer" />
+<a class="reference" href="README">View document source</a>.
+Generated on: 2006-05-30.
+
+</div>
+</body>
+</html>
