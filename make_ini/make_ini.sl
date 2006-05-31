@@ -71,7 +71,9 @@
 % 2006-01-10 2.9.6 * documentation cleanup
 % 2006-03-15 2.10  * tighten the rules for <INITIALIZATION> block: now it must
 %                    be a preprocessor cmd ("#<INITIALIZATION>" at bol)
-
+% 2006-05-31 2.11  * added missing break in make_ini_look_for_functions()
+%                  * missing end tag of INITIALIZATION block triggers error
+%            
 
 % _debug_info=1;
 
@@ -245,7 +247,7 @@ define make_ini_look_for_functions(file)
    () = insert_file(file);
    set_buffer_modified_flag(0);
    
-   % if `file' is in the jed-library-path, remove the library-path from it
+   % if `file' is in the jed library path, remove the library-path from it:
    variable dir, libdirs = strchop(get_jed_library_path, ',' , 0);
    libdirs = libdirs[where(libdirs != ".")]; % filter the current dir
    foreach (libdirs)
@@ -253,7 +255,11 @@ define make_ini_look_for_functions(file)
 	dir = ();
 	dir = path_concat(dir, "");  % ensure trailing path-separator
 	if (is_substr(file, dir) == 1)
-	  file = file[[strlen(dir):]];
+          {
+             file = file[[strlen(dir):]];
+             break;
+          }
+        
      }
 
    % global comment
@@ -289,13 +295,12 @@ define make_ini_look_for_functions(file)
      {
 	go_down_1(); bol();
 	push_mark();
-	if (bol_fsearch("#</INITIALIZATION>"))
-          str += bufsubstr();
-	else
+	!if (bol_fsearch("#</INITIALIZATION>"))
 	  {
 	     pop_mark(0);
-	     str += "no </INITIALIZATION> end tag found";
+	     error("no </INITIALIZATION> end tag in " + file);
 	  }
+        str += bufsubstr();
      }
    else 
      {
@@ -440,6 +445,7 @@ define byte_compile_libdir(dir)
 }
 
 
+#ifexists tm_parse
 %!%+
 %\function{make_libfun_doc}
 %\synopsis{Write tm documentation in dir to "libfuns.txt"}
@@ -453,9 +459,6 @@ define byte_compile_libdir(dir)
 %!%-
 public define make_libfun_doc() % ([dir])
 {
-#ifnexists tm_parse
-     error("make_libfun_doc needs a current version of tm.sl (jedmodes.sf.net/tm/");
-#else
    % get optional argument
    variable dir;
    if (_NARGS)
@@ -473,8 +476,8 @@ public define make_libfun_doc() % ([dir])
      return vmessage("no tm documentation in %s", dir);
    
    () = write_string_to_file(str, path_concat(dir, Tm_Doc_File));
-#endif
 }
+#endif
 
 %!%+
 %\function{update_ini}
@@ -508,9 +511,14 @@ public define update_ini() % (directory=buffer_dirname())
         byte_compile_libdir(dir);
 	byte_compile_file(path_concat(dir, Ini_File), 0);
      }
+#ifexists tm_parse
    % extract the documentation and put in file libfuns.txt
    if(Make_ini_Extract_Documentation)
+     {
+	flush("extracting on-line documentation");
 	make_libfun_doc(dir);
+     }
+#endif
    sw2buf(buf);
    message("update_ini completed");
 }
