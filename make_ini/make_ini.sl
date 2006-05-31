@@ -3,7 +3,7 @@
 % Creates a file ini.sl that declares all (public) functions
 % in the current directory. Also bytecompiles the files, if set to do so.
 %
-% Copyright (c) 2005 Günter Milde
+% Copyright (c) 2003, 2006 Günter Milde
 % Released under the terms of the GNU General Public License (ver. 2 or later)
 %
 % USAGE:
@@ -73,7 +73,8 @@
 %                    be a preprocessor cmd ("#<INITIALIZATION>" at bol)
 % 2006-05-31 2.11  * added missing break in make_ini_look_for_functions()
 %                  * missing end tag of INITIALIZATION block triggers error
-%            
+%                  * update_ini(): evaluate new ini.sl (test, add autoloads)
+
 
 % _debug_info=1;
 
@@ -503,6 +504,8 @@ public define update_ini() % (directory=buffer_dirname())
      return vmessage("no SLang files in %s", dir);
    make_ini(dir);
    save_buffer();
+   % evaluate to test and add new autoloads
+   evalbuffer();
    delbuf(whatbuf());
    % bytecompile (the ini-file as well)
    if(Make_ini_Bytecompile)
