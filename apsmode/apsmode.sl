@@ -24,6 +24,7 @@
 % 1.5   2005-04-14 added handling of font size
 %                  added saving of current parameters in apsconf format
 % 1.5.1 2005-11-21 modified apsconf.sl: GM: use path_concat() for aps_tmp_dir
+% 1.5.2 2006-06-01 made user-definable variables custom_variables (G Milde)
 %
 %
 % Description
@@ -225,12 +226,12 @@ variable use_jed_a2ps_style_sheet = Assoc_Type[Integer_Type];
 %
 % modify values in apsconf.sl instead of here!!!
 %
-variable aps_tmp_dir = path_rel(__FILE__,"../apsconf/");
-variable a2ps_cmd = "a2ps";
-variable default_printer = 1;
-variable aps_tmp_file = path_rel(__FILE__,"../apsconf/print_from_jed.ps");
-variable aps_menu = 1;
-variable aps_del_ps_file = 1;
+custom_variable("aps_tmp_dir", path_rel(__FILE__,"../apsconf/"));
+custom_variable("a2ps_cmd", "a2ps");
+custom_variable("default_printer", 1);
+custom_variable("aps_tmp_file", path_rel(__FILE__,"../apsconf/print_from_jed.ps"));
+custom_variable("aps_menu", 1);
+custom_variable("aps_del_ps_file", 1);
 %%%%%%%%%%%%%%% user-definable variables end %%%%%%%%%%%%%
 
 %{{{
@@ -243,10 +244,10 @@ variable aps_creation_date = "2005-11-22";
 variable aps_jed_tested = "0.99-16";
 variable aps_creator = "tkoeckritz@gmx.de";
 
-variable aps_help_file = path_rel(__FILE__,"../apsconf/aps.hlp");
-variable a2ps_sheet_dir = path_rel(__FILE__,"../apsconf/");
-variable aps_config_file = path_rel(__FILE__,"../apsconf/apsconf.sl");
-variable aps_preview = "off";
+custom_variable("aps_help_file", path_rel(__FILE__,"../apsconf/aps.hlp"));
+custom_variable("a2ps_sheet_dir", path_rel(__FILE__,"../apsconf/"));
+custom_variable("aps_config_file", path_rel(__FILE__,"../apsconf/apsconf.sl"));
+custom_variable("aps_preview", "off");
 % number of printers which can be defined in apsconf.sl
 % (default = 20 should be sufficient in most cases)
 variable max_no_printers = 20;
