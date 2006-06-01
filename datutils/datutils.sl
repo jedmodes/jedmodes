@@ -1,6 +1,6 @@
 % datutils.sl
 % 
-% Copyright (c) 2003 Günter Milde
+% Copyright (c) 2006 Günter Milde
 % Released under the terms of the GNU General Public License (ver. 2 or later)
 %
 % Data manipulations, convenience functions for several Data_Types
@@ -17,6 +17,7 @@
 %         1.2.2 bugfix in array_max(), the definition in sl_utils contrdicted
 %               the intrinsic one which resembles array_max() (report PB)
 %         1.2.3 removed "public" keyword from all functions
+%         1.2.3 added provide("datutils");
 
 _autoload(
    "push_defaults", "sl_utils",
@@ -61,7 +62,7 @@ define pop2array() % (n=_stkdepth, [type])
 
 % Return an array containing the arguments
 % If you know the datatype of the arguments, you can save resources
-% pushing the arguments first and using pop2array().
+% pushing the arguments first and using pop2array() with the datatype argument.
 %    (arg1, ...., argN);
 %    pop2array(N, datatype)
 % instead of (the simpler)
@@ -140,6 +141,7 @@ define array_max(a)
 }
 
 % Return the sum of the array elements
+% sum is a slang intrinsic since 1.4.6. (but must be activated manually)
 define array_sum(a)
 {
    variable sum = 0;
@@ -218,3 +220,5 @@ define assoc_get_key(ass, value)
 	  return key;
      }
 }
+
+provide("datutils");
