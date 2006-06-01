@@ -16,11 +16,14 @@
 % 	      	  added tm documentation
 % 2005-11-21  1.4.1 removed the public from define str_repeat() and 
 %                   define get_keystring()
+% 2006-03-01  1.4.2 added provide()
+%                   added autoload for push_defaults()
 %
 % (projects for further functions in projects/str_utils.sl)
 
 autoload("array_append", "datutils");
-
+autoload("push_defaults", "sl_utils");
+           
 % debug information, uncomment to locate errors
  % _debug_info = 1;
 
@@ -83,7 +86,7 @@ define string_get_match() % (str, pattern, pos=1, nth=0)
 %\synopsis{Regexp replace max_n occurences of \var{pattern} with \var{rep}}
 %\usage{(String, Integer) str_re_replace(str, pattern, rep, max_n)}
 %\description
-%  Regexp equivalent to \var{strreplace}. Replaces up to max_n occurences
+%  Regexp equivalent to \sfun{strreplace}. Replaces up to max_n occurences
 %  of \var{pattern} with \var{rep}.
 %  
 %  Returns the string with replacements and the number of replacements done.
@@ -122,7 +125,7 @@ define str_re_replace(str, pattern, rep, max_n)
 %\synopsis{Regexp replace all occurences of \var{pattern} with \var{rep}}
 %\usage{String str_re_replace_all(str, pattern, rep)}
 %\description
-%  Regexp equivalent to \var{str_replace_all}. Replaces all occurences
+%  Regexp equivalent to \sfun{str_replace_all}. Replaces all occurences
 %  of \var{pattern} with \var{rep} and returns the resulting string.
 %\seealso{str_re_replace, str_replace_all, string_get_match}
 %!%-
@@ -196,7 +199,7 @@ define string_repeat(str, n)
 %\usage{Array strwrap(String str, wrap=WRAP, delim=' ', quote = 0)}
 %\description
 %  Line wrapping for strings: Split a string into substrings of maximal 
-%  \var{wrap} chars, breaking at \var{delim} (if not quoted, cv. \var{strchop}).
+%  \var{wrap} chars, breaking at \var{delim} (if not quoted, cv. \sfun{strchop}).
 %  Return array of strings.
 %\seealso{strbreak, strtok, WRAP}
 %!%-
@@ -298,3 +301,5 @@ define get_keystring()
    while (input_pending(0));
    return key;
 }
+
+provide("strutils");
