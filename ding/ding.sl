@@ -10,6 +10,7 @@
 % 2005-04-07 1.1   bugfix: added missing autoloads
 % 2005-11-07 1.2   changed _implements() to implements()
 % 2006-05-26 1.2.1 missing autoload and forward def. for ding() (J. Sommer)
+% 2006-06-01 1.2.2 forward def needs to be public
 % 
 % 
 % REQUIREMENTS
@@ -182,8 +183,8 @@ static define string_wc(str)
    return length(strtok(str));
 }
 
-define ding();      % forward definition
-define ding_mode(); % forward definition
+public define ding();      % forward definition
+public define ding_mode(); % forward definition
 
 public define ding() % ([word], direction=Ding_Direction)
 {
