@@ -8,6 +8,8 @@
 % requires apsmode version >=1.5
 % 
 % 2005-11-21 GM: use path_concat() for aps_tmp_dir
+% 2006-06-01 GM: set aps_tmp_dir from Jed_Tmp_Directory 
+%                (new in Jed 0.99.17.165)
 % 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% 
 % name        : aps_menu
@@ -51,24 +53,31 @@
 % value       : use_jed_a2ps_style_sheet[<jed-mode-name>] = 1;
 %
 
+custom_variable("Jed_Tmp_Directory", getenv("TEMP"));
+if (Jed_Tmp_Directory == NULL)
+  Jed_Tmp_Directory = getenv("TMP");
+if (Jed_Tmp_Directory == NULL)
+#ifdef MSWINDOWS
+  Jed_Temp_Dir = "C:\\temp";
+#elseif
+  Jed_Tmp_Directory = "/tmp";
+#endif
+
+aps_tmp_dir = path_concat(Jed_Tmp_Directory, ""); % ensure trailing separator
+aps_tmp_file = strcat(aps_tmp_dir, "print_from_jed.ps");
+
 aps_menu = 1;
 aps_del_ps_file = 1;
 
 #ifdef UNIX
-aps_tmp_dir = path_concat(getenv("TMPDIR"), ""); % ensure trailing "/"
-if (aps_tmp_dir == "")
-  aps_tmp_dir = "/tmp/";
 a2ps_cmd = "a2ps";
 default_printer = 5;
 #endif
 
 #ifdef MSWINDOWS
-aps_tmp_dir = "C:\\temp\\";
 a2ps_cmd = "D:\\Programs\\a2ps\\bin\\a2ps.exe";
 default_printer = 1;
 #endif
-
-aps_tmp_file = strcat(aps_tmp_dir, "print_from_jed.ps");
 
 use_jed_a2ps_style_sheet["SLang"] = 1;
 use_jed_a2ps_style_sheet["TSL"] = 1;
