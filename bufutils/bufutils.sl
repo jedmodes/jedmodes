@@ -1,6 +1,6 @@
 % bufutils.sl  Tools for buffer and windows handling
 %
-% Copyright (c) 2003 Günter Milde
+% Copyright (c) 2006 Günter Milde
 % Released under the terms% of the GNU General Public License (version 2 or later).
 %
 % Version    1.0   first public version
@@ -52,6 +52,10 @@
 % 2006-01-11 1.9   bugfix in close_and_insert_word and close_and_replace_word
 %                  (report Paul Boekholt)
 %                  revised approach to "backswitching" after a buffer is closed
+% 2006-05-29 1.10  run_local_hook() tries mode_get_mode_info(hook) before 
+%                  get_blocal(hook)
+% 	     	   custom var Jed_Temp_Dir renamed to Jed_Tmp_Directory
+% 	     	   (which is new in site.sl since 0.99.17.165)
 
 % _debug_info = 1;
 
@@ -100,32 +104,66 @@ define help_message()
   message(Help_Message[normalized_modename]);
 }
 
-% --- Buffer local hooks  -----------------------------------------------
+% --- Local hooks  -----------------------------------------------
 %
-% Tools for the definition and use of buffer local hooks -- just like the
-% indent_hook or the newline_and_indent_hook jed already provides.
-% Extend this idea to additional hooks that can be set by a mode and used by
-% another. Allows customizatin to be split in the "language" mode that
-% provides functionality and the "emulation" mode that does the keybinding.
+% Tools for the definition and use of mode- or buffer local hooks -- just like
+% the indent_hook or the newline_and_indent_hook jed already provides. Extend
+% this idea to additional hooks that can be set by a mode and used by another.
+% Allows customizatin to be split in the "language" mode that provides
+% functionality and the "emulation" mode that does the keybinding.
 %
-% Implementation is done via blocal vars. The hook can either be given as
+% Implementation is done via blocal vars and the mode-info functions.
+% The hook can either be given as
 % a pointer (reference) to a function or as the function name as string.
 
 %!%+
-%\function{run_blocal_hook}
-%\synopsis{Run a blocal hook if it exists}
-%\usage{ Void run_blocal_hook(String hook, [args])}
+%\function{run_local_hook}
+%\synopsis{Run a local hook if it exists}
+%\usage{ Void run_local_hook(String hook, [args])}
 %\description
-%   Run a blocal hook if it exists
-%\example
+%  The hook is looked for in the following places:
+%  
+%    * the blocal variable \var{hook}
+%    * the mode info field \var{hook}
+%    * or a function with name <modename>_\var{hook}
+%       [i.e. sprintf("%s_%s", normalized_modename(), hook)]
+%  
+%  and can be defined with one of
 %#v+
-% define run_buffer()
-% {
-%    run_blocal_hook("run_buffer_hook");
-% }
+%   define_blocal_var("<hook>", &<function_name>);
+%   define_blocal_var("<hook>", "<function_name>");
+%   mode_set_mode_info("<hook>", "<function_name>");
+%   mode_set_mode_info("<modename>", "<hook>", "<function_name>");
+%   define <modename>_<hook>() { <code> }
 %#v-
-%\seealso{runhooks, run_function, get_blocal, get_blocal_var}
+%  This way a mode can set a mode- or buffer-dependent function to a common
+%  keybinding.
+%\example
+% Set up a key to do a default action on a buffer ("run it"):
+%#v+
+%   define run_buffer() { run_local_hook("run_buffer_hook"); }
+%   setkey("run_buffer", "^[^M");    % Alt-Return
+%   mode_set_mode_info("SLang", "run_buffer_hook", "evalbuffer");
+%   mode_set_mode_info("latex", "run_buffer_hook", "latex_compose");
+%   mode_set_mode_info("python", "run_buffer_hook", "py_exec");
+%#v-
+%\seealso{runhooks, run_function, get_blocal, run_buffer, mode_set_mode_info}
 %!%-
+define run_local_hook() % (hook, [args])
+{
+   variable args = __pop_args(_NARGS-1);
+   variable hook = ();
+   
+   variable fun = get_blocal(hook);
+   if (fun == NULL)
+     fun = mode_get_mode_info(hook);
+   if (fun == NULL)
+     fun = sprintf("%s_%s", normalized_modename(), hook);
+   () = run_function(fun, __push_args(args));
+}
+
+
+% deprecated, use run_local_hook instead
 define run_blocal_hook() % (hook, [args])
 {
    variable args = __pop_args(_NARGS-1);
@@ -135,82 +173,71 @@ define run_blocal_hook() % (hook, [args])
 
 %!%+
 %\function{run_buffer}
-%\synopsis{Evaluate the current buffer as script}
-%\usage{ Void run_buffer()}
+%\synopsis{Run the current buffer}
+%\usage{Void run_buffer()}
 %\description
-%  Evaluate the current buffer as script, using the blocal_hook
-%  "run_buffer_hook" to find out which function to use. This way
-%  a mode for a scriptiong language can set the right function but leave
-%  a unified keybinding up to the emulation mode (or your .jedrc)
+%  "Run" the current buffer. The actual function performed is defined by
+%  the local "run_buffer_hook" (see \sfun{run_local_hook}).
 %\example
-%  Up to date modes set the blocal var by themself, e.g.
+%  Some modes set the \sfun{run_mode_hook} by themself, for others you can use
+%  \sfun{mode_set_mode_info} (since Jed 0.99.17), e.g.
 %#v+
-% public define gnuplot_mode ()
-% {
-%    set_mode(mode, 4);
-%    use_syntax_table (mode);
-%    use_keymap ("GnuplotMap");
-%    mode_set_mode_info (mode, "fold_info", "#{{{\r#}}}\r\r");
-%    mode_set_mode_info (mode, "init_mode_menu", &init_mode_menu);
-%    define_blocal_var("help_for_word_hook", &gnuplot_help);
-%    define_blocal_var("run_buffer_hook", &gnuplot_run);
-%    run_mode_hooks("gnuplot_mode_hook");
-% }
+%   mode_set_mode_info("latex", "run_buffer_hook", "latex_compose");
 %#v-
-%  For others you can do it using the mode_hooks, e.g.
+%  or using mode_hooks (this variant is also proof for Jed <= 0.99.16)
 %#v+
-%   define latex_mode_hook ()
-% {
-%    define_blocal_var("run_buffer_hook", "latex_compose");
-% }
-%
-% define calc_mode_hook ()
-% {
-%    define_blocal_var("run_buffer_hook", "calc_make_calculation");
-%    set_buffer_undo(1);
-% }
+%   define calc_mode_hook ()
+%   {
+%      define_blocal_var("run_buffer_hook", "calc_make_calculation");
+%      set_buffer_undo(1);
+%   }
 %#v-
-%\seealso{run_blocal_hook, evalbuf}
+%\seealso{run_local_hook, evalbuf}
 %!%-
 public define run_buffer()
 {
-   run_blocal_hook("run_buffer_hook");
+   run_local_hook("run_buffer_hook");
 }
 
 % --- window operations ----------------------------------------------
 
 %!%+
 %\function{window_set_rows}
-%\synopsis{Make the current window \var{rows} rows big}
-%\usage{Void window_set_rows(Int rows)}
+%\synopsis{Make the current window \var{n} rows big}
+%\usage{window_set_rows(Int n)}
+%\usage{window_set_rows(Double_Type n)}
 %\description
-%   Resizes the current window:
-%   If there is only one window, the no action is taken.
-%   If \var{rows} is zero, the window is deleted
-%   If \var{rows} is negative, the window is reduced by \var{rows} lines.
-%   (Use loop(rows) enlargewin(); to get relative enlargement.)
+% Resizes the current window:
+%   If \var{n} is of Double_Type (e.g. 0.5), the window is rezized to
+%   this fraction of the screen.
+%   If there is only one window, a new window is created.
+%   If \var{n} is zero, the window is deleted
+%   If \var{n} is negative, the window is reduced by \var{n} lines.
+%   (Use loop(n) enlargewin(); to get relative enlargement.)
 %\notes
-%   If there are more than two windows open,
-%   the function might not work as desired.
-%\seealso{fit_window, enlargewin, onewindow}
+% If there are more than two windows open, the function might not work as
+% desired.
+%\seealso{fit_window, enlargewin, splitwindow, onewindow}
 %!%-
-define window_set_rows(rows)
+define window_set_rows(n)
 {
-   if (rows == 0)
+   % convert n from fraction to absolute if Double_Type:
+   if (typeof(n) == Double_Type)
+     n = int((SCREEN_HEIGHT - TOP_WINDOW_ROW - 2) * n);
+   if (n == 0)
      	call("delete_window");
-   if (rows < 0)
-       rows += window_info('r');
-   if (nwindows () - MINIBUFFER_ACTIVE == 1)
-     return;
-   if (rows >= SCREEN_HEIGHT-3)
+   if (n < 0)
+       n += window_info('r');
+   if (nwindows() - MINIBUFFER_ACTIVE == 1)
+     splitwindow();
+   if (n >= SCREEN_HEIGHT - TOP_WINDOW_ROW - 2)
      onewindow();
-   variable misfit = rows - window_info('r');
+   variable misfit = n - window_info('r');
    if (misfit > 0) { % window too small
       loop(misfit)
-	enlargewin ();
+	enlargewin();
    }
    if (misfit < 0) { % window too large
-      variable curbuf = whatbuf();
       otherwindow();
       loop(-misfit)
 	enlargewin ();
@@ -218,7 +245,7 @@ define window_set_rows(rows)
 	otherwindow();
    }
    if (eobp)
-     recenter(rows);
+     recenter(n);
 }
 
 %!%+
@@ -241,7 +268,7 @@ public define fit_window () % fit_window(max_rows = 1.0)
      return;
    % convert max_rows from fraction to absolute if Double_Type:
    if (typeof(max_rows) == Double_Type)
-	max_rows = int(SCREEN_HEIGHT-3 * max_rows);
+     max_rows = int((SCREEN_HEIGHT - TOP_WINDOW_ROW - 2) * max_rows);
    % get the desired number of rows (lines in the actual buffer or max_rows)
    push_spot();
    eob;
@@ -273,7 +300,7 @@ public define close_buffer() % (buf = whatbuf())
    variable currbuf = whatbuf();
    
    sw2buf(buf);
-   run_blocal_hook("close_buffer_hook", buf);
+   run_local_hook("close_buffer_hook", buf);
    delbuf(buf);
    % make sure to stay in the current buffer after closing a different one
    if (currbuf != buf)
@@ -298,7 +325,7 @@ define close_other_buffer ()
 %  Close buffer, insert current word in the buffer indicated by
 %  the buffer-local ("blocal") variable "calling_buffer".
 %\notes
-%  The \var{popup_buffer} function automatically records the calling
+%  The \sfun{popup_buffer} function automatically records the calling
 %  buffer.
 %\seealso{close_and_replace_word, popup_buffer, close_buffer}
 %!%-
@@ -315,17 +342,17 @@ define close_and_insert_word()
 }
 
 %!%+
-%\function{close_and_insert_word}
+%\function{close_and_replace_word}
 %\synopsis{Close buffer, replace current word in calling buffer}
-%\usage{close_and_insert_word()}
+%\usage{close_and_replace_word()}
 %\description
-%  Close buffer, insert current word in the buffer indicated by
-%  the buffer-local ("blocal") variable "calling_buffer" replacing
-%  the current word (or visible region) there.
+%  Close buffer, insert current word into the buffer indicated by the blocal
+%  variable "calling_buffer" replacing the current word (or visible region)
+%  there.
 %\notes
-%  The \var{popup_buffer} function automatically records the calling
+%  The \sfun{popup_buffer} function automatically records the calling
 %  buffer.
-%\seealso{close_and_insert_word, popup_buffer, close_buffer}
+%\seealso{close_and_insert_word, popup_buffer, close_buffer, get_blocal}
 %!%-
 define close_and_replace_word()
 {
@@ -382,7 +409,16 @@ define popup_close_buffer_hook(buf)
    calling_buf = get_blocal("calling_buf", "");
    if (buffer_visible(calling_buf))
      sw2buf(calling_buf);
+   % Return to the minibuffer line, if opened from there
+   if (calling_buf == " <mini>" and MINIBUFFER_ACTIVE)
+     loop (nwindows()) 
+       { 
+          otherwindow();
+          if (whatbuf() == " <mini>")
+            break;
+       }
 }
+
 
 %!%+
 %\function{popup_buffer}
@@ -414,8 +450,8 @@ define popup_buffer() % (buf, max_rows = Max_Popup_Size)
    variable buf, max_rows;
    (buf, max_rows) = push_defaults(whatbuf(), Max_Popup_Size, _NARGS);
 
-   variable replaced_buf, calling_buf = whatbuf(),
-     open_windows = nwindows - MINIBUFFER_ACTIVE;
+   variable replaced_buf, calling_buf = whatbuf();
+   variable open_windows = nwindows - MINIBUFFER_ACTIVE; % before opening new
    % Open/go_to the buffer, store the replaced buffers name
    replaced_buf = pop2buf_whatbuf(buf);
    % find out if we can savely fit the window (set max_rows to 0 otherwise)
@@ -476,7 +512,7 @@ define pop_keymap ()
 %\description
 % The function acts on the local keymap (if not told otherwise by the
 % \var{keymap} argument. It scans for all bindings to \var{old_fun} with
-% \var{which_key} and sets them to \var{new_fun}. 
+% \sfun{which_key} and sets them to \var{new_fun}. 
 %\example
 %  The email mode (email.sl) uses rebind to bind the mode-specific formatting
 %  function to the key(s) used for format_paragraph:
@@ -487,7 +523,7 @@ define pop_keymap ()
 %  If the optional argument \var{prefix} is not empty, the prefix will be 
 %  prepended to the key to bind to. Use this to create "maps" of bindings
 %  that reflect the users normal binding, e.g. with \var{_Reserved_Key_Prefix}
-%  (this is what \var{rebind_reserved} does).
+%  (this is what \sfun{rebind_reserved} does).
 %\seealso{setkey, local_setkey, definekey, definekey_reserved}
 %!%-
 define rebind() % (old_fun, new_fun, keymap=what_keymap(), prefix="")
@@ -510,10 +546,10 @@ define rebind() % (old_fun, new_fun, keymap=what_keymap(), prefix="")
 %\synopsis{Rebind a function prepending the \var{_Reserved_Key_Prefix}}
 %\usage{ rebind_reserved(old_fun, new_fun, keymap)}
 %\description
-% Call \var{rebind} with \var{prefix} set to \var{_Reserved_Key_Prefix}.
+% Call \sfun{rebind} with \var{prefix} set to \var{_Reserved_Key_Prefix}.
 %\notes
 % The action is more a remodelling than a rebinding, the name should reflect
-% the close relation to the \var{rebind} function.
+% the close relation to the \sfun{rebind} function.
 %\seealso{rebind, definekey_reserved, setkey_reserved}
 %!%-
 define rebind_reserved(old_fun, new_fun, keymap)
@@ -620,22 +656,28 @@ public define reload_buffer()
 % ------- Write the region to a file and return its name. -----------------
 
 % Directory for temporary files
-custom_variable("Jed_Temp_Dir", getenv("TEMP"));
-if (Jed_Temp_Dir == NULL)
-  Jed_Temp_Dir = getenv("TMP");
-if (Jed_Temp_Dir == NULL)
-  Jed_Temp_Dir = "/tmp";
 
-% list of files to delete at exit 
+% Backwards compatibility to earlier versions of bufutils.sl
+#ifexists Jed_Temp_Dir
+custom_variable("Jed_Tmp_Directory", Jed_Temp_Dir);
+#endif
+
+custom_variable("Jed_Tmp_Directory", getenv("TEMP"));
+if (Jed_Tmp_Directory == NULL)
+  Jed_Tmp_Directory = getenv("TMP");
+if (Jed_Tmp_Directory == NULL)
+  Jed_Tmp_Directory = "/tmp";
+
+% list of files to delete at exit
 % (defined with custom_variable, so a reevaluation of bufutils will not
 %  delete the existing list.)
- custom_variable("Bufsubfile_Temp_Files", "");
+ custom_variable("Bufsubfile_Tmp_Files", "");
 
 % cleanup at exit
 static define delete_temp_files()
 {
    variable file;
-   foreach (strchop(strtrim_beg(Bufsubfile_Temp_Files), '\n', 0))
+   foreach (strchop(strtrim_beg(Bufsubfile_Tmp_Files), '\n', 0))
      {
 	file = ();
 	if (file_status(file) == 1)
@@ -655,7 +697,7 @@ add_to_hook("_jed_exit_hooks", &delete_temp_files);
 %   If \var{delete} != 0, delete the region/buffer after writing.
 %   If \var{base} == NULL (default), the buffer-name is taken as basename
 %   If the \var{base} is not absolute, the file is written to the
-%   \var{Jed_Temp_Dir}.
+%   \var{Jed_Tmp_Directory}.
 %   
 %   Return the full filename.
 %   
@@ -669,7 +711,7 @@ add_to_hook("_jed_exit_hooks", &delete_temp_files);
 %    * pipe_region() only takes input but outputs to stdout, but
 %    * shell_cmd_on_region() uses bufsubfile() and run_shell_cmd() for 
 %      bidirectioal interaction
-%\seealso{system, run_shell_cmd, shell_cmd_on_region, pipe_region, Jed_Temp_Dir}
+%\seealso{system, run_shell_cmd, shell_cmd_on_region, pipe_region}
 %!%-
 define bufsubfile() % (delete=0, base=NULL)
 {
@@ -677,35 +719,15 @@ define bufsubfile() % (delete=0, base=NULL)
    (delete, base) = push_defaults(0, NULL, _NARGS);
    push_spot ();
    
-   % % just return the filename if this will do
-   %   --> saves some ressources, but introduces an inconsistency:
-   %       What happens, if a command called on the file changes
-   %       the (assumed temporary) file??
-   % if (base != NULL)
-   %   base = expand_filename(base);
-   % if (andelse{buffer_filename() == ""}
-   % 	{not(is_visible_mark())}
-   % 	{not(buffer_modified())}
-   % 	{base == NULL or base == path_basename(buffer_filename())}
-   %    )
-   %   {
-   % 	if (delete) {
-   % 	   !if (is_visible_mark)
-   % 	     mark_buffer();
-   % 	   del_region();
-   % 	}
-   % 	return buffer_filename();
-   %   }
-   % % else write to temp file and return filename
    !if (is_visible_mark)
      mark_buffer();
    if (delete)
      () = dupmark();
-   % create a unique filename (keeping the extension
+   % create a unique filename (keeping the extension)
    if (base == NULL)
      base = str_delete_chars(path_basename(whatbuf()), "*+<>:\\/ ");
    extension = path_extname(base);
-   base = path_concat(Jed_Temp_Dir, path_sans_extname(base));
+   base = path_concat(Jed_Tmp_Directory, path_sans_extname(base));
    for (i=1; i<=i_max; i++)
      {
 	filename = sprintf ("%s%d%s", base, i, extension);
@@ -719,10 +741,10 @@ define bufsubfile() % (delete=0, base=NULL)
    if (delete)
      del_region();
    % delete the file at exit
-   Bufsubfile_Temp_Files += "\n" + filename;
+   Bufsubfile_Tmp_Files += "\n" + filename;
    pop_spot();
    
-   % show("bufsubfile:", filename, Bufsubfile_Temp_Files);
+   % show("bufsubfile:", filename, Bufsubfile_Tmp_Files);
    return filename;
 }
 
