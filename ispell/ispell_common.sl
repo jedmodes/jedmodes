@@ -2,7 +2,7 @@
 %
 % Author:	Paul Boekholt
 %
-% $Id: ispell_common.sl,v 1.15 2006/01/15 17:43:11 paul Exp paul $
+% $Id: ispell_common.sl,v 1.16 2006/06/03 18:06:35 paul Exp paul $
 % 
 % Copyright (c) 2003-2006 Paul Boekholt.
 % Released under the terms of the GNU GPL (version 2 or later).
@@ -30,6 +30,9 @@ variable ispell_current_dictionary = Ispell_Dictionary;
 variable flyspell_current_dictionary = Ispell_Dictionary;
 
 define flyspell_switch_active_buffer_hook();
+define flyspell_change_syntax_table();
+define kill_ispell();
+define kill_flyspell();
 
 % make the ispell command (except for options only needed by some modes)
 % and set the ispell_language settings
@@ -73,13 +76,13 @@ static define ispell_change_current_dictionary(new_language)
      {
 	ispell_current_dictionary = new_language;
 	make_ispell_command();
-	runhooks("kill_ispell");
+	kill_ispell();
 	if (get_blocal("flyspell", 0)
 	    and flyspell_current_dictionary != ispell_current_dictionary)
 	  {
-	     runhooks("kill_flyspell");
+	     kill_flyspell();
 	     flyspell_current_dictionary = ispell_current_dictionary;
-	     runhooks("flyspell_change_syntax_table", new_language);
+	     flyspell_change_syntax_table(new_language);
 	  }
      }
 }

@@ -1,6 +1,6 @@
 % flyspell.sl  -*- mode: SLang; mode: Fold -*-
 %
-% $Id: flyspell.sl,v 1.18 2006/01/15 17:43:11 paul Exp paul $
+% $Id: flyspell.sl,v 1.19 2006/06/03 18:06:35 paul Exp paul $
 % 
 % Copyright (c) 2003-2006 Paul Boekholt.
 % Released under the terms of the GNU GPL (version 2 or later).
@@ -10,8 +10,7 @@
 % depending on the flyspell blocal var.  In English: you need JED 0.99.16
 % or greater.
   
-autoload("get_blocal", "sl_utils");
-autoload("add_keyword_n", "syntax");
+require("syntax");
 require("ispell_common");
 use_namespace("ispell");
 % The DFA trick used in this file does not work with "-" as an otherchar,
@@ -30,7 +29,7 @@ static variable flyspell_chars = " ";
 %{{{ Flyspell process
 
 % This will also restart flyspell, through the flyspell_is_dead() function
-public define kill_flyspell()
+define kill_flyspell()
 {
    if (-1 != flyspell_process)
      kill_process(flyspell_process);
@@ -57,7 +56,7 @@ public define flyspell_is_dead (pid, flags, status)
      flyspell_process = -1;
 }
 
-static define toggle_local_flyspell();
+define toggle_local_flyspell();
 
 static define flyspell_init_process ()
 {
@@ -217,7 +216,7 @@ define flyspell_switch_active_buffer_hook()
    flyspell_syntax_table = get_blocal("flyspell_syntax_table", "Flyspell_" + flyspell_current_dictionary);
 }
 
-static define toggle_local_flyspell() % on/off
+define toggle_local_flyspell() % on/off
 {
    variable flyspell;
    !if (_NARGS) not get_blocal("flyspell", 0);
@@ -254,12 +253,14 @@ static define setup_dfa_callback (name)
 %%% DFA_CACHE_END %%%
 #endif
 
+private variable syntax_tables = Assoc_Type[Integer_Type, 0];
 
 static define flyspell_make_syntax_table(name)
 {
    flyspell_otherchars = strtrim_beg(ispell_otherchars, "-");
    flyspell_wordchars = flyspell_otherchars + ispell_letters;
-
+   if (syntax_tables[name]) return;
+   syntax_tables[name] = 1;
    create_syntax_table(name);
    set_syntax_flags(name, 0);
 #ifnexists _slang_utf8_ok
@@ -286,16 +287,16 @@ static define flyspell_make_syntax_table(name)
 % another language, or from changing the language while flyspelling.  If
 % you just switch to a buffer with a different setting for language, it
 % should continue to use its own syntax table. 
-static define flyspell_change_syntax_table(language)
+define flyspell_change_syntax_table(language)
 {
    variable table = get_blocal("flyspell_syntax_table", NULL);
    if(table != NULL)
      {
-	use_syntax_table(table);
-	define_syntax(ispell_wordchars, 'w', table);
+   	use_syntax_table(table);
+   	define_syntax(ispell_wordchars, 'w', table);
 
-	use_dfa_syntax(0);
-	flyspell_syntax_table=table;
+   	use_dfa_syntax(0);
+   	flyspell_syntax_table=table;
      }
    else
      {

@@ -1,6 +1,6 @@
 % ispell.sl	-*- mode: SLang; mode: fold -*-
 % 
-% $Id: ispell.sl,v 1.20 2006/01/13 16:33:54 paul Exp paul $
+% $Id: ispell.sl,v 1.21 2006/06/03 18:06:35 paul Exp paul $
 % 
 % Copyright (c) 2001-2006 Guido Gonzato, John Davis, Paul Boekholt.
 % Released under the terms of the GNU GPL (version 2 or later).
@@ -17,7 +17,7 @@ static variable ibuf = " *ispell*", corbuf = "*corrections*";
 
 %{{{ ispell process
 
-public define kill_ispell()
+define kill_ispell()
 {
    if (-1 != ispell_process)
      kill_process(ispell_process);

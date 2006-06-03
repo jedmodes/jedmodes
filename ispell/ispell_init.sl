@@ -2,7 +2,7 @@
 %
 % Author:	Paul Boekholt
 %
-% $Id: ispell_init.sl,v 1.11 2006/01/13 16:33:54 paul Exp paul $
+% $Id: ispell_init.sl,v 1.12 2006/06/03 18:06:35 paul Exp paul $
 %
 % Copyright (c) 2003-2006 Paul Boekholt.
 % Released under the terms of the GNU GPL (version 2 or later).
@@ -11,9 +11,10 @@
 % You may evaluate this on starting JED. 
 % Version numbering for this package follows the RCS numbering of
 % ispell.sl
+require("sl_utils");
 provide ("ispell_init");
 
-variable ispell_version = "ispell.sl 1.20";
+variable ispell_version = "ispell.sl 1.21";
 
 %{{{ autoloads
 
