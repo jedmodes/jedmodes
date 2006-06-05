@@ -1,10 +1,10 @@
 % rfcview.sl	-*- mode: Slang; mode: Fold -*-
 % RFC viewer
 % 
-% $Id: rfcview.sl,v 1.3 2005/06/01 19:47:12 paul Exp paul $
+% $Id: rfcview.sl,v 1.4 2006/06/05 12:19:50 paul Exp paul $
 % Keywords: docs
 %
-% Copyright (c) 2003-2005 Paul Boekholt.
+% Copyright (c) 2003-2006 Paul Boekholt.
 % Released under the terms of the GNU GPL (version 2 or later).
 % 
 % Not as pretty as Emacs' rfcview, but more features.
@@ -266,6 +266,7 @@ public define rfc_mode()
    
    % remove form feeds
    bob;
+   push_mark();
    while (bol_fsearch("\f"))
      {
 	delete_line;
@@ -273,7 +274,10 @@ public define rfc_mode()
 	line = line_as_string;
 	delete_line;
 	page = string_get_match(line, "Page +\\([0-9]+\\)", 1, 1);
-	if (strlen(page)) pages[string(integer(page) + 1)] = create_user_mark;
+	exchange_point_and_mark();
+	if (strlen(page)) pages[page] = create_user_mark;
+	pop_mark_1();
+	push_mark();
 	skip_chars("\n");
 	if (looking_at("RFC")) delete_line;
 	bskip_chars("\n");
@@ -282,9 +286,11 @@ public define rfc_mode()
 	del_region;
 	insert("\n\n\n");
      }
+   pop_mark_0();
    set_buffer_modified_flag(0);
 
    view_mode;
+   use_keymap("rfcview");
    set_mode(mode, 0);
    use_syntax_table(mode);
    set_buffer_hook("newline_indent_hook", &follow_rfc);
@@ -337,6 +343,8 @@ public define rfc_mode()
 %}}}
 
 %{{{ keymaps
+!if (keymap_p("rfcview"))
+  copy_keymap("rfcview", "view");
 
 $1= _stkdepth;
 
@@ -347,6 +355,7 @@ $1= _stkdepth;
 "other_window", "o";
 ". eol \"^[0-9]\" re_fsearch pop 2 recenter", "n";
 ". bol \"^[0-9]\" re_bsearch pop 2 recenter", "p";
+". \"Enter: follow link  n: next section  p: previous section  ? search sections\" message", "h";
 
 #ifdef HAS_LINE_ATTR
 "rfcview->rolo", "?";
@@ -358,16 +367,14 @@ $1= _stkdepth;
 #endif
 
 loop ((_stkdepth - $1) /2)
-  definekey ("view");
+  definekey ("rfcview");
 
 % keymap for ToC and index
 !if (keymap_p("rfc_toc"))
-  copy_keymap("rfc_toc", "view");
+  copy_keymap("rfc_toc", "rfcview");
 definekey("rfcview->scroll_other(\"page_down\")", " ", "rfc_toc");
 definekey("rfcview->scroll_other(\"page_up\")", Key_BS, "rfc_toc");
 
-Help_Message["rfcview"] =
-  "Enter: follow link  n: next section  p: previous section  ? search sections";
 %}}}
 
 public define rfcview()
