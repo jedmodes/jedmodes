@@ -1,7 +1,7 @@
 % info.sl      -*- mode: SLang; mode: fold -*-
 % Info reader for JED
 %
-% $Id: info.sl,v 1.10 2006/01/22 14:46:30 paul Exp paul $
+% $Id: info.sl,v 1.11 2006/06/07 13:24:54 paul Exp paul $
 % Keywords: help
 % 
 % Copyright (c) 2000-2006 JED, Paul Boekholt
@@ -22,8 +22,6 @@ variable Info_This_Filedir = Null_String;
 % but now it could probably be replaced with local vars from info_extract_pointer()
 variable current_filename = Null_String;
 
-% node info is currently looking at
-variable current_node = Null_String;
 %{{{ info file
 
 #ifndef VMS
@@ -136,8 +134,7 @@ variable headline_color = [color_number("keyword"),
 
 define info_find_file (file)
 {
-   variable dirfile, flags, buf, dir;
-   variable ext;
+   variable dirfile,  ext;
    (dirfile, ext) = info_make_file_name(file);
    setbuf("*Info*");
    set_readonly(0);
@@ -213,17 +210,14 @@ define narrow_to_node()
    go_down_1;
    recenter(1);
    current_filename = path_sans_extname(info_extract_pointer("File"));
-   current_node = info_extract_pointer("Node");
    set_status_line(sprintf("Jed Info:  (%%m)  (%s)%s  (%%p)  %%t",
-   			   current_filename, current_node), 0);
+   			   current_filename, info_extract_pointer("Node")), 0);
 
 }
 
 % find the node.
 define info_find_node_this_file (the_node)
 {
-   variable node;
-   node = "Node: " + the_node;
    widen(); bob();
    forever
      {
@@ -232,7 +226,7 @@ define info_find_node_this_file (the_node)
 	  {
 	     % dont give up, maybe this is a split file
 	     !if (strlen(Info_Split_File_Buffer)) 
-	       error("Marker not found!. " + node);
+	       error("Marker not found!. Node: " + the_node);
 	     setbuf(Info_Split_File_Buffer);
 	     info_find_node_split_file(the_node);
 	     return;
@@ -253,11 +247,10 @@ define info_find_node_this_file (the_node)
 
 define info_find_node_split_file (node)
 {
-   variable tag, tagpos, pos, pos_len, tag_len, buf, file;
+   variable tag, tagpos, pos, pos_len, tag_len, file;
    variable re, offset =0;
-   buf = " *Info*";
   
-   !if (bufferp(buf), setbuf(buf)) 
+   !if (bufferp(" *Info*"), setbuf(" *Info*")) 
      {
 	insbuf("*Info*");
      }
@@ -269,10 +262,6 @@ define info_find_node_split_file (node)
    
    eob();
   
-   
-   %!if (bol_bsearch(tag)) error("tag not found.");
-   %go_right(strlen(tag));
-   %skip_chars(" \t\x7F");
    
    re = strcat("^Node: ", tag, "[\t \x7F]\\(\\d+\\)[ \t]*$");
    if (re_bsearch(re))
@@ -335,7 +324,7 @@ define info_find_node_split_file (node)
 	bob;
 	go_right(offset);
      }
-   Info_Split_File_Buffer = buf;
+   Info_Split_File_Buffer = " *Info*";
 }
 
 
@@ -345,10 +334,9 @@ define info_find_node_split_file (node)
 
 define info_narrow()
 {
-   if (whatbuf () != "*Info*") return;
    push_spot();
    () = info_search_marker(-1);
-   go_down_1 (); push_mark();
+   go_down_1 ();
    narrow_to_node;
    pop_spot();
 }
@@ -373,7 +361,6 @@ variable Info_Position_Stack = Info_Position_Type [16],
 
 define info_push_position(file, split, line)
 {
-   variable i;
    variable pos;
 
    if (Info_Stack_Depth == 16)
@@ -395,7 +382,7 @@ define info_push_position(file, split, line)
 variable info_keep_history = 1;
 define info_record_position ()
 {
-   variable i, file;
+   variable file;
   
    if (whatbuf() != "*Info*") return;
    !if (info_keep_history) return;
@@ -487,7 +474,7 @@ define find_dir();
 define follow_current_xref();
 public define info_find_node(node)
 {
-   variable the_node, file, n, len;
+   variable file, n;
    n = 0;
   
    % Replace \n and \t characters in name by spaces
@@ -510,14 +497,13 @@ public define info_find_node(node)
 	pop_position();
      }
    
-   len = strlen(node);
 
    % if it looks like (file)node, extract file, node
    if (andelse
        {is_substr(node, "(") == 1}
 	 {n = is_substr(node, ")"), n}
 	 {file = substr(node, 2, n - 2), 
-	    node = substr(node, n+1, len),
+	    node = substr(node, n+1, strlen(node)),
 	    file != current_filename})
      {
 	% We're visiting a different file, so remember what was in the
@@ -744,9 +730,7 @@ define menu ()
 
 define follow_nearest_node ()
 {
-   variable node, colons, colon;
-   node = Null_String;
-   colon = ":"; colons = "::";
+   variable colon = ":", colons = "::";
   
    % This is the "enter" action, should be a separate function
    if (re_looking_at ("\\C*Note[ \t\n]"))
@@ -928,9 +912,7 @@ define mouse_hook(line, col, but, shift)
 {
    if (bfind_char('*'))
      {
-	go_right_1;
-	skip_white;
-	follow_current_xref;
+	follow_nearest_node();
      }
    else if (bfind("http://"))
      {
@@ -1035,7 +1017,7 @@ enable_dfa_syntax_for_mode("info");
 %!%-
 public define info_mode ()
 {
-   variable ibuf; ibuf = "*Info*";
+   variable ibuf = "*Info*";
    if (bufferp(ibuf)) return sw2buf(ibuf);
    if (Info_Stack_Depth) 
      pop_position ();
@@ -1071,9 +1053,6 @@ define goto_node()
 
 define info_looking_at (ref)
 {
-   variable n;
-   variable word;
-   
    push_mark ();
    ref = strcompress(strlow(ref), " ");
    
@@ -1085,7 +1064,7 @@ define info_looking_at (ref)
 
 define follow_reference ()
 {
-   variable colon, colons, note, err, item, node, ref;
+   variable colon, colons, note, err, ref;
    colon = ":"; colons = "::";
    note = "*Note";
    err = "No cross references.";
@@ -1124,10 +1103,7 @@ define follow_reference ()
 
 define menu_number ()
 {
-   variable node;  node = Null_String;
-   variable n;
-  
-   n = LAST_CHAR;
+   variable n = LAST_CHAR;
    if ((n < '1') or (n > '9')) return (beep());
    n -= '0';
   
