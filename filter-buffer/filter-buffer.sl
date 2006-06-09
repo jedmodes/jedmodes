@@ -1,12 +1,14 @@
 % Filter buffer: show/hide lines that match a pattern
 %
-% Copyright (c) 2003 Günter Milde
+% Copyright (c) 2006 Günter Milde
 % Released under the terms of the GNU General Public License (ver. 2 or later)
 %
 % 2005-04-01 0.1 first public version
-% 2005-05-31 0.2 bugfix in <INITIALIZATION> block and set_comments_hidden()
+% 2005-05-31 0.2 bugfix in INITIALIZATION block and set_comments_hidden()
 %                (escaping special chars in regexp pattern) report P. Boekholt
 %		 added tm documentation
+% 2005-09-11 0.3 added delete_hidden_lines() and copy_visible_lines()
+% 2006-06-09 0.3.1 INITIALIZATION: moved the menu entries to a popup
 %		 
 % USAGE:
 % put in the jed_library_path and make available by a keybinding or
@@ -14,15 +16,19 @@
 % (make-ini >= 2.2 will do this for you)
 % 
 % Beware: hidden lines are still part of a defined region, thus
-%         copying a region will copy the hidden lines as well. (And
-%         evaluating a region will evaluate the hidden lines.)
-% 
-#iffalse %<INITIALIZATION>
+%         copying a region will copy the hidden lines as well. 
+%         Use copy_visible_lines instead.
+%         (And evaluating a region will evaluate the hidden lines.)
+#<INITIALIZATION>
 define filter_buffer_load_popup_hook(menubar)
 {
-   menu_insert_item (5, "Global.&Buffers", "&Hide Matching Lines", "set_matching_hidden");
-   menu_insert_item (6, "Global.&Buffers", "Show &Only Matching Lines", "set_matching_hidden(0)");
-   menu_insert_item (7, "Global.&Buffers", "Show &All Lines", "set_buffer_hidden(0)");
+   variable menu = "Global.&Buffers";
+   menu_insert_popup(5, menu, "F&ilter Buffer");
+   menu += ".F&ilter Buffer";
+   menu_append_item(menu, "&Hide Matching Lines", "set_matching_hidden");
+   menu_append_item(menu, "&Show Matching Lines", "set_matching_hidden(0)");
+   menu_append_item(menu, "Show &All Lines",      "set_buffer_hidden(0)");
+   menu_append_item(menu, "&Delete Hidden Lines", "delete_hidden_lines");
 }
 append_to_hook ("load_popup_hooks", &filter_buffer_load_popup_hook);
 
@@ -31,7 +37,7 @@ append_to_hook ("load_popup_hooks", &filter_buffer_load_popup_hook);
 "toggle_hidden_lines", "filter-buffer.sl";
 "set_comments_hidden", "filter-buffer.sl";
 _autoload(4);
-#endif %</INITIALIZATION>
+#</INITIALIZATION>
  
 % requirements
 autoload("get_comment_info", "comments");
@@ -62,6 +68,8 @@ public define set_buffer_hidden() % (hide=1)
    pop_spot();
 }
 
+   
+   
 %!%+
 %\function{set_matching_hidden}
 %\synopsis{Hide all lines that match the regexp \var{pat}}
@@ -81,9 +89,9 @@ public define set_buffer_hidden() % (hide=1)
 %#v-
 %\notes
 %  Beware: hidden lines are still part of a defined region, thus
-%  copying a region will copy the hidden lines as well. (And
-%  evaluating a region will evaluate the hidden lines.)
-%\seealso{set_buffer_hidden, toggle_hidden_lines, set_line_hidden}
+%  copying a region will copy the hidden lines as well. 
+%  Use \sfun{copy_visible_lines} instead.
+%\seealso{set_line_hidden, toggle_hidden_lines, delete_hidden_lines}
 %!%-
 public define set_matching_hidden() %(hide=1, [pat])
 {
@@ -133,6 +141,58 @@ public define toggle_hidden_lines()
 }
 
 %!%+
+%\function{delete_hidden_lines}
+%\synopsis{Delete lines with the hidden attribute}
+%\usage{Void delete_hidden_lines()}
+%\description
+%  Scan the entire buffer for hidden lines and delete these.
+%\seealso{set_line_hidden, set_matching_hidden, toggle_hidden_lines}
+%!%-
+public define delete_hidden_lines()
+{
+   push_spot_bob();
+   do
+     if (is_line_hidden())
+       delete_line();
+   while (down_1);
+   pop_spot();
+}
+
+
+%!%+
+%\function{copy_visible_lines}
+%\synopsis{Copy only visible lines of the region/buffer}
+%\usage{ copy_visible_lines()}
+%\description
+%  Normal (yp) copy does not distinguish hidden lines from visible ones but
+%  copies everything in the region.
+%  Use copy_visible_lines if you want to permanently separate visible and
+%  hidden lines (without deleting the hidden ones).
+%\seealso{yp_copy_region_as_kill, set_matching_hidden, toggle_hidden_lines}
+%!%-
+public define copy_visible_lines()
+{
+   variable str = "";
+   push_spot();
+   !if (is_visible_mark())
+     mark_buffer();
+   narrow();
+   bob();
+   % collect in string
+   do
+     if (not(is_line_hidden()))
+       str += line_as_string() + "\n";
+   while (down_1);
+   widen();
+   pop_spot();
+   % move string to kill-ring
+   push_mark();
+   insert(str);
+   yp_kill_region();
+}
+
+
+%!%+
 %\function{set_comments_hidden}
 %\synopsis{Set hidden attribute for all comment lines}
 %\usage{Void set_comments_hidden(hide=1)}
@@ -140,13 +200,13 @@ public define toggle_hidden_lines()
 %  Hide (or make visible) all comment lines in a buffer by setting the
 %  hidden attribute.
 %  
-%  Calls \var{set_matching_hidden} with a regular expression derived from 
-%  the cbeg and cend strings obtained with \var{get_comment_info}.
+%  Calls \sfun{set_matching_hidden} with a regular expression derived from 
+%  the cbeg and cend strings obtained with \sfun{get_comment_info}.
 %\notes
 %  A comment line is a line that contains only commented out text 
 %  and optional whitespace.
 %  
-%  \var{set_comments_hidden} doesnot work for multiline comments.
+%  \sfun{set_comments_hidden} doesnot work for multiline comments.
 %  
 %  Beware: hidden lines are still part of a defined region, thus
 %  copying a region will copy the hidden lines as well. (And
@@ -170,3 +230,6 @@ public define set_comments_hidden() % (hide=1)
    
    set_matching_hidden(hide, pattern);
 }
+
+
+   
