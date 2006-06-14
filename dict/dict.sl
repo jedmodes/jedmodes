@@ -1,7 +1,7 @@
 % dict.sl
 % A dict client.
 %
-% $Id: dict.sl,v 1.5 2006/06/14 13:32:52 paul Exp paul $
+% $Id: dict.sl,v 1.6 2006/06/14 13:41:57 paul Exp paul $
 %
 % Copyright (c) 2005, 2006 Paul Boekholt.
 % Released under the terms of the GNU GPL (version 2 or later).
@@ -397,7 +397,7 @@ define search();
 
 define follow_link()
 {
-   if (history.typ) return query(sprintf("DEFINE %s\r\n", line_as_string()));
+   if (history.type) return query(sprintf("DEFINE %s\r\n", line_as_string()));
    push_spot;
    variable db = Dict_DB;
    if (re_bsearch("^From .* \\[\\([a-zA-Z]+\\)\\]$"))
