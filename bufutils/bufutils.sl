@@ -48,7 +48,7 @@
 % 	           flag is reset
 % 2005-11-21 1.8.5 removed public from popup_buffer() definition
 % 2005-11-25 1.8.6 bugfix in close_buffer(): 
-%                  switch back to current buffer if closing an different one
+%                  switch back to current buffer if closing a different one
 % 2006-01-11 1.9   bugfix in close_and_insert_word and close_and_replace_word
 %                  (report Paul Boekholt)
 %                  revised approach to "backswitching" after a buffer is closed
@@ -56,6 +56,7 @@
 %                  get_blocal(hook)
 % 	     	   custom var Jed_Temp_Dir renamed to Jed_Tmp_Directory
 % 	     	   (which is new in site.sl since 0.99.17.165)
+% 2006-06-19 1.11  fit_window() abort if there is only one open window
 
 % _debug_info = 1;
 
@@ -250,21 +251,22 @@ define window_set_rows(n)
 
 %!%+
 %\function{fit_window}
-%\synopsis{fits the window size to the lenght of the buffer}
-%\usage{ Void fit_window (max_rows=1.0)}
+%\synopsis{Fit the window size to the lenght of the buffer}
+%\usage{fit_window (max_rows=1.0)}
 %\description
-% the optional parameter max_rows gives the maximal size of the window,
-% either as proportion of the total space or as fix number of lines.
-% The default max_rows=1.0 means no limit, max_rows=0 means: don't fit.
+% If there is more than one window open, the size of the current window is
+% adapted to the length of the buffer it contains. The optional argument
+% \var{max_rows} gives the upper limit for the window size, either as
+% proportion of the total space (\var{Double_Type}) or as number of lines
+% (\var{Integer_Type}). The default max_rows=1.0 means no limit, max_rows=0
+% means: don't fit.
 %\seealso{enlargewin, popup_buffer}
 %!%-
 public define fit_window () % fit_window(max_rows = 1.0)
 {
-   variable max_rows = 1.0;
-   if (_NARGS)
-     max_rows = ();
+   variable max_rows = push_defaults(1.0, _NARGS);
 
-   if (max_rows == 0)
+   if (max_rows == 0 or nwindows() - MINIBUFFER_ACTIVE == 1)
      return;
    % convert max_rows from fraction to absolute if Double_Type:
    if (typeof(max_rows) == Double_Type)
@@ -366,10 +368,12 @@ define close_and_replace_word()
    !if (is_visible_mark)
      mark_word;
    del_region();
+
    insert(word);
 }
 
-% open buffer, preserve the number of windows currently open
+% go to the buffer, if it is already visible (maybe in another window)
+% open it in the current window otherwise
 define go2buf(buf)
 {
    if(buffer_visible(buf))
@@ -404,8 +408,8 @@ define popup_close_buffer_hook(buf)
 	     fit_window(get_blocal("is_popup", 0)); % resize popup window
 	  }
      }
-   % Return to calling buffer, if it is visible (it might be annoying if
-   % a help buffer pops up some buffer no longer in active use when closed).
+   % Return to calling buffer (if it is visible, it might be annoying if
+   % closing a help buffer pops up some buffer no longer in active use).
    calling_buf = get_blocal("calling_buf", "");
    if (buffer_visible(calling_buf))
      sw2buf(calling_buf);
