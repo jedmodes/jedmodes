@@ -22,7 +22,8 @@
 % 2005-10-05 1.5.3 Simplified _implements(). Developers working with SLang2 
 %                  should switch to using the standard implements().
 %                  (Normal users will will usually not re-evaluate.)
-%            1.5.4 Documentation update for run_function mentioning call_function      
+%            1.5.4 Documentation update for run_function mentioning call_function
+%            1.5.5 Documentation fix for push_defaults()
 
 % _debug_info = 1;
 
@@ -30,11 +31,11 @@ provide("sl_utils");
 
 %!%+
 %\function{push_defaults}
-%\synopsis{Push n args to the stack}
-%\usage{(a_(n+1), ..., a_m) = push_defaults(a_1, ..., a_m, n)}
+%\synopsis{Push N args to the stack}
+%\usage{(a_1, ..., a_N) = push_defaults(d_1, ..., d_N, N)}
 %\description
-% Push n args to the stack. Helps to define a slang function with
-% optional arguments.
+% Push N args to the stack. Together with \var{_NARGS} this enables the
+% definition of slang functions with optional arguments.
 %\example
 % A function with one compulsory and two optional arguments
 %#v+
@@ -42,19 +43,20 @@ provide("sl_utils");
 % {
 %    variable a1, a2, a3;
 %    (a1, a2, a3) = push_defaults( , "d2", whatbuf(), _NARGS);
-%    vmessage("(%S, %S, %S, %S)", a1, a2, a3, a4);
+%    vmessage("(%S, %S, %S)", a1, a2, a3);
 % }
 %#v-
 % results in:
 %   fun(1)       %  --> (1, d2, *scratch*)
 %   fun(1, 2)    %  --> (1, 2, *scratch*)
-%   fun(1, 2, 3) %  --> (1, 2, 3, 4)
+%   fun(1, 2, 3) %  --> (1, 2, 3)
 % but
 %   fun()        %  --> (NULL, d2, *scratch*)  !!compulsory arg missing!!
 %   fun(1, , )   %  --> (1, NULL, NULL)  !!empty args replaced with NULL!!
 %\notes
 % Do not forget the _NARGS argument!
-% The arguments to push_default will always be evaluated. If time is an issue,
+% 
+% The arguments to push_defaults will always be evaluated. If time is an issue,
 % rather use a construct like
 %#v+
 % define fun() % (a=time_consuming_fun())
@@ -176,7 +178,7 @@ define get_blocal() % (name, default=NULL)
 
 %!%+
 %\function{run_function}
-%\synopsis{Run a function if it exists.}
+%\synopsis{Run a function if it exists, return if fun is found.}
 %\usage{Int_Type run_function(fun, [args])}
 %\description
 % Run a function (if it exists) pushing \var{args} as argument list.
@@ -186,7 +188,7 @@ define get_blocal() % (name, default=NULL)
 %  0 the function is not defined
 %  
 % The \var{fun} can be a function name or reference (this allows both:
-% yet undefined function (as string) as well as private or static functions
+% yet undefined functions (as string) as well as private or static functions
 % (as reference).
 %\example
 %#v+
@@ -229,15 +231,16 @@ define run_function()  % (fun, [args])
 %!%+
 %\function{contract_filename}
 %\synopsis{Make a filename as short as possible without ambiguity}
-%\usage{ contract_filename(file, cwd=getcwd())}
+%\usage{contract_filename(file, cwd=getcwd())}
 %\description
-%  The opposite of expand_filename (in some case of view)
-%  Make a filename as short as possible while
-%  expand_filname will restore it to the previous value.
-%\notes
-%  * If the path starts with the working dir, strip it.
-%  (This maight fail on case insensitive filesystems).
+%  The opposite of \sfun{expand_filename} (in some case of view)
+%  Make a filename as short as possible without loss of information.
+%  
+%  * If the path starts with \var{cwd}, strip it.
+%    (This maight fail on case insensitive filesystems).
 %  * If the path starts with the home-dir, replace it with "~".
+%\notes  
+%  \sfun{expand_filname} will restore the original value.
 %\seealso{expand_filename}
 %!%-
 define contract_filename() % (file, cwd=getcwd())
@@ -290,6 +293,8 @@ define what_line_if_wide ()
 %  to \var{name}. 
 %  
 %  This alows re-evaluation of files in debugging|development mode.
+%  
+%\notes  
 %  (In SLang 2 this is standard behaviour of implements(), if the 
 %  namespace was defined in the same file. If defined in another file,
 %  it still throws an error.)
@@ -310,3 +315,28 @@ define _implements(name)
   else
     implements(name);
 }
+
+%!%+
+%\function{autoloads}
+%\synopsis{Load functions from a file}
+%\usage{autoloads(String funct, [String funct2 , ...], String file)}
+%\description
+% The `autoloads' function is used to declare a variable number of
+% functions `funct' to the interpreter and indicate that they should be
+% loaded from `file' when actually used.
+% It does so by calling autoload(funct, file) for all \var{funct} arguments.
+%\notes
+% A future version of \sfun{autload} might provide for mulitple funct
+% arguments and render \sfun{autoloads} obsolete.
+% 
+% _autoload(funct, file, funct2, file, ..., functN, file, N) is faster,
+% (albeit less convenient to write and needing an explicit number argument).
+% Use this for time-critical cases.
+%\seealso{_autoload, autoload, require, evalfile}
+%!%-
+define autoloads(file) % (funct, [funct2 , ...], file)
+{
+   loop(_NARGS - 1) 
+     autoload((), file);
+}
+
