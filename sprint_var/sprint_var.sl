@@ -1,6 +1,6 @@
-% --- Formatted info about variable values ---
+% sprint_var.sl: Formatted info about variable values
 % 
-% Copyright (c) 2006 Günter Milde
+% Copyright (c) 2005, 2006 Günter Milde
 % Released under the terms of the GNU General Public License (ver. 2 or later)
 % 
 % Provides the function sprint_variable() that can handle complex variables 
@@ -31,6 +31,7 @@
 %     		  added tm documentation
 % 1.2 2006-02-01  added provide()
 % 1.3 2006-02-17  added special cases to sprint_char
+% 1.4 2006-06-22  added sprint_list()
 
 
 % Requirements
@@ -38,6 +39,9 @@
 
 autoload("array_product", "datutils");
 autoload("array_repeat", "datutils");
+#ifexists _slang_utf8_ok
+autoload("list2array", "datutils");
+#endif
 
 provide("sprint_var");
 
@@ -119,7 +123,7 @@ define  multidimensional_indices(dims)
 % for compound values: "[0] 1,\n[1]2,\n,[2] 3"
 define sprint_array(a)
 {
-   variable strarray, str, sep = ",";
+   variable strarray, str, sep = ", ";
 
    if (typeof(a) != Array_Type)
      return("sprint_array: " + string(a) + "is no array!");
@@ -143,6 +147,13 @@ define sprint_array(a)
 	(str, ) = strreplace(str, "\n", "\n"+Sprint_Indent, strlen(str));
      }
    return (str);
+}
+
+define sprint_list(list)
+{
+   variable str = sprint_array(list2array(list));
+   str = str_replace_all(str, "Any_Type: ", "");
+   return strcat("{", substr(str, 2, strlen(str)-2), "}");
 }
 
 % print to a string all keys and elements of an associative array:
