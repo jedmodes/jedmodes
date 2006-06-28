@@ -31,9 +31,9 @@
 %     trick to put command line options into  `what').
 %       grep("pat", "dir/*.sl!") --> `grep -r --include='*.sl', 'pat' dir/`
 %   * change name of the custom var to Grep_Cmd to adhere to the
-%     "<capitalized-modenaem>_*" convention.
-% 1.1 2006-03-20
-%   * better cleanup in zero-output handling in grep().
+%     "<capitalized-modename>_*" convention.
+% 1.1   2006-03-20  fixed cleanu p in zero-output handling in grep().
+% 1.1.1 2006-06-28  fixed deletion of last empty line
 %
 % USAGE
 %
@@ -375,15 +375,15 @@ public define grep() % ([what], [path])
    flush("calling " + cmd);
    status = run_shell_cmd(cmd);
    
-   variable msg = ["No results for ", "Error (or file not found) in "];
+   variable msg = ["OK", "No results for ", "Error (or file not found) in "];
    if (status)
      {
 	close_buffer();
-        message(msg[status-1] + cmd);
+        message(msg[status] + cmd);
 	return;
      }
    if (bolp() and eolp())
-     delete_line;
+     call("backward_delete_char");
    fit_window(get_blocal("is_popup", 0));
    bob();
    set_status_line("Grep: " + cmd + " (%p)", 0);
