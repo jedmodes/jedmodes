@@ -1,7 +1,7 @@
 % apsmode -*- mode: slang; mode: fold; -*-
 
 % apsmode
-% Copyright (c) 2003 Thomas Koeckritz (tkoeckritz@gmx.de)
+% Copyright (c) 2003-2006 Thomas Koeckritz (tkoeckritz at gmx dot de)
 % Released under the terms of the GNU General Public License (ver. 2 or later)
 %
 % ChangeLog
@@ -18,15 +18,45 @@
 %                  internal documentation enhanced
 % 1.4   2004-03-22 printer.conf renamed to apsconf.sl
 %                  all user-definable variables moved to apsconf.sl
-%                  add variable to choose menu-support (aps_menu)
-%                  add variable to choose deletion of ps-file (aps_del_ps_file)
+%                  add variable to choose menu-support (Apsmode_menu)
+%                  add variable to choose deletion of ps-file (Apsmode_del_ps_file)
 %                  handling of options for WINDOWS corrected/improved
 % 1.5   2005-04-14 added handling of font size
 %                  added saving of current parameters in apsconf format
-% 1.5.1 2005-11-21 modified apsconf.sl: GM: use path_concat() for aps_tmp_dir
+% 1.5.1 2005-11-21 modified apsconf.sl: GM: use path_concat() for Apsmode_tmp_dir
 % 1.5.2 2006-06-01 made user-definable variables custom_variables (G Milde)
-%
-%
+% 2.0   2006-06-02 lot of modifications done to integrate apsmode better into
+%                  jed-libraries (triggered by G.Milde for usability with
+%                  debian)
+%                  - include apsconf.sl into apsmode.sl
+%                    apsconf.sl could be still be used optional with
+%                        () = evalfile("apsconf.sl");
+%                  - make more variables custom_variable
+%                  - rename custom-variables to "Apsmode_<xyz>"
+%                  - make aps_pid a private variable
+%                  - rename directory /apsconf to /apsmode
+%                  - rename aps.hlp to apsmode.hlp
+%                  - Apsmode_a2ps_sheet_dir removed (style sheets have to be
+%                    in the jed library path)
+%                  - make Apsmode_help_file a private variable
+%                    help file must be located in jed library path
+%                  - make aps_max_no_printers a private variable
+%                  - function path_rel removed
+%                  - apsmode.hlp adapted
+%                  - apsconf.sl has always to be loaded separately by the user
+%                    Therefore variable Apsmode_config_file has been removed.
+%                    (also editing/reloading of apsconf.sl via Print-Menu
+%                     will not be supported anymore)
+%                  - function show_apsmode_settings added
+% 2.1   2006-06-15 some more proposals by GM
+%                  - make Apsmode_Printer, Apsmode_style_sheet public variables
+%                  - redefine position of popup-menu
+% 2.2   2006-06-19 - jed_date_time modified
+%                  - QuickPrint menu entries show now current settings
+%                  - change Apsmode_Printers[].setup --> Apsmode_Printers[].setupname
+%                  - change aps_pid --> setup
+%                  - more QuickPrint menu entries added
+%                  
 % Description
 % -----------
 % JED-mode to support printing from jed using a2ps and ghostview.
@@ -34,7 +64,7 @@
 % under
 %  - UNIX (SunOS 5.8)
 %  - WINDOWS (Windows NT 4.0, Windows 2000, Windows ME)
-% see also ./apsconf/aps.hlp
+% see also apsmode.hlp
 %
 % Features
 % --------
@@ -46,7 +76,7 @@
 % - supports printing of several pages on one sheet, borders,
 %   title, footer definitions...
 % - new menu entries for printing
-% - printer definitions in a separate configuration file (apsconf.sl)
+% - printer definitions in a separate configuration file possible (apsconf.sl)
 %   covering most of a2ps layout features
 % - QuickPrint: modification of a printer setting for the open jed session
 %   allows quick (small) changes of a defined printer setting,
@@ -56,7 +86,7 @@
 %
 % Requirements
 % ------------
-% jed 0.99.16
+% jed 0.99.18
 % a2ps installed and running on your OS
 % - UNIX      : a2ps v4.12  (tested)
 % - MSWINDOWS : a2ps v4.13b (tested)
@@ -74,12 +104,18 @@
 %
 % Modifications to do for installation
 % ------------------------------------
-% os.sl:      Uncomment the following line to enable text menus in WINGUI
-%             %. "menus" evalfile pop
-% default.sl: add the following line
-%             () = evalfile("apsmode");
-% apsconf.sl: edit the file for your personal a2ps/printer settings
-%             (see there for details)
+% jed.rc:     Add the following line to enable text menus in WINGUI
+%               () = evalfile("menus");
+%             Load the apsmode
+%               require("apsmode");
+%             Append and customize personal a2ps/printer settings from
+%             apsconf.sl or customize apsconf.sl and eval with
+%               () = evalfile("apsconf");
+%             Maybe you have to copy the file to your personal
+%             jed files first, in Unix this could be "~/.jed/lib/"
+%             in this case, make sure it is in the jed-library-path (see
+%             set_jed_library_path())
+% see also apsmode.hlp for details (esp. conversion from V1.5 to V2.0)
 %
 % Implemented Functions (main functions)
 % --------------------------------------
@@ -95,6 +131,18 @@
 % Functions to define special print settings (QuickPrint) are only accessible
 % via the menu.
 %
+% Global Variables
+% ----------------
+% for description see below in the coding
+%   Apsmode_a2ps_cmd
+%   Apsmode_default_printer
+%   Apsmode_del_ps_file
+%   Apsmode_menu
+%   Apsmode_Printers
+%   Apsmode_style_sheet
+%   Apsmode_tmp_dir
+%   Apsmode_tmp_file
+%
 % Notes
 % -----
 % - if no postscript printer is installed on your system use ghostview
@@ -102,30 +150,6 @@
 % - error handling under WINDOWS is not working properly,
 %   if something strange happened during printing, look at the
 %   print-log buffer (via function show_print_log() )
-%
-% Global Variables
-% ----------------
-% for description see below in the coding
-%   JEDFILENAME
-%   JEDDATETIME
-%   a2ps_cmd
-%   a2ps_sheet_dir
-%   aps_config_file
-%   aps_creation_date
-%   aps_creator
-%   aps-del_ps_file
-%   aps_help_file
-%   aps_jed_tested
-%   aps_menu
-%   aps_pid
-%   aps_preview
-%   aps_tmp_dir
-%   aps_tmp_file
-%   aps_version
-%   default_printer
-%   max_no_printers
-%   printer
-%   use_jed_a2ps_style_sheet
 %
 % ToDo
 % ----
@@ -149,7 +173,7 @@
 %   will be inserted in title and footer, if the strings for that are empty.
 %   To prevent printing the same information twice, define strings for
 %   title and footer as " " instead of ""
-%   e.g. printer[aps_pid].footer_left = " ";
+%   e.g. Apsmode_Printers[setup].footer_left = " ";
 %
 % (Windows only?): If the path to the a2ps/gsview executables contains blanks,
 % apsmode can't access them.
@@ -164,29 +188,24 @@
 %   Or adding the a2ps directory to the path will also help.
 %
 
+% --- requirements ---
+
+% from jed's standard library
+% none required
+
+% non-standard extensions
+% none required
+
+% --- requirements ---
+
 % Helper functions for Postscript printing %{{{
 
 % global variables, settings
-provide(__FILE__);
-static define path_rel( b, r)
-{
-   % source code by klaus.schmid@kdt.de
-   variable i, a;
-   a= strchop( r, '/', 0);
-   for (i=0;i<length(a);i++)
-     {
-        if ( a[i] == "..")
-          b= path_dirname( b);
-        else
-          b= path_concat( b, a[i]);
-     }
-   return b;
-}
 
 % printer properties definition
 typedef struct
 {
-   setup,
+   setupname,
      name,
      description,
      columns,
@@ -217,45 +236,150 @@ typedef struct
 }
 Printer_Type;
 
-variable use_jed_a2ps_style_sheet = Assoc_Type[Integer_Type];
+%%%%%%%%%%%%%%% private variables begin %%%%%%%%%%%%%
+%
+% do'nt change this block
+%
+% this variable will be used to give the path/filename of the buffer to a2ps
+private variable aps_jedfilename = "";
+% this variable will be used to give the date/time of printing to a2ps
+private variable aps_jeddatetime = "";
+
+private variable setup = 0;
+private variable aps_preview = "off";
+private variable aps_help_file = expand_jedlib_file("apsmode.hlp");
+% number of printers which can be defined in apsconf.sl
+% (default = 50 should be sufficient in most cases)
+private variable aps_max_no_printers = 50;
+private variable menu_entry = "";
+
+% do not change the definitions for Apsmode_Printers and Apsmode_style_sheet
+% here, but you can define new values for these structures later (see below)
+% e.g.
+%    Apsmode_Printers[setup].description = "Default Printer";
+% or
+%    Apsmode_style_sheet["awk"] = 1;
+%
+public variable Apsmode_Printers = Printer_Type[aps_max_no_printers];
+public variable Apsmode_style_sheet = Assoc_Type[Integer_Type];
+
+% version information
+private variable aps_version = "2.2";
+private variable aps_creation_date = "2006-06-19";
+private variable aps_jed_tested = "0.99-18";
+private variable aps_creator = "tkoeckritzatgmxdotde";
+
+%%%%%%%%%%%%%%% private variables end %%%%%%%%%%%%%
+
 %}}}
 
-%%%%%%%%%%%%%%% user-definable variables begin %%%%%%%%%%%%%
-% define user-definable variables and set default values which
-% could be overwritten by apsconf.sl
+%%%%%%%%%%%%%%% custom_variables begin %%%%%%%%%%%%%
+% define custom variables and set default values which
+% could be configured in jed.rc or a local|private apsconf.sl
 %
-% modify values in apsconf.sl instead of here!!!
-%
-custom_variable("aps_tmp_dir", path_rel(__FILE__,"../apsconf/"));
-custom_variable("a2ps_cmd", "a2ps");
-custom_variable("default_printer", 1);
-custom_variable("aps_tmp_file", path_rel(__FILE__,"../apsconf/print_from_jed.ps"));
-custom_variable("aps_menu", 1);
-custom_variable("aps_del_ps_file", 1);
-%%%%%%%%%%%%%%% user-definable variables end %%%%%%%%%%%%%
 
-%{{{
-% this variable will be used to give the path/filename of the buffer to a2ps
-variable JEDFILENAME = "";
-% this variable will be used to give the date/time of printing to a2ps
-variable JEDDATETIME = "";
-variable aps_version = "1.5.1";
-variable aps_creation_date = "2005-11-22";
-variable aps_jed_tested = "0.99-16";
-variable aps_creator = "tkoeckritz@gmx.de";
+% Directory used to hold temporary files (defined in site.sl since jed 0.99.18)
+custom_variable("Jed_Tmp_Directory", getenv("TEMP"));
+if (Jed_Tmp_Directory == NULL)
+  Jed_Tmp_Directory = getenv("TMP");
+if (Jed_Tmp_Directory == NULL)
+#ifdef MSWINDOWS
+  Jed_Temp_Dir = "C:\\temp";
+#elseif
+  Jed_Tmp_Directory = "/tmp";
+#endif
 
-custom_variable("aps_help_file", path_rel(__FILE__,"../apsconf/aps.hlp"));
-custom_variable("a2ps_sheet_dir", path_rel(__FILE__,"../apsconf/"));
-custom_variable("aps_config_file", path_rel(__FILE__,"../apsconf/apsconf.sl"));
-custom_variable("aps_preview", "off");
-% number of printers which can be defined in apsconf.sl
-% (default = 20 should be sufficient in most cases)
-variable max_no_printers = 20;
-variable printer = Printer_Type[max_no_printers];
-variable aps_pid = 0;
+% OS specific command to run a2ps (a2ps programm call (with path))
+#ifdef UNIX
+custom_variable("Apsmode_a2ps_cmd", "a2ps");
+#endif
 
-% now read printer settings
-()= evalfile(aps_config_file);
+#ifdef MSWINDOWS
+custom_variable("Apsmode_a2ps_cmd", "D:\\Programs\\a2ps\\bin\\a2ps.exe");
+#endif
+
+% directory for temporary files and ps file
+custom_variable("Apsmode_tmp_dir", path_concat(Jed_Tmp_Directory, "")); % ensure trailing separator
+
+% name of the ps file, which will be created by a2ps
+%custom_variable("Apsmode_tmp_file", strcat(Apsmode_tmp_dir, "print_from_jed.ps"));
+custom_variable("Apsmode_tmp_file", path_concat(Apsmode_tmp_dir, "print_from_jed.ps"));
+
+% id of the default printer
+% id = 0 is reserved for QuickPrint, don't use it !
+% aps_max_no_printers > id of Apsmode_default_printer > 0
+custom_variable("Apsmode_default_printer", 1);
+
+% defines, where the Print popup menu should be created
+% alternatives: "Global.&File.&Print"    CUA compatible
+%               "Global.&Print"          top level (add a keybinding for Alt-P)
+%               "Global.S&ystem.&Print"
+%               ""                       no print menu
+% be aware that quickprint settings are only available via menu
+% wmenu is not supported
+custom_variable("Apsmode_menu", "Global.&File.&Print");
+
+% delete created ps file after printing/viewing (0 = keep, 1 = delete)
+custom_variable("Apsmode_del_ps_file", 1);
+
+% define a default printer here
+% initially no real printer is defined
+% could be done by a jed admin locally in a config file (defaults.sl or
+% /etc/jed.conf on UNIX) or by the user in jed.rc (or .jedrc)
+% print_cmd and view_cmd are examples for UNIX/MSWINDOWS
+% for details see printer definition description in apsmode.hlp
+% for more printer setups (or user defined ones ), add the definitions in
+% .jedrc or use a separate apsconf.sl file evaluated from .jedrc
+setup++;
+Apsmode_Printers[setup].setupname = "default printer not defined yet";
+Apsmode_Printers[setup].name = "default_printer_name";
+Apsmode_Printers[setup].description = "Default Printer";
+Apsmode_Printers[setup].columns = "2";
+Apsmode_Printers[setup].rows = "1";
+Apsmode_Printers[setup].fontsize = "6points";
+Apsmode_Printers[setup].chars = "80:100";
+Apsmode_Printers[setup].borders = "on";
+Apsmode_Printers[setup].orientation = "landscape";
+Apsmode_Printers[setup].medium = "A4";
+Apsmode_Printers[setup].sides = "2";
+Apsmode_Printers[setup].truncate = "on";
+Apsmode_Printers[setup].linenumbers = "5";
+Apsmode_Printers[setup].copies = "1";
+Apsmode_Printers[setup].major = "columns";
+Apsmode_Printers[setup].margin = "5";
+Apsmode_Printers[setup].header = "";
+Apsmode_Printers[setup].title_left = "";
+Apsmode_Printers[setup].title_center = "";
+Apsmode_Printers[setup].title_right = "";
+Apsmode_Printers[setup].footer_left = "JEDDATETIME";
+Apsmode_Printers[setup].footer_center = "JEDFILENAME";
+Apsmode_Printers[setup].footer_right = "%s./%s#";
+Apsmode_Printers[setup].color = "bw";
+Apsmode_Printers[setup].pretty = "on";
+Apsmode_Printers[setup].print_cmd = "";
+Apsmode_Printers[setup].view_cmd = "";
+#ifdef UNIX
+Apsmode_Printers[setup].print_cmd = strcat("lpr -P ", Apsmode_Printers[setup].name, " ", Apsmode_tmp_file);
+Apsmode_Printers[setup].view_cmd = strcat("gv ", Apsmode_tmp_file);
+#endif
+#ifdef MSWINDOWS
+Apsmode_Printers[setup].print_cmd = strcat("D:\\Programs\\gstools\\gsview\\gsview32.exe ", Apsmode_tmp_file);
+Apsmode_Printers[setup].view_cmd = strcat("D:\\Programs\\gstools\\gsview\\gsview32.exe ", Apsmode_tmp_file);
+#endif
+Apsmode_Printers[setup].copy_of = 0;
+
+% array containing all jed mode names (as index), for which a
+% jed specific style sheet for a2ps should be used
+% style sheets must be available in jed library path
+% can be created by function <create_a2ps_style_sheet(mode)>
+Apsmode_style_sheet["SLang"] = 1;
+
+
+%%%%%%%%%%%%%%% custom_variables variables end %%%%%%%%%%%%%
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% There is no need to change something below this line ! %
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 % define QuickPrint settings as copy of default printer
 %!%+
@@ -265,45 +389,42 @@ variable aps_pid = 0;
 %\description
 % This function is used to fill QuickPrint data with a predefined printer
 % setup given by \var{pid_in}.
-% The QuickPrint setup uses index=0 in \var{printer}.
+% The QuickPrint setup uses index=0 in \var{Apsmode_Printers}.
 % This function returns nothing.
 %!%-
-define qp_is_copy_of(pid_in)
+define qp_is_copy_of(pid_in) %{{{
 {
-   variable aps_pid = 0;
-   printer[aps_pid].setup = "QuickPrint";
-   printer[aps_pid].name = printer[pid_in].name;
-   printer[aps_pid].description = printer[pid_in].description;
-   printer[aps_pid].columns = printer[pid_in].columns;
-   printer[aps_pid].rows = printer[pid_in].rows;
-   printer[aps_pid].fontsize = printer[pid_in].fontsize;
-   printer[aps_pid].chars = printer[pid_in].chars;
-   printer[aps_pid].borders = printer[pid_in].borders;
-   printer[aps_pid].orientation = printer[pid_in].orientation;
-   printer[aps_pid].medium = printer[pid_in].medium;
-   printer[aps_pid].sides = printer[pid_in].sides;
-   printer[aps_pid].truncate = printer[pid_in].truncate;
-   printer[aps_pid].linenumbers = printer[pid_in].linenumbers;
-   printer[aps_pid].copies = printer[pid_in].copies;
-   printer[aps_pid].major = printer[pid_in].major;
-   printer[aps_pid].margin = printer[pid_in].margin;
-   printer[aps_pid].header = printer[pid_in].header;
-   printer[aps_pid].title_left = printer[pid_in].title_left;
-   printer[aps_pid].title_center = printer[pid_in].title_center;
-   printer[aps_pid].title_right = printer[pid_in].title_right;
-   printer[aps_pid].footer_left = printer[pid_in].footer_left;
-   printer[aps_pid].footer_center = printer[pid_in].footer_center;
-   printer[aps_pid].footer_right = printer[pid_in].footer_right;
-   printer[aps_pid].color = printer[pid_in].color;
-   printer[aps_pid].pretty = printer[pid_in].pretty;
-   printer[aps_pid].print_cmd = printer[pid_in].print_cmd;
-   printer[aps_pid].view_cmd = printer[pid_in].view_cmd;
-   printer[aps_pid].copy_of = pid_in;
+   variable setup = 0;
+   Apsmode_Printers[setup].setupname = "QuickPrint";
+   Apsmode_Printers[setup].name = Apsmode_Printers[pid_in].name;
+   Apsmode_Printers[setup].description = Apsmode_Printers[pid_in].description;
+   Apsmode_Printers[setup].columns = Apsmode_Printers[pid_in].columns;
+   Apsmode_Printers[setup].rows = Apsmode_Printers[pid_in].rows;
+   Apsmode_Printers[setup].fontsize = Apsmode_Printers[pid_in].fontsize;
+   Apsmode_Printers[setup].chars = Apsmode_Printers[pid_in].chars;
+   Apsmode_Printers[setup].borders = Apsmode_Printers[pid_in].borders;
+   Apsmode_Printers[setup].orientation = Apsmode_Printers[pid_in].orientation;
+   Apsmode_Printers[setup].medium = Apsmode_Printers[pid_in].medium;
+   Apsmode_Printers[setup].sides = Apsmode_Printers[pid_in].sides;
+   Apsmode_Printers[setup].truncate = Apsmode_Printers[pid_in].truncate;
+   Apsmode_Printers[setup].linenumbers = Apsmode_Printers[pid_in].linenumbers;
+   Apsmode_Printers[setup].copies = Apsmode_Printers[pid_in].copies;
+   Apsmode_Printers[setup].major = Apsmode_Printers[pid_in].major;
+   Apsmode_Printers[setup].margin = Apsmode_Printers[pid_in].margin;
+   Apsmode_Printers[setup].header = Apsmode_Printers[pid_in].header;
+   Apsmode_Printers[setup].title_left = Apsmode_Printers[pid_in].title_left;
+   Apsmode_Printers[setup].title_center = Apsmode_Printers[pid_in].title_center;
+   Apsmode_Printers[setup].title_right = Apsmode_Printers[pid_in].title_right;
+   Apsmode_Printers[setup].footer_left = Apsmode_Printers[pid_in].footer_left;
+   Apsmode_Printers[setup].footer_center = Apsmode_Printers[pid_in].footer_center;
+   Apsmode_Printers[setup].footer_right = Apsmode_Printers[pid_in].footer_right;
+   Apsmode_Printers[setup].color = Apsmode_Printers[pid_in].color;
+   Apsmode_Printers[setup].pretty = Apsmode_Printers[pid_in].pretty;
+   Apsmode_Printers[setup].print_cmd = Apsmode_Printers[pid_in].print_cmd;
+   Apsmode_Printers[setup].view_cmd = Apsmode_Printers[pid_in].view_cmd;
+   Apsmode_Printers[setup].copy_of = pid_in;
    return;
 }
-
-% QuickPrint settings (as copy of default_printer)
-qp_is_copy_of(default_printer);
 
 %}}}
 
@@ -313,133 +434,121 @@ qp_is_copy_of(default_printer);
 %\usage{String_Type jed_date_time ()}
 %\description
 % This function is used to create Date/Time string to be used as value
-% for \var{JEDDATETIME}.
+% for \var{aps_jeddatetime}.
 % This function returns a date/time string.
 % \example
-%   JEDDATETIME = jed_date_time();
-%   value of JEDDATETIME will be "2004-Feb-29, 14:03:57"
+%   aps_jeddatetime = jed_date_time();
+%   value of aps_jeddatetime will be "2004-Feb-29, 14:03:57"
 %!%-
 static define jed_date_time() %{{{
 {
-   variable tm;
-   variable tm_string = "";
-   variable month, day, hour, min, sec;
-   tm = localtime (_time());
-
-   switch (tm.tm_mon)
-     { tm.tm_mon == 0 : month = "Jan";}
-     { tm.tm_mon == 1 : month = "Feb";}
-     { tm.tm_mon == 2 : month = "Mar";}
-     { tm.tm_mon == 3 : month = "Apr";}
-     { tm.tm_mon == 4 : month = "May";}
-     { tm.tm_mon == 5 : month = "Jun";}
-     { tm.tm_mon == 6 : month = "Jul";}
-     { tm.tm_mon == 7 : month = "Aug";}
-     { tm.tm_mon == 8 : month = "Sep";}
-     { tm.tm_mon == 9 : month = "Oct";}
-     { tm.tm_mon == 10 : month = "Nov";}
-     { tm.tm_mon == 11 : month = "Dec";};
-   if (tm.tm_mday < 10)
-     {
-	day = sprintf("0%d", tm.tm_mday);
-     }
-   else
-     {
-	day = sprintf("%d", tm.tm_mday);
-     }
-   if (tm.tm_hour < 10)
-     {
-	hour = sprintf("0%d", tm.tm_hour);
-     }
-   else
-     {
-	hour = sprintf("%d", tm.tm_hour);
-     }
-   if (tm.tm_min < 10)
-     {
-	min = sprintf("0%d", tm.tm_min);
-     }
-   else
-     {
-	min = sprintf("%d", tm.tm_min);
-     }
-   if (tm.tm_sec < 10)
-     {
-	sec = sprintf("0%d", tm.tm_sec);
-     }
-   else
-     {
-	sec = sprintf("%d", tm.tm_sec);
-     }
-   tm_string = sprintf("%d-%s-%s, %s:%s:%s",1900+tm.tm_year, month, day, hour, min, sec );
-   return tm_string;
+   return strftime("%Y-%b-%d, %H:%M:%S");
 }
 
 %}}}
 
 %%%%%%%%%%%%%%%%%%%%% Menu Entries Begin %%%%%%%%%%%%%%%%%%%%%%% %{{{
+static define create_menu_string (menu_string, value)
+{
+   variable menu_entry;
+
+   % & will be used to highlight a menu letter
+   % so do not take its length into account
+   if (is_substr(menu_string, "&"))
+     {
+        menu_string = sprintf("%-19s(",menu_string);
+     }
+   else
+     {
+        menu_string = sprintf("%-18s(",menu_string);
+     }
+
+   value = str_delete_chars(value,"\.");
+   if (strlen(value) > 12)
+     {
+        menu_entry = strcat(menu_string, substr(value,1,12), " >>)");
+     }
+   else
+     {
+        menu_entry = strcat(menu_string, value, ")");
+     }
+   return menu_entry;
+}
 
 static define default_printer_callback (popup)
 {
-   menu_append_item (popup, string(printer[default_printer].setup), strcat("show_printer_settings(",string(default_printer),",1)"));
+   menu_append_item (popup, string(Apsmode_Printers[Apsmode_default_printer].setupname), strcat("show_printer_settings(",string(Apsmode_default_printer),",1)"));
+}
+
+define show_default_printer_menu(setting, menu)
+{
+   variable menu_entry ="";
+
+   if (Apsmode_default_printer == 0)
+     {
+        menu_entry = strcat("Show &Default Printer  (QuickPrint)");
+     }
+   else
+     {
+        menu_entry = strcat("Show &Default Printer  (setup ", string(Apsmode_default_printer), ")");
+     }
+
+   menu_delete_item(strcat (Apsmode_menu, ".", menu_entry));
+
+   eval(setting);
+   if (Apsmode_default_printer == 0)
+     {
+        menu_entry = strcat("Show &Default Printer  (QuickPrint)");
+     }
+   else
+     {
+        menu_entry = strcat("Show &Default Printer  (setup ", string(Apsmode_default_printer), ")");
+     }
+   menu_insert_popup (6, Apsmode_menu, menu_entry);
+
+   menu_set_select_popup_callback (strcat (Apsmode_menu, ".", menu_entry), &default_printer_callback);
+
+   menu_select_menu(strcat(Apsmode_menu, menu));
+
+   return;
+
 }
 
 static define set_default_printer_callback (popup)
 {
    variable i;
-   for (i = 0; i <= max_no_printers-1; i++)
+   for (i = 0; i <= aps_max_no_printers-1; i++)
      {
-	if (printer[i].setup != NULL)
-	  {
-	     if (i == default_printer)
-	       {
-		  menu_append_item (popup, strcat("* ", string(printer[i].setup)), strcat("set_default_printer(",string(i),")"));
-	       }
-	     else
-	       {
-		  menu_append_item (popup, strcat("  ", string(printer[i].setup)), strcat("set_default_printer(",string(i),")"));
-	       }
-	  }
+        if (Apsmode_Printers[i].setupname != NULL)
+          {
+             if (i == Apsmode_default_printer)
+               {
+                  menu_append_item (popup, strcat("* ", sprintf("%2s  ",string(i)), Apsmode_Printers[i].setupname), strcat("show_default_printer_menu(\"set_default_printer(", string(i),")\",)"));
+               }
+             else
+               {
+                  menu_append_item (popup, strcat("  ", sprintf("%2s  ",string(i)), Apsmode_Printers[i].setupname), strcat("show_default_printer_menu(\"set_default_printer(", string(i),")\",\"\")"));
+               }
+          }
      }
    return;
 }
-
 static define show_default_printer_callback (popup)
 {
    variable i;
-   for (i = 0; i <= max_no_printers-1; i++)
+   for (i = 0; i <= aps_max_no_printers-1; i++)
      {
-	if (printer[i].setup != NULL)
-	  {
-	     if (i == default_printer)
-	       {
-		  menu_append_item (popup, strcat("* ", string(printer[i].setup)), strcat("show_printer_settings(",string(i),",1)"));
-	       }
-	     else
-	       {
-		  menu_append_item (popup, strcat("  ", string(printer[i].setup)), strcat("show_printer_settings(",string(i),",1)"));
-	       }
-	  }
-     }
-   return;
-}
-
-static define show_default_printer2_callback (popup)
-{
-   variable i;
-   for (i = 0; i <= max_no_printers-1; i++)
-     {
-	if (printer[i].setup != NULL)
-	  {
-	     if (i == default_printer)
-	       {
-		  menu_append_item (popup, "Current Settings in apsconf format", strcat("show_printer_settings(",string(default_printer),",2)"));
-	       }
-%	     else
-%	       {
-%		  menu_append_item (popup, strcat("  ", string(printer[i].setup)), strcat("show_printer_settings(",string(i),",1)"));
-%	       }
-	  }
+        if (Apsmode_Printers[i].setupname != NULL)
+          {
+             if (i == Apsmode_default_printer)
+               {
+                  menu_append_item (popup, strcat("* ", sprintf("%2s  ",string(i)), string(Apsmode_Printers[i].setupname)), strcat("show_printer_settings(",string(i),",1)"));
+               }
+             else
+               {
+                  menu_append_item (popup, strcat("  ", sprintf("%2s  ",string(i)), string(Apsmode_Printers[i].setupname)), strcat("show_printer_settings(",string(i),",1)"));
+               }
+          }
      }
    return;
 }
@@ -453,30 +562,31 @@ static define show_default_printer2_callback (popup)
 % \var{setting} is a string containing slang-code, which
 % will be executed by this function.
 % \var{setting} will be defined via menu entries.
-% This function returns nothing.
+% This function returns nothing, but opens the QuickPrint menu again
 % \example
 % The following command appends a menu item (called "A4")
 % Clicking on that item will execute the code
-%  "printer[0].medium=\"A4\""
-%	menu_append_item (popup, strcat("* ", "A&4"), strcat("set_qp(\"printer[0].medium=\\\"A4\\\"\")"));
+%  "Apsmode_Printers[0].medium=\"A4\""
+%       menu_append_item (popup, strcat("* ", "A&4"), strcat("set_qp(\"Apsmode_Printers[0].medium=\\\"A4\\\"\")"));
 %!%-
 define set_qp(setting)
 {
    eval(setting);
-   menu_select_menu("Global.&Print.&QuickPrint");
+   % intention is to open QuickPrint menu again
+   menu_select_menu(strcat(Apsmode_menu, ".&QuickPrint"));
    return;
 }
 static define set_qp_orientation_callback (popup)
 {
-   if (strup(printer[0].orientation) == "PORTRAIT")
+   if (strup(Apsmode_Printers[0].orientation) == "PORTRAIT")
      {
-	menu_append_item (popup, strcat("* ", "&portrait"), strcat("set_qp(\"printer[0].orientation=\\\"portrait\\\"\")"));
-	menu_append_item (popup, strcat("  ", "&landscape"), strcat("set_qp(\"printer[0].orientation=\\\"landscape\\\"\")"));
+        menu_append_item (popup, strcat("* ", "&portrait"), strcat("set_qp(\"Apsmode_Printers[0].orientation=\\\"portrait\\\"\")"));
+        menu_append_item (popup, strcat("  ", "&landscape"), strcat("set_qp(\"Apsmode_Printers[0].orientation=\\\"landscape\\\"\")"));
      }
-   if (strup(printer[0].orientation) == "LANDSCAPE")
+   if (strup(Apsmode_Printers[0].orientation) == "LANDSCAPE")
      {
-	menu_append_item (popup, strcat("  ", "&portrait"), strcat("set_qp(\"printer[0].orientation=\\\"portrait\\\"\")"));
-	menu_append_item (popup, strcat("* ", "&landscape"), strcat("set_qp(\"printer[0].orientation=\\\"landscape\\\"\")"));
+        menu_append_item (popup, strcat("  ", "&portrait"), strcat("set_qp(\"Apsmode_Printers[0].orientation=\\\"portrait\\\"\")"));
+        menu_append_item (popup, strcat("* ", "&landscape"), strcat("set_qp(\"Apsmode_Printers[0].orientation=\\\"landscape\\\"\")"));
      }
    return;
 }
@@ -485,14 +595,14 @@ static define set_qp_no_columns_callback (popup)
    variable i;
    for (i = 1; i <= 4; i++)
      {
-	if (printer[0].columns == string(i))
-	  {
-	     menu_append_item (popup, strcat("* ", string(i)), strcat("set_qp(\"printer[0].columns=\\\"", string(i), "\\\"\")"));
-	  }
-	else
-	  {
-	     menu_append_item (popup, strcat("  ", string(i)), strcat("set_qp(\"printer[0].columns=\\\"", string(i), "\\\"\")"));
-	  }
+        if (Apsmode_Printers[0].columns == string(i))
+          {
+             menu_append_item (popup, strcat("* ", string(i)), strcat("set_qp(\"Apsmode_Printers[0].columns=\\\"", string(i), "\\\"\")"));
+          }
+        else
+          {
+             menu_append_item (popup, strcat("  ", string(i)), strcat("set_qp(\"Apsmode_Printers[0].columns=\\\"", string(i), "\\\"\")"));
+          }
      }
    return;
 }
@@ -501,14 +611,14 @@ static define set_qp_no_rows_callback (popup)
    variable i;
    for (i = 1; i <= 4; i++)
      {
-	if (printer[0].rows == string(i))
-	  {
-	     menu_append_item (popup, strcat("* ", string(i)), strcat("set_qp(\"printer[0].rows=\\\"", string(i), "\\\"\")"));
-	  }
-	else
-	  {
-	     menu_append_item (popup, strcat("  ", string(i)), strcat("set_qp(\"printer[0].rows=\\\"", string(i), "\\\"\")"));
-	  }
+        if (Apsmode_Printers[0].rows == string(i))
+          {
+             menu_append_item (popup, strcat("* ", string(i)), strcat("set_qp(\"Apsmode_Printers[0].rows=\\\"", string(i), "\\\"\")"));
+          }
+        else
+          {
+             menu_append_item (popup, strcat("  ", string(i)), strcat("set_qp(\"Apsmode_Printers[0].rows=\\\"", string(i), "\\\"\")"));
+          }
      }
    return;
 }
@@ -517,28 +627,28 @@ static define set_qp_no_sides_callback (popup)
    variable i;
    for (i = 1; i <= 2; i++)
      {
-	if (printer[0].sides == string(i))
-	  {
-	     menu_append_item (popup, strcat("* ", string(i)), strcat("set_qp(\"printer[0].sides=\\\"", string(i), "\\\"\")"));
-	  }
-	else
-	  {
-	     menu_append_item (popup, strcat("  ", string(i)), strcat("set_qp(\"printer[0].sides=\\\"", string(i), "\\\"\")"));
-	  }
+        if (Apsmode_Printers[0].sides == string(i))
+          {
+             menu_append_item (popup, strcat("* ", string(i)), strcat("set_qp(\"Apsmode_Printers[0].sides=\\\"", string(i), "\\\"\")"));
+          }
+        else
+          {
+             menu_append_item (popup, strcat("  ", string(i)), strcat("set_qp(\"Apsmode_Printers[0].sides=\\\"", string(i), "\\\"\")"));
+          }
      }
    return;
 }
 static define set_qp_borders_callback (popup)
 {
-   if (strup(printer[0].borders) == "ON")
+   if (strup(Apsmode_Printers[0].borders) == "ON")
      {
-	menu_append_item (popup, strcat("* ", "o&n"), strcat("set_qp(\"printer[0].borders=\\\"on\\\"\")"));
-	menu_append_item (popup, strcat("  ", "o&ff"), strcat("set_qp(\"printer[0].borders=\\\"off\\\"\")"));
+        menu_append_item (popup, strcat("* ", "o&n"), strcat("set_qp(\"Apsmode_Printers[0].borders=\\\"on\\\"\")"));
+        menu_append_item (popup, strcat("  ", "o&ff"), strcat("set_qp(\"Apsmode_Printers[0].borders=\\\"off\\\"\")"));
      }
-   if (strup(printer[0].borders) == "OFF")
+   if (strup(Apsmode_Printers[0].borders) == "OFF")
      {
-	menu_append_item (popup, strcat("  ", "o&n"), strcat("set_qp(\"printer[0].borders=\\\"on\\\"\")"));
-	menu_append_item (popup, strcat("* ", "o&ff"), strcat("set_qp(\"printer[0].borders=\\\"off\\\"\")"));
+        menu_append_item (popup, strcat("  ", "o&n"), strcat("set_qp(\"Apsmode_Printers[0].borders=\\\"on\\\"\")"));
+        menu_append_item (popup, strcat("* ", "o&ff"), strcat("set_qp(\"Apsmode_Printers[0].borders=\\\"off\\\"\")"));
      }
    return;
 }
@@ -547,14 +657,14 @@ static define set_qp_no_copies_callback (popup)
    variable i;
    for (i = 1; i <= 10; i++)
      {
-	if (printer[0].copies == string(i))
-	  {
-	     menu_append_item (popup, strcat("* ", string(i)), strcat("set_qp(\"printer[0].copies=\\\"", string(i), "\\\"\")"));
-	  }
-	else
-	  {
-	     menu_append_item (popup, strcat("  ", string(i)), strcat("set_qp(\"printer[0].copies=\\\"", string(i), "\\\"\")"));
-	  }
+        if (Apsmode_Printers[0].copies == string(i))
+          {
+             menu_append_item (popup, strcat("* ", string(i)), strcat("set_qp(\"Apsmode_Printers[0].copies=\\\"", string(i), "\\\"\")"));
+          }
+        else
+          {
+             menu_append_item (popup, strcat("  ", string(i)), strcat("set_qp(\"Apsmode_Printers[0].copies=\\\"", string(i), "\\\"\")"));
+          }
      }
    return;
 }
@@ -563,36 +673,64 @@ static define set_qp_linenumbers_callback (popup)
    variable i;
    for (i = 0; i <= 10; i++)
      {
-	if (printer[0].linenumbers == string(i))
-	  {
-	     menu_append_item (popup, strcat("* ", string(i)), strcat("set_qp(\"printer[0].linenumbers=\\\"", string(i), "\\\"\")"));
-	  }
-	else
-	  {
-	     menu_append_item (popup, strcat("  ", string(i)), strcat("set_qp(\"printer[0].linenumbers=\\\"", string(i), "\\\"\")"));
-	  }
+        if (Apsmode_Printers[0].linenumbers == string(i))
+          {
+             menu_append_item (popup, strcat("* ", string(i)), strcat("set_qp(\"Apsmode_Printers[0].linenumbers=\\\"", string(i), "\\\"\")"));
+          }
+        else
+          {
+             menu_append_item (popup, strcat("  ", string(i)), strcat("set_qp(\"Apsmode_Printers[0].linenumbers=\\\"", string(i), "\\\"\")"));
+          }
+     }
+   return;
+}
+static define set_qp_truncate_callback (popup)
+{
+   if (strup(Apsmode_Printers[0].truncate) == "ON")
+     {
+        menu_append_item (popup, strcat("* ", "o&n"), strcat("set_qp(\"Apsmode_Printers[0].truncate=\\\"on\\\"\")"));
+        menu_append_item (popup, strcat("  ", "o&ff"), strcat("set_qp(\"Apsmode_Printers[0].truncate=\\\"off\\\"\")"));
+     }
+   if (strup(Apsmode_Printers[0].truncate) == "OFF")
+     {
+        menu_append_item (popup, strcat("  ", "o&n"), strcat("set_qp(\"Apsmode_Printers[0].truncate=\\\"on\\\"\")"));
+        menu_append_item (popup, strcat("* ", "o&ff"), strcat("set_qp(\"Apsmode_Printers[0].truncate=\\\"off\\\"\")"));
      }
    return;
 }
 static define set_qp_medium_callback (popup)
 {
-   if (strup(printer[0].medium) == "A4")
+   if (strup(Apsmode_Printers[0].medium) == "A4")
      {
-	menu_append_item (popup, strcat("* ", "A&4"), strcat("set_qp(\"printer[0].medium=\\\"A4\\\"\")"));
-	menu_append_item (popup, strcat("  ", "A&3"), strcat("set_qp(\"printer[0].medium=\\\"A3\\\"\")"));
-	menu_append_item (popup, strcat("  ", "&Letter"), strcat("set_qp(\"printer[0].medium=\\\"Letter\\\"\")"));
+        menu_append_item (popup, strcat("* ", "A&4"), strcat("set_qp(\"Apsmode_Printers[0].medium=\\\"A4\\\"\")"));
+        menu_append_item (popup, strcat("  ", "A&3"), strcat("set_qp(\"Apsmode_Printers[0].medium=\\\"A3\\\"\")"));
+        menu_append_item (popup, strcat("  ", "&Letter"), strcat("set_qp(\"Apsmode_Printers[0].medium=\\\"Letter\\\"\")"));
      }
-   if (strup(printer[0].medium) == "A3")
+   if (strup(Apsmode_Printers[0].medium) == "A3")
      {
-	menu_append_item (popup, strcat("  ", "A&4"), strcat("set_qp(\"printer[0].medium=\\\"A4\\\"\")"));
-	menu_append_item (popup, strcat("* ", "A&3"), strcat("set_qp(\"printer[0].medium=\\\"A3\\\"\")"));
-	menu_append_item (popup, strcat("  ", "&Letter"), strcat("set_qp(\"printer[0].medium=\\\"Letter\\\"\")"));
+        menu_append_item (popup, strcat("  ", "A&4"), strcat("set_qp(\"Apsmode_Printers[0].medium=\\\"A4\\\"\")"));
+        menu_append_item (popup, strcat("* ", "A&3"), strcat("set_qp(\"Apsmode_Printers[0].medium=\\\"A3\\\"\")"));
+        menu_append_item (popup, strcat("  ", "&Letter"), strcat("set_qp(\"Apsmode_Printers[0].medium=\\\"Letter\\\"\")"));
      }
-   if (strup(printer[0].medium) == "LETTER")
+   if (strup(Apsmode_Printers[0].medium) == "LETTER")
      {
-	menu_append_item (popup, strcat("  ", "A&4"), strcat("set_qp(\"printer[0].medium=\\\"A4\\\"\")"));
-	menu_append_item (popup, strcat("  ", "A&3"), strcat("set_qp(\"printer[0].medium=\\\"A3\\\"\")"));
-	menu_append_item (popup, strcat("* ", "&Letter"), strcat("set_qp(\"printer[0].medium=\\\"Letter\\\"\")"));
+        menu_append_item (popup, strcat("  ", "A&4"), strcat("set_qp(\"Apsmode_Printers[0].medium=\\\"A4\\\"\")"));
+        menu_append_item (popup, strcat("  ", "A&3"), strcat("set_qp(\"Apsmode_Printers[0].medium=\\\"A3\\\"\")"));
+        menu_append_item (popup, strcat("* ", "&Letter"), strcat("set_qp(\"Apsmode_Printers[0].medium=\\\"Letter\\\"\")"));
+     }
+   return;
+}
+static define set_qp_color_callback (popup)
+{
+   if (strup(Apsmode_Printers[0].color) == "BW")
+     {
+        menu_append_item (popup, strcat("* ", "&bw"), strcat("set_qp(\"Apsmode_Printers[0].color=\\\"bw\\\"\")"));
+        menu_append_item (popup, strcat("  ", "&color"), strcat("set_qp(\"Apsmode_Printers[0].color=\\\"color\\\"\")"));
+     }
+   if (strup(Apsmode_Printers[0].color) == "COLOR")
+     {
+        menu_append_item (popup, strcat("  ", "&bw"), strcat("set_qp(\"Apsmode_Printers[0].color=\\\"bw\\\"\")"));
+        menu_append_item (popup, strcat("* ", "&color"), strcat("set_qp(\"Apsmode_Printers[0].color=\\\"color\\\"\")"));
      }
    return;
 }
@@ -600,23 +738,47 @@ static define set_qp_printer_callback (popup)
 {
    variable i;
    variable action;
-   action = strcat("read_mini\\\(\\\"Enter print command\\\",\\\"", printer[0].print_cmd,"\\\",\\\"", printer[0].print_cmd,"\\\"\\\)");
-   action = strcat("printer[0].print_cmd=", action);
+   action = strcat("read_mini\\\(\\\"Enter print command\\\",\\\"", Apsmode_Printers[0].print_cmd,"\\\",\\\"", Apsmode_Printers[0].print_cmd,"\\\"\\\)");
+   action = strcat("Apsmode_Printers[0].print_cmd=", action);
    action = strcat("set_qp(\"", action, "\")");
    menu_append_item (popup, "&Add temporary Print Command", action);
-   for (i = 0; i <= max_no_printers-1; i++)
+   for (i = 0; i <= aps_max_no_printers-1; i++)
      {
-	if (printer[i].setup != NULL)
-	  {
-	     if (printer[0].print_cmd == printer[i].print_cmd)
-	       {
-		  menu_append_item (popup, strcat("* ", printer[i].print_cmd), strcat("set_qp(\"printer[0].print_cmd=\\\"", printer[i].print_cmd, "\\\"\")"));
-	       }
-	     else
-	       {
-		  menu_append_item (popup, strcat("  ", printer[i].print_cmd), strcat("set_qp(\"printer[0].print_cmd=\\\"", printer[i].print_cmd, "\\\"\")"));
-	       }
-	  }
+        if (Apsmode_Printers[i].setupname != NULL)
+          {
+             if (Apsmode_Printers[0].print_cmd == Apsmode_Printers[i].print_cmd)
+               {
+                  menu_append_item (popup, strcat("* ", Apsmode_Printers[i].print_cmd), strcat("set_qp(\"Apsmode_Printers[0].print_cmd=\\\"", Apsmode_Printers[i].print_cmd, "\\\"\")"));
+               }
+             else
+               {
+                  menu_append_item (popup, strcat("  ", Apsmode_Printers[i].print_cmd), strcat("set_qp(\"Apsmode_Printers[0].print_cmd=\\\"", Apsmode_Printers[i].print_cmd, "\\\"\")"));
+               }
+          }
+     }
+   return;
+}
+static define set_qp_view_callback (popup)
+{
+   variable i;
+   variable action;
+   action = strcat("read_mini\\\(\\\"Enter view command\\\",\\\"", Apsmode_Printers[0].view_cmd,"\\\",\\\"", Apsmode_Printers[0].view_cmd,"\\\"\\\)");
+   action = strcat("Apsmode_Printers[0].view_cmd=", action);
+   action = strcat("set_qp(\"", action, "\")");
+   menu_append_item (popup, "&Add temporary View Command", action);
+   for (i = 0; i <= aps_max_no_printers-1; i++)
+     {
+        if (Apsmode_Printers[i].setupname != NULL)
+          {
+             if (Apsmode_Printers[0].view_cmd == Apsmode_Printers[i].view_cmd)
+               {
+                  menu_append_item (popup, strcat("* ", Apsmode_Printers[i].view_cmd), strcat("set_qp(\"Apsmode_Printers[0].view_cmd=\\\"", Apsmode_Printers[i].view_cmd, "\\\"\")"));
+               }
+             else
+               {
+                  menu_append_item (popup, strcat("  ", Apsmode_Printers[i].view_cmd), strcat("set_qp(\"Apsmode_Printers[0].view_cmd=\\\"", Apsmode_Printers[i].view_cmd, "\\\"\")"));
+               }
+          }
      }
    return;
 }
@@ -624,45 +786,207 @@ static define set_qp_header_callback (popup)
 {
    variable i;
    variable action;
-   action = strcat("read_mini\\\(\\\"Enter header string\\\",\\\"", printer[0].header,"\\\",\\\"", printer[0].header,"\\\"\\\)");
-   action = strcat("printer[0].header=", action);
+   action = strcat("read_mini\\\(\\\"Enter header string\\\",\\\"", Apsmode_Printers[0].header,"\\\",\\\"", Apsmode_Printers[0].header,"\\\"\\\)");
+   action = strcat("Apsmode_Printers[0].header=", action);
    action = strcat("set_qp(\"", action, "\")");
    menu_append_item (popup, "&Add temporary Header String", action);
-   for (i = 0; i <= max_no_printers-1; i++)
+   for (i = 0; i <= aps_max_no_printers-1; i++)
      {
-	if (printer[i].setup != NULL)
-	  {
-	     if (printer[i].header != "")
-	       {
-		  if (printer[0].header == printer[i].header)
-		    {
-		       menu_append_item (popup, strcat("* ", printer[i].header), strcat("set_qp(\"printer[0].header=\\\"", printer[i].header, "\\\"\")"));
-		    }
-		  else
-		    {
-		       menu_append_item (popup, strcat("  ", printer[i].header), strcat("set_qp(\"printer[0].header=\\\"", printer[i].header, "\\\"\")"));
-		    }
-	       }
-	  }
+        if (Apsmode_Printers[i].setupname != NULL)
+          {
+             if (Apsmode_Printers[i].header != "")
+               {
+                  if (Apsmode_Printers[0].header == Apsmode_Printers[i].header)
+                    {
+                       menu_append_item (popup, strcat("* ", Apsmode_Printers[i].header), strcat("set_qp(\"Apsmode_Printers[0].header=\\\"", Apsmode_Printers[i].header, "\\\"\")"));
+                    }
+                  else
+                    {
+                       menu_append_item (popup, strcat("  ", Apsmode_Printers[i].header), strcat("set_qp(\"Apsmode_Printers[0].header=\\\"", Apsmode_Printers[i].header, "\\\"\")"));
+                    }
+               }
+          }
+     }
+   return;
+}
+static define set_qp_title_left_callback (popup)
+{
+   variable i;
+   variable action;
+   action = strcat("read_mini\\\(\\\"Enter Left Title string\\\",\\\"", Apsmode_Printers[0].title_left,"\\\",\\\"", Apsmode_Printers[0].title_left,"\\\"\\\)");
+   action = strcat("Apsmode_Printers[0].title_left=", action);
+   action = strcat("set_qp(\"", action, "\")");
+   menu_append_item (popup, "&Add temporary Left Title String", action);
+   for (i = 0; i <= aps_max_no_printers-1; i++)
+     {
+        if (Apsmode_Printers[i].setupname != NULL)
+          {
+             if (Apsmode_Printers[i].title_left != "")
+               {
+                  if (Apsmode_Printers[0].title_left == Apsmode_Printers[i].title_left)
+                    {
+                       menu_append_item (popup, strcat("* ", Apsmode_Printers[i].title_left), strcat("set_qp(\"Apsmode_Printers[0].title_left=\\\"", Apsmode_Printers[i].title_left, "\\\"\")"));
+                    }
+                  else
+                    {
+                       menu_append_item (popup, strcat("  ", Apsmode_Printers[i].title_left), strcat("set_qp(\"Apsmode_Printers[0].title_left=\\\"", Apsmode_Printers[i].title_left, "\\\"\")"));
+                    }
+               }
+          }
+     }
+   return;
+}
+static define set_qp_title_center_callback (popup)
+{
+   variable i;
+   variable action;
+   action = strcat("read_mini\\\(\\\"Enter Center Title string\\\",\\\"", Apsmode_Printers[0].title_center,"\\\",\\\"", Apsmode_Printers[0].title_center,"\\\"\\\)");
+   action = strcat("Apsmode_Printers[0].title_center=", action);
+   action = strcat("set_qp(\"", action, "\")");
+   menu_append_item (popup, "&Add temporary Center Title String", action);
+   for (i = 0; i <= aps_max_no_printers-1; i++)
+     {
+        if (Apsmode_Printers[i].setupname != NULL)
+          {
+             if (Apsmode_Printers[i].title_center != "")
+               {
+                  if (Apsmode_Printers[0].title_center == Apsmode_Printers[i].title_center)
+                    {
+                       menu_append_item (popup, strcat("* ", Apsmode_Printers[i].title_center), strcat("set_qp(\"Apsmode_Printers[0].title_center=\\\"", Apsmode_Printers[i].title_center, "\\\"\")"));
+                    }
+                  else
+                    {
+                       menu_append_item (popup, strcat("  ", Apsmode_Printers[i].title_center), strcat("set_qp(\"Apsmode_Printers[0].title_center=\\\"", Apsmode_Printers[i].title_center, "\\\"\")"));
+                    }
+               }
+          }
+     }
+   return;
+}
+static define set_qp_title_right_callback (popup)
+{
+   variable i;
+   variable action;
+   action = strcat("read_mini\\\(\\\"Enter Right Title string\\\",\\\"", Apsmode_Printers[0].title_right,"\\\",\\\"", Apsmode_Printers[0].title_right,"\\\"\\\)");
+   action = strcat("Apsmode_Printers[0].title_right=", action);
+   action = strcat("set_qp(\"", action, "\")");
+   menu_append_item (popup, "&Add temporary Right Title String", action);
+   for (i = 0; i <= aps_max_no_printers-1; i++)
+     {
+        if (Apsmode_Printers[i].setupname != NULL)
+          {
+             if (Apsmode_Printers[i].title_right != "")
+               {
+                  if (Apsmode_Printers[0].title_right == Apsmode_Printers[i].title_right)
+                    {
+                       menu_append_item (popup, strcat("* ", Apsmode_Printers[i].title_right), strcat("set_qp(\"Apsmode_Printers[0].title_right=\\\"", Apsmode_Printers[i].title_right, "\\\"\")"));
+                    }
+                  else
+                    {
+                       menu_append_item (popup, strcat("  ", Apsmode_Printers[i].title_right), strcat("set_qp(\"Apsmode_Printers[0].title_right=\\\"", Apsmode_Printers[i].title_right, "\\\"\")"));
+                    }
+               }
+          }
+     }
+   return;
+}
+static define set_qp_footer_left_callback (popup)
+{
+   variable i;
+   variable action;
+   action = strcat("read_mini\\\(\\\"Enter Left Footer string\\\",\\\"", Apsmode_Printers[0].footer_left,"\\\",\\\"", Apsmode_Printers[0].footer_left,"\\\"\\\)");
+   action = strcat("Apsmode_Printers[0].footer_left=", action);
+   action = strcat("set_qp(\"", action, "\")");
+   menu_append_item (popup, "&Add temporary Left Footer String", action);
+   for (i = 0; i <= aps_max_no_printers-1; i++)
+     {
+        if (Apsmode_Printers[i].setupname != NULL)
+          {
+             if (Apsmode_Printers[i].footer_left != "")
+               {
+                  if (Apsmode_Printers[0].footer_left == Apsmode_Printers[i].footer_left)
+                    {
+                       menu_append_item (popup, strcat("* ", Apsmode_Printers[i].footer_left), strcat("set_qp(\"Apsmode_Printers[0].footer_left=\\\"", Apsmode_Printers[i].footer_left, "\\\"\")"));
+                    }
+                  else
+                    {
+                       menu_append_item (popup, strcat("  ", Apsmode_Printers[i].footer_left), strcat("set_qp(\"Apsmode_Printers[0].footer_left=\\\"", Apsmode_Printers[i].footer_left, "\\\"\")"));
+                    }
+               }
+          }
+     }
+   return;
+}
+static define set_qp_footer_center_callback (popup)
+{
+   variable i;
+   variable action;
+   action = strcat("read_mini\\\(\\\"Enter Center Footer string\\\",\\\"", Apsmode_Printers[0].footer_center,"\\\",\\\"", Apsmode_Printers[0].footer_center,"\\\"\\\)");
+   action = strcat("Apsmode_Printers[0].footer_center=", action);
+   action = strcat("set_qp(\"", action, "\")");
+   menu_append_item (popup, "&Add temporary Center Footer String", action);
+   for (i = 0; i <= aps_max_no_printers-1; i++)
+     {
+        if (Apsmode_Printers[i].setupname != NULL)
+          {
+             if (Apsmode_Printers[i].footer_center != "")
+               {
+                  if (Apsmode_Printers[0].footer_center == Apsmode_Printers[i].footer_center)
+                    {
+                       menu_append_item (popup, strcat("* ", Apsmode_Printers[i].footer_center), strcat("set_qp(\"Apsmode_Printers[0].footer_center=\\\"", Apsmode_Printers[i].footer_center, "\\\"\")"));
+                    }
+                  else
+                    {
+                       menu_append_item (popup, strcat("  ", Apsmode_Printers[i].footer_center), strcat("set_qp(\"Apsmode_Printers[0].footer_center=\\\"", Apsmode_Printers[i].footer_center, "\\\"\")"));
+                    }
+               }
+          }
+     }
+   return;
+}
+static define set_qp_footer_right_callback (popup)
+{
+   variable i;
+   variable action;
+   action = strcat("read_mini\\\(\\\"Enter Right Footer string\\\",\\\"", Apsmode_Printers[0].footer_right,"\\\",\\\"", Apsmode_Printers[0].footer_right,"\\\"\\\)");
+   action = strcat("Apsmode_Printers[0].footer_right=", action);
+   action = strcat("set_qp(\"", action, "\")");
+   menu_append_item (popup, "&Add temporary Right Footer String", action);
+   for (i = 0; i <= aps_max_no_printers-1; i++)
+     {
+        if (Apsmode_Printers[i].setupname != NULL)
+          {
+             if (Apsmode_Printers[i].footer_right != "")
+               {
+                  if (Apsmode_Printers[0].footer_right == Apsmode_Printers[i].footer_right)
+                    {
+                       menu_append_item (popup, strcat("* ", Apsmode_Printers[i].footer_right), strcat("set_qp(\"Apsmode_Printers[0].footer_right=\\\"", Apsmode_Printers[i].footer_right, "\\\"\")"));
+                    }
+                  else
+                    {
+                       menu_append_item (popup, strcat("  ", Apsmode_Printers[i].footer_right), strcat("set_qp(\"Apsmode_Printers[0].footer_right=\\\"", Apsmode_Printers[i].footer_right, "\\\"\")"));
+                    }
+               }
+          }
      }
    return;
 }
 static define set_qp_is_copy_of_callback (popup)
 {
    variable i;
-   for (i = 1; i <= max_no_printers-1; i++)
+   for (i = 1; i <= aps_max_no_printers-1; i++)
      {
-	if (printer[i].setup != NULL)
-	  {
-	     if (printer[0].copy_of == i)
-	       {
-		  menu_append_item (popup, strcat("* ", printer[i].setup), strcat("qp_is_copy_of(", string(i), ")"));
-	       }
-	     else
-	       {
-		  menu_append_item (popup, strcat("  ", printer[i].setup), strcat("qp_is_copy_of(", string(i), ")"));
-	       }
-	  }
+        if (Apsmode_Printers[i].setupname != NULL)
+          {
+             if (Apsmode_Printers[0].copy_of == i)
+               {
+                  menu_append_item (popup, strcat("* ", sprintf("%2s  ",string(i)), Apsmode_Printers[i].setupname), strcat("set_qp(\"qp_is_copy_of(", string(i), ")\")"));
+               }
+             else
+               {
+                  menu_append_item (popup, strcat("  ", sprintf("%2s  ",string(i)), Apsmode_Printers[i].setupname), strcat("set_qp(\"qp_is_copy_of(", string(i), ")\")"));
+               }
+          }
      }
    return;
 }
@@ -671,63 +995,274 @@ static define set_qp_fontsize_callback (popup)
    variable i;
    variable increment = 1;
 
-   if (printer[0].fontsize == "none")
+   if (Apsmode_Printers[0].fontsize == "none")
      {
-        menu_append_item (popup, strcat("* ", "don't care"), strcat("set_qp(\"printer[0].fontsize=\\\"", "none", "\\\"\")"));
+        menu_append_item (popup, strcat("* ", "don't care"), strcat("set_qp(\"Apsmode_Printers[0].fontsize=\\\"", "none", "\\\"\")"));
      }
    else
      {
-        menu_append_item (popup, strcat("  ", "don't care"), strcat("set_qp(\"printer[0].fontsize=\\\"", "none", "\\\"\")"));
+        menu_append_item (popup, strcat("  ", "don't care"), strcat("set_qp(\"Apsmode_Printers[0].fontsize=\\\"", "none", "\\\"\")"));
      }
    % add fontsize in points
    for (i = 6; i <= 72; i = i + increment)
      {
-	if (printer[0].fontsize == strcat(string(i), "points"))
-	  {
-	     menu_append_item (popup, strcat("* ", string(i), "points"), strcat("set_qp(\"printer[0].fontsize=\\\"", string(i), "points", "\\\"\")"));
-	  }
-	else
-	  {
-	     menu_append_item (popup, strcat("  ", string(i), "points"), strcat("set_qp(\"printer[0].fontsize=\\\"", string(i), "points", "\\\"\")"));
-	  }
-	if ( i == 12)
-	  {
-	     increment = 2;
-	  }
-	if ( i == 28)
-	  {
-	     increment = 8;
-	  }
-	if ( i == 36)
-	  {
-	     increment = 12;
-	  }
-	if ( i == 48)
-	  {
-	     increment = 24;
-	  }
+        if (Apsmode_Printers[0].fontsize == strcat(string(i), "points"))
+          {
+             menu_append_item (popup, strcat("* ", string(i), "points"), strcat("set_qp(\"Apsmode_Printers[0].fontsize=\\\"", string(i), "points", "\\\"\")"));
+          }
+        else
+          {
+             menu_append_item (popup, strcat("  ", string(i), "points"), strcat("set_qp(\"Apsmode_Printers[0].fontsize=\\\"", string(i), "points", "\\\"\")"));
+          }
+        if ( i == 12)
+          {
+             increment = 2;
+          }
+        if ( i == 28)
+          {
+             increment = 8;
+          }
+        if ( i == 36)
+          {
+             increment = 12;
+          }
+        if ( i == 48)
+          {
+             increment = 24;
+          }
      }
    return;
 }
 static define set_qp_max_chars_callback (popup)
 {
    variable action;
-   action = strcat("read_mini\\\(\\\"Enter min:max characters\\\",\\\"", printer[0].chars,"\\\",\\\"", printer[0].chars,"\\\"\\\)");
-   action = strcat("printer[0].chars=", action);
+   action = strcat("read_mini\\\(\\\"Enter min:max characters\\\",\\\"", Apsmode_Printers[0].chars,"\\\",\\\"", Apsmode_Printers[0].chars,"\\\"\\\)");
+   action = strcat("Apsmode_Printers[0].chars=", action);
    action = strcat("set_qp(\"", action, "\")");
    menu_append_item (popup, "&Change Max Characters", action);
-   menu_append_item (popup, "0:80", strcat("set_qp(\"printer[0].chars=\\\"0:80\\\"\")"));
-   menu_append_item (popup, "0:100", strcat("set_qp(\"printer[0].chars=\\\"0:100\\\"\")"));
-   menu_append_item (popup, "0:132", strcat("set_qp(\"printer[0].chars=\\\"0:132\\\"\")"));
-   menu_append_item (popup, "80:100", strcat("set_qp(\"printer[0].chars=\\\"80:100\\\"\")"));
-   menu_append_item (popup, "80:132", strcat("set_qp(\"printer[0].chars=\\\"80:132\\\"\")"));
+   menu_append_item (popup, "0:80", strcat("set_qp(\"Apsmode_Printers[0].chars=\\\"0:80\\\"\")"));
+   menu_append_item (popup, "0:100", strcat("set_qp(\"Apsmode_Printers[0].chars=\\\"0:100\\\"\")"));
+   menu_append_item (popup, "0:132", strcat("set_qp(\"Apsmode_Printers[0].chars=\\\"0:132\\\"\")"));
+   menu_append_item (popup, "80:100", strcat("set_qp(\"Apsmode_Printers[0].chars=\\\"80:100\\\"\")"));
+   menu_append_item (popup, "80:132", strcat("set_qp(\"Apsmode_Printers[0].chars=\\\"80:132\\\"\")"));
    return;
 }
 
-if ( aps_menu == 1)
+static define set_qp_margin_callback (popup)
 {
-   menu_append_popup ("Global", "&Print");
-   $1 = "Global.&Print";
+   variable i;
+   variable increment = 1;
+
+   % add margin in points
+   for (i = 0; i <= 12; i = i + increment)
+     {
+        if (Apsmode_Printers[0].margin == string(i))
+          {
+             menu_append_item (popup, strcat("* ", string(i), " points"), strcat("set_qp(\"Apsmode_Printers[0].margin=\\\"", string(i), "\\\"\")"));
+          }
+        else
+          {
+             menu_append_item (popup, strcat("  ", string(i), " points"), strcat("set_qp(\"Apsmode_Printers[0].margin=\\\"", string(i), "\\\"\")"));
+          }
+        % this code has been left here in case of more than 12 points needed.
+        if ( i == 12)
+          {
+             increment = 2;
+          }
+        if ( i == 28)
+          {
+             increment = 8;
+          }
+        if ( i == 36)
+          {
+             increment = 12;
+          }
+        if ( i == 48)
+          {
+             increment = 24;
+          }
+     }
+   return;
+}
+static define set_qp_major_callback (popup)
+{
+   if (strup(Apsmode_Printers[0].major) == "COLUMNS")
+     {
+        menu_append_item (popup, strcat("* ", "&columns"), strcat("set_qp(\"Apsmode_Printers[0].major=\\\"columns\\\"\")"));
+        menu_append_item (popup, strcat("  ", "&rows"), strcat("set_qp(\"Apsmode_Printers[0].major=\\\"rows\\\"\")"));
+     }
+   if (strup(Apsmode_Printers[0].major) == "ROWS")
+     {
+        menu_append_item (popup, strcat("  ", "&columns"), strcat("set_qp(\"Apsmode_Printers[0].major=\\\"columns\\\"\")"));
+        menu_append_item (popup, strcat("* ", "&rows"), strcat("set_qp(\"Apsmode_Printers[0].major=\\\"rows\\\"\")"));
+     }
+   return;
+}
+static define set_qp_pretty_callback (popup)
+{
+   if (strup(Apsmode_Printers[0].pretty) == "ON")
+     {
+        menu_append_item (popup, strcat("* ", "o&n"), strcat("set_qp(\"Apsmode_Printers[0].pretty=\\\"on\\\"\")"));
+        menu_append_item (popup, strcat("  ", "o&ff"), strcat("set_qp(\"Apsmode_Printers[0].pretty=\\\"off\\\"\")"));
+     }
+   if (strup(Apsmode_Printers[0].pretty) == "OFF")
+     {
+        menu_append_item (popup, strcat("  ", "o&n"), strcat("set_qp(\"Apsmode_Printers[0].pretty=\\\"on\\\"\")"));
+        menu_append_item (popup, strcat("* ", "o&ff"), strcat("set_qp(\"Apsmode_Printers[0].pretty=\\\"off\\\"\")"));
+     }
+   return;
+}
+
+static define set_qp_context_callback (popup)
+{
+   variable menu_entry = "";
+
+   % QuickPrint settings (as copy of Apsmode_default_printer)
+   % if not yet defined
+   if (Apsmode_Printers[0].orientation == NULL)
+     {
+        qp_is_copy_of(Apsmode_default_printer);
+     }
+
+   % Orientation
+   menu_entry = strcat("&Orientation       (", Apsmode_Printers[0].orientation, ")");
+   menu_append_popup (popup, menu_entry);
+   menu_set_select_popup_callback (strcat (popup, strcat(".", menu_entry)), &set_qp_orientation_callback);
+   % Paper Format
+   menu_entry = strcat("&Paper Format      (", Apsmode_Printers[0].medium, ")");
+   menu_append_popup (popup, menu_entry);
+   menu_set_select_popup_callback (strcat (popup, strcat(".", menu_entry)), &set_qp_medium_callback);
+   % Number of columns
+   menu_entry = strcat("Number of &Columns (", Apsmode_Printers[0].columns, ")");
+   menu_append_popup (popup, menu_entry);
+   menu_set_select_popup_callback (strcat (popup, strcat(".", menu_entry)), &set_qp_no_columns_callback);
+   % Number of rows
+   menu_entry = strcat("Number of &Rows    (", Apsmode_Printers[0].rows, ")");
+   menu_append_popup (popup, menu_entry);
+   menu_set_select_popup_callback (strcat (popup, strcat(".", menu_entry)), &set_qp_no_rows_callback);
+   % 2 Sides
+   menu_entry = strcat("2 &Sides           (", Apsmode_Printers[0].sides, ")");
+   menu_append_popup (popup, menu_entry);
+   menu_set_select_popup_callback (strcat (popup, strcat(".", menu_entry)), &set_qp_no_sides_callback);
+   % Copies
+   menu_entry = strcat("Cop&ies            (", Apsmode_Printers[0].copies, ")");
+   menu_append_popup (popup, menu_entry);
+   menu_set_select_popup_callback (strcat (popup, strcat(".", menu_entry)), &set_qp_no_copies_callback);
+
+   menu_append_separator (popup);
+
+   % Fontsize
+   menu_entry = strcat("&Fontsize          (", Apsmode_Printers[0].fontsize, ")");
+   menu_append_popup (popup, menu_entry);
+   menu_set_select_popup_callback (strcat (popup, strcat(".", menu_entry)), &set_qp_fontsize_callback);
+   % Max Characters
+   menu_entry = strcat("&Max Characters    (", Apsmode_Printers[0].chars, ")");
+   menu_append_popup (popup, menu_entry);
+   menu_set_select_popup_callback (strcat (popup, strcat(".", menu_entry)), &set_qp_max_chars_callback);
+   % Truncate Lines
+   menu_entry = strcat("&Truncate Lines    (", Apsmode_Printers[0].truncate, ")");
+   menu_append_popup (popup, menu_entry);
+   menu_set_select_popup_callback (strcat (popup, strcat(".", menu_entry)), &set_qp_truncate_callback);
+   % Linenumbers
+   menu_entry = strcat("Line&numbers       (", Apsmode_Printers[0].linenumbers, ")");
+   menu_append_popup (popup, menu_entry);
+   menu_set_select_popup_callback (strcat (popup, strcat(".", menu_entry)), &set_qp_linenumbers_callback);
+
+   menu_append_separator (popup);
+
+   % Borders
+   menu_entry = strcat("&Borders           (", Apsmode_Printers[0].borders, ")");
+   menu_append_popup (popup, menu_entry);
+   menu_set_select_popup_callback (strcat (popup, strcat(".", menu_entry)), &set_qp_borders_callback);
+   % Margin
+   menu_entry = strcat("M&argin            (", Apsmode_Printers[0].margin, ")");
+   menu_append_popup (popup, menu_entry);
+   menu_set_select_popup_callback (strcat (popup, strcat(".", menu_entry)), &set_qp_margin_callback);
+   % Major Print Direction
+   menu_entry = strcat("Print &Direction   (", Apsmode_Printers[0].major, ")");
+   menu_append_popup (popup, menu_entry);
+   menu_set_select_popup_callback (strcat (popup, strcat(".", menu_entry)), &set_qp_major_callback);
+   % Color
+   menu_entry = strcat("Co&lor             (", Apsmode_Printers[0].color, ")");
+   menu_append_popup (popup, menu_entry);
+   menu_set_select_popup_callback (strcat (popup, strcat(".", menu_entry)), &set_qp_color_callback);
+   % Pretty Printing
+   menu_entry = strcat("Pr&etty Printing   (", Apsmode_Printers[0].pretty, ")");
+   menu_append_popup (popup, menu_entry);
+   menu_set_select_popup_callback (strcat (popup, strcat(".", menu_entry)), &set_qp_pretty_callback);
+
+   menu_append_separator (popup);
+
+   % Header
+   menu_entry = create_menu_string ("&Header", Apsmode_Printers[0].header);
+   menu_append_popup (popup, menu_entry);
+   menu_set_select_popup_callback (strcat (popup, strcat(".", menu_entry)), &set_qp_header_callback);
+   % Title Left
+   menu_entry = create_menu_string ("Title Left", Apsmode_Printers[0].title_left);
+   menu_append_popup (popup, menu_entry);
+   menu_set_select_popup_callback (strcat (popup, strcat(".", menu_entry)), &set_qp_title_left_callback);
+   % Title Center
+   menu_entry = create_menu_string ("Title Center", Apsmode_Printers[0].title_center);
+   menu_append_popup (popup, menu_entry);
+   menu_set_select_popup_callback (strcat (popup, strcat(".", menu_entry)), &set_qp_title_center_callback);
+   % Title Right
+   menu_entry = create_menu_string ("Title Right", Apsmode_Printers[0].title_right);
+   menu_append_popup (popup, menu_entry);
+   menu_set_select_popup_callback (strcat (popup, strcat(".", menu_entry)), &set_qp_title_right_callback);
+   % Footer Left
+   menu_entry = create_menu_string ("Footer Left", Apsmode_Printers[0].footer_left);
+   menu_append_popup (popup, menu_entry);
+   menu_set_select_popup_callback (strcat (popup, strcat(".", menu_entry)), &set_qp_footer_left_callback);
+   % Footer Center
+   menu_entry = create_menu_string ("Footer Center", Apsmode_Printers[0].footer_center);
+   menu_append_popup (popup, menu_entry);
+   menu_set_select_popup_callback (strcat (popup, strcat(".", menu_entry)), &set_qp_footer_center_callback);
+   % Footer Right
+   menu_entry = create_menu_string ("Footer Right", Apsmode_Printers[0].footer_right);
+   menu_append_popup (popup, menu_entry);
+   menu_set_select_popup_callback (strcat (popup, strcat(".", menu_entry)), &set_qp_footer_right_callback);
+
+   menu_append_separator (popup);
+
+   % Print Command
+   menu_entry = create_menu_string ("Pri&nt Command", Apsmode_Printers[0].print_cmd);
+   menu_append_popup (popup, menu_entry);
+   menu_set_select_popup_callback (strcat (popup, strcat(".", menu_entry)), &set_qp_printer_callback);
+   % View Command
+   menu_entry = create_menu_string ("&View Command", Apsmode_Printers[0].view_cmd);
+   menu_append_popup (popup, menu_entry);
+   menu_set_select_popup_callback (strcat (popup, strcat(".", menu_entry)), &set_qp_view_callback);
+
+   menu_append_separator (popup);
+
+   % QP is copy of
+   menu_entry = strcat("Set QP as Cop&y of setup  (", string(Apsmode_Printers[0].copy_of), ")");
+   menu_append_popup (popup, menu_entry);
+   menu_set_select_popup_callback (strcat (popup, strcat(".", menu_entry)), &set_qp_is_copy_of_callback);
+   % set QP as default printer, if necessary
+   if (Apsmode_default_printer != 0)
+     {
+        menu_append_item (popup, "Set QP as default printer", strcat("show_default_printer_menu(\"set_default_printer(0)\",\".&QuickPrint\")"));
+     }
+   else
+     {
+        menu_append_item (popup, "QP is default printer", strcat("show_default_printer_menu(\"set_default_printer(0)\",\".&QuickPrint\")"));
+     }
+
+   return;
+}
+
+if ( Apsmode_menu != "")
+{
+   % remove existing Print menu entry
+   % (this might fail with older cua emulations)
+   % if (_Jed_Emulation == "cua" and is_defined("print_buffer"))
+   %   menu_delete_item("Global.&File.&Print");
+
+   $1 = Apsmode_menu;
+   $2 = strtok(Apsmode_menu, ".");
+   menu_insert_popup(7, strjoin($2[[:-2]], "."), $2[-1]);
+
    menu_append_item ($1, "Print &Buffer", "print_buffer");
    menu_append_item ($1, "Print &Region", "print_region");
 
@@ -736,39 +1271,25 @@ if ( aps_menu == 1)
    menu_append_item ($1, "Print R&egion Preview", "print_region_preview");
 
    menu_append_separator ($1);
-   menu_append_popup ($1, "&Default Printer");
-   menu_set_select_popup_callback (strcat ($1, ".&Default Printer"), &default_printer_callback);
+   if (Apsmode_default_printer == 0)
+     {
+        menu_entry = strcat("Show &Default Printer  (QuickPrint)");
+     }
+   else
+     {
+        menu_entry = strcat("Show &Default Printer  (setup ", string(Apsmode_default_printer), ")");
+     }
+
+   menu_append_popup ($1, menu_entry);
+   menu_set_select_popup_callback (strcat ($1, ".", menu_entry), &default_printer_callback);
+
    menu_append_popup ($1, "Set Default &Printer");
    menu_set_select_popup_callback (strcat ($1, ".Set Default &Printer"), &set_default_printer_callback);
 
    menu_append_separator ($1);
+   % add the context sensitive QuickPrint entries
    menu_append_popup ($1, "&QuickPrint");
-   menu_append_popup (strcat($1, ".&QuickPrint"), "&Orientation");
-   menu_set_select_popup_callback (strcat ($1, ".&QuickPrint.&Orientation"), &set_qp_orientation_callback);
-   menu_append_popup (strcat($1, ".&QuickPrint"), "Number of &Columns");
-   menu_set_select_popup_callback (strcat ($1, ".&QuickPrint.Number of &Columns"), &set_qp_no_columns_callback);
-   menu_append_popup (strcat($1, ".&QuickPrint"), "Number of &Rows");
-   menu_set_select_popup_callback (strcat ($1, ".&QuickPrint.Number of &Rows"), &set_qp_no_rows_callback);
-   menu_append_popup (strcat($1, ".&QuickPrint"), "2 &Sides");
-   menu_set_select_popup_callback (strcat ($1, ".&QuickPrint.2 &Sides"), &set_qp_no_sides_callback);
-   menu_append_popup (strcat($1, ".&QuickPrint"), "&Borders");
-   menu_set_select_popup_callback (strcat ($1, ".&QuickPrint.&Borders"), &set_qp_borders_callback);
-   menu_append_popup (strcat($1, ".&QuickPrint"), "&Copies");
-   menu_set_select_popup_callback (strcat ($1, ".&QuickPrint.&Copies"), &set_qp_no_copies_callback);
-   menu_append_popup (strcat($1, ".&QuickPrint"), "&Linenumbers");
-   menu_set_select_popup_callback (strcat ($1, ".&QuickPrint.&Linenumbers"), &set_qp_linenumbers_callback);
-   menu_append_popup (strcat($1, ".&QuickPrint"), "&Max Characters");
-   menu_set_select_popup_callback (strcat ($1, ".&QuickPrint.&Max Characters"), &set_qp_max_chars_callback);
-   menu_append_popup (strcat($1, ".&QuickPrint"), "&Fontsize");
-   menu_set_select_popup_callback (strcat ($1, ".&QuickPrint.&Fontsize"), &set_qp_fontsize_callback);
-   menu_append_popup (strcat($1, ".&QuickPrint"), "Paper &Format");
-   menu_set_select_popup_callback (strcat ($1, ".&QuickPrint.Paper &Format"), &set_qp_medium_callback);
-   menu_append_popup (strcat($1, ".&QuickPrint"), "&Header");
-   menu_set_select_popup_callback (strcat ($1, ".&QuickPrint.&Header"), &set_qp_header_callback);
-   menu_append_popup (strcat($1, ".&QuickPrint"), "&Print Command");
-   menu_set_select_popup_callback (strcat ($1, ".&QuickPrint.&Print Command"), &set_qp_printer_callback);
-   menu_append_popup (strcat($1, ".&QuickPrint"), "QP is Cop&y of");
-   menu_set_select_popup_callback (strcat ($1, ".&QuickPrint.QP is Cop&y of"), &set_qp_is_copy_of_callback);
+   menu_set_select_popup_callback (strcat ($1, ".&QuickPrint"), &set_qp_context_callback);
 
    menu_append_separator ($1);
    menu_append_popup ($1, "Show Printer &Settings");
@@ -776,19 +1297,18 @@ if ( aps_menu == 1)
    menu_append_item ($1, "Show Print &Logfile", "show_print_log()");
 
    menu_append_separator ($1);
-   menu_append_item ($1, "Edi&t apsconf.sl", "find_file(aps_config_file)");
-   menu_append_item ($1, "Rel&oad apsconf.sl", "aps_pid=0;evalfile(aps_config_file)");
-   menu_append_item ($1, "Current Settings in apsconf format", strcat("show_printer_settings(",string(default_printer),",2)"));
+   menu_append_item ($1, "Current Settings in apsconf format", strcat("show_printer_settings(\"default\",2)"));
    menu_append_item ($1, "&Create Style Sheet", "create_a2ps_style_sheet(\"\")");
 
    menu_append_separator ($1);
+   menu_append_item ($1, "Show apsmode Settings", "show_apsmode_settings()");
    menu_append_item ($1, "&Help apsmode", "aps_help");
    menu_append_popup ($1, "&About apsmode");
-   menu_append_item (strcat($1, ".&About apsmode"), "apsmode", "");
-   menu_append_item (strcat($1, ".&About apsmode"), strcat("Version ", aps_version), "");
-   menu_append_item (strcat($1, ".&About apsmode"), strcat("created ", aps_creation_date), "");
-   %menu_append_item (strcat($1, ".&About apsmode"), strcat("by ", aps_creator), "");
-   menu_append_item (strcat($1, ".&About apsmode"), strcat("tested with JED ", aps_jed_tested), "");
+   menu_append_item (strcat($1, ".&About apsmode"), "apsmode", "menu_select_menu(Apsmode_menu)");
+   menu_append_item (strcat($1, ".&About apsmode"), strcat("Version ", aps_version), "menu_select_menu(Apsmode_menu)");
+   menu_append_item (strcat($1, ".&About apsmode"), strcat("created ", aps_creation_date), "menu_select_menu(Apsmode_menu)");
+   %menu_append_item (strcat($1, ".&About apsmode"), strcat("by ", aps_creator), "menu_select_menu(Apsmode_menu)");
+   menu_append_item (strcat($1, ".&About apsmode"), strcat("tested with JED ", aps_jed_tested), "menu_select_menu(Apsmode_menu)");
 }
 
 %%%%%%%%%%%%%%%%%%%%% Menu Entries End %%%%%%%%%%%%%%%%%%%%%%%
@@ -810,140 +1330,140 @@ if ( aps_menu == 1)
 %!%-
 static define get_a2ps_cmd(id, max_char) %{{{
 {
-   variable cmd = strcat(a2ps_cmd, " ");
+   variable cmd = strcat(Apsmode_a2ps_cmd, " ");
    variable no_header = "";
    variable chars = Integer_Type [2];
 
-   cmd = strcat(cmd, " --output=", aps_tmp_file);
-   cmd = strcat(cmd, " --columns=", printer[id].columns);
-   cmd = strcat(cmd, " --rows=", printer[id].rows);
+   cmd = strcat(cmd, " --output=", Apsmode_tmp_file);
+   cmd = strcat(cmd, " --columns=", Apsmode_Printers[id].columns);
+   cmd = strcat(cmd, " --rows=", Apsmode_Printers[id].rows);
 
    % now determine , how much characters have to be printed per line
    % first extract min/max values from printer setting
 
-   chars = strchop(printer[id].chars,':',0);
+   chars = strchop(Apsmode_Printers[id].chars,':',0);
 
    switch (max_char)
      { max_char < integer(chars[0]) :
-	cmd = strcat(cmd, " --chars-per-line=", string(chars[0]));
+        cmd = strcat(cmd, " --chars-per-line=", string(chars[0]));
      }
      { max_char > integer(chars[1]) :
-	cmd = strcat(cmd, " --chars-per-line=", string(chars[1]));
+        cmd = strcat(cmd, " --chars-per-line=", string(chars[1]));
      }
      {
-	cmd = strcat(cmd, " --chars-per-line=", string(max_char));
+        cmd = strcat(cmd, " --chars-per-line=", string(max_char));
      };
 
-   if (printer[id].fontsize != "none")
+   if (Apsmode_Printers[id].fontsize != "none")
      {
-	cmd = strcat(cmd, " --font-size=", printer[id].fontsize);
+        cmd = strcat(cmd, " --font-size=", Apsmode_Printers[id].fontsize);
      }
 
-   cmd = strcat(cmd, " --borders=", printer[id].borders);
-   cmd = strcat(cmd, " --", printer[id].orientation);
-   cmd = strcat(cmd, " --medium=", printer[id].medium);
-   cmd = strcat(cmd, " --sides=", printer[id].sides);
-   cmd = strcat(cmd, " --truncate-line=", printer[id].truncate);
-   cmd = strcat(cmd, " --line-numbers=", printer[id].linenumbers);
-   cmd = strcat(cmd, " --copies=", printer[id].copies);
-   cmd = strcat(cmd, " --major=", printer[id].major);
-   cmd = strcat(cmd, " --margin=", printer[id].margin);
+   cmd = strcat(cmd, " --borders=", Apsmode_Printers[id].borders);
+   cmd = strcat(cmd, " --", Apsmode_Printers[id].orientation);
+   cmd = strcat(cmd, " --medium=", Apsmode_Printers[id].medium);
+   cmd = strcat(cmd, " --sides=", Apsmode_Printers[id].sides);
+   cmd = strcat(cmd, " --truncate-line=", Apsmode_Printers[id].truncate);
+   cmd = strcat(cmd, " --line-numbers=", Apsmode_Printers[id].linenumbers);
+   cmd = strcat(cmd, " --copies=", Apsmode_Printers[id].copies);
+   cmd = strcat(cmd, " --major=", Apsmode_Printers[id].major);
+   cmd = strcat(cmd, " --margin=", Apsmode_Printers[id].margin);
 
    % string settings must be differently defined for UNIX and Windows
    % Windows needs some extra \\ for hashing, otherwise only parts of
    % the defined strings will be considered
 #ifdef UNIX
-   if ( printer[id].header != "" )
+   if ( Apsmode_Printers[id].header != "" )
      {
-	cmd = strcat(cmd, " --header=\"", printer[id].header, "\"");
-	no_header = "1";
+        cmd = strcat(cmd, " --header=\"", Apsmode_Printers[id].header, "\"");
+        no_header = "1";
      }
-   if ( printer[id].title_left != "" )
+   if ( Apsmode_Printers[id].title_left != "" )
      {
-	cmd = strcat(cmd, " --left-title=\"", printer[id].title_left, "\"");
-	no_header = "1";
+        cmd = strcat(cmd, " --left-title=\"", Apsmode_Printers[id].title_left, "\"");
+        no_header = "1";
      }
-   if ( printer[id].title_center != "" )
+   if ( Apsmode_Printers[id].title_center != "" )
      {
-	cmd = strcat(cmd, " --center-title=\"", printer[id].title_center, "\"");
-	no_header = "1";
+        cmd = strcat(cmd, " --center-title=\"", Apsmode_Printers[id].title_center, "\"");
+        no_header = "1";
      }
-   if ( printer[id].title_right != "" )
+   if ( Apsmode_Printers[id].title_right != "" )
      {
-	cmd = strcat(cmd, " --right-title=\"", printer[id].title_right, "\"");
-	no_header = "1";
+        cmd = strcat(cmd, " --right-title=\"", Apsmode_Printers[id].title_right, "\"");
+        no_header = "1";
      }
    if (no_header == "")
      {
-	cmd = strcat(cmd, " --no-header");
+        cmd = strcat(cmd, " --no-header");
      }
-   if ( printer[id].footer_left != "" )
+   if ( Apsmode_Printers[id].footer_left != "" )
      {
-	cmd = strcat(cmd, " --left-footer=\"", printer[id].footer_left, "\"");
+        cmd = strcat(cmd, " --left-footer=\"", Apsmode_Printers[id].footer_left, "\"");
      }
 
-   if ( printer[id].footer_center != "" )
+   if ( Apsmode_Printers[id].footer_center != "" )
      {
-	cmd = strcat(cmd, " --footer=\"", printer[id].footer_center, "\"");
+        cmd = strcat(cmd, " --footer=\"", Apsmode_Printers[id].footer_center, "\"");
      }
-   if ( printer[id].footer_right != "" )
+   if ( Apsmode_Printers[id].footer_right != "" )
      {
-	cmd = strcat(cmd, " --right-footer=\"", printer[id].footer_right, "\"");
+        cmd = strcat(cmd, " --right-footer=\"", Apsmode_Printers[id].footer_right, "\"");
      }
 #endif
 #ifdef MSWINDOWS
-   if ( printer[id].header != "" )
+   if ( Apsmode_Printers[id].header != "" )
      {
-	cmd = strcat(cmd, " --header=\\\"", printer[id].header, "\\\"");
-	no_header = "1";
+        cmd = strcat(cmd, " --header=\\\"", Apsmode_Printers[id].header, "\\\"");
+        no_header = "1";
      }
-   if ( printer[id].title_left != "" )
+   if ( Apsmode_Printers[id].title_left != "" )
      {
-	cmd = strcat(cmd, " --left-title=\\\"", printer[id].title_left, "\\\"");
-	no_header = "1";
+        cmd = strcat(cmd, " --left-title=\\\"", Apsmode_Printers[id].title_left, "\\\"");
+        no_header = "1";
      }
-   if ( printer[id].title_center != "" )
+   if ( Apsmode_Printers[id].title_center != "" )
      {
-	cmd = strcat(cmd, " --center-title=\\\"", printer[id].title_center, "\\\"");
-	no_header = "1";
+        cmd = strcat(cmd, " --center-title=\\\"", Apsmode_Printers[id].title_center, "\\\"");
+        no_header = "1";
      }
-   if ( printer[id].title_right != "" )
+   if ( Apsmode_Printers[id].title_right != "" )
      {
-	cmd = strcat(cmd, " --right-title=\\\"", printer[id].title_right, "\\\"");
-	no_header = "1";
+        cmd = strcat(cmd, " --right-title=\\\"", Apsmode_Printers[id].title_right, "\\\"");
+        no_header = "1";
      }
    if (no_header == "")
      {
-	cmd = strcat(cmd, " --no-header");
+        cmd = strcat(cmd, " --no-header");
      }
-   if ( printer[id].footer_left != "" )
+   if ( Apsmode_Printers[id].footer_left != "" )
      {
-	cmd = strcat(cmd, " --left-footer=\\\"", printer[id].footer_left, "\\\"");
+        cmd = strcat(cmd, " --left-footer=\\\"", Apsmode_Printers[id].footer_left, "\\\"");
      }
 
-   if ( printer[id].footer_center != "" )
+   if ( Apsmode_Printers[id].footer_center != "" )
      {
-	cmd = strcat(cmd, " --footer=\\\"", printer[id].footer_center, "\\\"");
+        cmd = strcat(cmd, " --footer=\\\"", Apsmode_Printers[id].footer_center, "\\\"");
      }
-   if ( printer[id].footer_right != "" )
+   if ( Apsmode_Printers[id].footer_right != "" )
      {
-	cmd = strcat(cmd, " --right-footer=\\\"", printer[id].footer_right, "\\\"");
+        cmd = strcat(cmd, " --right-footer=\\\"", Apsmode_Printers[id].footer_right, "\\\"");
      }
 #endif
-   cmd = strcat(cmd, " --prologue=", printer[id].color);
+   cmd = strcat(cmd, " --prologue=", Apsmode_Printers[id].color);
    % pretty-print must be the last entry to have a chance to append
    % local a2ps style sheet later
-   if (strup(printer[id].pretty) == "ON")
+   if (strup(Apsmode_Printers[id].pretty) == "ON")
      {
-	cmd = strcat(cmd, " --pretty-print");
+        cmd = strcat(cmd, " --pretty-print");
      }
    else
      {
-	cmd = strcat(cmd, " --pretty-print=\"plain\"");
+        cmd = strcat(cmd, " --pretty-print=\"plain\"");
      }
    % remove the placeholders for filename and date/time
-   cmd = str_replace_all(cmd, "JEDFILENAME", JEDFILENAME);
-   cmd = str_replace_all(cmd, "JEDDATETIME", JEDDATETIME);
+   cmd = str_replace_all(cmd, "JEDFILENAME", aps_jedfilename);
+   cmd = str_replace_all(cmd, "JEDDATETIME", aps_jeddatetime);
 
    return cmd;
 }
@@ -953,12 +1473,13 @@ static define get_a2ps_cmd(id, max_char) %{{{
 %!%+
 %\function{show_printer_settings}
 %\synopsis{show current printer settings}
-%\usage{show_printer_settings (Integer_Type id, Integer_Type format)}
+%\usage{show_printer_settings (String_Type/Integer_Type id, Integer_Type format)}
 %\description
 % This function is used to show the current printer settings in a
 % separate buffer.
-% \var{id} will be used as index for the \var{printer}-array, which
-% contains the settings.
+% \var{id} will be used as index for the \var{Apsmode_Printers}-array, which
+% contains the settings. Value "default" will use the settings of the currently
+% defined default printer.
 % \var{format} will be used to format the output either as
 % - human readable text or
 % - as configuration data for apsconf.sl
@@ -971,89 +1492,99 @@ define show_printer_settings(id,format) %{{{
    set_readonly(0);
    erase_buffer();
    bob();
-   
+
+   % set id to the default printer id (if requested)
+   if (string(id) == "default")
+     {
+        id = Apsmode_default_printer;
+
+     }
+
    % print settings in a readable format
    if (format == 1)
      {
-	insert(sprintf("\nSettings for %s\n", printer[id].setup));
-	insert("==========================================\n\n");
-	insert("\nPrint options\n");
-	insert("------------------------------------------\n");
-	insert(sprintf("Printer Name          : %s\n", printer[id].name));
-	insert(sprintf("Printer Description   : %s\n", printer[id].description));
-	insert(sprintf("Number of Columns     : %s\n", printer[id].columns));
-	insert(sprintf("Number of Rows        : %s\n", printer[id].rows));
-	insert(sprintf("Fontsize              : %s\n", printer[id].fontsize));
-	insert(sprintf("Characters per Line   : %s\n", printer[id].chars));
-	insert(sprintf("Orientation           : %s\n", printer[id].orientation));
-	insert(sprintf("Paper Format          : %s\n", printer[id].medium));
-	insert(sprintf("One/Two Sides Print   : %s\n", printer[id].sides));
-	insert(sprintf("Truncate Lines        : %s\n", printer[id].truncate));
-	insert(sprintf("Number of copies      : %s\n", printer[id].copies));
-	insert(sprintf("Major Print Direction : %s\n", printer[id].major));
-	insert(sprintf("\nPrint Linenumbers every %s row(s)\n", printer[id].linenumbers));
+        insert(sprintf("\nSettings for %s\n", Apsmode_Printers[id].setupname));
+        insert("==========================================\n\n");
+        insert("\nPrint options\n");
+        insert("------------------------------------------\n");
+        insert(sprintf("Printer Name          : %s\n", Apsmode_Printers[id].name));
+        insert(sprintf("Printer Description   : %s\n", Apsmode_Printers[id].description));
+        insert(sprintf("Number of Columns     : %s\n", Apsmode_Printers[id].columns));
+        insert(sprintf("Number of Rows        : %s\n", Apsmode_Printers[id].rows));
+        insert(sprintf("Fontsize              : %s\n", Apsmode_Printers[id].fontsize));
+        insert(sprintf("Characters per Line   : %s\n", Apsmode_Printers[id].chars));
+        insert(sprintf("Orientation           : %s\n", Apsmode_Printers[id].orientation));
+        insert(sprintf("Paper Format          : %s\n", Apsmode_Printers[id].medium));
+        insert(sprintf("One/Two Sides Print   : %s\n", Apsmode_Printers[id].sides));
+        insert(sprintf("Truncate Lines        : %s\n", Apsmode_Printers[id].truncate));
+        insert(sprintf("Number of copies      : %s\n", Apsmode_Printers[id].copies));
+        insert(sprintf("Major Print Direction : %s\n", Apsmode_Printers[id].major));
+        insert(sprintf("\nPrint Linenumbers every %s row(s)\n", Apsmode_Printers[id].linenumbers));
 
-	insert("\nLayout options\n");
-	insert("------------------------------------------\n");
-	insert(sprintf("Print Borders         : %s\n", printer[id].borders));
-	insert(sprintf("Margin [points]       : %s\n", printer[id].margin));
-	insert(sprintf("Header                : %s\n", printer[id].header));
-	insert(sprintf("Left Title            : %s\n", printer[id].title_left));
-	insert(sprintf("Center Title          : %s\n", printer[id].title_center));
-	insert(sprintf("Right Title           : %s\n", printer[id].title_right));
-	insert(sprintf("Left Footer           : %s\n", printer[id].footer_left));
-	insert(sprintf("Center Footer         : %s\n", printer[id].footer_center));
-	insert(sprintf("Right Footer          : %s\n", printer[id].footer_right));
-	insert(sprintf("Color                 : %s\n", printer[id].color));
-	insert(sprintf("Syntax Highlighting   : %s\n", printer[id].pretty));
+        insert("\nLayout options\n");
+        insert("------------------------------------------\n");
+        insert(sprintf("Print Borders         : %s\n", Apsmode_Printers[id].borders));
+        insert(sprintf("Margin [points]       : %s\n", Apsmode_Printers[id].margin));
+        insert(sprintf("Header                : %s\n", Apsmode_Printers[id].header));
+        insert(sprintf("Left Title            : %s\n", Apsmode_Printers[id].title_left));
+        insert(sprintf("Center Title          : %s\n", Apsmode_Printers[id].title_center));
+        insert(sprintf("Right Title           : %s\n", Apsmode_Printers[id].title_right));
+        insert(sprintf("Left Footer           : %s\n", Apsmode_Printers[id].footer_left));
+        insert(sprintf("Center Footer         : %s\n", Apsmode_Printers[id].footer_center));
+        insert(sprintf("Right Footer          : %s\n", Apsmode_Printers[id].footer_right));
+        insert(sprintf("Color                 : %s\n", Apsmode_Printers[id].color));
+        insert(sprintf("Syntax Highlighting   : %s\n", Apsmode_Printers[id].pretty));
 
-	insert("------------------------------------------\n\n");
-	insert("a2ps command:\n");
-	insert(get_a2ps_cmd(id,0));
-	insert("\n\n");
-	insert("print command:\n");
-	insert(printer[id].print_cmd);
-	insert("\n\n");
-	insert("view command:\n");
-	insert(printer[id].view_cmd);
-	insert("\n");
+        insert("------------------------------------------\n\n");
+        insert("a2ps command:\n");
+        insert(get_a2ps_cmd(id,0));
+        insert("\n\n");
+        insert("print command:\n");
+        insert(Apsmode_Printers[id].print_cmd);
+        insert("\n\n");
+        insert("view command:\n");
+        insert(Apsmode_Printers[id].view_cmd);
+        insert("\n");
      }
 
    % print settings in a apsconf format
    if (format == 2)
      {
-insert("aps_pid++;\n");
-insert(sprintf("printer[aps_pid].setup = \"%s\";\n",printer[id].setup));
-insert(sprintf("printer[aps_pid].name = \"%s\";\n",printer[id].name));
-insert(sprintf("printer[aps_pid].description = \"%s\";\n",printer[id].description));
-insert(sprintf("printer[aps_pid].columns = \"%s\";\n",printer[id].columns));
-insert(sprintf("printer[aps_pid].rows = \"%s\";\n",printer[id].rows));
-insert(sprintf("printer[aps_pid].fontsize = \"%s\";\n",printer[id].fontsize));
-insert(sprintf("printer[aps_pid].chars = \"%s\";\n",printer[id].chars));
-insert(sprintf("printer[aps_pid].borders = \"%s\";\n",printer[id].borders));
-insert(sprintf("printer[aps_pid].orientation = \"%s\";\n",printer[id].orientation));
-insert(sprintf("printer[aps_pid].medium = \"%s\";\n",printer[id].medium));
-insert(sprintf("printer[aps_pid].sides = \"%s\";\n",printer[id].sides));
-insert(sprintf("printer[aps_pid].truncate = \"%s\";\n",printer[id].truncate));
-insert(sprintf("printer[aps_pid].linenumbers = \"%s\";\n",printer[id].linenumbers));
-insert(sprintf("printer[aps_pid].copies = \"%s\";\n",printer[id].copies));
-insert(sprintf("printer[aps_pid].major = \"%s\";\n",printer[id].major));
-insert(sprintf("printer[aps_pid].margin = \"%s\";\n",printer[id].margin));
-insert(sprintf("printer[aps_pid].header = \"%s\";\n",printer[id].header));
-insert(sprintf("printer[aps_pid].title_left = \"%s\";\n",printer[id].title_left));
-insert(sprintf("printer[aps_pid].title_center = \"%s\";\n",printer[id].title_center));
-insert(sprintf("printer[aps_pid].title_right = \"%s\";\n",printer[id].title_right));
-insert(sprintf("printer[aps_pid].footer_left = \"%s\";\n",printer[id].footer_left));
-insert(sprintf("printer[aps_pid].footer_center = \"%s\";\n",printer[id].footer_center));
-insert(sprintf("printer[aps_pid].footer_right = \"%s\";\n",printer[id].footer_right));
-insert(sprintf("printer[aps_pid].color = \"%s\";\n",printer[id].color));
-insert(sprintf("printer[aps_pid].pretty = \"%s\";\n",printer[id].pretty));
-insert(sprintf("printer[aps_pid].print_cmd = \"%s\";\n",printer[id].print_cmd));
-insert(sprintf("printer[aps_pid].view_cmd = \"%s\";\n",printer[id].view_cmd));
-insert("printer[aps_pid].copy_of = 0;\n");
-
+        insert("% You can use this definition in your local apsconf.sl file.\n");
+        insert("% Don't forget to define a private variable 'setup'\n");
+        insert("% in your local apsconf file;\n");
+        insert("% private variable aps_id = 0;\n\n");
+        insert("setup++;\n");
+        insert(sprintf("Apsmode_Printers[setup].setupname = \"%s\";\n",Apsmode_Printers[id].setupname));
+        insert(sprintf("Apsmode_Printers[setup].name = \"%s\";\n",Apsmode_Printers[id].name));
+        insert(sprintf("Apsmode_Printers[setup].description = \"%s\";\n",Apsmode_Printers[id].description));
+        insert(sprintf("Apsmode_Printers[setup].columns = \"%s\";\n",Apsmode_Printers[id].columns));
+        insert(sprintf("Apsmode_Printers[setup].rows = \"%s\";\n",Apsmode_Printers[id].rows));
+        insert(sprintf("Apsmode_Printers[setup].fontsize = \"%s\";\n",Apsmode_Printers[id].fontsize));
+        insert(sprintf("Apsmode_Printers[setup].chars = \"%s\";\n",Apsmode_Printers[id].chars));
+        insert(sprintf("Apsmode_Printers[setup].borders = \"%s\";\n",Apsmode_Printers[id].borders));
+        insert(sprintf("Apsmode_Printers[setup].orientation = \"%s\";\n",Apsmode_Printers[id].orientation));
+        insert(sprintf("Apsmode_Printers[setup].medium = \"%s\";\n",Apsmode_Printers[id].medium));
+        insert(sprintf("Apsmode_Printers[setup].sides = \"%s\";\n",Apsmode_Printers[id].sides));
+        insert(sprintf("Apsmode_Printers[setup].truncate = \"%s\";\n",Apsmode_Printers[id].truncate));
+        insert(sprintf("Apsmode_Printers[setup].linenumbers = \"%s\";\n",Apsmode_Printers[id].linenumbers));
+        insert(sprintf("Apsmode_Printers[setup].copies = \"%s\";\n",Apsmode_Printers[id].copies));
+        insert(sprintf("Apsmode_Printers[setup].major = \"%s\";\n",Apsmode_Printers[id].major));
+        insert(sprintf("Apsmode_Printers[setup].margin = \"%s\";\n",Apsmode_Printers[id].margin));
+        insert(sprintf("Apsmode_Printers[setup].header = \"%s\";\n",Apsmode_Printers[id].header));
+        insert(sprintf("Apsmode_Printers[setup].title_left = \"%s\";\n",Apsmode_Printers[id].title_left));
+        insert(sprintf("Apsmode_Printers[setup].title_center = \"%s\";\n",Apsmode_Printers[id].title_center));
+        insert(sprintf("Apsmode_Printers[setup].title_right = \"%s\";\n",Apsmode_Printers[id].title_right));
+        insert(sprintf("Apsmode_Printers[setup].footer_left = \"%s\";\n",Apsmode_Printers[id].footer_left));
+        insert(sprintf("Apsmode_Printers[setup].footer_center = \"%s\";\n",Apsmode_Printers[id].footer_center));
+        insert(sprintf("Apsmode_Printers[setup].footer_right = \"%s\";\n",Apsmode_Printers[id].footer_right));
+        insert(sprintf("Apsmode_Printers[setup].color = \"%s\";\n",Apsmode_Printers[id].color));
+        insert(sprintf("Apsmode_Printers[setup].pretty = \"%s\";\n",Apsmode_Printers[id].pretty));
+        insert(sprintf("Apsmode_Printers[setup].print_cmd = \"%s\";\n",Apsmode_Printers[id].print_cmd));
+        insert(sprintf("Apsmode_Printers[setup].view_cmd = \"%s\";\n",Apsmode_Printers[id].view_cmd));
+        insert("Apsmode_Printers[setup].copy_of = 0;\n");
      }
-   
+
    set_buffer_modified_flag(0);
    set_readonly(1);
    bob();
@@ -1071,12 +1602,12 @@ static define get_max_chars(file) %{{{
    bob();
    do
      {
-	eol();
-	col = what_column();
-	if ( col > max)
-	  {
-	     max = col;
-	  }
+        eol();
+        col = what_column();
+        if ( col > max)
+          {
+             max = col;
+          }
      }
    while (down_1());
    delbuf(whatbuf());
@@ -1117,6 +1648,76 @@ define show_print_log() %{{{
    sw2buf ("*print-output*");
    return;
 }
+%}}}
+
+%!%+
+%\function{show_apsmode_settings}
+%\synopsis{show apsmode settings}
+%\usage{show_apsmode_settings ()}
+%\description
+% This function is used to show some apsmode settings, e.g. global variables
+% This function returns nothing.
+%!%-
+define show_apsmode_settings() %{{{
+{
+   variable key = "";
+   variable keys = "";
+   variable use_style = 0;
+   variable i = 0;
+   variable printer_count = 0;
+
+   jed_easy_help("");
+   set_buffer_modified_flag(0);
+   erase_buffer();
+
+   insert("Global Variables\n----------------\n");
+
+   print_log("Apsmode_a2ps_cmd       ",Apsmode_a2ps_cmd);
+   print_log("Apsmode_default_printer",Apsmode_default_printer);
+   print_log("Apsmode_del_ps_file    ",Apsmode_del_ps_file);
+   print_log("Apsmode_menu           ",Apsmode_menu);
+   print_log("Apsmode_tmp_dir        ",Apsmode_tmp_dir);
+   print_log("Apsmode_tmp_file       ",Apsmode_tmp_file);
+
+   insert("\n\napsmode Settings\n----------------\n");
+
+   print_log("apsmode File     ", expand_jedlib_file("apsmode.sl"));
+   print_log("apsmode Help     ", expand_jedlib_file("apsmode.hlp"));
+
+   % i= 0 is for Quickprint and will therefore not be counted
+   for (i = 1; i <= aps_max_no_printers-1; i++)
+     {
+        if (Apsmode_Printers[i].setupname != NULL)
+          {
+             printer_count ++;
+          }
+     }
+   print_log("No Printer Setups", printer_count);
+
+   insert("\n\nStyle Sheets\n------------\n");
+
+   keys = assoc_get_keys (Apsmode_style_sheet);
+   keys = keys[array_sort (keys)];
+   foreach (keys)
+     {
+        key = ();
+        use_style = Apsmode_style_sheet[key];
+        if (use_style == 1)
+          {
+             print_log(key, expand_jedlib_file(strcat(key, ".ssh")));
+          }
+     }
+
+   insert("\n\napsmode Version\n---------------\n");
+
+   print_log("apsmode Version", aps_version);
+   print_log("Creation Date  ", aps_creation_date);
+   print_log("tested with jed", aps_jed_tested);
+
+   insert("\n");
+   bob();
+   return;
+}
 
 %}}}
 
@@ -1127,7 +1728,7 @@ define show_print_log() %{{{
 %\description
 % This function is the major function  for printing/previewing.
 % It will create a postscript file from the marked region using the settings
-% in \var{printer}-array.
+% in \var{Apsmode_Printers}-array.
 % Printing/Previewing will be determined via global variable \var{aps_preview}.
 % A marked region will stay highlighted after preview/printing.
 % This function returns nothing.
@@ -1150,34 +1751,34 @@ define print_region() %{{{
 
    if ( region_highlighted == 1)
      {
-	narrow_to_region();
-	bob();
-	push_visible_mark();
-	eob();
+        narrow_to_region();
+        bob();
+        push_visible_mark();
+        eob();
      }
 
-   pfile = strcat(aps_tmp_dir,"#");
+   pfile = strcat(Apsmode_tmp_dir,"#");
 
    % Find out the name of the buffer
    (buffile,bufdir,bufname,) = getbuf_info ();
    % if it is an internal buffer replace filename with buffer name
    if (buffile == "")
      {
-	buffile = bufname;
-	bufdir = "";
+        buffile = bufname;
+        bufdir = "";
      }
 
-   % set JEDFILENAME variable
-   JEDFILENAME = sprintf("%s%s", bufdir, buffile);
+   % set aps_jedfilename variable
+   aps_jedfilename = sprintf("%s%s", bufdir, buffile);
 #ifdef MSWINDOWS
-   JEDFILENAME = str_replace_all(JEDFILENAME,"\\","\\\\");
+   aps_jedfilename = str_replace_all(aps_jedfilename,"\\","\\\\");
 #endif
-   JEDDATETIME = jed_date_time();
+   aps_jeddatetime = jed_date_time();
 
    % extract mode name to check later, whether local a2ps style sheet
    % should be used
    mode_name = get_mode_name();
-   sheet_file = strcat(a2ps_sheet_dir, mode_name, ".ssh");
+   sheet_file = expand_jedlib_file(strcat(mode_name, ".ssh"));
 
    msg = sprintf("Formatting %s...", bufname);
    flush (msg);
@@ -1202,29 +1803,29 @@ define print_region() %{{{
    print_log("Max Chars ", max_char);
 
    % create the a2ps command
-   cmd = get_a2ps_cmd(default_printer, max_char);
+   cmd = get_a2ps_cmd(Apsmode_default_printer, max_char);
 
-   if (strup(printer[default_printer].pretty) == "ON")
+   if (strup(Apsmode_Printers[Apsmode_default_printer].pretty) == "ON")
      {
-	print_log("Pretty Print Mode", mode_name);
-	% now check whether jed-created a2ps style sheets should be used
-	% if yes append them to "pretty-print=jed-style.ssh"
-	if ( assoc_key_exists (use_jed_a2ps_style_sheet, mode_name) == 1 )
-	  {
-	     print_log("Sheet File", sheet_file);
-	     if (file_status(sheet_file) == 1)
-	       {
-		  cmd = strcat(cmd, "=", sheet_file);
-	       }
-	  }
+        print_log("Pretty Print Mode", mode_name);
+        % now check whether jed-created a2ps style sheets should be used
+        % if yes append them to "pretty-print=jed-style.ssh"
+        if ( assoc_key_exists (Apsmode_style_sheet, mode_name) == 1 )
+          {
+             print_log("Sheet File", sheet_file);
+             if (file_status(sheet_file) == 1)
+               {
+                  cmd = strcat(cmd, "=", sheet_file);
+               }
+          }
      }
 
    % Format the file by executing a2ps, creating a second temporary (ps) file
    cmd = strcat(cmd, " ", pfile);
    % do some logging
    print_log("a2ps cmd  ", cmd);
-   print_log("view cmd  ", printer[default_printer].view_cmd);
-   print_log("print cmd ", printer[default_printer].print_cmd);
+   print_log("view cmd  ", Apsmode_Printers[Apsmode_default_printer].view_cmd);
+   print_log("print cmd ", Apsmode_Printers[Apsmode_default_printer].print_cmd);
 
    % use " 2>&1" to re-direct stderr as well
 #ifdef UNIX
@@ -1241,53 +1842,53 @@ define print_region() %{{{
    % so error handling works only correct under UNIX
    if (rc == 0)
      {
-	if (aps_preview == "on")
-	  {
-	     % View the temporary file
+        if (aps_preview == "on")
+          {
+             % View the temporary file
              insert ("\n--------------------- Viewing --- (view cmd) -------------------------\n");
-	     msg = sprintf("Viewing %s...", bufname);
-	     flush(msg);
-	     rc = run_shell_cmd (sprintf ("%s %s", printer[default_printer].view_cmd, redirect));
-	     msg = sprintf("Viewing done (%s)", bufname);
-	     flush(msg);
-	  }
-	else
-	  {
-	     % Print the temporary file
+             msg = sprintf("Viewing %s...", bufname);
+             flush(msg);
+             rc = run_shell_cmd (sprintf ("%s %s", Apsmode_Printers[Apsmode_default_printer].view_cmd, redirect));
+             msg = sprintf("Viewing done (%s)", bufname);
+             flush(msg);
+          }
+        else
+          {
+             % Print the temporary file
              insert ("\n--------------------- Printing --- (print cmd) -----------------------\n");
-	     msg = sprintf("Printing %s...", bufname);
-	     flush(msg);
-	     rc = run_shell_cmd (sprintf ("%s %s", printer[default_printer].print_cmd, redirect));
-	     msg = sprintf("Printing done (%s --> %s)", bufname, printer[default_printer].name);
-	     flush(msg);
-	  }
+             msg = sprintf("Printing %s...", bufname);
+             flush(msg);
+             rc = run_shell_cmd (sprintf ("%s %s", Apsmode_Printers[Apsmode_default_printer].print_cmd, redirect));
+             msg = sprintf("Printing done (%s --> %s)", bufname, Apsmode_Printers[Apsmode_default_printer].name);
+             flush(msg);
+          }
      }
    insert ("\n\n");
    set_buffer_modified_flag(0);
 
    if (rc == 0)
      {
-	% if all was ok, switch back to the original buffer
-	sw2buf(bufname);
-	% restore previous selection, if there was one
-	if ( region_highlighted == 1)
-	  {
-	     bob();
-	     push_visible_mark();
-	     eob();
-	     widen_region();
-	  }
+        % if all was ok, switch back to the original buffer
+        sw2buf(bufname);
+        % restore previous selection, if there was one
+        if ( region_highlighted == 1)
+          {
+             bob();
+             push_visible_mark();
+             eob();
+             widen_region();
+          }
      }
    else
      {
-	error ("An error occured!");
+        error ("An error occured!");
      }
 
    % Clean up
    delete_file (pfile);
-   if (aps_del_ps_file = 1)
+   if (Apsmode_del_ps_file = 1)
      {
-	delete_file (aps_tmp_file);
+        delete_file (Apsmode_tmp_file);
      }
 
    return;
@@ -1366,7 +1967,7 @@ define print_region_preview() %{{{
 %!%-
 define set_default_printer(id) %{{{
 {
-   default_printer = id;
+   Apsmode_default_printer = id;
 }
 %}}}
 
@@ -1412,36 +2013,36 @@ static define extract_comment_definition(file) %{{{
    bob();
    do
      {
-	bol();
-	pos = ffind("define_syntax");
-	if (pos != 0)
-	  {
-	     syn = substr(line_as_string,pos+1, -1);
-	     parts = strchop(syn,',',0);
-	     nth = 0;
-	     while (NULL != extract_element (syn, nth, ','))
-	       {
-		  nth++;
-	       }
-	     if (nth == 4)
-	       {
-		  part = extract_element (syn, 2, ',');
-		  part = strtrans(part, " ","");
-		  if (strcmp(part,string("'%'")) == 0)
-		    {
-		       comment1 = extract_element (syn, 0, ',');
-		       comment1 = strtrans(comment1, " ","");
-		       comment1 = strtrans(comment1, "(","");
-		       comment2 = extract_element (syn, 1, ',');
-		       comment2 = strtrans(comment2, " ","");
-		       if (strcmp(comment2,string("\"\"")) == 0)
-			 {
-			    comment2 = "";
-			 }
-		       comment_str = strcat(comment_str, comment1, " Comment ", comment2, "\n");
-		    }
-	       }
-	  }
+        bol();
+        pos = ffind("define_syntax");
+        if (pos != 0)
+          {
+             syn = substr(line_as_string,pos+1, -1);
+             parts = strchop(syn,',',0);
+             nth = 0;
+             while (NULL != extract_element (syn, nth, ','))
+               {
+                  nth++;
+               }
+             if (nth == 4)
+               {
+                  part = extract_element (syn, 2, ',');
+                  part = strtrans(part, " ","");
+                  if (strcmp(part,string("'%'")) == 0)
+                    {
+                       comment1 = extract_element (syn, 0, ',');
+                       comment1 = strtrans(comment1, " ","");
+                       comment1 = strtrans(comment1, "(","");
+                       comment2 = extract_element (syn, 1, ',');
+                       comment2 = strtrans(comment2, " ","");
+                       if (strcmp(comment2,string("\"\"")) == 0)
+                         {
+                            comment2 = "";
+                         }
+                       comment_str = strcat(comment_str, comment1, " Comment ", comment2, "\n");
+                    }
+               }
+          }
      }
    while (down_1());
    delbuf(whatbuf());
@@ -1474,6 +2075,7 @@ static define extract_comment_definition(file) %{{{
 define create_a2ps_style_sheet(mode) %{{{
 {
    variable sheet_file;
+   variable sheet_dir;
    variable kws, kws_str="", kws_substr="";
    variable len;
    variable n=0;
@@ -1483,15 +2085,24 @@ define create_a2ps_style_sheet(mode) %{{{
 
    if (mode == "")
      {
-	mode = read_mini("Enter exact(!) mode name (e.g. TCL, SLang, awk)",get_mode_name,"");
+        mode = read_mini("Enter exact(!) mode name (e.g. TCL, SLang, awk)",get_mode_name,"");
      }
    % SLang mode uses syntax table SLANG (instead of SLang,
    % maybe to be changed in slmode.sl ?)
    % therefore sheet_file name has to be created before mode name modification
-   sheet_file = strcat(a2ps_sheet_dir, mode, ".ssh");
+
+   % get a default sheet_dir from SLang.ssh
+   sheet_dir = path_dirname(expand_jedlib_file("SLang.ssh"));
+
+   sheet_file = strcat(mode, ".ssh");
+
+   % ask the user for the directory, where the new style sheet should be saved
+   sheet_dir = read_with_completion(strcat("Enter directory for new style sheet (", sheet_file, "): "),"",sheet_dir,'f');
+   sheet_file = path_concat(sheet_dir, sheet_file);
+
    if (mode == "SLang")
      {
-	mode = strup(mode);
+        mode = strup(mode);
      }
 
 #ifdef UNIX
@@ -1500,28 +2111,28 @@ define create_a2ps_style_sheet(mode) %{{{
 #ifdef MSWINDOWS
    mode_file = strcat(JED_ROOT,"\\lib\\",mode,"mode.sl");
 #endif
-   mode_file = read_mini("Enter mode filename","",mode_file);
+   mode_file = read_with_completion("Enter mode filename:","",mode_file,'f');
 
    if (file_status(mode_file) != 1)
      {
-	flush(strcat(mode_file, " does not exist!"));
-	return;
+        flush(strcat(mode_file, " does not exist!"));
+        return;
      }
    % load mode_file, necessary for evaluation of syntax table
    % ERROR_BLOCK necessary, if a mode file couldn't be loaded two times
    ERROR_BLOCK
      {
-	_clear_error();
+        _clear_error();
      }
    require(mode_file);
    comment_str = extract_comment_definition(mode_file);
 
    if (file_status(sheet_file) == 1)
      {
-	if ( get_yes_no(strcat("Overwrite ", sheet_file)) == 0 )
-	  {
-	     return;
-	  }
+        if ( get_yes_no(strcat("Overwrite ", sheet_file)) == 0 )
+          {
+             return;
+          }
      }
 
    find_file(sheet_file);
@@ -1579,77 +2190,77 @@ define create_a2ps_style_sheet(mode) %{{{
    % don't grep for keywords, otherwise it would lead to an error
    if (( NULL != what_syntax_table()) & ("DEFAULT" != what_syntax_table()))
      {
-	insert("keywords in Keyword_strong are\n");
+        insert("keywords in Keyword_strong are\n");
 
-	for (i = 1; i <= 30; i++)
-	  {
-	     kws = define_keywords_n (mode, "", i, n);
-	     len = strlen(kws);
-	     if (len > 0)
-	       {
-		  for (j = 1; j <= len; j=j+i)
-		    {
-		       kws_substr = substr(kws,j,i);
-		       % there are several keywords in a2ps keyword list, which
-		       % needs to be quoted
-		       switch (kws_substr)
-			 { kws_substr == "alphabet" : kws_substr = strcat("\"", kws_substr, "\"");}
-			 { kws_substr == "alphabets" : kws_substr = strcat("\"", kws_substr, "\"");}
-			 { kws_substr == "are" : kws_substr = strcat("\"", kws_substr, "\"");}
-			 { kws_substr == "case" : kws_substr = strcat("\"", kws_substr, "\"");}
-			 { kws_substr == "documentation" : kws_substr = strcat("\"", kws_substr, "\"");}
-			 { kws_substr == "end" : kws_substr = strcat("\"", kws_substr, "\"");}
-			 { kws_substr == "exceptions" : kws_substr = strcat("\"", kws_substr, "\"");}
-			 { kws_substr == "first" : kws_substr = strcat("\"", kws_substr, "\"");}
-			 { kws_substr == "in" : kws_substr = strcat("\"", kws_substr, "\"");}
-			 { kws_substr == "insensitive" : kws_substr = strcat("\"", kws_substr, "\"");}
-			 { kws_substr == "is" : kws_substr = strcat("\"", kws_substr, "\"");}
-			 { kws_substr == "keywords" : kws_substr = strcat("\"", kws_substr, "\"");}
-			 { kws_substr == "operators" : kws_substr = strcat("\"", kws_substr, "\"");}
-			 { kws_substr == "optional" : kws_substr = strcat("\"", kws_substr, "\"");}
-			 { kws_substr == "second" : kws_substr = strcat("\"", kws_substr, "\"");}
-			 { kws_substr == "sensitive" : kws_substr = strcat("\"", kws_substr, "\"");}
-			 { kws_substr == "sequences" : kws_substr = strcat("\"", kws_substr, "\"");}
-			 { kws_substr == "style" : kws_substr = strcat("\"", kws_substr, "\"");}
-			 { kws_substr == "Comment" : kws_substr = strcat("\"", kws_substr, "\"");}
-			 { kws_substr == "Comment_strong" : kws_substr = strcat("\"", kws_substr, "\"");}
-			 { kws_substr == "Encoding" : kws_substr = strcat("\"", kws_substr, "\"");}
-			 { kws_substr == "Error" : kws_substr = strcat("\"", kws_substr, "\"");}
-			 { kws_substr == "Index1" : kws_substr = strcat("\"", kws_substr, "\"");}
-			 { kws_substr == "Index2" : kws_substr = strcat("\"", kws_substr, "\"");}
-			 { kws_substr == "Index3" : kws_substr = strcat("\"", kws_substr, "\"");}
-			 { kws_substr == "Index4" : kws_substr = strcat("\"", kws_substr, "\"");}
-			 { kws_substr == "Invisible" : kws_substr = strcat("\"", kws_substr, "\"");}
-			 { kws_substr == "Keyword" : kws_substr = strcat("\"", kws_substr, "\"");}
-			 { kws_substr == "Keyword_strong" : kws_substr = strcat("\"", kws_substr, "\"");}
-			 { kws_substr == "Label" : kws_substr = strcat("\"", kws_substr, "\"");}
-			 { kws_substr == "Label_strong" : kws_substr = strcat("\"", kws_substr, "\"");}
-			 { kws_substr == "Plain" : kws_substr = strcat("\"", kws_substr, "\"");}
-			 { kws_substr == "String" : kws_substr = strcat("\"", kws_substr, "\"");}
-			 { kws_substr == "Symbol" : kws_substr = strcat("\"", kws_substr, "\"");}
-			 { kws_substr == "Tag1" : kws_substr = strcat("\"", kws_substr, "\"");}
-			 { kws_substr == "Tag2" : kws_substr = strcat("\"", kws_substr, "\"");}
-			 { kws_substr == "Tag3" : kws_substr = strcat("\"", kws_substr, "\"");}
-			 { kws_substr == "Tag4" : kws_substr = strcat("\"", kws_substr, "\"");}
-			 { kws_substr == "C-char" : kws_substr = strcat("\"", kws_substr, "\"");}
-			 { kws_substr == "C-string" : kws_substr = strcat("\"", kws_substr, "\"");};
+        for (i = 1; i <= 30; i++)
+          {
+             kws = define_keywords_n (mode, "", i, n);
+             len = strlen(kws);
+             if (len > 0)
+               {
+                  for (j = 1; j <= len; j=j+i)
+                    {
+                       kws_substr = substr(kws,j,i);
+                       % there are several keywords in a2ps keyword list, which
+                       % needs to be quoted
+                       switch (kws_substr)
+                         { kws_substr == "alphabet" : kws_substr = strcat("\"", kws_substr, "\"");}
+                         { kws_substr == "alphabets" : kws_substr = strcat("\"", kws_substr, "\"");}
+                         { kws_substr == "are" : kws_substr = strcat("\"", kws_substr, "\"");}
+                         { kws_substr == "case" : kws_substr = strcat("\"", kws_substr, "\"");}
+                         { kws_substr == "documentation" : kws_substr = strcat("\"", kws_substr, "\"");}
+                         { kws_substr == "end" : kws_substr = strcat("\"", kws_substr, "\"");}
+                         { kws_substr == "exceptions" : kws_substr = strcat("\"", kws_substr, "\"");}
+                         { kws_substr == "first" : kws_substr = strcat("\"", kws_substr, "\"");}
+                         { kws_substr == "in" : kws_substr = strcat("\"", kws_substr, "\"");}
+                         { kws_substr == "insensitive" : kws_substr = strcat("\"", kws_substr, "\"");}
+                         { kws_substr == "is" : kws_substr = strcat("\"", kws_substr, "\"");}
+                         { kws_substr == "keywords" : kws_substr = strcat("\"", kws_substr, "\"");}
+                         { kws_substr == "operators" : kws_substr = strcat("\"", kws_substr, "\"");}
+                         { kws_substr == "optional" : kws_substr = strcat("\"", kws_substr, "\"");}
+                         { kws_substr == "second" : kws_substr = strcat("\"", kws_substr, "\"");}
+                         { kws_substr == "sensitive" : kws_substr = strcat("\"", kws_substr, "\"");}
+                         { kws_substr == "sequences" : kws_substr = strcat("\"", kws_substr, "\"");}
+                         { kws_substr == "style" : kws_substr = strcat("\"", kws_substr, "\"");}
+                         { kws_substr == "Comment" : kws_substr = strcat("\"", kws_substr, "\"");}
+                         { kws_substr == "Comment_strong" : kws_substr = strcat("\"", kws_substr, "\"");}
+                         { kws_substr == "Encoding" : kws_substr = strcat("\"", kws_substr, "\"");}
+                         { kws_substr == "Error" : kws_substr = strcat("\"", kws_substr, "\"");}
+                         { kws_substr == "Index1" : kws_substr = strcat("\"", kws_substr, "\"");}
+                         { kws_substr == "Index2" : kws_substr = strcat("\"", kws_substr, "\"");}
+                         { kws_substr == "Index3" : kws_substr = strcat("\"", kws_substr, "\"");}
+                         { kws_substr == "Index4" : kws_substr = strcat("\"", kws_substr, "\"");}
+                         { kws_substr == "Invisible" : kws_substr = strcat("\"", kws_substr, "\"");}
+                         { kws_substr == "Keyword" : kws_substr = strcat("\"", kws_substr, "\"");}
+                         { kws_substr == "Keyword_strong" : kws_substr = strcat("\"", kws_substr, "\"");}
+                         { kws_substr == "Label" : kws_substr = strcat("\"", kws_substr, "\"");}
+                         { kws_substr == "Label_strong" : kws_substr = strcat("\"", kws_substr, "\"");}
+                         { kws_substr == "Plain" : kws_substr = strcat("\"", kws_substr, "\"");}
+                         { kws_substr == "String" : kws_substr = strcat("\"", kws_substr, "\"");}
+                         { kws_substr == "Symbol" : kws_substr = strcat("\"", kws_substr, "\"");}
+                         { kws_substr == "Tag1" : kws_substr = strcat("\"", kws_substr, "\"");}
+                         { kws_substr == "Tag2" : kws_substr = strcat("\"", kws_substr, "\"");}
+                         { kws_substr == "Tag3" : kws_substr = strcat("\"", kws_substr, "\"");}
+                         { kws_substr == "Tag4" : kws_substr = strcat("\"", kws_substr, "\"");}
+                         { kws_substr == "C-char" : kws_substr = strcat("\"", kws_substr, "\"");}
+                         { kws_substr == "C-string" : kws_substr = strcat("\"", kws_substr, "\"");};
 
-		       if (kws_str == "")
-			 {
-			    kws_str = kws_substr;
-			 }
-		       else
-			 {
-			    kws_str = strcat(kws_str, ",", kws_substr);
-			 }
-		    }
-	       }
-	  }
-	sort_string_list(kws_str);
-	insert(kws_str);
-	insert("\n");
-	insert("end keywords\n");
-	insert("\n");
+                       if (kws_str == "")
+                         {
+                            kws_str = kws_substr;
+                         }
+                       else
+                         {
+                            kws_str = strcat(kws_str, ",", kws_substr);
+                         }
+                    }
+               }
+          }
+        sort_string_list(kws_str);
+        insert(kws_str);
+        insert("\n");
+        insert("end keywords\n");
+        insert("\n");
      }
 
    insert("sequences are\n");
@@ -1680,6 +2291,8 @@ define aps_help () %{{{
 
 % Keybindings
 % (none)
+
+provide("apsmode");
 
 %---8&lt;------- (end of apsmode.sl)--------
 
