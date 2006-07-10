@@ -14,6 +14,11 @@
 % 	         region as table.
 % 2005-11-25 1.2.1 new functions max_column() and goto_max_column()
 % 2005-11-28 1.2.2 bugfix in goto_max_column() (report P. Boekholt)
+%            1.2.3 code cleanup in get_lines()
+% 2006-07-10 1.2.4 doc update, bugfix in format_table_rect(),
+%                  do not remove trailing whitespace in strjoin2d if
+%                  align==NULL
+%                  disabled format_table_rect(), it doesnot work
 
 % requirements
 autoload("push_defaults", "sl_utils");
@@ -75,13 +80,10 @@ static define align_fields(a, align)
 % Return the buffer/region as an string-array of lines
 define get_lines() % (kill=0)
 {
-   variable kill;
-   (kill) = push_defaults(0, _NARGS);
-
+   variable kill = push_defaults(0, _NARGS);
    variable str = get_buffer(kill);
-   % remove last "\n" if present
-   if (str[-1] == '\n')
-     str = str[[:-2]];
+   % trim trailing newline(s)
+   str = strtrim_end(str, "\n");
    return strchop(str, '\n', 0);
 }
 
@@ -93,7 +95,7 @@ define get_lines() % (kill=0)
 %\synopsis{Remove excess whitespace characters from the buffer}
 %\usage{Void buffer_compress(white)}
 %\description
-%  Calls \var{strcompress} on the buffer or (if visible) region.
+%  Calls \sfun{strcompress} on the buffer or (if visible) region.
 %\seealso{trim_buffer, strcompress, get_lines, get_buffer}
 %!%-
 public define buffer_compress(white)
@@ -176,7 +178,7 @@ define strchop2d() % (str, col_sep='\t', line_sep='\n', quote=0)
 %\usage{String get_table(col_sep="", kill=0)}
 %\description
 % Return a 2d-string-array with the data in the region/buffer
-% The default col_sep==NULL means whitespace (any number of spaces or tabs).
+% The default col_sep=="" means whitespace (any number of spaces or tabs).
 % The optional argument \var{kill} tells, whether the table should be
 % deleted after reading.
 %
@@ -195,10 +197,10 @@ define get_table() % (col_sep="", kill=0)
 
    variable cs, str;
 
-   str = get_buffer(kill, 1);  % (kill, get a region line-wise)
-   % remove last newline, if present
-   if (str[-1] == '\n')
-     str = str[[:-2]];
+   % get visible region (expanded to full lines) or buffer
+   str = get_buffer(kill, 1);  
+   % trim trailing newline(s)
+   str = strtrim_end(str, "\n");
 
    if (col_sep == "") 
      col_sep = "\t ";       % white-space delimited columns
@@ -258,7 +260,8 @@ define strjoin2d() %(a, col_sep="\t", line_sep="\n", align=NULL)
    % build the lines by joining the fields
    variable i, lines = String_Type[dims[0]];
    for (i=0; i < dims[0]; i++)
-     lines[i] = strtrim_end(strjoin(b[i,*], col_sep));
+     % lines[i] = strtrim_end(strjoin(b[i,*], col_sep));
+     lines[i] = strjoin(b[i,*], col_sep);
    % join the lines
    return strjoin(lines, line_sep);
 }
@@ -266,12 +269,12 @@ define strjoin2d() %(a, col_sep="\t", line_sep="\n", align=NULL)
 %!%+
 %\function{insert_table}
 %\synopsis{Print 2d-array as a nicely formatted table}
-%\usage{Void insert_table(Array a, col_sep=" ", align="l")}
+%\usage{Void insert_table(Array a, align="l", col_sep=" ")}
 %\description
 %   The function takes an 2d-array and writes it as an aligned table.
-%   The \var{col_sep} argument is a string to separate the items on a line,
-%   it defaults to " " (space).
-%   The \var{align} argument is a string formed of the charaters:
+%   \var{col_sep} is the string separating the items on a line. It defaults 
+%   to " " (space).
+%   \var{align} is a format string formed of the key charaters:
 %     "l": left align,
 %     "r": right align,
 %     "c": center align, or
@@ -301,18 +304,19 @@ define insert_table() %(a, align="l", col_sep=" ")
 %!%+
 %\function{format_table}
 %\synopsis{Adjust a table to evenly spaced columns}
-%\usage{ format_table(col_sep="", align="l", new_sep=col_sep)}
+%\usage{format_table([[[col_sep], align], new_sep])}
 %\description
-%  Read a table into a 2d array, reformat and insert again. 
-%  The indention of the whole table is determined by the point or mark
-%  (whichever is more left) if a visible region is defined.
+%  Read visible region or buffer as grid data into a 2d array, reformat and
+%  insert again.  The indention of the whole table is determined by the point
+%  or mark (whichever is more left) if a visible region is defined.
+
 %  If the arguments are not given, they will be asked for in the minibuffer:
 %    \var{col_sep}:     the string separating columns (default "" means whitespace)
-%    \var{align}:       string of "l", "r", "c", or "n" (see \var{insert_table})
+%    \var{align}:       string of "l", "r", "c", or "n" (see \sfun{insert_table})
 %    \var{new_col_sep}: string to separate the columns in the output.
 %\seealso{get_table, insert_table}
 %!%-
-public define format_table() % (col_sep=" \t", align="l", new_sep=" ")
+public define format_table() % ([[[col_sep], align], new_sep])
 {
    % optional arguments
    variable col_sep, align, new_sep;
@@ -411,36 +415,42 @@ public define goto_max_column()
    goto_column(max_column(trim));
 }
 
-%!%+
-%\function{format_table_rect}
-%\synopsis{Format the contents of the rectangle as table}
-%\usage{ format_table_rect(col_sep=" \t", align="l", new_sep=" ")}
-%\description
-% This functions calls \var{format_table} on a rectangle. A rectangle is
-% defined by the diagonal formed by the mark and the current point.
-%\seealso{format_table, kill_rect, insert_rect}
-%!%-
-public define format_table_rect() % (col_sep=" \t", align="l", new_sep=" ")
-{
-   variable args = __pop_args(_NARGS), buf = whatbuf(), 
-   tmpbuf = make_tmp_buffer_name("*format_table_rect*");
-   check_region();
-   exchange_point_and_mark();
-   kill_rect();
-   sw2buf(tmpbuf);
-   erase_buffer();  % paranoia
-   insert_rect();
-   
-   format_table(__push_args(args));
-      
-   goto_max_column();
-     
-   kill_rect();
-   set_buffer_modified_flag(0);
-   % delbuf(tmpbuf);
-   sw2buf(buf);
-   insert_rect();
-}
+
+% Buggy, not needed anywhere, so commented out
+% %!%+
+% %\function{format_table_rect}
+% %\synopsis{Format the contents of the rectangle as table}
+% %\usage{ format_table_rect([[[col_sep], align], new_sep])}
+% %\description
+% % This functions calls \sfun{format_table} on a rectangle. A rectangle is
+% % defined by the diagonal formed by the mark and the current point.
+% %\seealso{format_table, kill_rect, insert_rect}
+% %!%-
+% public define format_table_rect() % ([[[col_sep], align], new_sep])
+% {
+%    variable args = __pop_args(_NARGS), buf = whatbuf(), 
+%    tmpbuf = make_tmp_buffer_name("*format_table_rect*");
+%    check_region(0);
+%    exchange_point_and_mark();
+%    kill_rect();
+%    sw2buf(tmpbuf);
+%    erase_buffer();  % paranoia
+%    insert_rect();
+%    
+%    format_table(__push_args(args));
+%    
+%    % bob();
+%    % push_visible_mark();
+%    % eob();
+%    % goto_max_column();
+%    mark_buffer();
+%    copy_recyt();
+%    set_buffer_modified_flag(0);
+%    % delbuf(tmpbuf);
+% 
+%    sw2buf(buf);
+%    insert_rect();
+% }
 
 
 % Compute number of columns that fit into \var{width}
