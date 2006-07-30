@@ -1,6 +1,6 @@
 % jedscape.sl
 %
-% $Id: jedscape.sl,v 1.6 2006/05/07 07:25:01 paul Exp paul $
+% $Id: jedscape.sl,v 1.7 2006/07/30 13:40:15 paul Exp paul $
 %
 % Copyright (c) 2003-2006 Paul Boekholt.
 % Released under the terms of the GNU GPL (version 2 or later).
@@ -72,7 +72,7 @@ custom_variable("Jedscape_Emulation", "w3");
 private variable mode="jedscape";
 
 private variable
-  version="$Revision: 1.6 $",
+  version="$Revision: 1.7 $",
   title,
   this_href_mark, last_href_mark,      % check if tags don't overlap
   url_file ="",			       %  http://host/dir/file.html
@@ -312,17 +312,17 @@ private define goto_anchor(anchor)
      }
 }
 
-define url_decode_string(string)
+define url_decode_string(s)
 {
-   string = " " + strtrans(string, "+", " ");
+   s = " " + strtrans(string, "+", " ");
    variable code;
-   while (string_match(string, "%\\([0-9A-F][0-9A-F]\\)", 1))
+   while (string_match(s, "%\\([0-9A-F][0-9A-F]\\)", 1))
      {
-	code = string_nth_match(string, 1);
-	string = str_replace_all(string, "%" + code,
+	code = string_nth_match(s, 1);
+	s = str_replace_all(s, "%" + code,
 				 "\\" + char (integer("0x" + code)));
      }
-   return string;
+   return s;
 }
 
 private define write_callback (v, data)
@@ -336,74 +336,71 @@ private variable page_is_download=0;
 
 define find_page(url)
 {
-   variable file, source="", v="";
-   file=url;
+   variable file, anchor, source="", v="";
+   file=extract_element  (url, 0, '#');
+   anchor=extract_element  (url, 1, '#');
    page_is_download=0;
    USER_BLOCK0
      {
-	variable url_anchor = extract_element  (url, 1, '#');
-	if (url_anchor != NULL)
-	  goto_anchor(url_anchor);
+	if (anchor != NULL)
+	  goto_anchor(anchor);
      }
 
    % texi2html generated pages superfluously add the filename to #links
-   url_file;
-   url_file = extract_element  (url, 0, '#');
-   if (andelse{url_file == ()}{bufferp("*jedscape*")})
+   if (andelse{file == url_file}{bufferp("*jedscape*")})
      return sw2buf("*jedscape*"), X_USER_BLOCK0;
    
    setbuf(" jedscape_buffer");
    erase_buffer();
-   variable content_type="text/html";
-   !if (strncmp(url_file, "http://", 7))
+   !if (strncmp(file, "http://", 7))
      {
-	variable c = curl_new (url_file);
-	curl_setopt(c, CURLOPT_USERAGENT, "jed $_jed_version_string"$);
+	variable c = curl_new (file);
+	curl_setopt(c, CURLOPT_USERAGENT, sprintf("jed %s", _jed_version_string));
 	curl_setopt(c, CURLOPT_FOLLOWLOCATION, 1);
 	curl_setopt (c, CURLOPT_WRITEFUNCTION, &write_callback, &v);
-	flush(sprintf(_("Getting %s"), url_file));
+	flush(sprintf(_("Getting %s"), file));
 	curl_perform (c);
-	content_type=curl_get_info(c, CURLINFO_CONTENT_TYPE);
-	url_file=curl_get_info(c, CURLINFO_EFFECTIVE_URL);
-	variable separator = is_substr(url_file[[7:]], "/");
+	variable content_type=curl_get_info(c, CURLINFO_CONTENT_TYPE);
+	file=curl_get_info(c, CURLINFO_EFFECTIVE_URL);
+	if(strncmp(content_type, "text/html", 9))
+	  {
+	     switch(get_mini_response(sprintf("Content type=%s. (D)isplay (S)ave (C)ancel", content_type)))
+	       {case 's' or case 'S':
+		  variable dest=read_file_from_mini(_("Enter name of file to create:"));
+		  mark_buffer();
+		  ()=write_region_to_file(dest);
+	       }
+	       {case 'd' or case 'D':
+		  pop2buf(file);
+		  erase_buffer();
+		  insbuf(" jedscape_buffer");
+	       }
+	     page_is_download=1;
+	     return;
+	  }
+	variable separator = is_substr(file[[7:]], "/");
 	if (separator)
 	  {
-	     url_host=url_file[[:separator + 5]];
-	     file=url_file[[separator + 6:]];
+	     (url_host, url_file) = str_split(file, 7 + separator);
 	  }
 	else  % http://localhost
 	  {
 	     url_host=url_file;
-	     file="/";
+	     url_file="/";
 	  }
      }
    else
      {
 	url_host="";
-	source=url_file;
+	source=file;
 	switch(file_status(source))
 	  { case 1: ()=insert_file(source);}
 	  { case 2: return dired_read_dir(source); }
 	  { throw OpenError, _("File does not exist.");}
      }
    
-   if(strncmp(content_type, "text/html", 9))
-     {
-	switch(get_mini_response("Content type=$content_type. (D)isplay (S)ave (C)ancel"$))
-	  {case 's' or case 'S':
-	     variable dest=read_file_from_mini(_("Enter name of file to create:"));
-	     mark_buffer();
-	     ()=write_region_to_file(dest);
-	  }
-	  {case 'd' or case 'D':
-	     pop2buf(file);
-	     erase_buffer();
-	     insbuf(" jedscape_buffer");
-	  }
-	page_is_download=1;
-	return;
-     }
-	     
+   url_file=file;
+
    url_root=path_dirname(file);
    filter_html();
    sw2buf("*jedscape*");
@@ -425,9 +422,9 @@ private define download_callback (fp, str)
 private define progress_callback (fp, dltotal, dlnow, ultotal, ulnow)
 {
    if (dltotal > 0.0)
-     flush("Downloading... $dlnow bytes of $dltotal bytes received"$);
+     flush(sprintf("Downloading... %d bytes of %d bytes received", int(dlnow), int(dltotal)));
    else
-     flush("Downloading... $dlnow bytes received"$);
+     flush("Downloading... %d bytes received", int(dlnow));
    return 0;
 }
 
@@ -438,7 +435,7 @@ private define download(url)
    variable fp=fopen(dest, "w");
    if (fp == NULL)
      throw OpenError;
-   curl_setopt(c, CURLOPT_USERAGENT, "jed $_jed_version_string"$);
+   curl_setopt(c, CURLOPT_USERAGENT, sprintf("jed %s", _jed_version_string));
    curl_setopt(c, CURLOPT_FOLLOWLOCATION, 1);
    curl_setopt (c, CURLOPT_WRITEFUNCTION, &download_callback, fp);
    curl_setopt (c, CURLOPT_PROGRESSFUNCTION, &progress_callback, stdout);
@@ -845,7 +842,7 @@ private define links_popup(menu)
      {
 	value = get_struct_field(links, name);
 	if (value != NULL)
-	  menu_append_item(menu, "$name: $value"$, &follow_link, name);
+	  menu_append_item(menu, sprintf("%s: %s", name, value), &follow_link, name);
      }
 }
 
