@@ -25,10 +25,11 @@
 %                  nagivation buffer with tokenlist
 % 1.4.1 2006-05-18 fix syntax for sub- and supscript
 % 		   conservative highlight of list markers
-% 1.4.2 2006-05-26 fixed autoloads (J. Sommer)		   
-
-% For debugging purposes:
-% _debug_info = 1;
+% 1.4.2 2006-05-26 fixed autoloads (J. Sommer)
+% 1.5              new menu entry names matching the docutils use of terms
+% 		   TODO: directives functions
+% 		   see file:/home/milde/.python/docutils/docs/ref/rst/directives.html
+% 1.5.1 2006-08-14 Adapted to structured_text v. 0.5 (no longer call text_mode()).
 
 % Requirements
 % ============
@@ -37,7 +38,7 @@
 require("comments");
 
 % extra modes (from http://jedmodes.sf.net/mode/)
-require("structured_text");  % text_mode_hook for lists formatting
+require("structured_text");  % >= 0.5 formatting hooks
 autoload("push_defaults", "sl_utils");
 autoload("push_array", "sl_utils");
 autoload("prompt_for_argument", "sl_utils");
@@ -147,17 +148,17 @@ Markup_Tags["superscript"] = [":sup:`", "`"];
 Markup_Tags["hrule"]         = ["\n-------------\n", ""];  % alias transition
 Markup_Tags["preformatted"] = ["::\n    ", "\n"];
 
-% Marks (Links)
-Markup_Tags["crossref_mark"]           = ["`", "`_"];   % hyperlink, anchor
-Markup_Tags["anonymous_crossref_mark"] = ["`", "`__"];
-Markup_Tags["numeric_footnote_mark"]   = ["",  " [#]_"]; % automatic  numbering
-Markup_Tags["symbolic_footnote_mark"]  = ["",  " [*]_"]; % automatic  numbering
-Markup_Tags["citation_mark"]           = ["[", "]_"];    % also for footnotes
-Markup_Tags["substitution_mark"]       = ["|", "|"];
+% References (outgoing links, occure in the text)
+Markup_Tags["hyperlink_ref"]           = ["`", "`_"];   % hyperlink, anchor
+Markup_Tags["anonymous_hyperlink_ref"] = ["`", "`__"];
+Markup_Tags["numeric_footnote_ref"]   = ["",  " [#]_"]; % automatic  numbering
+Markup_Tags["symbolic_footnote_ref"]  = ["",  " [*]_"]; % automatic  numbering
+Markup_Tags["citation_ref"]           = ["[", "]_"];    % also for footnotes
+Markup_Tags["substitution_ref"]       = ["|", "|"];
 
-% Targets
-Markup_Tags["crossref"]           = ["\n.. _", ":"];   % URL, crossreference
-Markup_Tags["anonymous_crossref"] = ["__ ", ""];
+% Reference Targets
+Markup_Tags["hyperlink"]           = ["\n.. _", ":"];   % URL, crossreference
+Markup_Tags["anonymous_hyperlink"] = ["__ ", ""];
 Markup_Tags["numeric_footnote"]   = ["\n.. [#]", ""];   % automatic  numbering
 Markup_Tags["symbolic_footnote"]  = ["\n.. [*]", ""];   % automatic  numbering
 Markup_Tags["citation"]           = ["\n.. [", "]"];
@@ -547,16 +548,16 @@ definekey_reserved("rst->markup(\"subscript\")",               "lb", mode); % "S
 definekey_reserved("rst->markup(\"superscript\")",             "lp", mode); % "Su&bscript"
 definekey_reserved("rst->markup(\"hrule\")",                   "lh", mode); % "&Hrule"
 definekey_reserved("comment_region_or_line\")",                "lc", mode); % "&Comment"
-% "Crossref &Marks\")",                    %                   "", mode); 
-definekey_reserved("rst->markup(\"crossref_mark\")",           "mr", mode); % "&Reference (link)"
-definekey_reserved("rst->markup(\"anonymous_crossref_mark\")", "ma", mode); % "&Anonymous Reference"
-definekey_reserved("rst->markup(\"numeric_footnote_mark\")",   "mf", mode); % "&Footnote"
-definekey_reserved("rst->markup(\"symbolic_footnote_mark\")",  "ms", mode); % "&Symbolic Footnote"
-definekey_reserved("rst->markup(\"citation_mark\")",           "mc", mode); % "&Citation"
-definekey_reserved("rst->markup(\"substitution_mark\")",       "ms", mode); % "&Substitution"
-% "Crossref &Targets\")",                  %                   "", mode); 
-definekey_reserved("rst->markup(\"crossref\")",                "tr", mode); % "&Reference (link)"
-definekey_reserved("rst->markup(\"anonymous_crossref\")",      "ta", mode); % "&Anonymous Reference"
+% "&References\")",                        %                   "", mode); 
+definekey_reserved("rst->markup(\"hyperlink_ref\")",           "rh", mode); % "&Reference (link)"
+definekey_reserved("rst->markup(\"anonymous_hyperlink_ref\")", "ra", mode); % "&Anonymous Reference"
+definekey_reserved("rst->markup(\"numeric_footnote_ref\")",    "rf", mode); % "&Footnote"
+definekey_reserved("rst->markup(\"symbolic_footnote_ref\")",   "rs", mode); % "&Symbolic Footnote"
+definekey_reserved("rst->markup(\"citation_ref\")",            "rc", mode); % "&Citation"
+definekey_reserved("rst->markup(\"substitution_ref\")",        "rs", mode); % "&Substitution"
+% "Reference &Targets\")",                  %                  "", mode); 
+definekey_reserved("rst->markup(\"hyperlink\")",               "tr", mode); % "&Reference (link)"
+definekey_reserved("rst->markup(\"anonymous_hyperlink\")",     "ta", mode); % "&Anonymous Reference"
 definekey_reserved("rst->markup(\"numeric_footnote\")",        "tf", mode); % "&Footnote"
 definekey_reserved("rst->markup(\"symbolic_footnote\")",       "ts", mode); % "&Symbolic Footnote"
 definekey_reserved("rst->markup(\"citation\")",                "tc", mode); % "&Citation"
@@ -596,23 +597,25 @@ static define rst_menu(menu)
    menu_append_item(popup, "Su&perscript", &markup, "superscript");
    menu_append_item(popup, "&Hrule", &markup, "hrule");    
    menu_append_item(popup, "&Comment", "comment_region_or_line");
-   % Crossref Marks (outgoing links)
-   popup = new_popup(menu, "Crossref &Marks");
-   menu_append_item(popup, "&Reference (link)", &markup, "crossref_mark");
-   menu_append_item(popup, "&Anonymous Reference", &markup, "anonymous_crossref_mark");
-   menu_append_item(popup, "&Footnote", &markup, "numeric_footnote_mark");
-   menu_append_item(popup, "&Symbolic Footnote", &markup, "symbolic_footnote_mark");
-   menu_append_item(popup, "&Citation", &markup, "citation_mark");
-   menu_append_item(popup, "&Substitution", &markup, "substitution_mark");
-   % Crossref Targets
-   popup = new_popup(menu, "Crossref &Targets");
-   menu_append_item(popup, "&Reference (link)", &markup, "crossref");
-   menu_append_item(popup, "&Anonymous Reference", &markup, "anonymous_crossref");
-   menu_append_item(popup, "&Footnote", &markup, "numeric_footnote");
+   % References (outgoing links)
+   popup = new_popup(menu, "&References (outgoing links)");
+   menu_append_item(popup, "&Hyperlink", &markup, "hyperlink_ref");
+   menu_append_item(popup, "&Anonymous Hyperlink", &markup, "anonymous_hyperlink_ref");
+   menu_append_item(popup, "Numeric &Footnote", &markup, "numeric_footnote_ref");
+   menu_append_item(popup, "&Symbolic Footnote", &markup, "symbolic_footnote_ref");
+   menu_append_item(popup, "&Citation", &markup, "citation_ref");
+   menu_append_item(popup, "&Substitution", &markup, "substitution_ref");
+   % Reference Targets
+   popup = new_popup(menu, "Reference &Targets");
+   menu_append_item(popup, "&Hyperlink (URL)", &markup, "hyperlink");
+   menu_append_item(popup, "&Anonymous Hyperlink", &markup, "anonymous_hyperlink");
+   menu_append_item(popup, "Numeric &Footnote", &markup, "numeric_footnote");
    menu_append_item(popup, "&Symbolic Footnote", &markup, "symbolic_footnote");
    menu_append_item(popup, "&Citation", &markup, "citation");
-   menu_append_item(popup, "&Directive", &markup, "directive");
    menu_append_item(popup, "&Substitution", &markup, "substitution");
+   % Directives
+   popup = new_popup(menu, "Directives");
+   menu_append_item(popup, "&Directive", &markup, "directive");
    % Export to a target file
    popup = new_popup(menu, "&Export");
    menu_append_item(popup, "&Html", "rst_to_html");
@@ -638,9 +641,8 @@ set_comment_info(mode, ".. ", "", 0);
 
 public define rst_mode()
 {
-   text_mode();    % rst is an extended text mode
    set_mode(mode, 1);
-   % make sure the text_mode_hook from structured_text gets loaded
+   % indent with structured_text_hook from structured_text.sl
    use_syntax_table(mode);
    % use_keymap (mode);
    mode_set_mode_info(mode, "fold_info", "..{{{\r..}}}\r\r");

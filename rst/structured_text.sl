@@ -11,7 +11,12 @@
 %                  set "mark_paragraph_hook" to format first line of list item
 %  2006-02-03 0.4  bugfix in the Text_List_Patterns (* needs to be escaped)
 %  2006-05-17 0.4.1 code cleanup
+%  2006-08-14 0.5  bugfix: rename text_mode_hook() to structured_text_hook() 
+%                  to avoid name clashes. To activate the st functions in
+%                  text mode, define an alias as described in the function doc.
+%                  (report J. Sommmer)
 
+provide("structured_text");
 
 % the set of regular expressions matching a list mark
 custom_variable("Text_List_Patterns",
@@ -176,7 +181,32 @@ define st_newline_and_indent()
 
 % autoload("mark_paragraph", "txtutils");
 
-public define text_mode_hook()
+%!%+
+%\function{structured_text_hook}
+%\synopsis{Formatting hook for "ASCII markup"}
+%\usage{structured_text_hook()}
+%\description
+%  This function calls a list of buffer hooks (see Help>Browse-Docs>Hooks)
+%  suitable for proper indenting and paragraph formatting of documents using
+%  "ASCII markup".
+%  
+%  Paragraphs are separated by blank lines and indented to the same column
+%  as the first line of the paragraph.
+%  
+%  List items that start with a special list marker (e.g. '* ' or '3.') are
+%  considered paragraphs as well, even when not preceded by an empty line.
+%  Continuation lines are indented to the column that matches the start of the
+%  list text.%  
+%\example
+%  To enable the structured text formatting in \sfun{text_mode}, set an alias:
+%#v+
+%  define text_mode_hook() { structured_text_hook(); }
+%#v-
+%\notes
+%  \sfun{rst_mode} calls \sfun{structured_text_hook} by default.
+%\seealso{st_indent, st_backward_paragraph, st_mark_paragraph}
+%!%-
+public define structured_text_hook()
 {
    set_buffer_hook("wrap_hook", &st_indent);
    set_buffer_hook("indent_hook", &st_indent);
