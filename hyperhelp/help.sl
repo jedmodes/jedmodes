@@ -56,9 +56,19 @@
 %                     removing the custom_variable `Help_with_history'
 %                     provide("hyperhelp") so modes depending on stuff not in
 %                     the standard help could require("hyperhelp")
+%   1.8   2006-03-02  new function help->get_mini_help()
+%   	  	      use the internal doc files list for Jed >= 0.99.17
+%   	  	      (this means that the source file name is no longer 
+%   	  	      appended to the help text)
+%   1.8.1 2006-09-07  Added Slang 2 keywords for exception handling
+%                     fix help-string for internal functions
+%                     fix help_display_list()
+%                     
+%         
 %
 %   TODO: use _get_namespaces() to make apropos aware of functions in
-%   	  "named namespaces" (When called with a numeric prefix arg [PB])
+%   	  "named namespaces" (When called with a numeric prefix arg [PB] 
+%   	  or if given a pattern containing "->" [GM])
 %
 % ------------------------------------------------------------------------
 % USAGE:
@@ -97,15 +107,31 @@
 %
 %  you will need autoloads for all functions you want to bind
 %  that are not present in the standard help.sl
-%  
-%    _autoload("help_for_help", "help",
-%              "grep_definition", "help",
-%              "set_variable", "help",
-%              3);
-%
+
+#<INITIALIZATION>
+_autoload("help_for_help", "help",
+   "grep_definition", "help",
+   "grep_slang_sources", "help",
+   "context_help", "help",
+   "help_for_word_at_point", "help",
+   "set_variable", "help",
+   "help_search", "help",
+   7);
+_add_completion("grep_definition", "set_variable", "help_search", 3);
+
+define hyperhelp_load_popup_hook(menubar)
+{
+   menu_insert_item("&Info Reader", "Global.&Help",
+                       "&Grep Definition", "grep_definition");
+   menu_insert_item("&Info Reader", "Global.&Help",
+                       "&/ Search in Help Docs", "help_search");
+   menu_insert_separator("&Info Reader", "Global.&Help");
+}
+append_to_hook ("load_popup_hooks", &hyperhelp_load_popup_hook);
+#</INITIALIZATION>
+
 % ------------------------------------------------------------------------
 
-% for debugging:
 % _debug_info = 1;
 
 % Requirements
@@ -133,12 +159,10 @@ autoload("string_get_match",	"strutils");
 % (not really needed but nice to have)
 
 % formatting of apropos list
-if(andelse{strlen(expand_jedlib_file("csvutils.sl"))}
-   {strlen(expand_jedlib_file("datutils.sl"))})
+if (strlen(expand_jedlib_file("csvutils.sl")))
 {
    autoload("list2table", "csvutils.sl");
    autoload("strjoin2d", "csvutils.sl");
-   autoload("array_max", "datutils.sl");
 }
 
 % Help History: walk for and backwards in the history of help items
@@ -151,9 +175,10 @@ if (strlen(expand_jedlib_file("circle.sl")))
    autoload("circ_append", "circle");
 }
 
-% This superset of the standard help mode can be used as drop-in replacement.
+% The "hyperhelp" help browser is a drop-in replacement for the standard help.
 provide("help");
-% Modes depending on this modes extensions should require("hyperhelp").
+% Modes depending on extensions in this file should 
+%   require("hyperhelp", "help.sl").
 provide("hyperhelp");  % help browser (with "hyperlinks")
 
 % --- name it
@@ -203,10 +228,10 @@ static variable Keywords =
    "__tmp", "_for",
    "abs", "and", "andelse",
    "break",
-   "case", "chs", "continue",
+   "case", "catch", "chs", "continue",
    "define", "do", "do_while",
    "else", "exch",
-   "for", "foreach", "forever",
+   "finally", "for", "foreach", "forever",
    "if",
    "loop",
    "mod", "mul2",
@@ -215,7 +240,7 @@ static variable Keywords =
    "pop", "private", "public",
    "return",
    "shl", "shr", "sign", "sqr", "static", "struct", "switch",
-   "typedef",
+   "throw", "try", "typedef",
    "using",
    "variable",
    "while",
@@ -223,11 +248,19 @@ static variable Keywords =
   ];
 %}}}
 
+% backwards compatibility: feed Jed_Doc_Files to the internal doc files list
+#ifexists set_doc_files
+#ifexists Jed_Doc_Files  % might become obsoleted in 0.99.19
+set_doc_files(strchop(Jed_Doc_Files, ',', 0));
+#endif
+#endif
+
+
 % --- auxiliary functions --------------------------------
 
-% dummy definitions for recursive use (the real ones are at the end of file)
+% forward declarations
 public  define help_mode() {}
-define help_for_object() {}
+static define help_for_object() {}
 
 static define read_object_from_mini(prompt, default, flags)
 {
@@ -293,11 +326,11 @@ static define help_display_list(a)
    a = list2table(a);
    help_display(strjoin2d(a, " ", "\n", "l"));
 #else                 % align columns by setting TAB
-   help_display(strjoin(a, "\t"));
+   help_display(strjoin(a, "\n"));
    set_readonly(0);
-   TAB = runhooks("array_max", array_map(Int_Type, &strlen, a))+1;
    % unset_buffer_hook("format_paragraph_hook");
-   call ("format_paragraph");
+   % call ("format_paragraph");
+   buffer_format_in_columns();   
    set_buffer_modified_flag(0);
    set_readonly(1);
    fit_window(get_blocal("is_popup", 0));
@@ -310,7 +343,7 @@ static define help_display_list(a)
 %!%+
 %\function{help}
 %\synopsis{Pop up a window containing a help file.}
-%\usage{Void help ([help_file])}
+%\usage{help(help_file=Help_File)}
 %\description
 % Displays help_file in the help buffer.
 % The file read in is given by the optional argument or the
@@ -335,7 +368,7 @@ public define help() % (help_file=Help_File)
 %!%+
 %\function{help_for_help}
 %\synopsis{Display the help for help.}
-%\usage{Void help_for_help()}
+%\usage{help_for_help()}
 %\description
 % Displays help.hlp in the help buffer.
 %\seealso{help, help_mode}
@@ -345,7 +378,7 @@ define help_for_help() {help("help.hlp");}
 %!%+
 %\function{apropos}
 %\synopsis{List all defined objects that match a regular expression}
-%\usage{Void apropos ([pattern])}
+%\usage{apropos ([pattern])}
 %\description
 %   Apropos searches for defined functions and variables in the
 %   global namespace that match a given regular expression. If the
@@ -365,7 +398,7 @@ public  define apropos() % ([pattern])
    help_display_list(list[array_sort(list)]);
 }
 
-% Search for \var{str} in the \var{Jed_Doc_Files}
+% Search for \var{str} in the internal doc files list (or \var{Jed_Doc_Files})
 define _do_help_search(str)
 {
    variable result = String_Type[100], i=0;
@@ -375,7 +408,13 @@ define _do_help_search(str)
    variable docfile, matches_p;
 
    variable fp, buf="", pos=1, buffer, beg=0, len=0, entry;
-   foreach (strchop(Jed_Doc_Files, ',', 0)) % get_doc_files() is not defined in 99.16
+   foreach (
+#ifexists get_doc_files % get_doc_files() is not defined in jed <= 99.16
+            get_doc_files()
+#else
+            strchop(Jed_Doc_Files, ',', 0) 
+#endif
+            )   
      {
 	docfile=();
 	fp = fopen(docfile, "r");
@@ -454,7 +493,7 @@ public define help_search() % ([str])
 define strsub_control_chars(key)
 {
    variable a = bstring_to_array(key);
-   variable control_chars = where(a <32);
+   variable control_chars = where(a < 32);
    a[control_chars] += 64;  % shift to start at '@'
    a = array_map(String_Type, &char, a);
    a[control_chars] = "^" + a[control_chars];
@@ -500,7 +539,7 @@ public  define expand_keystring(key)
 %!%+
 %\function{showkey}
 %\synopsis{Show a keybinding.}
-%\usage{Void showkey([keystring])}
+%\usage{showkey([keystring])}
 %\description
 %   Ask for a key to be pressed and display its binding(s)
 %   in the minibuffer.
@@ -548,7 +587,7 @@ public  define showkey() % ([keystring])
 %!%+
 %\function{where_is}
 %\synopsis{Show which key(s) a command is on}
-%\usage{Void where_is([String cmd])}
+%\usage{where_is([String cmd])}
 %\description
 %   If no argument is given, ask for a command.
 %   Show the key that is bound to it.
@@ -580,14 +619,14 @@ public  define is_keyword(name)
    return (length(where(name == Keywords)));
 }
 
-% return a string with a variables name and value
+% return a string with a variable's name and value
 static define variable_value_str(name)
 {
    variable vref, type = "", value = "<Uninitialized>";
-   if (is_defined(name) == 0)
-     return "variable " + name + " undefined";
-   if (is_defined(name) > 0)
-     return name + " is a function";
+   switch (is_defined(name))
+     { case 0: return "variable " + name + " undefined"; }
+     { case 1 or case 2: return name + " is a function"; }
+   
    vref = __get_reference(name);
    if (__is_initialized(vref))
      {
@@ -604,13 +643,13 @@ static define variable_value_str(name)
 }
 
 % return a string with help for function/variable obj
-define help_for_object(obj)
+static define help_for_object(obj)
 {
    variable help_str = "",
-   function_types = [": undefined",
-		     ": intrinsic function",
-		     ": library function",
-		     ": SLang keyword"],
+   function_types = ["undefined",
+		     "intrinsic function",
+		     "library function",
+		     "SLang keyword"],
      type = is_defined(obj),
      doc_str, file, vref;
 
@@ -618,11 +657,10 @@ define help_for_object(obj)
      type = 3;
    if (is_internal(obj))
      {
-	help_str = obj + ": internal function\n"
-	  + "Use call(\"" + obj
-	  + "\") to access the internal function from slang.\n"
-	  + "You might bind an internal function to a key "
-	  + "using setkey or definekey";
+	help_str = strjoin(
+	   [obj + ": internal function\n",
+	    "Use call(\"" + obj + "\") to access from slang",
+	    "or bind to a key using setkey or definekey."], " ");
 	!if (type)
 	  return help_str;
 	else
@@ -632,9 +670,14 @@ define help_for_object(obj)
    if (type < 0) % Variables
      help_str += variable_value_str(obj);
    else
-     help_str += obj + function_types[type];
+     help_str += sprintf("%s: %s", obj, function_types[type]);
 
    % get doc string
+#ifexists get_doc_files % the file argument to get_doc_string_from_file was 
+   	  		% made optional with the introduction of 
+   			% [s|g]et_doc_files in jed 0.99.17
+   doc_str = get_doc_string_from_file(obj);
+#else   
    foreach (strchop(Jed_Doc_Files, ',', 0))
      {
 	file = ();
@@ -642,13 +685,14 @@ define help_for_object(obj)
 	if (doc_str != NULL)
 	  break;
      }
-
+#endif
    if (doc_str == NULL)
      help_str += "  Undocumented";
    else
      {
         help_str += doc_str[[strlen(obj):]];
-        help_str += sprintf("\n\n(Obtained from file %s)", file);
+	% in Jed >= 0.99.17, we do not determine the source file name
+        % help_str += sprintf("\n\n(Obtained from file %s)", file);
      }
 
    return help_str;
@@ -657,7 +701,7 @@ define help_for_object(obj)
 %!%+
 %\function{describe_function}
 %\synopsis{Give help for a jed-function}
-%\usage{Void describe_function ()}
+%\usage{describe_function ()}
 %\description
 %   Display the online help for \var{function} in the
 %   help buffer.
@@ -676,7 +720,7 @@ public  define describe_function () % ([fun])
 %!%+
 %\function{describe_variable}
 %\synopsis{Give help for a jed-variable}
-%\usage{Void describe_variable([var])}
+%\usage{describe_variable([var])}
 %\description
 %   Display the online help for \var{variable} in the
 %   help buffer.
@@ -720,7 +764,7 @@ public  define describe_mode ()
 %!%+
 %\function{describe_bindings}
 %\synopsis{Show a list of all keybindings}
-%\usage{Void describe_bindings ()}
+%\usage{describe_bindings ()}
 %\description
 %   Show a list of all keybindings in the help buffer
 %\seealso{showkey, where_is, help_mode}
@@ -752,13 +796,13 @@ public  define describe_bindings() % (keymap=what_keymap())
 % grep commands (need grep.sl)
 
 % #ifeval expand_jedlib_file("grep.sl") != ""
-% % fails with preparse (leaves '^A' on stack) ?????
+% % fails with preparse for SLang1 (leaves '^A' on stack) !
 #ifexists grep
 
 %!%+
 %\function{grep_slang_sources}
 %\synopsis{Grep in the Slang source files of the jed library path}
-%\usage{Void grep_slang_sources([what])}
+%\usage{grep_slang_sources([what])}
 %\description
 %   If the grep.sl mode is installed, grep_slang_sources does a
 %   grep for the regexp pattern \var{what} in all *.sl files in the
@@ -783,13 +827,13 @@ public define grep_slang_sources() % ([what])
 %!%+
 %\function{grep_definition}
 %\synopsis{Grep source code of definition}
-%\usage{Void grep_definition([function])}
+%\usage{grep_definition([function])}
 %\description
-%  If the \var{grep} function is defined, grep_definition does a
+%  If the \sfun{grep} function is defined, grep_definition does a
 %  grep for a function/variable definition in all directories of the
 %  jed_library_path.
 %\notes
-%  The \var{grep} function is provided by grep.sl and needs the 'grep'
+%  The \sfun{grep} function is provided by grep.sl and needs the 'grep'
 %  system command. It is checked for at evaluation (or byte_compiling)
 %  time of help.sl by a preprocessor directive.
 %\seealso{describe_function, grep, grep_slang_sources, get_jed_library_path}
@@ -851,7 +895,7 @@ define grep_current_definition()
 %!%+
 %\function{set_variable}
 %\synopsis{Set a variable value}
-%\usage{Void set_variable() % ([name])}
+%\usage{set_variable() % ([name])}
 %\description
 %   Set a variable to a new value, define the variable if undefined.
 %   If the current word is no variable, ask for the variable name.
@@ -903,92 +947,111 @@ public define set_variable()
 }
 
 %!%+
-%\function{extract_mini_doc}
+%\function{extract_synopsis}
 %\synopsis{return concise USAGE and SYNOPSIS info from the help_string}
-%\usage{ String extract_mini_doc(String)}
+%\usage{String help->extract_synopsis(help_str)}
 %\description
 %   Extract the USAGE and SYNOPSIS lines of the help_string
 %   (assumning a documention string according to the format used in
 %   Jed Help, e.g. jedfuns.txt). Convert to a more concise format and
-%   return as string
+%   return as string.
 %\seealso{help_for_function, mini_help_for_object}
 %!%-
-public  define extract_mini_doc(help_str)
+define extract_synopsis(help_str)
 {
-   variable synopsis, usage, word = strchop(help_str, ':', 0)[0];
+   variable i, synopsis, word = extract_element(help_str, 0, ':');
    help_str = strchop(help_str, '\n', 0);
-   %    show(help_str);
    % get index of synopsis line
-   synopsis = (where(help_str == " SYNOPSIS"));
+   i = (where(help_str == " SYNOPSIS") + 1);
+   % no SYNOPSIS
+   !if (length(i))
+     return "";
    % get the actual line
-   if (length(synopsis))
-     {
-	synopsis = synopsis[0] + 1;
-	synopsis = strtrim(help_str[synopsis]);
-	if (synopsis == word)
-	  synopsis = "";
-     }
-   else
-     synopsis = "";
-   % get index of usage line
-   usage = (where(help_str == " USAGE"));
-   % get the actual line
-   if (length(usage))
-     {
-	usage = usage[0] + 1;
-	usage = strtrim(help_str[usage]);
-	% --- Replacements ---
-	% insert = if not there
-	!if (is_substr(usage, "="))
-	  (usage, ) = strreplace (usage, " ", " = ", 1);
-	% strip Void/void
-	usage = str_replace_all(usage, "Void = ", "");
-	usage = str_replace_all(usage, "void = ", "");
-	usage = str_replace_all(usage, "Void", "");
-	usage = str_replace_all(usage, "void", "");
-	% simple types -> small letters
-	usage = str_replace_all(usage, "Integer_Type", "i");
-	usage = str_replace_all(usage, "Int_Type", "i");
-	usage = str_replace_all(usage, "Integer", "i");
-	usage = str_replace_all(usage, "Double_Type", "x");
-	usage = str_replace_all(usage, "Double", "x");
-	% compound types -> capital letters
-	usage = str_replace_all(usage, "String_Type", "Str");
-	usage = str_replace_all(usage, "String", "Str");
-	usage = str_replace_all(usage, "Array_Type", "Arr ");
-	usage = str_replace_all(usage, "Array", "Arr");
-	usage = str_replace_all(usage, "Assoc_Type", "Ass");
-	usage = str_replace_all(usage, "Assoc", "Ass");
-	% append ";" if not already there
-	!if(usage[[-1:]] == ";")
-	  usage += ";";
-     }
-   else
-     usage = "";
-   return usage + " " + synopsis;
+   synopsis = strtrim(help_str[i[0]]);
+   if (synopsis == word)  % Phony synopsis
+     return "";
+   return synopsis;
 }
+
+
+%!%+
+%\function{extract_usage}
+%\synopsis{return concise USAGE and SYNOPSIS info from the help_string}
+%\usage{String help->extract_usage(help_str)}
+%\description
+%   Extract the USAGE and SYNOPSIS lines of the help_string
+%   (assumning a documention string according to the format used in
+%   Jed Help, e.g. jedfuns.txt). Convert to a more concise format and
+%   return as string.
+%\seealso{help_for_function, mini_help_for_object}
+%!%-
+define extract_usage(help_str)
+{
+   variable i, usage;
+   help_str = strchop(help_str, '\n', 0);
+   % get index of usage line
+   i = (where(help_str == " USAGE") + 1);
+   % abort if not found
+   !if (length(i))
+     return "";
+   % get the actual line
+   usage = strtrim(help_str[i[0]]);
+   
+   % Replacements
+   % insert "="
+   !if (is_substr(usage, "="))
+     (usage, ) = strreplace (usage, " ", " = ", 1);
+   % strip Void/void
+   usage = str_replace_all(usage, "Void = ", "");
+   usage = str_replace_all(usage, "void = ", "");
+   usage = str_replace_all(usage, "Void ", "");
+   usage = str_replace_all(usage, "void ", "");
+   % simple types -> small letters
+   usage = str_replace_all(usage, "Integer_Type", "i");
+   usage = str_replace_all(usage, "Int_Type", "i");
+   usage = str_replace_all(usage, "Integer", "i");
+   usage = str_replace_all(usage, "Double_Type", "x");
+   usage = str_replace_all(usage, "Double", "x");
+   % compound types -> capital letters
+   usage = str_replace_all(usage, "String_Type", "Str");
+   usage = str_replace_all(usage, "String", "Str");
+   usage = str_replace_all(usage, "Array_Type", "Arr ");
+   usage = str_replace_all(usage, "Array", "Arr");
+   usage = str_replace_all(usage, "Assoc_Type", "Ass");
+   usage = str_replace_all(usage, "Assoc", "Ass");
+
+   % strip ";" and return
+   return strtrim_end(usage, ";");
+}
+
+static define get_mini_help(obj)
+{
+   variable help_str = help_for_object(obj);
+   % Help is already one-liner (e.g. "Undefined")
+   !if (is_substr(help_str, "\n"))
+     return help_str;
+   return sprintf("%s; %s", 
+      extract_usage(help_str), extract_synopsis(help_str));
+}
+
 
 %!%+
 %\function{mini_help_for_object}
 %\synopsis{Show concise help information in the minibuffer}
-%\usage{Void mini_help_for_object(obj)}
+%\usage{mini_help_for_object(obj)}
 %\description
 %   Show the synopsis of the online help in the minibuffer.
 %\seealso{describe_function, describe_variable}
 %!%-
 public define mini_help_for_object(obj)
 {
-   variable help_str = help_for_object(obj);
-   if (is_substr(help_str, "\n") == 0 )
-     return help_str;
-   else
-     return extract_mini_doc(help_str);
+   message(get_mini_help(obj));
 }
 
 %!%+
 %\function{help_for_word_at_point}
 %\synopsis{Give (mode dependend) help for word under cursor}
-%\usage{Void help_for_word_at_point()}
+%\usage{help_for_word_at_point()}
 %\description
 %   Find the word under the cursor and give mode-dependend help using the
 %   function defined in the blocal variable "help_for_word_hook".
@@ -1012,7 +1075,7 @@ public define help_for_word_at_point()
 %!%+
 %\function{context_help}
 %\synopsis{Give context sensitive help}
-%\usage{Void context_help ()}
+%\usage{context_help()}
 %\description
 %   Give a mode-dependend help for the current context, e.g.
 %   find the word under the cursor and give mode-dependend help.
@@ -1161,7 +1224,7 @@ enable_dfa_syntax_for_mode(helplist);
 
 static define _add_keyword(keyword)
 {
-   variable word = strtrim(keyword, "`', \t");
+   variable word = strtrim(keyword, "`',() \t");
    % show("adding keyword", keyword, is_defined(word));
    if( is_defined(word) > 0)      % function
      add_keyword(mode, keyword);
@@ -1224,6 +1287,7 @@ definekey ("help->previous_topic",      ",",           mode); % dillo-like
 definekey ("help->next_topic",       Key_Alt_Right,    mode); % Browser-like
 definekey ("help->previous_topic",   Key_Alt_Left,     mode); % Browser-like
 #endif
+
 
 public define help_mode()
 {
