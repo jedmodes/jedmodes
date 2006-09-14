@@ -1,7 +1,6 @@
-% txtutils.sl
-% Tools for text processing (marking, string processing, formatting)
-% 
-% Copyright (c) 2005 Günter Milde
+% txtutils.sl: % Tools for text processing (marking, picking, formatting)
+%
+% Copyright (c) 2005 Guenter Milde (milde users.sf.net)
 % Released under the terms of the GNU General Public License (ver. 2 or later)
 %
 % VERSIONS
@@ -17,28 +16,34 @@
 %                                0 don't skip
 %                                1 skip forward, if not in a word
 %                    Attention: get_word now returns last word, if the point is
-%                    just behind a word (that is the normal way jed treats 
+%                    just behind a word (that is the normal way jed treats
 %                    word boundaries)
 %  2.3   2004-11-24 * New function insert_markup(beg_tag, end_tag)
 %  2.3.1 2005-05-26  bugfix: missing autoload (report PB)
-%  2.3.2 2005-06-09 * reintroduced indent_region_or_line() 
+%  2.3.2 2005-06-09 * reintroduced indent_region_or_line()
 %  	 	      jed99-17's cuamisc.sl doesnot have it
 %  2.3.3 2005-10-14 * added documentation
-%  2.3.3 2005-11-21 * removed "public" from definitions of functions 
+%  2.3.3 2005-11-21 * removed "public" from definitions of functions
 %                     returning a value
 %  2.4   2005-11-24 * new function local_word_chars() that also probes
 %  	 	      mode_get_mode_info("word_chars")
 %  	 	      new (optional) arg 'lines' for get_buffer()
-
+%  2.5   2006-01-19 New functions mark_paragraph(),
+%  	 	    mark_paragraph_from_point(), format_paragraph_from_point()
+%  2.6   2006-09-14 New function newline_indent() (fix pasting in x-terminal)
 
 % _debug_info = 1;
 
-% --- Requirements ---
+provide("txtutils");
+
+% Requirements 
+% ------------
 
 autoload("get_blocal", "sl_utils");
 autoload("push_defaults", "sl_utils");
 
-%--- marking and regions ---------------------------------------------
+% Marking and Regions 
+% -------------------
 
 %!%+
 %\function{local_word_chars}
@@ -47,10 +52,10 @@ autoload("push_defaults", "sl_utils");
 %\description
 %  Returns the currently defined set of characters that constitute a word in
 %  the local context: (in order of preference)
-% 
+%
 %    * the buffer local variable "Word_Chars"
-%    * the mode-info field "word_chars" (with \var{mode_get_mode_info})
-%    * the global definition (with \var{get_word_chars}).
+%    * the mode-info field "word_chars" (with \sfun{mode_get_mode_info})
+%    * the global definition (with \sfun{get_word_chars}).
 %\example
 %  Define a global set of word_chars with e.g.
 %#v+
@@ -76,7 +81,6 @@ define local_word_chars()
      return word_chars;
    return get_word_chars();
 }
-  
 
 %!%+
 %\function{mark_word}
@@ -87,11 +91,11 @@ define local_word_chars()
 % a word is made of from the optional argument \var{word_chars}
 % or  \var{local_word_chars}.  The optional argument \var{skip} tells how to
 % skip non-word characters:
-% 
+%
 %   -1 skip backward
 %    0 don't skip (default)
 %    1 skip forward
-%    
+%
 %\seealso{mark_line, get_word, define_word, define_blocal_var, push_visible_mark}
 %!%-
 public define mark_word() % (word_chars=local_word_chars(), skip=0)
@@ -102,7 +106,7 @@ public define mark_word() % (word_chars=local_word_chars(), skip=0)
      word_chars = local_word_chars();
    switch (skip)
      { case -1: skip_chars(word_chars);
-	bskip_chars("^"+word_chars); 
+	bskip_chars("^"+word_chars);
      }
      { case  1: skip_chars("^"+word_chars);
 	if(eolp()) return push_visible_mark();
@@ -127,15 +131,14 @@ public define mark_word() % (word_chars=local_word_chars(), skip=0)
 %    mark_word(__push_args(args), -1);
 % }
 
-
 %!%+
 %\function{get_word}
 %\synopsis{Return the word at point as string}
 %\usage{String get_word(word_chars=local_word_chars(), skip=0)}
 %\description
 %  Return the word at point (or a visible region) as string.
-%  
-%  See \var{mark_word} for the "word finding algorithm"
+%
+%  See \sfun{mark_word} for the "word finding algorithm"
 %  and meaning of the optional arguments.
 %\seealso{bget_word, mark_word, define_word, push_visible_mark}
 %!%-
@@ -157,7 +160,6 @@ define get_word() % (word_chars=local_word_chars(), skip=0)
 %    get_word(word_chars(args), 1);
 % }
 
-
 %!%+
 %\function{bget_word}
 %\synopsis{Return the word at point as string, skip back if not in a word}
@@ -166,7 +168,7 @@ define get_word() % (word_chars=local_word_chars(), skip=0)
 %  Return the word at point (or a visible region) as string.
 %  Skip back over non-word characters when not in a word.
 %  This is a shorthand for get_word(-1).
-%  See \var{mark_word} for the "word finding algorithm"
+%  See \sfun{mark_word} for the "word finding algorithm"
 %\seealso{get_word, mark_word, define_word}
 %!%-
 define bget_word() % (word_chars=local_word_chars())
@@ -174,7 +176,6 @@ define bget_word() % (word_chars=local_word_chars())
    variable word_chars = push_defaults( , _NARGS);
    get_word(word_chars, -1);
 }
-
 
 %!%+
 %\function{mark_line}
@@ -195,8 +196,8 @@ public define mark_line()
 %\synopsis{Return the current line as string}
 %\usage{String get_line()}
 %\description
-%  Return the current line as string. In contrast to the standard 
-%  \var{line_as_string}, this keeps the point at place.
+%  Return the current line as string. In contrast to the standard
+%  \sfun{line_as_string}, this keeps the point at place.
 %\seealso{line_as_string, mark_line, bufsubstr}
 %!%-
 define get_line()
@@ -206,13 +207,33 @@ define get_line()
    pop_spot();
 }
 
+define mark_paragraph_from_point()
+{
+   push_visible_mark();
+   forward_paragraph();
+}
+
+define mark_paragraph()
+{
+   backward_paragraph();
+   mark_paragraph_from_point();
+}
+
+define format_paragraph_from_point()
+{
+   mark_paragraph_from_point();
+   exchange_point_and_mark();
+   narrow ();
+   call ("format_paragraph");
+   widen ();
+}
 
 %!%+
 %\function{get_buffer}
 %\synopsis{Return buffer as string}
 %\usage{String get_buffer(kill=0, lines=0)}
 %\description
-%  Return buffer as string. 
+%  Return buffer as string.
 %  If a visible region is defined, return it instead.
 %  If \var{kill} is not zero, the buffer/region will be deleted in the process.
 %  If \var{lines} is not zero, whole lines will be returned
@@ -220,7 +241,7 @@ define get_line()
 %!%-
 define get_buffer() % (kill=0, lines=0)
 {
-   variable  kill, lines;
+   variable  str, kill, lines;
    (kill, lines) = push_defaults(0, 0, _NARGS);
 
    push_spot();
@@ -229,28 +250,57 @@ define get_buffer() % (kill=0, lines=0)
    else if (lines)
      {
 	check_region(0);
-	eol(); 
+	eol();
 	go_right_1();
 	exchange_point_and_mark();
 	bol();
      }
-   
+
    if (kill)
-     bufsubstr_delete(); % leave return value on stack
+     str = bufsubstr_delete();
    else
-     bufsubstr(); % leave return value on stack
+     str = bufsubstr();
    pop_spot();
-   return; % (str)
+   return(str);
 }
 
-% --- formatting -----------------------------------------------------
+% Formatting
+% ----------
+
+%!%+
+%\function{indent_region_or_line}
+%\synopsis{Indent the current line or (if visible) the region}
+%\usage{Void indent_region_or_line ()}
+%\description
+%   Call the indent_line_hook for every line in a region.
+%   If no region is defined, call it for the current line.
+%\seealso{indent_line, set_buffer_hook, is_visible_mark}
+%!%-
+public define indent_region_or_line()
+{
+   !if(is_visible_mark())
+     {
+	indent_line();
+	return;
+     }
+   % narrow(): doesnot work, as indent_line() needs the context!
+   check_region (1);                  % make sure the mark comes first
+   variable end_line = what_line();
+   exchange_point_and_mark();         % now point is at start of region
+   while (what_line() <= end_line)
+     {
+	indent_line();
+	go_down_1();
+     }
+   pop_mark_1();
+}
 
 %!%+
 %\function{indent_buffer}
-%\synopsis{Format a buffer with \var{indent_line}}
+%\synopsis{Format a buffer with \sfun{indent_line}}
 %\usage{indent_buffer()}
 %\description
-%  Call \var{indent_line} for all lines of a buffer.
+%  Call \sfun{indent_line} for all lines of a buffer.
 %\seealso{indent_line, indent_region_or_line}
 %!%-
 public define indent_buffer()
@@ -264,13 +314,52 @@ public define indent_buffer()
 }
 
 %!%+
+%\function{newline_indent}
+%\synopsis{Correct mouse-pasting problem for for Jed in an x-terminal}
+%\usage{newline_indent()}
+%\description
+%  Jed's default binding for the Return key is \sfun{newline_and_indent}. In
+%  an x-terminal, this can result in a staircase effect when mulitple lines
+%  are pasted with the mouse, as indentation is doubled.
+%  
+%  As workaround, \sfun{newline_indent} guesses, whether the input comes from
+%  the keyboard or the mouse and only indents in the first case.
+%\example
+%  In your jed.rc, do something like
+%#v+
+%   !if (is_defined("x_server_vendor"))   % not needed in xjed
+%       setkey("newline_indent", "^M");   
+%#v-
+%  after loading the keybindings (emulation).
+%\notes
+%  Jed receives its input as a sequence of characters and cannot easily tell
+%  whether this input is generated by keypesses, pasting from the mouse or a
+%  remote application.
+%  
+%  \sfun{newline_indent} uses \sfun{input_pending} for the guessing:
+%  
+%  In normal typing, jed can process a newline faster than the next char is
+%  pressed. When pasting from the mouse, the pasted string goes to the
+%  input buffer and is processed one character a time, thus pending input
+%  indicates a paste operation.
+%\seealso{newline, newline_and_indent, Help>Browse_Doc>hooks.txt}
+%!%-
+public define newline_indent()
+{
+  if (input_pending(0))
+     newline();
+  else
+     call("newline_and_indent");
+}
+
+%!%+
 %\function{number_lines}
-%\synopsis{Number buffer lines}
+%\synopsis{Insert line numbers}
 %\usage{number_lines()}
 %\description
-%  Precede all lines in the buffer or a visible region with line numbers
+%  Precede all lines in the buffer (or a visible region) with line numbers
 %\notes
-%  The numbers are not just shown, but actually inserted into the buffer.  
+%  The numbers are not just shown, but actually inserted into the buffer.
 %  Use \var{toggle_line_number_mode} (Buffers>Toggle>Line_Numbers) to show
 %  line numbers without inserting them in the buffer.
 %\seealso{set_line_number_mode, toggle_line_number_mode}
@@ -283,7 +372,8 @@ public define number_lines ()
      narrow;
    eob;
    variable i = 1,
-     format = "%"+string(strlen(string(what_line())))+"d ";
+     digits = strlen(string(what_line())),
+     format = sprintf("%%%dd ", digits);
    bob;
    do
      { bol;
@@ -301,12 +391,12 @@ public define number_lines ()
 %\synopsis{Auto insert text in a rectangle}
 %\usage{autoinsert()}
 %\description
-% Insert the content of the first line into a rectangle defined by 
-% point and mark. This is soewhat similar to \var{open_rect} but for 
+% Insert the content of the first line into a rectangle defined by
+% point and mark. This is soewhat similar to \sfun{open_rect} but for
 % arbitrary content.
-% 
+%
 % If you have to fill out collumns with identical content, write the content
-% in the first line, then mark the collumn and call \var{autoinsert}.
+% in the first line, then mark the collumn and call \sfun{autoinsert}.
 %\seealso{open_rect}
 %!%-
 public define autoinsert()
@@ -328,34 +418,6 @@ public define autoinsert()
    widen;
 }
 
-%{{{ indent_region_or_line()      % should go to a generic place (site.sl?)
-%!%+
-%\function{indent_region_or_line}
-%\synopsis{Indent the current line or (if defined) the region}
-%\usage{Void indent_region_or_line ()}
-%\description
-%   Call the indent_line_hook for every line in a region.
-%   If no region is defined, call it for the current line.
-%\seealso{indent_line, set_buffer_hook, is_visible_mark}
-%!%-
-public define indent_region_or_line ()
-{
-   !if(is_visible_mark ())
-     {
-	indent_line ();
-	return;
-     }
-
-   check_region (1);                  % make sure the mark comes first
-   variable end_line = what_line ();
-   exchange_point_and_mark();         % now point is at start of region
-   while (what_line() <= end_line)
-     {indent_line (); go_down_1 ();}
-   pop_mark (0);
-   pop_spot ();
-}
-%}}}
-
 %!%+
 %\function{insert_markup}
 %\synopsis{Insert markup around region or word}
@@ -363,7 +425,7 @@ public define indent_region_or_line ()
 %\description
 %   Inserts beg_tag and end_tag around the region or current word.
 %\example
-%  Marking a region and 
+%  Marking a region and
 %#v+
 %   insert_markup("<b>", "</b>");
 %#v-
@@ -387,10 +449,8 @@ define insert_markup(beg_tag, end_tag)
 
 % Insert markup around region and (re) indent
 define insert_block_markup(beg_tag, end_tag)
-{ 
+{
    () = dupmark();
    insert_markup(beg_tag, end_tag);
    indent_region_or_line();
 }
-
-provide("txtutils");
