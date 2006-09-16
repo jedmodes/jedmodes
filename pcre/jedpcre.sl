@@ -1,24 +1,21 @@
-% pcre.sl
+% jedpcre.sl
 % Perl-compatible searching functions
 % 
-% $Id: pcre.sl,v 1.2 2005/06/01 11:59:16 paul Exp paul $
+% $Id: jedpcre.sl,v 1.3 2006/09/16 18:51:22 paul Exp paul $
 % Keywords: matching
 %
-% Copyright (c) 2004, 2005 Paul Boekholt.
+% Copyright (c) 2004-2006 Paul Boekholt.
 % Released under the terms of the GNU GPL (version 2 or later).
-% 
-% This requires JED B0.99-17 and the pcre module.
 % 
 % This provides some functions for searching, replacing and occurring
 % pcre-regexps.  The searching and replacing functions can find multi-line
 % matches.
 
-provide("pcre");
+provide("jedpcre");
 import("pcre");
 require("srchmisc");
 require("occur");  % this requires the occur from jedmodes.sf.net/mode/occur
 
-% _debug_info=1;
 %{{{ search
 
 public define pcre_fsearch(pat)
