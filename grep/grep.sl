@@ -1,6 +1,6 @@
 % JED interface to the grep command
 %
-% Copyright (c) 2006 Günter Milde
+% Copyright (c) 2006 Guenter Milde (milde users.sf.net)
 % Released under the terms of the GNU General Public License (ver. 2 or later)
 %
 % Versions
@@ -33,12 +33,13 @@
 %   * change name of the custom var to Grep_Cmd to adhere to the
 %     "<capitalized-modename>_*" convention.
 % 1.1   2006-03-20  fixed cleanu p in zero-output handling in grep().
-% 1.1.1 2006-06-28  fixed deletion of last empty line
+% 1.1.1 2006-06-28  fixed deletion of last empty line in grep() output
+% 1.1.2 2006-09-20  grep_fsearch() did not find matches right after the colon
 %
 % USAGE
 %
 % From jed:              M-x grep
-% From the command line: fgrep -nH "sometext" * | jed -f grep_mode
+% From the command line: fgrep -nH "sometext" * | jed --grep_mode
 % (You should have grep_mode in your autoload list for this to work.)
 % The second approach doesnot work for xjed, use
 %   xjed -f "grep(\"sometext\", \"*\")"
@@ -48,12 +49,12 @@
 %
 % CUSTOMIZATION
 %
-% You can set the grep command with e.g in your .jedrc
+% You can set the grep command to use with grep(), e.g in your .jedrc
 %   variable Grep_Cmd = "rgrep -nH";
 %
 % Optionally customize the jedgrep_mode using the "grep_mode_hook", e.g.
 %   % give the result-buffer a number
-%   autoload("number_buffer", "numbuf"); % look for numbuf at jedmodes.sf.net
+%   autoload("number_buffer", "numbuf"); % jedmodes.sf.net/mode/numbuf/
 %   define grep_mode_hook(mode)
 %   {
 %      number_buffer();
@@ -70,11 +71,11 @@
 require("keydefs");
 autoload("replace_with_query", "srchmisc");
 % nonstandard modes (from jedmodes.sf.net)
-require("filelist"); % which does require "listing" and "datutils"
 autoload("popup_buffer", "bufutils");
 autoload("close_buffer", "bufutils");
 autoload("buffer_dirname", "bufutils");
 autoload("rebind", "bufutils");
+require("filelist"); % which does require "listing" and "datutils"
 autoload("contract_filename", "sl_utils");
 autoload("get_word", "txtutils");
 %}}}
@@ -143,7 +144,7 @@ static define grep_fsearch(pat)
 	pat_len = fsearch(pat);
 	!if(pat_len)
 	  break;
-	if (POINT > grep_prefix_length())
+	if (POINT >= grep_prefix_length())
 	  return pat_len;
      }
    while(right(1));
@@ -378,9 +379,10 @@ public define grep() % ([what], [path])
    variable msg = ["OK", "No results for ", "Error (or file not found) in "];
    if (status)
      {
-	close_buffer();
+	show(status, msg[status] + cmd);
+	% close_buffer();
         message(msg[status] + cmd);
-	return;
+	% return;
      }
    if (bolp() and eolp())
      call("backward_delete_char");
