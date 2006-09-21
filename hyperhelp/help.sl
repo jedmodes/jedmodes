@@ -2,7 +2,7 @@
 % 
 % Hypertext help browser as drop-in replacement for the standard help.sl
 %
-% Copyright (c) 2006 Günter Milde
+% Copyright (c) 2006 Guenter Milde (milde users.sf.net)
 % Released under the terms of the GNU General Public License (ver. 2 or later)
 %
 % Versions
@@ -63,8 +63,12 @@
 %   1.8.1 2006-09-07  Added Slang 2 keywords for exception handling
 %                     fix help-string for internal functions
 %                     fix help_display_list()
-%                     
-%         
+%   1.8.2 2006-09-21  trim buffer in help_display_list()
+%   	  	      patches by Paul Boekholt:
+%   	  	      append Jed_Doc_Files to doc_files instead of overwriting
+%   	  	      keybindings can now also be references, adapt showkey()
+%   	  	      sort inherited and new defined keys in describe_bindings()
+%		      (Jörg Sommer)   	  	      
 %
 %   TODO: use _get_namespaces() to make apropos aware of functions in
 %   	  "named namespaces" (When called with a numeric prefix arg [PB] 
@@ -73,8 +77,8 @@
 % ------------------------------------------------------------------------
 % USAGE:
 %
-% Place help.sl, txtutils.sl, bufutils.sl in the "jed_library_path"
-% (use get_jed_library_path() to see what this is)
+% Place help.sl, txtutils.sl, bufutils.sl in the "jed library path"
+% (use get_jed_library_path() to see what your "jed library path" is)
 % Optionally, place grep.sl, filelist.sl, and circle.sl in the path too.
 %
 % (I recommend a separate directory for the local extensions --
@@ -251,7 +255,13 @@ static variable Keywords =
 % backwards compatibility: feed Jed_Doc_Files to the internal doc files list
 #ifexists set_doc_files
 #ifexists Jed_Doc_Files  % might become obsoleted in 0.99.19
-set_doc_files(strchop(Jed_Doc_Files, ',', 0));
+private variable docfile;
+foreach (strchop(Jed_Doc_Files, ',', 0))
+{
+   docfile=();
+   !if (length(where(docfile == get_doc_files())))
+     add_doc_file(docfile);
+}
 #endif
 #endif
 
@@ -325,11 +335,10 @@ static define help_display_list(a)
 #ifexists list2table  % insert as formatted table (using csvutils.sl)
    a = list2table(a);
    help_display(strjoin2d(a, " ", "\n", "l"));
+   trim_buffer();
 #else                 % align columns by setting TAB
    help_display(strjoin(a, "\n"));
    set_readonly(0);
-   % unset_buffer_hook("format_paragraph_hook");
-   % call ("format_paragraph");
    buffer_format_in_columns();   
    set_buffer_modified_flag(0);
    set_readonly(1);
@@ -561,6 +570,8 @@ public  define showkey() % ([keystring])
      }
    if (f == NULL)
      f = "";
+   if (type == 4)
+     f = sprintf("%S", f);
 
    variable help_str;
    variable description = [" is undefined.",
@@ -778,9 +789,58 @@ public  define describe_bindings() % (keymap=what_keymap())
    current_topic = [_function_name, keymap];
    help_display("");
    set_readonly(0);
-   insert("Keymap: " + keymap + "\n");
    dump_bindings(keymap);
+   if (keymap != "global")
+   {
+       insert("\nInherited from the global keymap:\n");
+       push_spot();
+       dump_bindings("global");
+       pop_spot();
+ 
+       variable global_map = Assoc_Type[String_Type];
+       while ( not eobp() )
+       {
+           push_mark();
+           () = ffind("\t\t\t");
+           variable key = bufsubstr();
+           () = right(3);
+           push_mark();
+           eol();
+           global_map[key] = bufsubstr();
+           delete_line();
+       }
+ 
+       bob();
+       forever
+       {
+           push_mark();
+           () = ffind("\t\t\t");
+           key = bufsubstr();
+           if (key == "")
+             break;
+ 
+           if ( assoc_key_exists(global_map, key) )
+           {
+               () = right(3);
+               push_mark();
+               eol();
+               if (bufsubstr() == global_map[key])
+               {
+                   delete_line();
+                   push_spot();
+                   eob();
+                   insert(key + "\t\t\t" + global_map[key] + "\n");
+                   pop_spot();
+               }
+               else
+                 () = down(1);
+           }
+           else
+             () = down(1);
+       }
+   }
    bob;
+   insert("Keymap: " + keymap + "\n");
    % TODO:
    %    variable old_case_search = CASE_SEARCH;
    %    CASE_SEARCH = 1;
