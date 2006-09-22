@@ -26,7 +26,7 @@
 %                   might differ between grep output and referenced buffer)
 % 1.0 2006-03-09
 %   * provide for --include pattern with recursive grep,
-%   * escape the `what' argument with quotes 
+%   * escape the `what' argument with quotes
 %     (this prevents ugly surprises with shell expansion but disables the
 %     trick to put command line options into  `what').
 %       grep("pat", "dir/*.sl!") --> `grep -r --include='*.sl', 'pat' dir/`
@@ -34,18 +34,22 @@
 %     "<capitalized-modename>_*" convention.
 % 1.1   2006-03-20  fixed cleanu p in zero-output handling in grep().
 % 1.1.1 2006-06-28  fixed deletion of last empty line in grep() output
-% 1.1.2 2006-09-20  grep_fsearch() did not find matches right after the colon
+% 1.1.2 2006-09-20  bugfix in grep_fsearch(): did not find matches right
+% 		    after the separator
+% 1.1.3 2006-09-22  removed spurious debug output (report P Boekholt)
 %
 % USAGE
 %
 % From jed:              M-x grep
-% From the command line: fgrep -nH "sometext" * | jed --grep_mode
+% From the command line: grep -nH "sometext" * | jed --grep_mode
 % (You should have grep_mode in your autoload list for this to work.)
 % The second approach doesnot work for xjed, use
 %   xjed -f "grep(\"sometext\", \"*\")"
 %
-% Go to a line looking promising and press ENTER or double click on
-% the line.
+% To open a file on a find, go to the line press ENTER or double click on it
+%
+% To replace text across the grep results, use your normal keybinding for the
+% replace_cmd().
 %
 % CUSTOMIZATION
 %
@@ -85,7 +89,6 @@ provide("grep");
 implements("grep");
 private variable mode = "grep";
 
-
 % --- Variables -------------------------------------------------%{{{
 
 % the grep command
@@ -95,10 +98,10 @@ private variable mode = "grep";
 %\usage{variable Grep_Cmd = "grep -nH"}
 %\description
 %  The shell command which is called by \slfun{grep}.
-%  Customize this to provide command line options or use a variant of grep 
+%  Customize this to provide command line options or use a variant of grep
 %  like `agrep`, `egrep`, or `fgrep`.
 %\notes
-%  In order to go to the filename and line-number, grep_mode assumes the 
+%  In order to go to the filename and line-number, grep_mode assumes the
 %  -n and -H argument set.
 %\seealso{grep, grep_mode}
 %!%-
@@ -117,8 +120,7 @@ static define count_buffers()
    variable n = buffer_list();  % returns names and number of buffers
    _pop_n(n);                   % pop the buffer names
    return n;
-}   
-
+}
 
 % Compute the length of the statistical data in the current line
 % (... as we have to skip spurious search results in this area)
@@ -151,21 +153,20 @@ static define grep_fsearch(pat)
    return -1;
 }
 
-
-% The actual replace function 
+% The actual replace function
 % (replace in both, the grep output and the referenced file)
 define grep_replace(new, len)
 {
    variable buf = whatbuf(),
    no_of_bufs = count_buffers(),
-   pos = POINT - grep_prefix_length(), 
+   pos = POINT - grep_prefix_length(),
    old;
 
    % get (and delete) the string to be replaced
    push_mark(); () = right(len);
    old = bufsubstr_delete();
    push_spot();
-   
+
    ERROR_BLOCK
      {
 	% close referenced buffer, if it was not open before
@@ -180,25 +181,25 @@ define grep_replace(new, len)
         set_readonly(0);
         insert(old);
      }
-   
+
    % open the referenced file and goto the right line and pos
    filelist_open_file();
    bol;
    go_right(pos);
-   
+
    % abort if looking at something different
    !if (looking_at(old))
      {
 	push_mark(); () = right(len);
 	verror("File differs from grep output (looking at %s)", bufsubstr());
      }
-   
+
    len = replace_chars(len, new);
 
    old = new;
    EXECUTE_ERROR_BLOCK; % close newly opened buffer, return to grep results
 
-   return len; 
+   return len;
 }
 
 % Replace across files found by grep (interactive function)
@@ -206,7 +207,7 @@ define grep_replace_cmd()
 {
    variable old, new;
 
-   % find default value (region or word under cursor) 
+   % find default value (region or word under cursor)
    % and set point to begin of region
    if (is_visible_mark)
      check_region(0);
@@ -215,7 +216,7 @@ define grep_replace_cmd()
    exchange_point_and_mark; % set point to begin of region
 
    old = read_mini("Grep-Replace:", "", bufsubstr());
-   !if (strlen (old)) 
+   !if (strlen (old))
      return;
    new = read_mini(sprintf("Grep-Replace '%s' with:", old), "", "");
 
@@ -268,7 +269,6 @@ enable_dfa_syntax_for_mode(mode);
 
 % Interface: %{{{
 
-
 %!%+
 %\function{grep_mode}
 %\synopsis{Mode for results of the grep command}
@@ -276,7 +276,7 @@ enable_dfa_syntax_for_mode(mode);
 %\description
 %   A mode for the file listing as returned by the "grep -Hn" command.
 %   Provides highlighting and convenience functions.
-%   Open the file(s) and go to the hit(s) pressing Enter. Do a 
+%   Open the file(s) and go to the hit(s) pressing Enter. Do a
 %   find-and-replace accross the files.
 %\seealso{grep, grep_replace}
 %!%-
@@ -291,31 +291,30 @@ public define grep_mode()
    run_mode_hooks("grep_mode_hook");
 }
 
-
 % TODO: What does gnu grep expect on DOS, What should this be on VMS and OS2 ?
 %!%+
 %\function{grep}
 %\synopsis{Grep interface}
 %\usage{grep(String what=NULL, String path=NULL)}
 %\description
-%  Grep for "what" in the file(s) "path". 
-%  
+%  Grep for "what" in the file(s) "path".
+%
 %  If the optional arguments are missing, they will be asked for in
-%  the  minibuffer. 
-%  
+%  the  minibuffer.
+%
 %  \sfun{grep} adds an extension to the shell pattern replacement mechanism:
 %  the special filename bang (!) indicates a recursive grep in subdirs
-%  (analog to kpathsea), i.e. grep("pat" "path/*.sl!") translates to 
+%  (analog to kpathsea), i.e. grep("pat" "path/*.sl!") translates to
 %  `$Grep_Cmd -r --include='*.sl', 'pat' path`
-%  
+%
 %  Other than this, normal shell expansion is applied to "path".
-%  
+%
 %  The grep command and options can be set with the custom
 %  variable  \var{Grep_Cmd}.
-%  
+%
 %  The buffer is set to \sfun{grep_mode}, so you can go to the matching
 %  lines  or find-and-replace accross the matches.
-%  
+%
 %\seealso{grep_mode, grep_replace, Grep_Cmd}
 %!%-
 public define grep() % ([what], [path])
@@ -331,7 +330,7 @@ public define grep() % ([what], [path])
    if (path == NULL)
      path = read_with_completion ("Where to grep: ", "", "", 'f');
 
-   variable cmd, options = "", dir = buffer_dirname(), allfiles, status, 
+   variable cmd, options = "", dir = buffer_dirname(), allfiles, status,
      basename = path_basename(path);
 #ifdef UNIX
    allfiles = "*";
@@ -375,11 +374,11 @@ public define grep() % ([what], [path])
    % call the grep command
    flush("calling " + cmd);
    status = run_shell_cmd(cmd);
-   
+
    variable msg = ["OK", "No results for ", "Error (or file not found) in "];
    if (status)
      {
-	show(status, msg[status] + cmd);
+	% show(status, msg[status] + cmd);
 	% close_buffer();
         message(msg[status] + cmd);
 	% return;
