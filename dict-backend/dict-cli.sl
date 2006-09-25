@@ -1,10 +1,11 @@
 % dict-cli.sl: dict backend using the command line interface `dict`
 % 
-% Copyright (c) 2005 Günter Milde
+% Copyright (c) 2005 Guenter Milde (milde users.sf.net)
 % Released under the terms of the GNU General Public License (ver. 2 or later)
 %
 % Versions:
-% 0.1 2006-03-13  first public version
+% 0.1   2006-03-13 first public version
+% 0.1.1 2006-09-25 use do_shell_cmd() for error redirection  
 %
 
 provide("dict-backend");
@@ -61,7 +62,9 @@ define dict_define(word, database, host)
 	  db = ();
 	  cmd = sprintf("%s --database '%s' %s '%s'", 
 	     Dict_Cmd, db, parse_host(host), word);
-	  () = run_shell_cmd(cmd);
+	  set_prefix_argument(1);
+	  do_shell_cmd(cmd);
+
        }
 }
 
@@ -74,7 +77,8 @@ define dict_match(word, strategy, database, host)
 	  db = ();
 	  cmd = sprintf("%s --database '%s' %s --match --strategy %s '%s'", 
 	     Dict_Cmd, db, parse_host(host), strategy, word);
-	  () = run_shell_cmd(cmd);
+	  set_prefix_argument(1);
+	  do_shell_cmd(cmd);
        }
 }
 
@@ -102,7 +106,8 @@ define dict_show(what, host)
      }
      { error("argument must be one of 'db', 'strat', 'server', info:<db>"); }
    
-   () = run_shell_cmd(sprintf("%s %s %s", Dict_Cmd, parse_host(host), what));
+   set_prefix_argument(1);
+   do_shell_cmd(sprintf("%s %s %s", Dict_Cmd, parse_host(host), what));
    
    % cache result
    mark_buffer();
