@@ -21,7 +21,7 @@
 % 2006-03-10  0.6    match (Paul Boekholt)
 % 2006-03-13         first public version
 % 2006-03-14  0.6.1  bugfix for zero-length keywords
-% 2006-09-26  0.6.2  bugfix for {multi word keywords} (Paul Boekholt)
+% 2006-09-26  0.6.2  bugfix for {multi word keywords} (report Paul Boekholt)
 %
 % Usage
 % -----
@@ -372,7 +372,7 @@ public define dict() % (word=NULL, database=Dict_DB, strategy=NULL, host=Dict_Se
    set_readonly(0);
    erase_buffer();
    
-   % insert result of dict lookup (function provided by a "dict-backend")
+   % insert result of dict lookup (using function provided by a "dict-backend")
    flush(sprintf("calling Dict %s [%s]", word, database));
    if (strategy == NULL)
      dict_define(word, database, host);
@@ -397,16 +397,13 @@ public define dict() % (word=NULL, database=Dict_DB, strategy=NULL, host=Dict_Se
    bob();
 
    fit_window(get_blocal("is_popup", 0));
+   
    % delete old keyword, define new
-   ERROR_BLOCK
-     {
-	_clear_error();
-     }
    variable old_keywordlen = 
      strbytelen(get_blocal("generating_function", ["", ""])[1]);
-   if (old_keywordlen)
+   if ((old_keywordlen > 0) and (old_keywordlen < 48))
      () = define_keywords_n(mode, "", old_keywordlen, 1);
-   if (strbytelen(word))
+   if ((strbytelen(word) > 0) and (strbytelen(word) < 48))
      () = define_keywords_n(mode, word, strbytelen(word), 1);
    
    % store the data for buffer (re)generation
