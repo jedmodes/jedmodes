@@ -1,6 +1,6 @@
 % dictmode.sl   dict dictionary lookup
 %
-% Copyright (c) 2006 Günter Milde
+% Copyright (c) 2006 Guenter Milde (milde users.sf.net)
 % Released under the terms of the GNU General Public License (ver. 2 or later)
 %
 % This 'jed dict mode' provides an interface to the `dict` command line
@@ -20,6 +20,8 @@
 % 2006-02-20  0.5    "dict API" to use a dict-backend mode
 % 2006-03-10  0.6    match (Paul Boekholt)
 % 2006-03-13         first public version
+% 2006-03-14  0.6.1  bugfix for zero-length keywords
+% 2006-09-26  0.6.2  bugfix for {multi word keywords} (Paul Boekholt)
 %
 % Usage
 % -----
@@ -278,7 +280,7 @@ define previous_link()
 % get word or (if inside of {}) word group
 static define dict_get_word()
 {
-   if (get_mode_name != mode)
+   if (get_mode_name != mode) % not in a dict buffer, use default
      return bget_word();
    switch(parse_to_point())
      {
@@ -296,7 +298,7 @@ static define dict_get_word()
      % 	push_visible_mark();
      % 	() = fsearch("\"");
      % }
-   return strjoin(strtok(bget_word()), " "); % remove excess whitespace
+   return strjoin(strtok(bget_word()), " "); % normalize whitespace
 }
 
 % parse an URL following the DICT protocoll and return
@@ -330,7 +332,7 @@ static define parse_dict_url(url)
 % Lookup
 % ------
 
-static define dict_mode(); % dummy definition
+static define dict_mode(); % forward definition
 
 %!%+
 %\function{dict}
@@ -339,8 +341,8 @@ static define dict_mode(); % dummy definition
 %\description
 %  Interface for a RFC2229 dictionary lookup. The actual lookup is done
 %  by a backend function (see \var{Dict_Backends}) and the result shown
-%  in a \sfun{popup_buffer} in \sfun{dict_mode}. You can also specify full
-%  "dict://" URL as \var{word}. 
+%  in a \sfun{popup_buffer} in \sfun{dict_mode}. If \var{word} is a
+%  "dict://" URL it will be parsed for database, strategy, and host.
 %\example 
 %  Interactive lookup (you will be asked for a word): M-x dict or
 %#v+
@@ -396,11 +398,16 @@ public define dict() % (word=NULL, database=Dict_DB, strategy=NULL, host=Dict_Se
 
    fit_window(get_blocal("is_popup", 0));
    % delete old keyword, define new
+   ERROR_BLOCK
+     {
+	_clear_error();
+     }
    variable old_keywordlen = 
      strbytelen(get_blocal("generating_function", ["", ""])[1]);
    if (old_keywordlen)
      () = define_keywords_n(mode, "", old_keywordlen, 1);
-   () = define_keywords_n(mode, word, strbytelen(word), 1);
+   if (strbytelen(word))
+     () = define_keywords_n(mode, word, strbytelen(word), 1);
    
    % store the data for buffer (re)generation
    variable generator = [_function_name, word, database];
@@ -421,6 +428,7 @@ public define dict() % (word=NULL, database=Dict_DB, strategy=NULL, host=Dict_Se
 
 % If you want to specify strategy, database and/or host, 
 % use dict(pattern, db, strat, host)
+
 %!%+
 %\function{dict->match}
 %\synopsis{Look up matches with dict}
@@ -453,8 +461,7 @@ define match()
 %!%-
 public define dict_lookup()
 {
-   variable generator = get_blocal("generating_function", ["dict"]),
-   database;
+   variable database, generator = get_blocal("generating_function", ["dict"]);
    if (generator[0] == "thesaurus" or length(generator) < 3)
      database = Dict_DB;
    else
