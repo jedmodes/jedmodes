@@ -16,11 +16,13 @@
 % ---------
 % 
 % 0.1 2006-03-03 First public version
-
+% 0.2 2006-09-27 dollar strings caused segfaults with slang 2.0.6
+%                fized lookup of multi word keywords
 % _debug_info = 1;
 
 require("curl");
 provide("dict-backend");
+provide("dict-curl");
 
 private define write_callback (v, data)
 {
@@ -28,10 +30,11 @@ private define write_callback (v, data)
    return 0;
 }
 
-private define do_curl(url)
+private define do_curl()
 {
+   variable args=__pop_args(_NARGS);
    variable v;
-   variable c = curl_new (url);
+   variable c = curl_new (sprintf(__push_args(args)));
    curl_setopt (c, CURLOPT_WRITEFUNCTION, &write_callback, &v);
    curl_perform (c);
 }
@@ -40,7 +43,7 @@ define dict_define(word, database, host)
 {
    variable db, line;
    foreach db (strtok(database, ","))
-     do_curl("dict://$host/d:$word:$db"$);
+     do_curl("dict://%s/d:\"%s\":%s", host, word, db);
    bob();
    replace("\r", "");
    push_mark();
@@ -84,7 +87,7 @@ define dict_match(word, strategy, database, host)
 {
    variable db;
    foreach db (strtok(database, ","))
-     do_curl("dict://$host/m:$word:$db:$strategy"$);
+     do_curl("dict://%s/m:%s:%s:%s", host, word, db, strategy);
    bob();
    replace("\r", "");
    push_mark();
@@ -119,7 +122,7 @@ define dict_match(word, strategy, database, host)
   
 define dict_show(what, host)
 {
-   do_curl("dict://$host/show:$what"$);
+   do_curl("dict://%s/show:%s", host, what);
    bob();
    replace("\r", "");
    bob();
