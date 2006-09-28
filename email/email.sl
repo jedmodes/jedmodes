@@ -1,6 +1,6 @@
 % email.sl -*- mode: SLang; mode: Fold -*-
 % 
-% $Id: email.sl,v 1.4 2005/10/29 21:52:56 paul Exp paul $
+% $Id: email.sl,v 1.5 2006/09/28 18:48:33 paul Exp paul $
 % Keywords: mail
 % 
 % Copyright (c) 2003-2005 Paul Boekholt, Morten Bo Johansen
@@ -30,7 +30,8 @@ _autoload
    "mc_encrypt", "mailcrypt",
    "mc_sign", "mailcrypt",
    "ispell_region", "ispell", 5);
-implements ("email");
+if ("" == current_namespace())
+  implements ("email");
 
 % Set the threshold for the number of quote levels beyond which you
 % consider it a waste of time to deal with them. E.g. setting the value
@@ -101,7 +102,7 @@ static variable color_italic = "delimiter";
 #ifdef HAS_DFA_SYNTAX
 % The highlighting copes with email addresses and url's
 dfa_enable_highlight_cache ("email.dfa",mode);
-
+dfa_define_highlight_rule ("\xC3.", "normal", mode);
 dfa_define_highlight_rule ("^(To|Cc|Newsgroups): .*",color_to,mode);
 dfa_define_highlight_rule ("^Date: .*",color_header,mode);
 dfa_define_highlight_rule ("^From: .*",color_from,mode);
@@ -245,29 +246,14 @@ static define check_sc_quote()
    return "";
 }
 
-% efficient requoting function (no loop)
 static define requote_buffer(quote)
 {
-   variable end_newline = 0;
-   push_spot;
-   % trim trailing newline
-   eob;
-   if (looking_at_char('\n'))
+   bob();
+   do
      {
-	end_newline = 1;
-	del;
+	insert(quote);
      }
-   bob;
-   % first line does not have a newline before it
-   insert(quote);
-   replace("\n", "\n" + quote);
-   % restore trailing newline
-   if (end_newline)
-     {
-	eob;
-	insert_char('\n');
-     }
-   pop_spot;
+   while (down_1());
 }
 
 % reformat quoted text
@@ -319,8 +305,10 @@ static define reformat_quote()
      deln(qlen);
    goto_spot;
    % reformat
+   variable wrap = WRAP;
    WRAP=75 - strlen(strreplace(quotes, "\t", "        ", qlen), pop);
    call("format_paragraph");
+   WRAP = wrap;
    % requote
    requote_buffer(quotes);
    pop_spot;
@@ -557,7 +545,7 @@ public define email_prepare_body ()
      !if (bol_fsearch("\n")) eob;
 }
 
-% This only works with sendmime.sl, and with Mutt.
+% This only works with timbera.pl, and with Mutt.
 public define email_attach_file()
 {
    !if (email_have_header) error ("no headers!");
