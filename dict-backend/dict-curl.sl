@@ -18,7 +18,8 @@
 % 0.1 2006-03-03 First public version
 % 0.2 2006-09-27 dollar strings caused segfaults with slang 2.0.6
 %                fized lookup of multi word keywords
-% _debug_info = 1;
+% 0.3 2006-09-28 Removed quoting of multi word keywords again after
+%                upgrading to libcurl 7.15
 
 require("curl");
 provide("dict-backend");
@@ -43,7 +44,7 @@ define dict_define(word, database, host)
 {
    variable db, line;
    foreach db (strtok(database, ","))
-     do_curl("dict://%s/d:\"%s\":%s", host, word, db);
+     do_curl("dict://%s/d:%s:%s", host, word, db);
    bob();
    replace("\r", "");
    push_mark();
