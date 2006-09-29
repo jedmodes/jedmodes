@@ -1,6 +1,6 @@
 % jedscape.sl
 %
-% $Id: jedscape.sl,v 1.7 2006/07/30 13:40:15 paul Exp paul $
+% $Id: jedscape.sl,v 1.8 2006/09/29 18:40:13 paul Exp paul $
 %
 % Copyright (c) 2003-2006 Paul Boekholt.
 % Released under the terms of the GNU GPL (version 2 or later).
@@ -12,10 +12,8 @@ require("view");
 require("curl");
 require("gettext");
 implements("jedscape");
-
 define jedscape_mode();
 define find_page();
-
 private define _(s)
 {
    dgettext("lynx", s);
@@ -72,10 +70,10 @@ custom_variable("Jedscape_Emulation", "w3");
 private variable mode="jedscape";
 
 private variable
-  version="$Revision: 1.7 $",
-  title,
+  version="$Revision: 1.8 $",
+  title="",
   this_href_mark, last_href_mark,      % check if tags don't overlap
-  url_file ="",			       %  http://host/dir/file.html
+  url_file ="",			       %  /dir/file.html
   url_host="",			       %  http://host
   url_root,			       %  /dir
   href_list, href_begin_marks, href_end_marks,   %  hyperlinks
@@ -83,7 +81,6 @@ private variable
   href_i,			       %  counter for hrefs
   anchor_list, anchor_marks, anchor_i,	       %  anchors
   links= struct{ previous, next, up, contents};   %  links in <head>
-
 
 %{{{ html parsing
 
@@ -336,7 +333,7 @@ private variable page_is_download=0;
 
 define find_page(url)
 {
-   variable file, anchor, source="", v="";
+   variable file, anchor, v="";
    file=extract_element  (url, 0, '#');
    anchor=extract_element  (url, 1, '#');
    page_is_download=0;
@@ -357,7 +354,14 @@ define find_page(url)
 	variable c = curl_new (file);
 	curl_setopt(c, CURLOPT_USERAGENT, sprintf("jed %s", _jed_version_string));
 	curl_setopt(c, CURLOPT_FOLLOWLOCATION, 1);
-	curl_setopt (c, CURLOPT_WRITEFUNCTION, &write_callback, &v);
+	curl_setopt(c, CURLOPT_WRITEFUNCTION, &write_callback, &v);
+	% You can use this hook to set a proxy server, e.g:
+	% if (strncmp(curl_get_url(c), "http://localhost", 16))
+	%  {
+	%     curl_setopt(c, CURLOPT_PROXY, "localhost:8080");
+	%     curl_setopt(c, CURLOPT_HTTPHEADER, "Pragma:");
+	%  }
+	runhooks("jedscape_curlopt_hook", c);
 	flush(sprintf(_("Getting %s"), file));
 	curl_perform (c);
 	variable content_type=curl_get_info(c, CURLINFO_CONTENT_TYPE);
@@ -385,25 +389,23 @@ define find_page(url)
 	  }
 	else  % http://localhost
 	  {
-	     url_host=url_file;
+	     url_host=file;
 	     url_file="/";
 	  }
      }
    else
      {
 	url_host="";
-	source=file;
-	switch(file_status(source))
-	  { case 1: ()=insert_file(source);}
-	  { case 2: return dired_read_dir(source); }
+	url_file=file;
+	switch(file_status(url_file))
+	  { case 1: ()=insert_file(url_file);}
+	  { case 2: return dired_read_dir(url_file); }
 	  { throw OpenError, _("File does not exist.");}
      }
-   
-   url_file=file;
-
-   url_root=path_dirname(file);
+   url_root=path_dirname(url_file);
    filter_html();
    sw2buf("*jedscape*");
+   setbuf_info(getbuf_info(), _stk_roll(-3), pop, path_dirname(url_file), _stk_roll(3));
    set_buffer_modified_flag(0);
    set_readonly(1);
    jedscape_mode();
@@ -424,7 +426,7 @@ private define progress_callback (fp, dltotal, dlnow, ultotal, ulnow)
    if (dltotal > 0.0)
      flush(sprintf("Downloading... %d bytes of %d bytes received", int(dlnow), int(dltotal)));
    else
-     flush("Downloading... %d bytes received", int(dlnow));
+     flush(sprintf("Downloading... %d bytes received", int(dlnow)));
    return 0;
 }
 
@@ -439,6 +441,7 @@ private define download(url)
    curl_setopt(c, CURLOPT_FOLLOWLOCATION, 1);
    curl_setopt (c, CURLOPT_WRITEFUNCTION, &download_callback, fp);
    curl_setopt (c, CURLOPT_PROGRESSFUNCTION, &progress_callback, stdout);
+   runhooks("jedscape_curlopt_hook", c, url);
    curl_perform (c);
 }
 
@@ -450,6 +453,7 @@ private define download(url)
 {
    typedef struct
      {
+	hostname,
 	filename,
 	  line_number
      }
@@ -461,7 +465,7 @@ variable jedscape_history = jedscape_position_type[16],
   jedscape_stack_depth = -1,
   forward_stack_depth = 0;
 
-define push_position(file, line)
+define push_position(host, file, line)
 {
    if (page_is_download) return;
    if (jedscape_stack_depth == 16)
@@ -470,7 +474,7 @@ define push_position(file, line)
 	jedscape_history  = jedscape_history [jedscape_history_rotator];
      }
 
-   set_struct_fields (jedscape_history [jedscape_stack_depth], file, line);
+   set_struct_fields (jedscape_history [jedscape_stack_depth], host, file, line);
 
    ++jedscape_stack_depth;
    forward_stack_depth = 0;
@@ -480,9 +484,9 @@ define goto_stack_position()
 {
    variable pos, file, n;
    pos = jedscape_history [jedscape_stack_depth];
-   file = pos.filename;
+   file = strcat(pos.hostname, pos.filename);
    n = pos.line_number;
-   if (file != url_file)
+   if (file != strcat(url_host, url_file))
      find_page(file);
    goto_line(n);
 }
@@ -492,7 +496,7 @@ define goto_last_position ()
    if (jedscape_stack_depth < 0) return message(_("You are already at the first document"));
    !if (forward_stack_depth)
      {
-	push_position(url_file, what_line);
+	push_position(url_host, url_file, what_line);
 	--jedscape_stack_depth;
      }
 
@@ -525,19 +529,19 @@ define goto_next_position()
 public define jedscape_get_url() % url
 {
    !if (_NARGS) read_mini("open", "", "");
-   variable last_file, last_line;
-   (last_file, last_line) = (url_file, what_line());
+   variable last_host, last_file, last_line;
+   (last_host, last_file, last_line) = (url_host, url_file, what_line());
    find_page();
-   push_position(last_file, last_line);
+   push_position(last_host, last_file, last_line);
 }
 
 define open_local()
 {
    variable file=read_file_from_mini ("open local");
-   variable last_file, last_line;
-   (last_file, last_line) = (url_file, what_line());
+   variable last_host, last_file, last_line;
+   (last_host, last_file, last_line) = (url_host, url_file, what_line());
    find_page(file);
-   push_position(last_file, last_line);
+   push_position(last_host, last_file, last_line);
 }
    
 %{{{ view history
@@ -570,7 +574,7 @@ define view_history()
 
 define quit()
 {
-   push_position(url_file, what_line());
+   push_position(url_host, url_file, what_line());
    url_file="";
    delbuf("*jedscape*");
 }
@@ -620,7 +624,7 @@ define follow_href() % href
      }
    if (href[0] == '#')
      {
-	push_position(url_file, what_line);
+	push_position(url_host, url_file, what_line);
 	goto_anchor(href[[1:]]);
      }
    else
