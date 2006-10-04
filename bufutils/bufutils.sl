@@ -1,6 +1,6 @@
 % bufutils.sl  Tools for buffer and windows handling
 %
-% Copyright (c) 2006 Günter Milde
+% Copyright (c) 2006 Guenter Milde (milde users.sf.net)
 % Released under the terms% of the GNU General Public License (version 2 or later).
 %
 % Version    1.0   first public version
@@ -56,7 +56,8 @@
 %                  get_blocal(hook)
 % 	     	   custom var Jed_Temp_Dir renamed to Jed_Tmp_Directory
 % 	     	   (which is new in site.sl since 0.99.17.165)
-% 2006-06-19 1.11  fit_window() abort if there is only one open window
+% 2006-06-19 1.11  fit_window(): abort if there is only one open window
+% 2006-10-04 1.12  bufsubfile() uses make_tmp_file(), documentation update
 
 % _debug_info = 1;
 
@@ -696,18 +697,17 @@ add_to_hook("_jed_exit_hooks", &delete_temp_files);
 %\synopsis{Write region|buffer to a temporary file and return its name.}
 %\usage{String = bufsubfile(delete=0, base=NULL)}
 %\description
-%   Write the region to a temporary file. If no region is defined, 
-%   write the buffer.
-%   If \var{delete} != 0, delete the region/buffer after writing.
+%   Write the region to a temporary file. If no visible region is defined, 
+%   write the whole buffer.
+%   
+%   If \var{base} is not absolute, the file is written to the \var{Jed_Tmp_Directory}.
 %   If \var{base} == NULL (default), the buffer-name is taken as basename
-%   If the \var{base} is not absolute, the file is written to the
-%   \var{Jed_Tmp_Directory}.
+%   If \var{delete} != 0, delete the region|buffer after writing.
 %   
 %   Return the full filename.
 %   
 %   The temporary file will be deleted at exit of jed (if the calling 
 %   function doesnot delete it earlier).
-%   
 %\notes
 %   bufsubfile() enables shell commands working on files
 %   to act on the current buffer and return the command output.
@@ -715,11 +715,14 @@ add_to_hook("_jed_exit_hooks", &delete_temp_files);
 %    * pipe_region() only takes input but outputs to stdout, but
 %    * shell_cmd_on_region() uses bufsubfile() and run_shell_cmd() for 
 %      bidirectioal interaction
-%\seealso{system, run_shell_cmd, shell_cmd_on_region, pipe_region}
+%   As some commands expect a certain file extension, the extension of
+%   \var{base} is added to the temporary file's name.   
+%\seealso{make_tmp_file, is_visible_mark, push_visible_mark, 
+%\seealso{run_shell_cmd, shell_cmd_on_region, filter_region}
 %!%-
 define bufsubfile() % (delete=0, base=NULL)
 {
-   variable filename, i, i_max=1000, delete, base, extension;
+   variable delete, base, filename, extension;
    (delete, base) = push_defaults(0, NULL, _NARGS);
    push_spot ();
    
@@ -731,15 +734,13 @@ define bufsubfile() % (delete=0, base=NULL)
    if (base == NULL)
      base = str_delete_chars(path_basename(whatbuf()), "*+<>:\\/ ");
    extension = path_extname(base);
-   base = path_concat(Jed_Tmp_Directory, path_sans_extname(base));
-   for (i=1; i<=i_max; i++)
+   base = path_sans_extname(base);
+   do
      {
-	filename = sprintf ("%s%d%s", base, i, extension);
-	!if (file_status(filename))
-	  break;
+        filename = strcat(make_tmp_file(base), extension);
      }
-   if (i >= 1000)
-     error ("Unable to create a tmp file!");
+   while (file_status(filename));
+
    % write region/buffer to temporary input file
    () = write_region_to_file(filename);
    if (delete)
@@ -757,11 +758,13 @@ define bufsubfile() % (delete=0, base=NULL)
 %\synopsis{Untab the whole buffer}
 %\usage{Void untab_buffer()}
 %\description
-%  Converse all existing tabs in the current buffer into spaces
+%  Convert all hard tabs ("\\t") in the current buffer into spaces. The
+%  buffer-local value of \var{TAB} determines how many spaces are used for the
+%  substitution.
 %\notes
-%  The variables TAB and USE_TABS define, whether Tabs will be used
-%  for editing
-%\seealso{untab, TAB, USE_TABS}
+%  Whether hard Tabs will be used for editing is defined by the
+%  global variable \var{USE_TABS} and the buffer-local variable \var{TAB}.
+%\seealso{untab}
 %!%-
 public define untab_buffer ()
 {
