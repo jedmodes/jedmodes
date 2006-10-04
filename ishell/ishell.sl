@@ -71,6 +71,7 @@
 % 1.8.4 2006-05-26 fixed autoloads (J. Sommer)
 % 1.8.5 2006-10-04 shell_cmd_on_region_or_buffer: use bufsubfile() only if
 %                    *visible* mark is set
+% 1.8.6 2006-10-04 bugfix in shell_command: set_readonly(1) before writing
 %
 % USAGE ishell()              opens a shell in a buffer on its own
 %  	ishell_mode([cmd])    attaches an interactive process to the
@@ -533,7 +534,8 @@ public define shell_command() % (cmd="", output_handling=0)
    % open the output buffer with popup_buffer()
    !if (output_handling == 1 or output_handling == 2) % insert in same buffer
      {
-	popup_buffer("*shell-output*"); 
+	popup_buffer("*shell-output*");
+	set_readonly(0);
 	erase_buffer();
 	(file, ,name, flags) = getbuf_info();
 	setbuf_info (file, dir,name, flags);
