@@ -1,6 +1,6 @@
 % sprint_var.sl: Formatted info about variable values
 % 
-% Copyright (c) 2005, 2006 Günter Milde
+% Copyright (c) 2005, 2006 Guenter Milde (milde users.sf.net)
 % Released under the terms of the GNU General Public License (ver. 2 or later)
 % 
 % Provides the function sprint_variable() that can handle complex variables 
@@ -24,14 +24,15 @@
 %
 %
 % VERSIONS
-% 1.0             first public version
-% 1.1 2005-04-20  print user defined data types as struct 
-%     		  (test with is_struct_type that also works for structures of
-%     		   types other than Struct_Type)
-%     		  added tm documentation
-% 1.2 2006-02-01  added provide()
-% 1.3 2006-02-17  added special cases to sprint_char
-% 1.4 2006-06-22  added sprint_list()
+% 1.0               first public version
+% 1.1   2005-04-20  print user defined data types as struct 
+%       		  (test with is_struct_type that also works for structures of
+%       		   types other than Struct_Type)
+%       		  added tm documentation
+% 1.2   2006-02-01  added provide()
+% 1.3   2006-02-17  added special cases to sprint_char
+% 1.4   2006-06-22  added sprint_list()
+% 1.4.1 2006-10-04	  bugfix in sprint_list()
 
 
 % Requirements
@@ -41,6 +42,7 @@ autoload("array_product", "datutils");
 autoload("array_repeat", "datutils");
 #ifexists _slang_utf8_ok
 autoload("list2array", "datutils");
+autoload("str_re_replace", "strutils");
 #endif
 
 provide("sprint_var");
@@ -61,8 +63,7 @@ custom_variable("Sprint_Indent", "   ");
 % newline + absolute indendation (used/set by sprint_...)
 static variable Sprint_NL = "\n";
 
-% dummy definition
-define sprint_struct() {}
+define sprint_struct(); % forward definition
 
 %!%+
 %\function{sprint_variable}
@@ -151,9 +152,13 @@ define sprint_array(a)
 
 define sprint_list(list)
 {
-   variable str = sprint_array(list2array(list));
+   variable n, str = sprint_array(list2array(list));
+   (str, n) = str_re_replace(str, "^[a-zA-Z]+_Type", "List_Type", 1);
    str = str_replace_all(str, "Any_Type: ", "");
-   return strcat("{", substr(str, 2, strlen(str)-2), "}");
+   if (n)
+     return str;
+   else
+     return strcat("{", substr(str, 2, strlen(str)-2), "}");
 }
 
 % print to a string all keys and elements of an associative array:
