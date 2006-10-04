@@ -1,10 +1,10 @@
 % datutils.sl: convenience functions for several Data_Types
 % 
-% Copyright (c) 2006 Günter Milde
+% Copyright (c) 2006 Guenter Milde (milde users.sf.net)
 % Released under the terms of the GNU General Public License (ver. 2 or later)
 %
 % VERSIONS 
-% 1.0   Günter Milde  <g.milde web.de>
+% 1.0   Günter Milde  <milde users.sf.net>
 % 1.1   new functions pop2array, array, null_fun, array_repeat,
 %       array_fill_missing
 % 1.2   removed array_concat, array_append, array_insert
@@ -18,6 +18,7 @@
 % 1.2.3 removed "public" keyword from all functions
 % 1.2.3 added provide("datutils");
 % 2.0   2006-06-22 added list functions, full tm documentation
+% 2.1   2006-10-04 added list_concat()
 
 _autoload(
    "push_defaults", "sl_utils",
@@ -406,7 +407,7 @@ define push_list(lst)
 %  {
 %     variable args = pop2list(_NARGS);
 %     list_append(args, "42", -1);
-%     args[-1] = 3;
+%     args[1] = 3;
 %     show(push_list(args));
 %  }      
 %#v-
@@ -475,6 +476,27 @@ define array2list(a)
 {
    push_array(a);
    return pop2list();
+}
+
+%!%+
+%\function{list_concat}
+%\synopsis{Concatenate 2 lists}
+%\usage{list_concat(l1, l2)}
+%\description
+%  Concatenate 2 lists by appending the elements of \var{l2} to \var{l1}.
+%\notes
+%  As this function uses a foreach loop over \var{l2}, it can also be an 
+%  Array_Type object.
+%\seealso{list_append, list_insert, push_list}
+%!%-
+define list_concat(l1, l2)
+{
+   variable element;
+   foreach(l2)
+     {
+	element = ();
+	list_append(l1, element, -1);
+     }
 }
 
 #endif
