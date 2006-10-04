@@ -1,6 +1,6 @@
 % Interactive shell mode (based on ashell.sl by J. E. Davis)
 %
-% Copyright (c) 2006 Günter Milde
+% Copyright (c) 2006 Guenter Milde (milde users.sf.net)
 % Released under the terms of the GNU General Public License (ver. 2 or later)
 %
 % Run interactive programs (e.g. mupad/python/gnuplot) in a "workbook".
@@ -69,6 +69,8 @@
 % 1.8.2 2006-05-10 bugfix: added missing autoload for normalized_modename()
 % 1.8.3 2006-05-19 better cursor placement in shell_command(cmd, 0)
 % 1.8.4 2006-05-26 fixed autoloads (J. Sommer)
+% 1.8.5 2006-10-04 shell_cmd_on_region_or_buffer: use bufsubfile() only if
+%                    *visible* mark is set
 %
 % USAGE ishell()              opens a shell in a buffer on its own
 %  	ishell_mode([cmd])    attaches an interactive process to the
@@ -123,6 +125,7 @@ autoload("push_defaults", "sl_utils");
 autoload("run_local_hook", "bufutils");
 autoload("bufsubfile", "bufutils");
 autoload("view_mode", "view");
+autoload("get_buffer", "txtutils");
 
 % autoload("strbreak", "strutils");
 
@@ -497,26 +500,22 @@ public define terminal() % (cmd = Ishell_Default_Shell)
 %       3   return output as string
 %       4   message output
 %  "<name>" name of a new buffer for the output
-% Default is \var{prefix_argument}(0)
+% Default is prefix_argument(0), i.e. you can set the output handling
+% tag via \sfun{set_prefix_argument}.
 %\seealso{run_shell_cmd, shell_cmd, filter_region, shell_cmd_on_region}
 %!%-
 public define shell_command() % (cmd="", output_handling=0)
 {
-   % optional arguments, read command from minibuffer if not given
+   % optional arguments
    variable cmd, output_handling;
-   (cmd, output_handling) = 
-     push_defaults("", prefix_argument(0), _NARGS);
-   if (cmd == NULL or cmd == "") % NULL test for backwards compatibility
-     {
-	cmd = read_mini (sprintf ("(%s) Shell Cmd:", getcwd()),
-			 "", Shell_Last_Shell_Command);
-	Shell_Last_Shell_Command = cmd;
-     }
-   if (cmd == "")
-     return;
-   
-   % Init variables
-   variable status, file, result, buf = whatbuf(), outbuf = "*shell-output*";
+   (cmd, output_handling) = push_defaults("", prefix_argument(0), _NARGS);
+
+   variable status, buf = whatbuf(), outbuf = "", output, kill;
+   variable dir, file, name, flags;
+   (,dir,,) = getbuf_info();
+   if ( change_default_dir(dir) ) 
+     error ("Unable to chdir!");
+
    % if second arg is a String, it is the name of the output buffer
    if (typeof(output_handling) == String_Type)
      {
@@ -524,60 +523,66 @@ public define shell_command() % (cmd="", output_handling=0)
 	output_handling = 0;
      }
 
-   % Set output buffer
-   switch (output_handling)
-     { case 0:
-	popup_buffer(outbuf);
-	set_readonly(0);
-	eob;
-	!if (bobp())
-	  insert("\n------------------------------------\n\n");
+   if (output_handling == 2) % replace region or buffer
+     {
+	if(is_visible_mark()) 
+	  del_region();
+	else
+	  erase_buffer();
      }
-     { case 1: } % nothing to do
-     { case 2: if(is_visible_mark()) del_region(); }
-     { % all other cases: -1, 3, 4
-	setbuf("*temp-shell-output*");
-	push_mark();
+   % open the output buffer with popup_buffer()
+   !if (output_handling == 1 or output_handling == 2) % insert in same buffer
+     {
+	popup_buffer("*shell-output*"); 
+	erase_buffer();
+	(file, ,name, flags) = getbuf_info();
+	setbuf_info (file, dir,name, flags);
      }
-
-   % Redirect error messages
-# ifdef OS2
-   cmd += " 2>&1";
-% # elifdef UNIX
-   % cmd += " 2>&1 < /dev/null"; % this is in shell.sl's do_shell_cmd()
-# endif
+     set_prefix_argument(1);
 
    % Run the command
-   flush ("Running " + cmd);
-   status = run_shell_cmd(cmd);
-   vmessage("%s exited with %d", cmd, status);
+   if (cmd == NULL or cmd == "")
+     do_shell_cmd(); % read cmd from minibuffer
+   else
+     do_shell_cmd(cmd);
 
-   % Output processing
-   switch (output_handling)
-     { case 0:
-	if(bobp and eobp) 
-	  message(MESSAGE_BUFFER + ": no output"); 
-	else
-	  {
-	     () = bol_bsearch("------------------------------------");
-             go_down(2);
-	     view_mode();
-	  }
-     }
-     { case 1 or case 2: return; }   % do not run cleanup code below
-     { case -1 or case 3: result = bufsubstr_delete(); }
-     { case 4: message(strtrim(bufsubstr_delete)); }
-
-   % Cleanup
+   % Output processing (not for output_handling 1 or 2)
+   if (output_handling == 1 or output_handling ==2)
+     return;
+   kill = (output_handling != 0 or outbuf != "");  % kill output
+   output = get_buffer(kill);
    set_buffer_modified_flag(0);
+   if(output == "") 
+     message(MESSAGE_BUFFER + ": no output");
+   
+   % close empty output buffer
    if(bobp and eobp)
-     close_buffer();
-   if (output_handling != 0)
-     sw2buf(buf);
-   if (output_handling == 3)
-     return result;
-}
+     {
+	close_buffer();
+	sw2buf(buf);
+     }
 
+   switch (output_handling)
+     % { case -1 } % ignore
+     { case 0:  % open in new buffer (if there is output)
+	if (outbuf != "" and (bufferp(outbuf) or output != ""))
+	  {
+	     popup_buffer(outbuf);
+	     set_readonly(0);
+	     eob;
+	     !if (bobp())
+	       insert("\n------------------------------------\n\n");
+	     push_spot();
+	     insert(output);
+	     pop_spot();
+	  }
+	fit_window(get_blocal("is_popup", 0));
+	view_mode();
+     }
+     % { case 1 or case 2: }    % insert in same buf: already returned
+     { case 3: return output; } % return as string
+     { case 4: if (output != "") message(output); }
+}
 
 public define shell_cmd_on_region_or_buffer() % (cmd="", output_handling=0, postfile_args="")
 {
@@ -586,17 +591,17 @@ public define shell_cmd_on_region_or_buffer() % (cmd="", output_handling=0, post
    % read command from minibuffer if not given as optional argument
    if (cmd == NULL or cmd == "") % NULL test for backwards compatibility
      {
-	cmd = read_mini (sprintf ("(%s) Shell Cmd:", getcwd()),
-			 "", Shell_Last_Shell_Command);
+	cmd = read_mini(sprintf("(%s) Shell Cmd:", getcwd()), "", 
+                        Shell_Last_Shell_Command);
 	Shell_Last_Shell_Command = cmd;
      }
    if (cmd == "")
      return;
    
-   variable file, do_delete = (typecast(output_handling, Integer_Type) == 2);
+   variable file;
    
-   if (markp())
-     file = bufsubfile(do_delete);
+   if (is_visible_mark())
+     file = bufsubfile(typecast(output_handling, Integer_Type) == 2);
      % save region/buffer to file (delete if output_handling == 2)
    else
      {
@@ -630,8 +635,16 @@ public define shell_cmd_on_region_or_buffer() % (cmd="", output_handling=0, post
 public define shell_cmd_on_region() % (*args)
 {
    variable args = __pop_args(_NARGS);
-   !if (is_visible_mark)
-     mark_buffer();
+   !if (is_visible_mark())
+     {
+        !if (markp())
+          mark_buffer();
+        % replace mark by a visible mark
+        push_spot();
+        pop_mark_1();
+        push_visible_mark();
+        pop_spot();
+     }
    shell_cmd_on_region_or_buffer(__push_args(args));
 }
 
@@ -649,9 +662,8 @@ public define shell_cmd_on_region() % (*args)
 %!%-
 public define filter_region() % (cmd=NULL)
 {
-   !if(_NARGS)
-     NULL;
-   shell_cmd_on_region(2);
+   variable cmd = push_defaults(, _NARGS);
+   shell_cmd_on_region(cmd, 2);
 }
 
 
