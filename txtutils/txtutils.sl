@@ -31,6 +31,7 @@
 %  2.5   2006-01-19 New functions mark_paragraph(),
 %  	 	    mark_paragraph_from_point(), format_paragraph_from_point()
 %  2.6   2006-09-14 New function newline_indent() (fix pasting in x-terminal)
+%  2.1.1 2006-10-04 fix spurious spot in indent_region_or_line()
 
 % _debug_info = 1;
 
@@ -283,16 +284,15 @@ public define indent_region_or_line()
 	indent_line();
 	return;
      }
-   % narrow(): doesnot work, as indent_line() needs the context!
-   check_region (1);                  % make sure the mark comes first
+   % narrow() doesnot work, as indent_line() needs the context!
+   check_region(0);                  % make sure the mark comes first
    variable end_line = what_line();
-   exchange_point_and_mark();         % now point is at start of region
-   while (what_line() <= end_line)
+   pop_mark_1(); % go there
+   loop (end_line - what_line())
      {
 	indent_line();
 	go_down_1();
      }
-   pop_mark_1();
 }
 
 %!%+
