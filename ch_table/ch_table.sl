@@ -1,6 +1,6 @@
 % A "popup_buffer" with a table of characters
 %
-% Copyright (c) 2005 Günter Milde
+% Copyright (c) 2005 Guenter Milde (milde users.sf.net)
 % Released under the terms of the GNU General Public License (ver. 2 or later)
 %
 % with additions by Dino Leonardo Sangoi.
@@ -12,7 +12,10 @@
 % 2003-03-07  2.1 ch_table calls ch_table_mode_hook instead of ct_mode_hook
 % 2004-11-27  2.2 new format of the INITIALIZATION block allows 
 % 	          auto-initialisation with make-ini >= 2.2
-% 2005-11-07  2.3 changed _implements() to implements()	          
+% 2005-11-07  2.3 changed _implements() to implements()
+% 2006-01-10  2.3.1 minor code cleanup
+% 2006-06-29  2.3.2 bugfix in ch_table: set_readonly(0) before erase_buffer()
+% 2006-10-05  2.3.3 bugfix in ct_insert_and_close(), return to calling buf
 %
 % Functions and Functionality
 %
@@ -38,12 +41,12 @@
 %   (in status line or bottom line(s) of buffer)
  
 #<INITIALIZATION>
-define ct_load_popup_hook (menubar)
+define ct_load_popup_hook(menubar)
 {
-   menu_insert_item ("&Rectangles", "Global.&Edit",
+   menu_insert_item("&Rectangles", "Global.&Edit",
                        "&Special Chars", "special_chars");
 }
-append_to_hook ("load_popup_hooks", &ct_load_popup_hook);
+append_to_hook("load_popup_hooks", &ct_load_popup_hook);
 
 autoload("ch_table", "ch_table.sl");
 autoload("special_chars", "ch_table.sl");
@@ -132,18 +135,15 @@ static define ct_status_line()
    else if (looking_at("NL"))
      cs = "'NL'=10/0xa/012";
    else
-     {
-        cs = count_chars();
-        cs = substr(cs, 1, string_match(cs, ",", 1)-1);
-     }
+        cs = strtok(count_chars(), ",")[0];
    set_status_line(" Character Table:  "+ cs + "  ---- press '?' for help ", 0);
 }
 
-static define ct_update ()
+static define ct_update()
 {
-   bskip_chars ("^\t");
+   bskip_chars("^\t");
    % update status line
-   ct_status_line ();
+   ct_status_line();
    % write again to minibuffer (as messages don't persist)
       % if ressources are a topic, we could compute the message in
       % ch_table and store to a private variable GotoMessage
@@ -152,38 +152,38 @@ static define ct_update ()
    % mark character
    pop_mark(0);
    push_visible_mark;
-   skip_chars ("^\t");
+   skip_chars("^\t");
 }
 
 %move only in the ch_table, skipping the tabs
-static define ct_up ()
+static define ct_up()
 {
    if (what_line < 4)
      error("Top Of Buffer");
-   call ("previous_line_cmd");
+   call("previous_line_cmd");
    ct_update;
 }
 
-static define ct_down ()
+static define ct_down()
 {
-   call ("next_line_cmd");
+   call("next_line_cmd");
    ct_update;
 }
 
-static define ct_right ()
+static define ct_right()
 {
    () = fsearch("\t");
-   call ("next_char_cmd");
+   call("next_char_cmd");
    ct_update;
 }
 
-static define ct_left ()
+static define ct_left()
 {
-   bskip_chars ("^\t");
-   call ("previous_char_cmd");
-   bskip_chars ("^\t");
+   bskip_chars("^\t");
+   call("previous_char_cmd");
+   bskip_chars("^\t");
    if(bolp)
-     call ("previous_char_cmd");
+     call("previous_char_cmd");
    if (what_line < 3)
      {
 	ct_right;
@@ -192,18 +192,23 @@ static define ct_left ()
    ct_update;
 }
 
-static define ct_bol ()   { bol; ct_right;}
+static define ct_bol()   { bol; ct_right;}
 
-static define ct_eol ()   { eol; ct_update;}
+static define ct_eol()   { eol; ct_update;}
 
-static define ct_bob ()   { goto_line(3); ct_right;}
+static define ct_bob()   { goto_line(3); ct_right;}
 
-static define ct_eob ()   { eob; ct_update;}
+static define ct_eob()   { eob; ct_update;}
 
-static define ct_insert_and_close ()
+static define ct_insert_and_close()
 {
-   variable str = bufsubstr();
+   variable str = bufsubstr(),
+   calling_buf = get_blocal("calling_buf", "");
    close_buffer();
+   if (bufferp(calling_buf))
+     sw2buf(calling_buf);
+   else
+     verror("calling buffer \"%s\" does not exist", calling_buf);
    switch(str)
      { case "TAB": insert("\t"); }
      { case "NL" : insert("\n"); }
@@ -211,7 +216,7 @@ static define ct_insert_and_close ()
      { insert(str); }
 }
 
-static define ct_mouse_up_hook (line, col, but, shift)
+static define ct_mouse_up_hook(line, col, but, shift)
 {
    % if (but == 1)
    if (what_line < 3)
@@ -222,14 +227,14 @@ static define ct_mouse_up_hook (line, col, but, shift)
    return (1);
 }
 
-static define ct_mouse_2click_hook (line, col, but, shift)
+static define ct_mouse_2click_hook(line, col, but, shift)
 {
    ct_insert_and_close();
    return (0);
 }
 
 % goto character by input of ASCII-Nr.
-static define ct_goto_char ()
+static define ct_goto_char()
 {
    variable goto_message =  sprintf("Goto char (%s ... %s, base: %d): ",
         int2string(StartChar, NumBase), int2string(255, NumBase),  NumBase);
@@ -249,7 +254,7 @@ static define ct_goto_char ()
 }
 
 % insert the table into the buffer and fit window size
-static define insert_ch_table ()
+static define insert_ch_table()
 {
    variable i, j;
    TAB = ChartableTabSpacing;    % Set TAB for buffer
@@ -272,18 +277,18 @@ static define insert_ch_table ()
 	switch (i)
 	  { i < StartChar: ;}
 	  { case '\t': insert("TAB");}
-	  { case '\n': insert ("NL");}
-	  { case '\e': insert ("ESC");}
+	  { case '\n': insert("NL");}
+	  { case '\e': insert("ESC");}
 	  { insert_char(i);}
      }
    fit_window(get_blocal("is_popup", 0));
-   set_buffer_modified_flag (0);
+   set_buffer_modified_flag(0);
    ct_bob;
    ct_update();
 }
 
 % set private variables and define keys to use specified number base
-static define use_base (numbase)
+static define use_base(numbase)
 {
    variable i;
    % (un)bind keys
@@ -299,7 +304,7 @@ static define use_base (numbase)
 }
 
 % change the number base
-static define ct_change_base ()
+static define ct_change_base()
 {
    variable Base;
    if (_NARGS)                  % optional argument present
@@ -308,7 +313,7 @@ static define ct_change_base ()
      Base = integer(read_mini("New number base (2..16):", "", ""));
    use_base(Base);
    set_readonly(0);
-   erase_buffer ();
+   erase_buffer();
    insert_ch_table();
    set_readonly(1);
 }
@@ -318,7 +323,7 @@ static define ct_change_base ()
 % a function that displays all chars of the current font
 % in a table with indizes that give the "ASCII-value"
 % skipping the first ones until optional argument Int "StartChar"
-public define ch_table () % ch_table(StartChar = 0)
+public define ch_table() % ch_table(StartChar = ChartableStartChar)
 {
    % (re) set options
    if (_NARGS)                  % optional argument present
@@ -328,41 +333,42 @@ public define ch_table () % ch_table(StartChar = 0)
    use_base(NumBase);
    CharsPerLine = ChartableCharsPerLine;
    popup_buffer("*ch_table*");
-   erase_buffer ();
+   set_readonly(0);
+   erase_buffer();
    insert_ch_table();
    set_readonly(1);
    set_mode(mode, 0);
-   use_keymap (mode);
-   use_syntax_table (mode);
-   set_buffer_hook ( "mouse_up", &ct_mouse_up_hook);
-   set_buffer_hook ( "mouse_2click", &ct_mouse_2click_hook);
+   use_keymap(mode);
+   use_syntax_table(mode);
+   set_buffer_hook( "mouse_up", &ct_mouse_up_hook);
+   set_buffer_hook( "mouse_2click", &ct_mouse_2click_hook);
    run_mode_hooks(mode + "_mode_hook");
 }
 
 % a function that displays the special chars of the current font
 % (i.e. the chars with the high bit set)
 % in a table with indizes that give the "ASCII-value"
-public define special_chars ()
+public define special_chars()
 {
    ch_table(160);
 }
 
 % colorize numbers
 
-create_syntax_table (mode);
-define_syntax ("0-9", '0', mode);
-set_syntax_flags (mode, 0);
+create_syntax_table(mode);
+define_syntax("0-9", '0', mode);
+set_syntax_flags(mode, 0);
 
 #ifdef HAS_DFA_SYNTAX
 %%% DFA_CACHE_BEGIN %%%
-static define setup_dfa_callback (mode)
+static define setup_dfa_callback(mode)
 {
    dfa_enable_highlight_cache("ch_table.dfa", mode);
    dfa_define_highlight_rule("^ *[0-9A-Z]+\t", "number", mode);
    dfa_define_highlight_rule("^\\[.*$", "number", mode);
    dfa_build_highlight_table(mode);
 }
-dfa_set_init_callback (&setup_dfa_callback, mode);
+dfa_set_init_callback(&setup_dfa_callback, mode);
 %%% DFA_CACHE_END %%%
 enable_dfa_syntax_for_mode(mode);
 #endif
@@ -370,8 +376,8 @@ enable_dfa_syntax_for_mode(mode);
 % --- Keybindings
 require("keydefs");
 
-!if (keymap_p (mode)) 
-  copy_keymap (mode, "view");
+!if (keymap_p(mode)) 
+  copy_keymap(mode, "view");
 
 % numerical input for goto_char is dynamically defined by function ct_use_base
 definekey("ch_table->ct_up",              Key_Up,    mode);
