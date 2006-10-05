@@ -1,16 +1,20 @@
-% A cua-compatible mouse mode
+% cuamouse.sl: CUA-compatible mouse mode
 %
-% Copyright (c) 2006 Günter Milde
+% Copyright (c) 2006 Guenter Milde (milde users.sf.net)
 % Released under the terms of the GNU General Public License (ver. 2 or later)
 %
-% Version     1   1998 (published 15. 01. 03)
-%             1.1 mark_word does no longer skip back to next word
-%                 implemented mark_by_lines for right drag
-% 2005-03-18  1.2 added some tm documentation
-% 2005-07-05  1.3 added `xclip` workaround for interaction with QT applications
-%                 (idea by Jaakko Saaristo)
-% 2006-02-15  1.4 made auxiliary variables static
-% 2006-05-26  1.4.1 added missing autoload (J. Sommer)
+% Version    1     1998 (published 15. 01. 03)
+%            1.1   mark_word does no longer skip back to next word
+%                  implemented mark_by_lines for right drag
+% 2005-03-18 1.2   added some tm documentation
+% 2005-07-05 1.3   added `xclip` workaround for interaction with QT 
+% 	     	   applications (tip by Jaakko Saaristo)
+% 2006-02-15 1.4   made auxiliary variables static
+% 2006-05-26 1.4.1 added missing autoload (J. Sommer)
+% 2006-10-05 1.5   bugfixes after testing, switch arguments in click_region()
+%                  and cuamouse_drag() to get (col, line) as in the status bar
+%                  use mark_word() from txtutils.sl (new dependency!)
+% 		   use private variables instead of static ones                
 %
 % What does it do:
 %
@@ -64,66 +68,62 @@
 %!%-
 custom_variable("CuaMouse_Use_Xclip", 0);
 
-require ("mouse");
+require("mouse");
 autoload("run_function", "sl_utils");
 autoload("cua_mark", "cuamark");
+autoload("cua_insert_clipboard", "cuamark");
+autoload("mark_word", "txtutils");
 
-static variable CuaMouse_Drag_Mode = 0;     % 0 no previous drag, 1 drag
-static variable CuaMouse_Return_Value = 1;  % return value for the mouse_hooks
+private variable CuaMouse_Drag_Mode = 0;     % 0 no previous drag, 1 drag
+private variable CuaMouse_Return_Value = 1;  % return value for the mouse_hooks
   % -1 Event not handled, pass to default hook.
   %  0 Event handled, return active window prior to event
   %  1 Event handled, stay in current window.
-static variable CuaMouse_Clipboard = "";    % string where a mouse-drag is stored
+private variable CuaMouse_Clipboard = "";    % string where a mouse-drag is stored
 
 %!%+
 %\function{click_in_region}
 %\synopsis{determine whether the mouse_click is in a region}
-%\usage{Int click_in_region(col, line)}
+%\usage{Int click_in_region(line, col)}
 %\description
-%   Given the mouse click coordinates (col, line), the function
+%   Given the mouse click coordinates (line, col), the function
 %   returns an Integer denoting:
 %          -1 - click "before" region
 %          -2 - click "after" region
 %          -3 - click in region but "void space" (i.e. past eol)
 %           0 - no region defined
 %           1 - click in region
-%\seealso{cuamouse_mark_word}
+%\seealso{cuamouse_left_down_hook, cuamouse_right_down_hook}
 %!%-
-define click_in_region(col,line)
+define click_in_region(line, col)
 {
    !if(is_visible_mark())
      return 0;
-   check_region(0);                  % determine region boundries
-   variable End_Line = what_line;
-   variable End_Col = what_column;
+   % determine region boundries
+   check_region(0);
+   variable endline = what_line();
+   variable endcolumn = what_column();
    exchange_point_and_mark();
-   variable Begin_Line = what_line;
-   variable Begin_Col = what_column;
+   variable startline = what_line();
+   variable startcolumn = what_column();
    exchange_point_and_mark();
    % click before the region?
-   if((line < Begin_Line)  or ((line == Begin_Line) and (col <= Begin_Col)))
+   if(orelse{line < startline}
+        {(line == startline) and (col < startcolumn)})
      return -1;
-   % click after the region?
-   if((line > End_Line) or ((line == End_Line) and (col >= End_Col)))
-	return -2;
-   % click in void space of region (past eol)?
-   push_spot;
-   goto_line (line);
-   $1 = col - goto_column_best_try (col);
-   pop_spot;
-   if ($1)
+   % click after the region (except last line)?
+   if(line > endline)
+     return -2;
+   % click in void space of region (past eol) or endline past endcol?
+   push_spot();
+   goto_line(line);
+   variable eolcolumn = goto_column_best_try(col);
+   pop_spot();
+   if ((line == endline) and (col >= endcolumn) and eolcolumn == col)
+     return -2;
+   if (eolcolumn < col)
      return -3;
    return 1;
-}
-
-define cuamouse_mark_word()
-{
-   variable word_chars = get_word_chars();
-   if (blocal_var_exists("Word_Chars"))
-       word_chars = get_blocal_var("Word_Chars");
-   bskip_chars(word_chars);
-   push_visible_mark();
-   skip_chars(word_chars);
 }
 
 % copy region to system and internal clipboards (The region stays marked)
@@ -146,8 +146,9 @@ define cuamouse_mark_word()
 %!%-
 public define copy_region_to_clipboard()
 {
+   % no copy if the region is void
    () = dupmark();
-   if (bufsubstr() == "")           % no copy if the region is nil
+   if (bufsubstr() == "")           
      return;
    () = dupmark();
    if (CuaMouse_Use_Xclip)
@@ -159,25 +160,22 @@ public define copy_region_to_clipboard()
    CuaMouse_Clipboard = bufsubstr ();
 }
 
-% inserts selection (or, if (from_jed == 1), CuaMouse_Clipboard) at point
+% insert x-selection (or, if (from_jed == 1), CuaMouse_Clipboard) at point
 define cuamouse_insert(from_jed)
 {
    if (from_jed)
      insert(CuaMouse_Clipboard);
    else
-     {
-   !if (run_function("x_insert_selection"))
-     () = run_function("x_insert_cutbuffer");
-     }
+     cua_insert_clipboard();
 }
 
 % cursor follows mouse, warp if pointer is outside window.
-define cuamouse_drag (col, line)
+define cuamouse_drag(line, col)
 {
    variable top, bot;
    variable y;
 
-   mouse_goto_position (col, line);
+   mouse_goto_position(col, line);
 
    top = window_info ('t');
    bot = top + window_info('r');
@@ -185,7 +183,7 @@ define cuamouse_drag (col, line)
    (,y, ) = mouse_get_event_info();
 
    if ((y < top) or (y > bot))
-     x_warp_pointer ();
+     x_warp_pointer();
 }
 
 define cuamouse_2click_hook(line, col, but, shift) %mark word
@@ -193,7 +191,7 @@ define cuamouse_2click_hook(line, col, but, shift) %mark word
    if (but == 1)
      {
 	mouse_goto_position(col, line);
-	cuamouse_mark_word();
+	mark_word();
 	copy_region_to_clipboard(); % only if non-empty
 	return 1;
      }
@@ -214,66 +212,62 @@ define cuamouse_left_down_hook(line, col, shift)
 % 	return ();
      }
    else if (is_visible_mark())           % undefine region if existent
-     {
-	pop_mark(0);
-     }
-   mouse_goto_position (col, line);
+     pop_mark(0);
+   mouse_goto_position(col, line);
    CuaMouse_Return_Value = 1;                 % stay in current window
 }
 
-define	cuamouse_middle_down_hook(line, col, shift)
+define cuamouse_middle_down_hook(line, col, shift)
 {
    if (is_visible_mark())           % undefine region if existent
-     {
-	pop_mark(0);
-     }
-   mouse_goto_position (col, line);
-   cuamouse_insert (shift);     % shift == 1: insert jed-clipboard
+     pop_mark(0);
+   mouse_goto_position(col, line);
+   cuamouse_insert(shift);     % shift == 1: insert jed-clipboard
    CuaMouse_Return_Value = 1;   % stay in current window
 }
 
-define	cuamouse_right_down_hook(line, col, shift)
+define cuamouse_right_down_hook(line, col, shift)
 {
-   if (click_in_region(col, line) == -1)  % click "before" region
+   if (click_in_region(line, col) == -1)  % click "before" region
      exchange_point_and_mark();
-   mouse_goto_position (col, line);
+   mouse_goto_position(col, line);
    CuaMouse_Return_Value = 1;                 % stay in current window
 }
 
 % Button specific drag hooks
-% argument bme: Begin_Middle_End of drag: 0 Begin, 1 Middle, 2 End (up)
+% argument drag: Begin_Middle_End of drag: 0 Begin, 1 Middle, 2 End (up)
 
 % mark region
-define	cuamouse_left_drag_hook(line, col, bme, shift)
+define	cuamouse_left_drag_hook(line, col, drag, shift)
 {
-   if (bme == 0)
+   if (drag == 0)
      cua_mark();
-   cuamouse_drag (col, line); % cursor follows mouse
-   if (bme == 2) % last drag  (button up)
+   cuamouse_drag(line, col); % cursor follows mouse
+   if (drag == 2) % last drag  (button up)
      copy_region_to_clipboard();
 }
 
-define	cuamouse_middle_drag_hook(line, col, bme, shift)
+define	cuamouse_middle_drag_hook(line, col, drag, shift)
 {
 }
 
 % mark region by lines
-define	cuamouse_right_drag_hook(line, col, bme, shift)
+define	cuamouse_right_drag_hook(line, col, drag, shift)
 {
-   if (bme == 0)    % first drag
+   if (drag == 0)    % first drag
      {
 	pop_mark_0();
 	bol();
 	cua_mark();
      }
-   cuamouse_drag (col, line);
+   cuamouse_drag(line, col);
    eol();
-   if (bme == 2) % last drag  (button up)
+   if (drag == 2) % last drag  (button up)
      copy_region_to_clipboard();
 }
 
 %generic down hook: calls the button specific ones
-define cuamouse_down_hook (line, col, but, shift)
+define cuamouse_down_hook(line, col, but, shift)
 {
    if (but == 1)
      cuamouse_left_down_hook(line, col, shift);
@@ -286,7 +280,7 @@ define cuamouse_down_hook (line, col, but, shift)
 
 % generic drag hook: calls the button specific ones
 % with third argument CuaMouse_Drag_Mode: 0 first drag, 1 subsequent drag
-define cuamouse_drag_hook (line, col, but, shift)
+define cuamouse_drag_hook(line, col, but, shift)
 {
    if (but == 1)
      cuamouse_left_drag_hook(line, col, CuaMouse_Drag_Mode, shift);
@@ -300,7 +294,7 @@ define cuamouse_drag_hook (line, col, but, shift)
 
 % generic up hook: calls the button specific drag (!) hooks
 % with third argument set to 2 (up = end of drag)
-define cuamouse_up_hook (line, col, but, shift)
+define cuamouse_up_hook(line, col, but, shift)
 {
    !if (CuaMouse_Drag_Mode)
      return CuaMouse_Return_Value;
@@ -314,9 +308,9 @@ define cuamouse_up_hook (line, col, but, shift)
    return CuaMouse_Return_Value;
 }
 
-mouse_set_default_hook ("mouse_2click", "cuamouse_2click_hook");
-mouse_set_default_hook ("mouse_down", "cuamouse_down_hook");
-mouse_set_default_hook ("mouse_drag", "cuamouse_drag_hook");
-mouse_set_default_hook ("mouse_up", "cuamouse_up_hook");
-%mouse_set_default_hook ("mouse_status_down", "mouse_status_down_hook");
-%mouse_set_default_hook ("mouse_status_up", "mouse_status_up_hook");
+mouse_set_default_hook("mouse_2click", "cuamouse_2click_hook");
+mouse_set_default_hook("mouse_down", "cuamouse_down_hook");
+mouse_set_default_hook("mouse_drag", "cuamouse_drag_hook");
+mouse_set_default_hook("mouse_up", "cuamouse_up_hook");
+%mouse_set_default_hook("mouse_status_down", "mouse_status_down_hook");
+%mouse_set_default_hook("mouse_status_up", "mouse_status_up_hook");
