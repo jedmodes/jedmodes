@@ -6,16 +6,20 @@
 % This script needs SLang 2
 %
 % Versions:
-% 0.1 2006-07-12 first experimental release
-% 0.2 2006-09-19 test_function() now saves the result in unittest->Last_Result
-% 0.3 2006-09-29 test discovery analogue to the python nose test framework
-%                (http://somethingaboutorange.com/mrl/projects/nose/) and
-%                py.test (http://codespeak.net/py/current/doc/test.html)
-%                find and evaluate all functions matching 
-%                Unittest_Function_Pattern
+% 0.1   2006-07-12 first experimental release
+% 0.2   2006-09-19 test_function() now saves the result in unittest->Last_Result
+% 0.3   2006-09-29 test discovery analogue to the python nose test framework
+%                  (http://somethingaboutorange.com/mrl/projects/nose/) and
+%                  py.test (http://codespeak.net/py/current/doc/test.html)
+%                  find and evaluate all functions matching 
+%                  Unittest_Function_Pattern
+% 0.3.1 2006-10-05 added requirements              
 
 require("sl_utils");  % push_defaults, ...
 require("datutils");  % push_list, pop2list, ...
+autoload("popup_buffer", "bufutils");
+autoload("buffer_dirname", "bufutils");
+autoload("sprint_variable", "sprint_var");
 
 implements("unittest");
 
@@ -207,7 +211,8 @@ public  define test_equal() % (a, b, comment="")
    
    !if (is_equal(a, b))
      {
-        testmessage("\n  E: '%S'=='%S' failed. %s", a, b, comment);
+        testmessage("\n  E: %s==%s failed. %s", 
+           sprint_variable(a), sprint_variable(b), comment);
         Error_Count++;
      }
 }
@@ -242,12 +247,10 @@ public define test_for_exception() % (fun, [args])
    try (err)
      {
         if (fun == NULL)
-          throw UndefinedNameError;
+          throw UndefinedNameError, "tested function not defined";
         @fun(push_list(args));
      }
-   catch AnyError:
-     {
-     }
+   catch AnyError: {}
    % store return value(s)
    Last_Result = pop2list(_stkdepth()-stack_before);
    return err;
@@ -289,22 +292,22 @@ public define test_function() % (fun, [args])
 {
    variable args = pop2list(_NARGS-1);
    variable fun = ();
-   variable err;
+   variable err, error_count_before = Error_Count;
    
    % test-run the function
    testmessage("\n  %S(%s): ", fun, _sprint_list(args));
    err = test_for_exception(fun, push_list(args));
-   if (err == NULL)
-     testmessage("OK ");
-   else
+   if (err != NULL)
      {
         testmessage("E: %s", sprint_error(err));
         Error_Count++;
      }
-   
    % report return value(s)
-   testmessage("(%s)", 
-      str_replace_all(_sprint_list(Last_Result), "\n", "\\n"));
+   if (length(Last_Result))
+     testmessage(" => (%s)", 
+        str_replace_all(_sprint_list(Last_Result), "\n", "\\n"));
+   if (Error_Count == error_count_before)
+     testmessage(" OK");
 }
 
 % Test if the return value of a tested function equals the expected
