@@ -1,6 +1,6 @@
-% csvutils.sl
+% csvutils.sl: work with comma (or tabulator) separated values (csv files)
 % 
-% Copyright (c) 2003 Günter Milde
+% Copyright (c) 2003 Guenter Milde (milde users.sf.net)
 % Released under the terms of the GNU General Public License (ver. 2 or later)
 %
 % Utilities to work with comma (or tabulator) separated values (csv files)
@@ -19,6 +19,9 @@
 %                  do not remove trailing whitespace in strjoin2d if
 %                  align==NULL
 %                  disabled format_table_rect(), it doesnot work
+%            1.2.5 docu update
+% 2006-10-05 1.3   replaced spaces2tab with an optional arg to buffer_compress
+% 	     	   documentation fixes
 
 % requirements
 autoload("push_defaults", "sl_utils");
@@ -28,7 +31,7 @@ autoload("array_transpose", "datutils");
 autoload("string_repeat", "strutils");
 autoload("get_buffer", "txtutils");
 
-% --- static functions -----------------------------------------------------------
+% --- static functions -------------------------------------------------------
 
 % replace x with value, if x == NULL
 static define fill_missing(x, value)
@@ -88,45 +91,35 @@ define get_lines() % (kill=0)
 }
 
 % --- convert spaces to single tab
-%     (as some programs expect just one tab between values)
 
 %!%+
 %\function{buffer_compress}
-%\synopsis{Remove excess whitespace characters from the buffer}
-%\usage{Void buffer_compress(white)}
+%\synopsis{"Normalize" whitespace delimited data}
+%\usage{Void buffer_compress(white="\t ")}
 %\description
-%  Calls \sfun{strcompress} on the buffer or (if visible) region.
-%\seealso{trim_buffer, strcompress, get_lines, get_buffer}
+%  Change all in-line whitespace (" " and "\t") to single tabs
+%  (also trims lines). This is configurable with the \var{white}
+%  argument.
+%  
+%  Calls \sfun{strcompress} on the buffer lines or (if visible) region.
+%\notes
+%  As buffer_compress acts on the lines, newline chars are not compressed,
+%  even if included in the argument string.
+%\seealso{strcompress, trim_buffer, untab_buffer}
 %!%-
-public define buffer_compress(white)
+public define buffer_compress() % (white="\t ")
 {
-   push_spot();
-   variable lines = get_lines(1);
+   variable white = push_defaults("\t ", _NARGS);
    % (strcompress also trimms, therefore do it on lines!)
+   variable lines = get_lines(1);
    lines = array_map(String_Type, &strcompress, lines, white);
    insert(strjoin(lines, "\n"));
-   pop_spot();
 }
 
 
 % Tables
 % ------
 
-%!%+
-%\function{spaces2tab}
-%\synopsis{"Normalize" whitespace delimited data}
-%\usage{ spaces2tab()}
-%\description
-%  Change all whitespace (" " and "\t") to single tabs
-%  (also trims lines)
-%\notes
-%  Use buffer_compress(white) if you need customizable replacements
-%\seealso{buffer_compress, trim_buffer}
-%!%-
-public define spaces2tab()
-{
-   buffer_compress("\t ");
-}
 
 %!%+
 %\function{strchop2d}
@@ -304,7 +297,7 @@ define insert_table() %(a, align="l", col_sep=" ")
 %!%+
 %\function{format_table}
 %\synopsis{Adjust a table to evenly spaced columns}
-%\usage{format_table([[[col_sep], align], new_sep])}
+%\usage{format_table((col_sep=NULL, align=NULL, new_sep=NULL)}
 %\description
 %  Read visible region or buffer as grid data into a 2d array, reformat and
 %  insert again.  The indention of the whole table is determined by the point
@@ -316,7 +309,7 @@ define insert_table() %(a, align="l", col_sep=" ")
 %    \var{new_col_sep}: string to separate the columns in the output.
 %\seealso{get_table, insert_table}
 %!%-
-public define format_table() % ([[[col_sep], align], new_sep])
+public define format_table() % (col_sep=NULL, align=NULL, new_sep=NULL)
 {
    % optional arguments
    variable col_sep, align, new_sep;
@@ -357,7 +350,7 @@ public define format_table() % ([[[col_sep], align], new_sep])
 %\synopsis{Return maximal column number of the buffer (or region)}
 %\usage{Integer max_column(trim=0)}
 %\description
-% Returns the length of the longest line of the buffer (or, if visible,
+% Returns 1+length of the longest line of the buffer (or, if visible,
 % region). If the optional parameter \var{trim} is nonzero, trailing
 % whitespace will be removed during the scan.
 %\seealso{goto_max_column, what_column}
