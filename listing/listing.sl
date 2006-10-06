@@ -1,9 +1,8 @@
-% A mode for listings of e.g. files or findings
-% to be used by more specific modes like dired, grep, locate, ...
+% listing.sl: A list widget for modes like dired, grep, locate, ...
 %
 % Copyright (c) 2006 Dino Sangoi, Günter Milde
 % Released under the terms of the GNU General Public License (ver. 2 or later)
-% 
+%
 % Version    0.1   Dino Sangoi   first version
 % 	     0.9   Günter Milde
 %                  * "outsourcing" of the linklist datatype
@@ -22,27 +21,31 @@
 % 2005-11-23 1.9.9 * docu bugfix in listing_list_tags
 % 2006-01-24 2.0   * new keybinding: Key_Return calls "listing_return_hook"
 % 2006-02-03 2.1   * removed the "listing_return_hook" again, as
-%    	     	      set_buffer_hook("newline_indent_hook", &my_return_hook);
+%    	     	     set_buffer_hook("newline_indent_hook", &my_return_hook);
 %    	     	     can be used instead. (tip by Paul Boekholt)
-%                    
+% 2006-10-05 3.0   * use the new (SLang2) "list" datatype,
+% 	     	     removed obsolete static functions get_tag() and 
+% 	     	     delete_tagged_lines()
+%
 % TODO:  * Shift-Click tags from point to Mousepoint
 %          may be also: right-drag tags lines
-        
+
 % _debug_info = 1;
 
 % --- requirements ---
 
+% S-Lang >= 2.0 (providing the List_Type datatype)
 % from jed's standard library
 require("keydefs"); % symbolic names for keys
 % non-standard extensions
 require("view"); % readonly-keymap depends on bufutils.sl
 autoload("array", "datutils");
-autoload("array_delete", "datutils");
-autoload("array_append", "datutils");
+autoload("list_concat", "datutils");  % >= 2.1
 autoload("push_defaults", "sl_utils");
 
 % --- name it
 provide("listing");
+provide("listing-list");
 implements("listing");
 private variable mode = "listing";
 
@@ -59,40 +62,58 @@ static variable Dont_Ask = 0;
 
 % --- Helper Functions (static)
 
-% find out if the current line is tagged.
-% If so, return the index of the mark + 1, else return 0
-static define line_is_tagged()
-{
-   variable element, n = 1;
-   variable line = what_line();
-
-   !if (length(get_blocal_var("Tags"))) % tags list empty
-     return 0;
-   push_spot();   % remember position
-   foreach(get_blocal_var("Tags"))
-     {
-	element = ();
-	goto_user_mark(element); % only way to find out mark.line
-	if (line == what_line())
-	  {
-	     pop_spot();
-	     return(n);
-	  }
-	n++;
-     }
-   pop_spot();
-   return(0);
-}
-
-% return the line belonging to the line-mark as string
-static define get_tag(tag_mark)
-{
-   goto_user_mark(tag_mark);
-   return line_as_string();
-}
-
 % helper function: just return the arguments
 static define null_fun() { }
+
+%!%+
+%\function{get_confirmation}
+%\synopsis{Ask whether a list of actions should go on}
+%\usage{Int  listing->get_confirmation(Str prompt, Str default="")}
+%\description
+%   If an action (e.g. deleting) on tagged lines needs a user confirmation,
+%   the function in question can use get_confirmation(prompt) instead of
+%   get_y_or_n(prompt) to offer more choices. The keybindings are a subset
+%   from jed's replace command: 
+%        y: yes,   return 1
+%        n: no,    return 0
+%        !: all,   return 1, set Dont_Ask
+%        q: quit,  throw UserBreakError
+%   and also
+%        r: recenter window, ask again
+%   Return: enter, default action if \var{default} == "y" or "n".
+%\notes
+%   The static variable listing->Dont_Ask saves the "!: all" decision (so
+%   the next invocation of get_confirmation doesnot ask but returns always
+%   1.) The function that starts the mapping of the action on the list must
+%   reset listing->Dont_Ask to 0. (\sfun{listing_map} does this, so it is
+%   save to use \sfun{get_confirmation} in a function that gets called from
+%   \sfun{listing_map}.)
+%\seealso{listing_map, get_y_or_n}
+%!%-
+static define get_confirmation() % (prompt, [default])
+{
+   variable key, prompt, default;
+   (prompt, default) = push_defaults( , "", _NARGS);
+   
+   if (Dont_Ask == 1)
+     return 1;
+
+   flush(prompt + " (y/n/!/q): " + default);
+   loop(3)
+     {
+	key = getkey();
+	if (key == '\r')
+	  key = default[0];
+	switch(key)
+	  { case 'y' : return 1; }
+	  { case 'n' : return 0; }
+	  { case '!' : Dont_Ask = 1; return 1; }
+	  { case 'q' or case '\e': throw UserBreakError, "Quit"; }
+	  { case 'r' : recenter (window_info('r') / 2); }
+	  { flush(prompt + " y:yes n:no !:yes to all q:quit r:recenter"); }
+     }
+   throw UserBreakError, "3x wrong key";
+}
 
 %!%+
 %\function{tags_length}
@@ -105,85 +126,38 @@ static define null_fun() { }
 %!%-
 static define tags_length() % (scope=2)
 {
-   variable scope=2;
-   if (_NARGS)
-     scope = ();
-   scope -= not(length(get_blocal_var("Tags"))); 
-   % -> if (scope <= 0) use current line
-   if (scope <= 0) % use current line
-     return 1; 
-   else
-     return length(get_blocal_var("Tags"));
+   variable scope = push_defaults(2, _NARGS);
+   variable taglength = length(get_blocal_var("Tags"));
+   switch (scope)
+     { case 0: return 1; }                       % 0 current line
+     { case 1 and taglength: return taglength; } % 1 tagged lines
+     { case 1 and not(taglength): return 1; }	 %   or current line, if no line is tagged.
+     { case 2: return taglength; }	    	 % 2 tagged lines
 }
 
-% Delete the tagged lines.
-% Helper function for listing_map
-% Argument is an array of positions in the Tags blocal var.
-%   E.g. delete_tag_lines(get_blocal_var("Tags") % delete all tagged lines
-%        delete_tag_lines(get_blocal_var("Tags")[where(result==2)])
-% The tag-marks will not be deleted!
-static define delete_tag_lines(tags)
+% find out if the current line is tagged.
+% If so, return the index of the mark + 1, else return 0
+static define line_is_tagged()
 {
-   push_spot();
-   set_readonly(0);
-   foreach (tags)
+   variable tag_mark, n = 1;
+   variable line = what_line();
+
+   push_spot();   % remember position
+   foreach(get_blocal_var("Tags"))
      {
-	goto_user_mark(());
-	delete_line();
+	tag_mark = ();
+	goto_user_mark(tag_mark); % only way to find out mark.line
+	if (line == what_line())
+	  {
+	     pop_spot();
+	     return(n);
+	  }
+	n++;
      }
-   set_readonly(1);
-   set_buffer_modified_flag(0);
    pop_spot();
+   return(0);
 }
 
-
-%!%+
-%\function{get_confirmation}
-%\synopsis{Ask whether a list of actions should go on}
-%\usage{Int  listing->get_confirmation(Str prompt, Str default="")}
-%\description
-%   If an action (e.g. deleting) on tuple of instances (e.g. tagged files) 
-%   needs a user confirmation, the function in question can use 
-%   get_confirmation(prompt) instead of get_y_or_n(prompt) to offer more 
-%   choices. The keybindings are a subset from jed's replace command: 
-%   y: yes, n: no, !: all, q:quit
-%   The optional argument default sets the action for pressing Return
-%   (defaulting to no action).
-%\notes
-%   The static variable listing->Dont_Ask saves the "!: all" decision
-%   (so the next invocation of get_confirmation doesnot ask but returns
-%   always 1.) The function that starts the mapping on the action on 
-%   the tuple of instaces must reset listing->Dont_Ask to 0. (listing_map
-%   does this, so it is save to use get_confirmation in a function that gets
-%   called from listing_map)
-%   
-%\seealso{listing_map, get_y_or_n}
-%!%-
-static define get_confirmation() % (prompt, [default])
-{
-   variable key, prompt, default;
-   (prompt, default) = push_defaults( , "", _NARGS);
-
-   if (Dont_Ask == 1)
-     return 1;
-   
-   flush(prompt + " (y/n/!/q): " + default);
-   loop(5)
-     {
-	key = getkey();
-	if (key == '\r')
-	  key = default[0];
-	switch(key)
-	  { case 'y' : return 1; }
-	  { case 'n' : return 0; }
-	  { case '!' : Dont_Ask = 1; return 1; }
-	  { case 'q' or case '\e': Dont_Ask = -1; error("Quit!"); }
-	  { case 'r' : recenter (window_info('r') / 2); }
-	  { flush(prompt + " y:yes n:no !:all q:quit"); }
-     }
-   error("Quit!");
-}
-   
 %!%+
 %\function{tag}
 %\synopsis{Mark the current line and append to the Tags list}
@@ -206,16 +180,14 @@ static define tag() % (how = 1)
    if (how == 2)
      how = not(is_tagged);
    % already as we wish it
-   if (how and is_tagged or not(how) and not(is_tagged))
+   if (how == (is_tagged > 0))
      return;
-   % tag
-   if (how)
-     set_blocal_var(
-	array_append(tags, create_line_mark(ListingMarkColor)), "Tags");
+   
+   if (how) % tag
+     list_append(tags, create_line_mark(ListingMarkColor), -1);
    else % untag
-     set_blocal_var(array_delete(tags, is_tagged-1), "Tags");
+     list_delete(tags, is_tagged-1);
 }
-
 
 %!%+
 %\function{tag_all}
@@ -223,52 +195,50 @@ static define tag() % (how = 1)
 %\usage{Void tag_all(how = 1)}
 %\description
 %  Tag/untag all lines according to the (optional) argument how.
-%  (Faster than iterating over tag(how))
 %\seealso{tag, listing_mode, listing_map}
 %!%-
 static define tag_all() % (how = 1)
 {
    variable how = push_defaults(1, _NARGS);
-
-   if(is_visible_mark())
+   variable on_region = is_visible_mark();
+   if(on_region)
      narrow();
-   push_spot();
-   eob();
-   variable i = 0, tags = Mark_Type[what_line()];
-   bob();
-   
-   if (how)
-     do
-     {
-	if(orelse {how==1} {not(line_is_tagged())})
-	  {
-	     tags[i] = create_line_mark(ListingMarkColor);
-	     i++;
-	  }
+   push_spot_bob();
+   switch (how)
+     { case 0: 
+        set_blocal_var({}, "Tags");
      }
-   while (down_1());
-   if (how) 
-     set_blocal_var(tags[[:i-1]], "Tags");
-   else
-     set_blocal_var(Mark_Type[0], "Tags");
-     
+     { case 1:    
+        variable tags = {};
+        do
+          list_append(tags, create_line_mark(ListingMarkColor), -1);
+        while (down_1());
+        set_blocal_var(tags, "Tags");
+     }
+     { case 2:
+        do
+          tag(how);
+        while (down_1());
+     }
+   
    pop_spot();
-   widen();
+   if (on_region)
+     widen();
 }
 
 % Tag all lines that match a regex pattern
 static define tag_matching() %(how)
 {
    variable how = push_defaults(1, _NARGS);
-   
+
    variable prompt = ["Untag", "Tag"][how==1] + " all lines containing regexp:";
-     
+
    variable pat = read_mini(prompt, "", ".*");
    push_spot_bob();
    while (re_fsearch(pat) and not(eobp))
      {
 	tag(how);
-	eol(); 
+	eol();
 	go_right_1();
      }
    pop_spot();
@@ -278,10 +248,10 @@ static define tag_matching() %(how)
 static define edit()
 {
    set_readonly(0);
-   tag_all(0); % untag
-   set_blocal_var(NULL, "Current_Line");
+   set_blocal_var({}, "Tags"); % untag
+   set_blocal_var(NULL, "Current_Line");  % remove highlight from current line
    text_mode();
-   
+
 %   set_status_line("", 0);
 }
 
@@ -289,15 +259,15 @@ static define edit()
 
 %!%+
 %\function{listing_map}
-%\synopsis{Call a function for marked lines.}
-%\usage{Void listing_map(Int scope, Ref fun, Any [args])}
+%\synopsis{Call a function for tagged lines.}
+%\usage{Void listing_map(Int scope, Ref fun, [args])}
 %\description
 %  Call fun (given as reference) for marked lines, i.e. tagged lines or
 %  the current line depending on the value of the first argument scope
 %     0 current line
 %     1 tagged lines or current line, if no line is tagged.
 %     2 tagged lines
-%  The function will receive the tagged line(s) as first argument and
+%  The function will receive the tagged line as String as first argument and
 %  must return an integer, with the meaning:
 %     0    leave tag
 %     1    untag line
@@ -309,47 +279,60 @@ public  define listing_map() % (scope, fun, [args])
 {
    % get arguments
    variable scope, fun, args, buf = whatbuf();
-   args = __pop_args (_NARGS - 2);
+   args = __pop_args(_NARGS - 2);
    (scope, fun) = ( , );
 
-   variable tags = get_blocal_var("Tags");
-   
+   variable tag, tags = (get_blocal_var("Tags")), newtags = {}, result;
+
    scope -= not(length(tags)); % -> if (scope <= 0) use current line
+   
    % tag current line, if we are to use it
    if (scope <= 0)
-	tags = [create_line_mark(ListingMarkColor)];
-   
-   !if (length(tags))
-     error("No tags set");
+     tags = {create_user_mark()};
 
-   % We do not use array_map becouse in case of an error midways
-   % we still want to clean up. By defining result in forehand and filling
-   % as we go, we have the results also if a break occures after
-   % some tags are processed.
-   variable i, result = Int_Type[length(tags)];
-   ERROR_BLOCK 	% clean up
-     {
-	setbuf(buf); % just in case we landed somewhere else
-	delete_tag_lines(tags[where(result==2)]);
-	if (scope > 0) % tagged lines used
-	  set_blocal_var(tags[where(not(result))], "Tags");
-	if (Dont_Ask == -1)
-	  {
-	     message("Quit");
-	     _clear_error();
-	  }
-     }
+   !if (length(tags))
+     throw UsageError, "No tags set";
+
    % Reset the static variable used by get_confirmation()
    Dont_Ask = 0;
-   % now we are ready to do the actual mapping
-   for(i=0; i<length(tags); i++)
+
+   % now do the actual mapping
+   set_readonly(0);
+   loop (length(tags))
      {
-	% show("calling",fun, get_tag(tags[i]));
-	!if (is_line_hidden)
-	  result[i] = @fun(get_tag(tags[i]), __push_args(args));
+	tag = list_pop(tags);
+	goto_user_mark(tag);
+	if (is_line_hidden)
+	  {
+	     list_append(newtags, tag, -1);
+	     continue;
+	  }
+	update(1);
+	% show("calling", fun, tag);
+	try 
+	  result = @fun(line_as_string(), __push_args(args));
+	catch UserBreakError:
+	  {
+	     set_readonly(1);
+	     set_buffer_modified_flag(0);
+	     !if (scope <= 0) % not current line
+	       {
+		  list_append(newtags, tag, -1);
+		  list_concat(newtags, tags);
+		  set_blocal_var(newtags, "Tags");
+	       }
+	     throw UserBreakError, "Quit";
+	  }
+	switch (result)
+	  { case 0: list_append(newtags, tag, -1); }
+	  % { case 1: ;} % nothing to do
+	  { case 2: setbuf(buf); delete_line(); }
      }
+   set_readonly(1);
+   set_buffer_modified_flag(0);
    % clean up
-   EXECUTE_ERROR_BLOCK;
+   !if (scope <= 0) % not current line (but tags)
+     set_blocal_var(newtags, "Tags");
 }
 
 %!%+
@@ -358,8 +341,8 @@ public  define listing_map() % (scope, fun, [args])
 %\usage{Array[String] listing_list_tags(scope=2, untag=0)}
 %\description
 %  Return an array of tagged lines.
-%  For a discussion of the \var{scope} and \var{untag} parameters 
-%  see \var{listing_map}
+%  For a discussion of the \var{scope} and \var{untag} parameters
+%  see \sfun{listing_map}
 %\example
 %  Pop up a listing and let the user select some items.
 %#v+
@@ -368,7 +351,7 @@ public  define listing_map() % (scope, fun, [args])
 %    variable database = listing_list_tags(1);
 %    close_buffer();
 %    return strjoin(database, ",");
-% }   
+% }
 % define select_database()
 % {
 %    dictionary_list = shell_command(dict_cmd + " --dbs", 3);
@@ -385,7 +368,7 @@ public  define listing_list_tags() % (scope=2, untag=0)
 {
    variable scope, untag;
    (scope, untag) = push_defaults(2, 0, _NARGS);
-   
+
    return array(listing_map(scope, &null_fun, untag));
 }
 
@@ -431,16 +414,15 @@ static define listing_menu (menu)
 
 public define listing_mode()
 {
-   set_buffer_modified_flag (0); % so delbuf doesnot ask whether to save first
+   set_buffer_modified_flag (0); % so delbuf doesnot ask whether to save
    set_readonly(1);
    set_mode(mode, 0);
    use_keymap(mode);
    mode_set_mode_info(mode, "init_mode_menu", &listing_menu);
    % TODO set_buffer_hook("mouse_2click", &listing_mouse_2click_hook);
    define_blocal_var("Current_Line", create_line_mark(ListingSelectColor));
-   define_blocal_var("Tags", Mark_Type[0]); % array of tagged lines
+   define_blocal_var("Tags", {}); % array of tagged lines
    set_buffer_hook("update_hook", &listing_update_hook); % mark current line
    run_mode_hooks(mode+"_mode_hook");
 }
-  
-  
+
