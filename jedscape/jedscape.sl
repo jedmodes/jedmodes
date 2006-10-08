@@ -1,6 +1,6 @@
 % jedscape.sl
 %
-% $Id: jedscape.sl,v 1.8 2006/09/29 18:40:13 paul Exp paul $
+% $Id: jedscape.sl,v 1.9 2006/10/08 15:03:17 paul Exp paul $
 %
 % Copyright (c) 2003-2006 Paul Boekholt.
 % Released under the terms of the GNU GPL (version 2 or later).
@@ -70,7 +70,7 @@ custom_variable("Jedscape_Emulation", "w3");
 private variable mode="jedscape";
 
 private variable
-  version="$Revision: 1.8 $",
+  version="$Revision: 1.9 $",
   title="",
   this_href_mark, last_href_mark,      % check if tags don't overlap
   url_file ="",			       %  /dir/file.html
@@ -316,8 +316,7 @@ define url_decode_string(s)
    while (string_match(s, "%\\([0-9A-F][0-9A-F]\\)", 1))
      {
 	code = string_nth_match(s, 1);
-	s = str_replace_all(s, "%" + code,
-				 "\\" + char (integer("0x" + code)));
+	s = str_replace_all(s, "%" + code, "\\" + char (integer("0x" + code)));
      }
    return s;
 }
@@ -562,7 +561,7 @@ define view_history()
    loop(jedscape_stack_depth + forward_stack_depth)
      {
 	file;
-	file = jedscape_history[i].filename;
+	file = strcat(jedscape_history[i].hostname, jedscape_history[i].filename);
 	i++;
 	if (file == ()) continue;
 	insert (file + "\n");
@@ -705,14 +704,15 @@ define complete_link()
 
 private define reread()
 {
-   variable line=what_line(), file=url_file();
-   url_file="";
-   find_page(file);
+   variable line=what_line(), host=url_host, file=url_file;
+   (url_host, url_file)="", "";
+   find_page(strcat(host, file));
    goto_line(line);
 }
 
 define view_source()
 {
+   if (strlen(url_host)) return message ("viewing a remote file is not supported yet");
    ()=find_file(url_file);
 }
 
@@ -731,7 +731,7 @@ define previous_reference()
 
 private define view_url()
 {
-   message(url_file);
+   message(strcat(url_host, url_file));
 }
 
 define add_bookmark()
