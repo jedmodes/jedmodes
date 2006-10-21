@@ -1,7 +1,7 @@
 % info.sl      -*- mode: SLang; mode: fold -*-
 % Info reader for JED
 %
-% $Id: info.sl,v 1.11 2006/06/07 13:24:54 paul Exp paul $
+% $Id: info.sl,v 1.12 2006/10/21 18:02:16 paul Exp paul $
 % Keywords: help
 % 
 % Copyright (c) 2000-2006 JED, Paul Boekholt
@@ -918,7 +918,7 @@ define mouse_hook(line, col, but, shift)
      {
 	push_mark;
 	go_right(7);
-	skip_chars("-a-zA-Z0-9~/.+&#=\\?");
+	skip_chars("-a-zA-Z0-9~/.+&#=?");
 	bskip_chars(".?");
 	browse_url(bufsubstr);
      }
