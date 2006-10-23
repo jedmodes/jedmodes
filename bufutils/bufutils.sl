@@ -58,6 +58,8 @@
 % 	     	   (which is new in site.sl since 0.99.17.165)
 % 2006-06-19 1.11  fit_window(): abort if there is only one open window
 % 2006-10-04 1.12  bufsubfile() uses make_tmp_file(), documentation update
+% 2006-10-23 1.13  bugfix in bufsubfile() by Paul Boekholt
+% 	     	   "\\/ " specifies a character class '/'
 
 % _debug_info = 1;
 
@@ -732,7 +734,7 @@ define bufsubfile() % (delete=0, base=NULL)
      () = dupmark();
    % create a unique filename (keeping the extension)
    if (base == NULL)
-     base = str_delete_chars(path_basename(whatbuf()), "*+<>:\\/ ");
+     base = str_delete_chars(path_basename(whatbuf()), "*+<>:/ \\");
    extension = path_extname(base);
    base = path_sans_extname(base);
    do
