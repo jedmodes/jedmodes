@@ -3,20 +3,28 @@
 % Copyright (c) 2006 Guenter Milde (milde users.sf.net)
 % Released under the terms of the GNU General Public License (ver. 2 or later)
 %
-% Run interactive programs (e.g. mupad/python/gnuplot) in a "workbook".
-% Keep in/output easy editable, great for experimenting with scripts.
+% Features
+% --------
+% 
+% Run interactive programs (e.g. mupad/python/gnuplot) in a "workbook mode".
+% Keep in- and output easy editable, great for experimenting with scripts.
+% 
+%   ishell([cmd])         open a shell in a buffer on its own
+%   ishell_mode([cmd])    attach an interactive process (default
+% 			`Shell_Default_Shell') to the current buffer 
+% 
 % Features not present in ashell:
-%     * a region (if defined) is sent to shell at one stroke
+%     * a region (if defined) is sent to the command at one stroke
 %     * _Reserved_Key_Prefix+<Return> starts evaluation of line/region
 %     * <Return> behaves as normal
 %     * undo is enabled
-%     * ishell_mode: start interactive shell for active buffer
 %     * optional argument to ishell_mode: start any process
 %     * Adjustable output via function ishell_set_output_placement(key)
 %     * blocal hook "Ishell_output_filter" -> format process output
 %
-% Supplement (belongs rather to shell.sl)
-%     * shell_cmd_on_region
+% Supplement (belongs rather to shell.sl):
+%
+%   shell_cmd_on_region()  non-interactive cmd with region as argument
 %
 % !!! Beta Code. Only tested with Linux. !!!
 % There are known problems with ishell under Windows. If you want to use
@@ -24,6 +32,8 @@
 % with the author.
 %
 % Versions
+% --------
+% 
 % 1.0 * first public version
 % 1.1 * new option for IShell_Output_Placement: "o" separate output buffer
 %     * keybindings go to an own map with push/pop_keymap
@@ -73,13 +83,13 @@
 %                  *visible* mark is set
 % 1.8.6 2006-10-09 bugfix in shell_command (did set the current buffer to
 % 		   view-mode if there was no output from the command)
-%
-% USAGE ishell()              opens a shell in a buffer on its own
-%  	ishell_mode([cmd])    attaches an interactive process to the
-% 		    	      current buffer (defaults to shell)
-%	shell_cmd_on_region() non-interactive cmd with region as argument
+% 1.9   2006-11-10 shell_cmd_on_region_or_buffer() now saves the buffer to a
+% 		   temporary file (instead of asking for a filename) if there 
+% 		   is no file associated to the buffer (and no visible region)
 %
 % CUSTOMIZATION
+% -------------
+% 
 %     * custom variables
 %          Ishell_default_output_placement  >
 % 	   Ishell_logout_string             
@@ -610,16 +620,15 @@ public define shell_cmd_on_region_or_buffer() % (cmd="", output_handling=0, post
    if (cmd == "")
      return;
 
-   variable file;
-
-   if (is_visible_mark())
-     file = bufsubfile(typecast(output_handling, Integer_Type) == 2);
+   variable file = buffer_filename();
+   if (file == "" or is_visible_mark())
      % save region/buffer to file (delete if output_handling == 2)
+     file = bufsubfile(typecast(output_handling, Integer_Type) == 2);
    else
      {
-        % if (buffer_modified)
-        save_buffer();
-        file = buffer_filename();
+	save_buffer();
+	if (output_handling == 2)
+	  erase_buffer();
      }
    % Run the command on the file
    shell_command(strjoin([cmd, file, postfile_args], " "), output_handling);
