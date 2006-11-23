@@ -60,8 +60,8 @@
 % 2006-10-04 1.12  bufsubfile() uses make_tmp_file(), documentation update
 % 2006-10-23 1.13  bugfix in bufsubfile() by Paul Boekholt
 % 	     	   "\\/ " specifies a character class '/'
-
-% _debug_info = 1;
+% 2006-11-23 1.13.1 bugfix in reload_buffer(): reset changed-on-disk flag
+% 	     	    before erasing buffer (to prevent asking befor edit)
 
 % --- Requirements ----------------------------------------------------
 
@@ -651,12 +651,14 @@ public define reload_buffer()
    (file, dir, name, flags) = getbuf_info();
    variable col = what_column(), line = what_line();
 
-   erase_buffer(whatbuf());
-   () = insert_file(path_concat(dir, file));
-   goto_line(line);
-   goto_column(col);
    % reset the changed-on-disk flag
    setbuf_info(file, dir, name, flags & ~0x004);
+   
+   erase_buffer(whatbuf());
+   () = insert_file(path_concat(dir, file));
+   
+   goto_line(line);
+   goto_column_best_try(col);
    set_buffer_modified_flag(0);
 }
 
