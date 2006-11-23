@@ -86,6 +86,8 @@
 % 1.9   2006-11-10 shell_cmd_on_region_or_buffer() now saves the buffer to a
 % 		   temporary file (instead of asking for a filename) if there 
 % 		   is no file associated to the buffer (and no visible region)
+% 1.9.1 2006-11-23 bugfix in shell_cmd_on_region_or_buffer()
+% 		   save compare of `output_handling' can be string or integer
 %
 % CUSTOMIZATION
 % -------------
@@ -627,8 +629,8 @@ public define shell_cmd_on_region_or_buffer() % (cmd="", output_handling=0, post
    else
      {
 	save_buffer();
-	if (output_handling == 2)
-	  erase_buffer();
+	switch (output_handling)  % can be a string or integer
+	  { case 2: erase_buffer(); }
      }
    % Run the command on the file
    shell_command(strjoin([cmd, file, postfile_args], " "), output_handling);
