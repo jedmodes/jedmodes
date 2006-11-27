@@ -4,7 +4,7 @@
 % Released under the terms of the GNU General Public License (ver. 2 or later)
 %
 % VERSIONS 
-% 1.0   Günter Milde  <milde users.sf.net>
+% 1.0   first public release
 % 1.1   new functions pop2array, array, null_fun, array_repeat,
 %       array_fill_missing
 % 1.2   removed array_concat, array_append, array_insert
@@ -19,6 +19,9 @@
 % 1.2.3 added provide("datutils");
 % 2.0   2006-06-22 added list functions, full tm documentation
 % 2.1   2006-10-04 added list_concat()
+% 2.2   2006-11-27 removed array_reverse(): it is not used anywhere and 
+% 		   conflicts with the internal SLang function of the same 
+% 		   name (not activated by default in Jed)
 
 _autoload(
    "push_defaults", "sl_utils",
@@ -102,21 +105,6 @@ define pop2array() % (N=_stkdepth, [type])
 define array() %([args])
 {
    return pop2array(_NARGS);
-}
-
-%!%+
-%\function{array_reverse}
-%\synopsis{Swap the element order of an ordinary array}
-%\usage{Array array_reverse(a)}
-%\description
-%   Return an Array whose elements are the reverse of the Array in the
-%   argument.
-%\seealso{Array_Type, list_reverse}
-%!%-
-define array_reverse(a)
-{
-   variable i = length(a) - 1;
-   __tmp(a)[[i:0:-1]];
 }
 
 %!%+
