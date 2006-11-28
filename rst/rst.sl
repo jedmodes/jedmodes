@@ -1,6 +1,6 @@
 % Mode for reStructured Text (from python-docutils)
 % 
-% Copyright (c) 2004, 2006 Günter Milde
+% Copyright (c) 2004, 2006 Guenter Milde (milde users.sf.net)
 % Released under the terms of the GNU General Public License (ver. 2 or later)
 % 
 % ReStructured Text is a revision of Structured Text, a simple markup language
@@ -27,9 +27,12 @@
 % 		   conservative highlight of list markers
 % 1.4.2 2006-05-26 fixed autoloads (J. Sommer)
 % 1.5              new menu entry names matching the docutils use of terms
-% 		   TODO: directives functions
-% 		   see file:/home/milde/.python/docutils/docs/ref/rst/directives.html
-% 1.5.1 2006-08-14 Adapted to structured_text v. 0.5 (no longer call text_mode()).
+% 1.5.1 2006-08-14 Adapted to structured_text v. 0.5 (do not call text_mode()).
+% 1.5.2 2006-11-27 Bugfix: let rst_mode() really call the structured_text_hook
+% 1.6   2006-11-28 Drop the .py ending from the Rst2* custom variables defaults
+
+% TODO: directives functions (see /docutils/docs/ref/rst/directives.html)
+
 
 % Requirements
 % ============
@@ -38,7 +41,7 @@
 require("comments");
 
 % extra modes (from http://jedmodes.sf.net/mode/)
-require("structured_text");  % >= 0.5 formatting hooks
+autoload("structured_text_hook", "structured_text");  % >= 0.5
 autoload("push_defaults", "sl_utils");
 autoload("push_array", "sl_utils");
 autoload("prompt_for_argument", "sl_utils");
@@ -86,7 +89,7 @@ private variable mode = "rst";
 % PATH (e.g. with the Debian package python-docutils.deb).
 %\seealso{rst_mode, Rst2Html_Options, Rst2Latex_Cmd}
 %!%-
-custom_variable("Rst2Html_Cmd", "rst2html.py");
+custom_variable("Rst2Html_Cmd", "rst2html");
 
 %!%+
 %\variable{Rst2Latex_Cmd}
@@ -99,7 +102,7 @@ custom_variable("Rst2Html_Cmd", "rst2html.py");
 % PATH (e.g. with the Debian package python-docutils.deb).
 %\seealso{rst_mode, Rst2Latex_Options, Rst2Html_Cmd}
 %!%-
-custom_variable("Rst2Latex_Cmd", "rst2latex.py");
+custom_variable("Rst2Latex_Cmd", "rst2latex");
 
 %!%+
 %\variable{Rst2Html_Options}
@@ -125,6 +128,18 @@ custom_variable("Rst2Html_Options", "");
 %!%-
 custom_variable("Rst2Latex_Options", "");
 
+
+%!%+
+%\variable{Rst_Documentation_Index}
+%\synopsis{URL of the Docutils Project Documentation Overview}
+%\usage{variable Rst_Documentation_Index = "/usr/share/doc/python-docutils/docs/index.html"}
+%\description
+%  Pointer to the Docutils Project Documentation Overview
+%  which will be opened by the Mode>Help>Doc Overview menu entry.
+%\seealso{rst_mode}
+%!%-
+custom_variable("Rst_Documentation_Index",
+   "/usr/share/doc/python-docutils/docs/index.html");
 
 % Static Variables
 % ----------------
@@ -616,20 +631,22 @@ static define rst_menu(menu)
    % Directives
    popup = new_popup(menu, "Directives");
    menu_append_item(popup, "&Directive", &markup, "directive");
+   menu_append_separator(menu);
+#ifexists list_routines
+   menu_append_item(menu, "&Navigator", "list_routines");
+#endif
+   % Help commands
+   popup = new_popup(menu, "&Help");
+   menu_append_item(popup, "Rst2&Html Help", &command_help, Rst2Html_Cmd);
+   menu_append_item(popup, "Rst2&Latex Help", &command_help, Rst2Latex_Cmd);
+   menu_append_item(popup, "&Doc Overview", "browse_url", Rst_Documentation_Index);
+   menu_append_separator(menu);
    % Export to a target file
    popup = new_popup(menu, "&Export");
    menu_append_item(popup, "&Html", "rst_to_html");
    menu_append_item(popup, "&Latex", "rst_to_latex");
    menu_append_item(popup, "Set H&tml Export Options", "rst->set_rst2html_options");
    menu_append_item(popup, "Set Late&x Export Options", "rst->set_rst2latex_cmd");
-   % % Help commands
-   % popup = new_popup(menu, "&Help");
-   % menu_append_item(popup, "Rst2&Html Help", &command_help, Rst2Html_Cmd);
-   % menu_append_item(popup, "Rst2&Latex Help", &command_help, Rst2Latex_Cmd);
-   menu_append_separator(menu);
-#ifexists list_routines
-   menu_append_item(menu, "&Navigator", "list_routines");
-#endif
    menu_append_item(menu, "&Run Buffer", "rst_to_html");
 #ifexists browse_url   
    menu_append_item(menu, "&Browse Html", "rst_browse");                                   
@@ -643,6 +660,7 @@ public define rst_mode()
 {
    set_mode(mode, 1);
    % indent with structured_text_hook from structured_text.sl
+   structured_text_hook();
    use_syntax_table(mode);
    % use_keymap (mode);
    mode_set_mode_info(mode, "fold_info", "..{{{\r..}}}\r\r");
