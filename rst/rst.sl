@@ -30,6 +30,7 @@
 % 1.5.1 2006-08-14 Adapted to structured_text v. 0.5 (do not call text_mode()).
 % 1.5.2 2006-11-27 Bugfix: let rst_mode() really call the structured_text_hook
 % 1.6   2006-11-28 Drop the .py ending from the Rst2* custom variables defaults
+% 		   use do_shell_cmd() for error redirection
 
 % TODO: directives functions (see /docutils/docs/ref/rst/directives.html)
 
@@ -194,7 +195,8 @@ static define rst_export(cmd, options, outfile)
    save_buffer();
    flush("exporting to " + outfile); 
    popup_buffer("*rst export output*");
-   () = run_shell_cmd(cmd);
+   set_prefix_argument(1);
+   do_shell_cmd(cmd);
    if (bobp and eobp)
      close_buffer();
    else
@@ -225,14 +227,17 @@ public  define rst_to_latex() % (outfile=path_sans_extname(whatbuf())+".tex")
 }
 
 % export to PDF (TODO)
-% run_shell_cmd("pdflatex -interaction=nonstopmode "+file);
+% set_prefix_argument(1);
+% do_shell_cmd(cmd);
+% run_shell_cmd("rst2pdf.py" "+file);
 
 
 % open popup-buffer with help for cmd 
 static define command_help(cmd)
 {
    popup_buffer(helpbuffer, 1.0);
-   () = run_shell_cmd(extract_element(cmd, 0, ' ') + " --help");
+   set_prefix_argument(1);
+   do_shell_cmd(extract_element(cmd, 0, ' ') + " --help");
    fit_window(get_blocal("is_popup", 0));
    set_buffer_modified_flag(0);
    bob();
