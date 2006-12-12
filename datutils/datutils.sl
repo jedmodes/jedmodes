@@ -13,7 +13,7 @@
 % 1.2.1 reincluded array_append
 %       (as [[1,2],[3,4]] -> 2d Array in SLang < 1.16)
 %       moved string_repeat and string_reverse to strutils.sl
-% 1.2.2 bugfix in array_max(), the definition in sl_utils contrdicted
+% 1.2.2 bugfix in array_max(), the definition in sl_utils contradicted
 %       the intrinsic one which resembles array_max() (report PB)
 % 1.2.3 removed "public" keyword from all functions
 % 1.2.3 added provide("datutils");
@@ -22,6 +22,8 @@
 % 2.2   2006-11-27 removed array_reverse(): it is not used anywhere and 
 % 		   conflicts with the internal SLang function of the same 
 % 		   name (not activated by default in Jed)
+% 2.2.1 UNPUBL     new function list_inject(),
+% 		   new versions of assoc_get_key() and array_sum() (JED)
 
 _autoload(
    "push_defaults", "sl_utils",
@@ -126,11 +128,24 @@ define array() %([args])
 %  array_append([1,2,3], 4)   == [1,2,3,4]
 %#v-
 %\notes
-% For arrays with 1000 values, it becomes time-consuming (0.13 s),
+% Deprecated. This function might disappear in later versions of datutils!
+% 
+% Since SLang 1.16, the effect can be savely achieved by the
+% syntax: 
+%  [1,2]          == [1,2]
+%  [1, [2,3,4]]   == [1,2,3,4]
+%  [[1,2], [3,4]] == [1,2,3,4]
+%  [[1,2,3], 4]   == [1,2,3,4]
+% which is also internally used by array_append in SLang 2.
+%
+% For arrays with 1000 values, array_append() becomes time-consuming (0.13 s),
 % for 2000 values annoying (0.5 s) and for 5000 values prohibitive (3 s)
 % (CPU-time on a AMD-Duron 700MHz under Linux)
 %\seealso{list_append}
 %!%-
+#ifexists _slang_utf8_ok
+define array_append (a, b) { return [a,b]; }
+#else
 define array_append(a, b)
 {
    if (typeof(a) != Array_Type)
@@ -144,6 +159,7 @@ define array_append(a, b)
    c[[length(a):]] = b;
    return c;
 }
+#endif
 
 %!%+
 %\function{array_delete}
@@ -188,11 +204,14 @@ define array_delete(a, n)
 %#v-
 %\notes
 % \sfun{max} is a slang intrinsic since 1.4.6. (but must be activated manually)
-%\seealso{array_sum, array_product, max, min}
+% It is activated in Jed by default since 0.99.19-51.
+%\seealso{array_sum, array_product, max, min, sum}
 %!%-
 define array_max(a)
 {
-#ifnexists max
+#ifexists max
+   return max(a);
+#else
    variable maximum = a[0], element;
    foreach(a)
      {
@@ -201,8 +220,6 @@ define array_max(a)
 	  maximum = element;
      }
    return maximum;
-#else
-   return max(a);
 #endif
 }
 
@@ -214,14 +231,19 @@ define array_max(a)
 %  Sum up the values of a numeric array and return the result.
 %\notes
 % \sfun{sum} is a slang intrinsic since 1.4.6. (but must be activated manually)
-%\seealso{array_max, array_product, sum}
+% It is activated in Jed by default since 0.99.19-51.
+%\seealso{array_max, array_product, sum, min, max}
 %!%-
 define array_sum(a)
 {
-   variable sum = 0;
+#ifexists sum
+   return sum(a);
+#else
+   variable result = 0;
    foreach (a)
-     sum += ();
-   return sum;
+     result += ();
+   return result;
+#endif
 }
 
 
@@ -231,6 +253,9 @@ define array_sum(a)
 %\usage{result = array_product(a)}
 %\description
 %  Multiply the values of a numeric array and return the result.
+%\notes
+%  There are considerations to introduce \sfun{prod} and \sfun{cumprod}
+%  funtions in SLang.
 %\seealso{array_sum, array_max}
 %!%-
 define array_product(a)
@@ -343,20 +368,29 @@ define assoc_value_exists(ass, value)
 %!%-
 define assoc_get_key(ass, value)
 {
+#ifexists wherefirst
+   variable i = wherefirst (assoc_get_values (ass) == value);
+   if (i == NULL)
+     return NULL;
+   return assoc_get_keys (ass)[i];
+#else
    variable key;
    foreach (ass) using ("keys")
      {
-	key = ();
-	if (ass[key] == value)
-	  return key;
+        key = ();
+        if (ass[key] == value)
+          return key;
      }
+   return NULL;  % added by JED
+#endif
 }
 
 % --- List functions -------------------------------------------
 
-% The list type is new in SLang2
-#ifexists _slang_utf8_ok
 
+
+% The list type is new in SLang2
+#ifexists List_Type
 %!%+
 %\function{push_list}
 %\synopsis{Push the list elements on the stack}
@@ -402,7 +436,7 @@ define push_list(lst)
 %\notes
 % Attention: dont use \sfun{pop2list} in a function call with optional
 % arguments.
-%\seealso{push_list, pop2array, _stkdepth}
+%\seealso{push_list, _stkdepth}
 %!%-
 define pop2list() % (N=_stkdepth)
 {
@@ -472,19 +506,46 @@ define array2list(a)
 %\usage{list_concat(l1, l2)}
 %\description
 %  Concatenate 2 lists by appending the elements of \var{l2} to \var{l1}.
+%#v+
+%  variable l1 = {1, 2, 3, 4};
+%  list_concat(l1, {5, 6, 7});
+%  l1 == {1, 2, 3, 4, 5, 6, 7};
+%#v-
 %\notes
-%  As this function uses a foreach loop over \var{l2}, it can also be an 
-%  Array_Type object.
-%\seealso{list_append, list_insert, push_list}
+%  As this function uses a foreach loop, \var{l2} can also be an 
+%  \var{Array_Type} object.
+%\seealso{list_append, list_insert}
 %!%-
 define list_concat(l1, l2)
 {
    variable element;
-   foreach(l2)
-     {
-	element = ();
-	list_append(l1, element, -1);
-     }
+   foreach element (l2)
+     list_append(l1, element, -1);
+}
+
+
+%!%+
+%\function{list_inject}
+%\synopsis{Insert list elements at position \var{i}}
+%\usage{list_inject(List_Type l1, List_Type l2, Int_Type i)}
+%\description
+%  Merge two lists by inserting the elements of \var{l2} into
+%  \var{l1} at position \var{i}.
+%\example
+%#v+
+%  variable l1 = {1, 2, 3, 4};
+%  list_inject(l1, {2.5, 2.6, 2.7}, 2);
+%  l1 == {1, 2, 2.5, 2.6, 2.7, 3, 4};
+%#v-
+%\seealso{list_concat, list_insert}
+%!%-
+define list_inject(l1, l2, i)
+{
+   variable element;
+   if (i >= 0)
+     list_reverse(l2);
+   foreach element (l2)
+     list_insert(l1, element, i);
 }
 
 #endif
