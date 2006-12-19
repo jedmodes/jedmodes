@@ -1,16 +1,28 @@
-require("tokenlist");
+% tkl-modes.sl: Customization for the list_routines() function 
+%               from tokenlist.sl
+%               
+% Copyright (c) 2006 Marko Mahnic
+% Released under the terms of the GNU General Public License (ver. 2 or later)
+%
+% Versions:
+%   2006-03-29  outsourced from tokenlist.sl
+%   2006-11-17  G. Milde
+%               removed rst definitions (in rst.sl since version 1.4)
+%               added php definitions
+%               use raw strings for latex definitions
+%   2006-12-19  Marko Mahnic
+%               changed the interface to use _list_routines_setup
+%               (the old interface still works)
 
-%%%%%%%%%%%%%%%%%%%%%%%%%%%  MODES %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+autoload("tkl_sort_by_value", "tokenlist");
+autoload("tkl_sort_by_line", "tokenlist");
+provide("tkl-modes");
+
 
 %%  
 %%        C
 %%  
-variable c_list_routines_regexp = 
-{     "^[a-zA-Z_][a-zA-Z0-9_]*[ \t*&].*(",  % Ordinary function or method
-      "^[a-zA-Z_][a-zA-Z0-9_]*::~.+("       % Destructor
-};
-
-define c_list_routines_extract (nRegexp)
+private define c_list_routines_extract (nRegexp)
 {
    push_spot();
    if (ffind_char(';')) {
@@ -38,23 +50,22 @@ define c_list_routines_extract (nRegexp)
    return Null_String;
 }
 
-define c_list_routines_done()
+define c_list_routines_setup (opt)
 {
-   tkl_sort_by_value();
+   opt.list_regex = { 
+      "^[a-zA-Z_][a-zA-Z0-9_]*[ \t*&].*(",  % Ordinary function or method
+      "^[a-zA-Z_][a-zA-Z0-9_]*::~.+("       % Destructor
+   };
+   opt.fn_extract = &c_list_routines_extract;
+   opt.onlistcreated = &tkl_sort_by_value;
 }
 
 %%  
 %%        SLang
 %%  
-variable slang_list_routines_regexp =
-{     "^define[ \t]",
-      "^variable[ \t]",
-      "^public[ \t]+[dv]",
-      "^private[ \t]+[dv]",
-      "^static[ \t]+[dv]"
-};
 
-define slang_list_routines_extract (nRegexp)
+% Discard the public|static|private part of the definition
+private define slang_list_routines_extract (nRegexp)
 {
    bol();
    % skip static, public
@@ -67,104 +78,65 @@ define slang_list_routines_extract (nRegexp)
    return (strtrim(bufsubstr()));
 }
 
-define slang_list_routines_done()
+define slang_list_routines_setup(opt)
 {
-   tkl_sort_by_value();
+   opt.list_regex = { 
+      "^define[ \t]",
+      "^variable[ \t]",
+      "^public[ \t]+[dv]",
+      "^private[ \t]+[dv]",
+      "^static[ \t]+[dv]"
+   };
+   opt.fn_extract = &slang_list_routines_extract;
+   opt.onlistcreated = &tkl_sort_by_value;
 }
 
-provide("tokenlist");
 
 %%  
 %%        HTML
-%%  
-variable html_list_routines_regexp =
-   [
+%% 
+define html_list_routines_setup(opt)
+{
+   opt.list_regex = { 
     "^[ \t]*<H[1-9][ \t>]",
     "^[ \t]*<TABLE[ \t>]",
     "^[ \t]*<FORM[ \t>]"
-    ];
+   };
+}
 
 %%  
 %%        LaTeX
 %%  
-variable latex_list_routines_regexp =
-   [
-    "\\\\section",
-    "\\\\\\(sub\\)*section",
-    "\\\\subsubsection"
-    ];
+define latex_list_routines_setup(opt)
+{
+   opt.list_regex = { 
+    "\\section"R,
+    "\\\(sub\)*section"R,
+    "\\subsubsection"R
+   };
+}
+
+%%
+%% PHP
+%%
+define php_list_routines_regexp(opt)
+{
+   opt.list_regex = { 
+      "^class[ \t]",
+      "^function[ \t]"
+   };
+}
 
 %%  
 %%        Python
 %%  
-variable python_list_routines_regexp =
-   ["^[ \t]*def[ \t]",
-    "^[ \t]*class[ \t]"
-    ];
-
-define python_list_routines_extract (nRegexp)
+define python_list_routines_regexp(opt)
 {
-   bol();
-   push_mark();
-   eol();
-   return (bufsubstr());
-}
-
-define python_list_routines_done()
-{
-   tkl_sort_by_line();
-}
-
-%%  
-%%        reStructuredText
-%%  
-private variable rst_levels = NULL;
-variable rst_list_routines_regexp =
-{
-   "^[!-/:-@\\[-`{-~]+"
-};
-
-private define get_rst_level(ch)
-{
-   variable lev, N;
-   if (rst_levels == NULL) rst_levels = {};
-   N = length(rst_levels);
-   for (lev = 0; lev < N; lev++)
-      if (rst_levels[lev] == ch) return lev;
-   
-   list_append(rst_levels, ch);
-   return N;
-}
-
-define rst_list_routines_extract (nRegexp)
-{
-   variable ch, col, sec, fmt;
-   ch = what_char();
-   skip_chars(sprintf("%c", ch));
-   col = what_column();
-   skip_white();
-   !if (eolp()) return Null_String;
-
-   if (1 == up(1))
-   {
-      eol();
-      bskip_white();
-      if ( not bolp() and what_column() <= col)
-      {
-         push_mark();
-         bol_skip_white();
-         sec = bufsubstr();
-         fmt = sprintf(".%%%ds%%s", -get_rst_level(ch));
-         return(sprintf(fmt, "", sec));
-      }
-   }
-   
-   return Null_String;
-}
-
-define rst_list_routines_done()
-{
-   rst_levels = NULL;
+   opt.list_regex = { 
+      "^[ \t]*def[ \t]",
+       "^[ \t]*class[ \t]"
+   };
+   opt.onlistcreated = &tkl_sort_by_line;
 }
 
 #iffalse
@@ -204,5 +176,3 @@ define c_list_routines_extract (nRegexp)
    return Null_String;
 }
 #endif
-
-provide("tkl-modes");

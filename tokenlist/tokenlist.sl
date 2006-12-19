@@ -3,43 +3,75 @@
 % file: tokenlist.sl    v1.00
 % Author: Marko Mahnic
 %
+% Copyright (c) 2006 Marko Mahnic
+% Released under the terms of the GNU General Public License (ver. 2 or later)
 
-%% Installation:
+%% INSTALLATION
 %%  
-%%    Put on your jed_library_path and in .jedrc: 
-%%    AUTOLOAD: 
-%%      list_routines                          for routine searching
-%%      occur                                  overrides the default occur
-%%      (tkl_list_tokens, tkl_display_results  for further extensions)
-%%    OR:
+%%    Put on your jed_library_path.
+%%    
+%%    Insert the content of the INITALIZATION block (see below) or just
 %%      require("tokenlist");                  % evaluate at startup
+%%    into your jed.rc (or .jedrc) file.
+%%    (or use the "make_ini" and  "home-lib" modes from jedmodes.sf.net)
 %% 
-%%    Example keybindings:
+%%    Optionally add some keybindings, e.g.:
 %%      setkey("list_routines", "^R");
 %%      setkey("occur", "^O");
-%%      
-%% 
-%%    To add more language definitions for list_routines:
-%%      require("tkl-modes");
-%%    or e.g.
-%%    define python_mode_hook ()
-%%    {
-%%      % <other customizations for python mode>
-%%      require("tkl-modes");
-%%    }
-%%      
-%% When the results are displayed in token list:
-%%    d, SPACE:   display selected line in other buffer
-%%    g, RETURN:  goto selected line, close tokel list
-%%    /, s:       isearch_forward
-%%    :, f:       filter the displayed results (hides nonmatching lines)
-%%    q:          hide results
-%%    w:          other window
+%%   
+%% USAGE
 %%    
-%% Extending:
-%%    To use list_routines in a new mode MODENAME:
+%%    Use your keybindings, M-x occure or M-x list_routines, or the Search
+%%    menu entries to open a tokenlist buffer with search results.
+%%    
+%%    Keybindings in the tokenlist buffer:
 %% 
-%%    for mode MODENAME write:
+%%       d, SPACE:   display selected line in other buffer
+%%       g, RETURN:  goto selected line, close token list
+%%       /, s:       isearch_forward
+%%       :, f:       filter the displayed results (hides nonmatching lines)
+%%       q:          hide results
+%%       w:          other window
+%%    
+%% CUSTOMIZATION
+%%    
+%%    Custom Variables: 
+%%       TokenList_Startup_Mode -- Initial mode of the tokenlist
+%%                                    0 - normal mode
+%%				      1 - start in isearch mode
+%%    				      2 - start in filter mode
+%%
+%%    Hooks:
+%%       tokenlist_hook() -- called after this file is evaluated. 
+%%       
+%%       The default is defined in the INITALIZATION block. It loads 
+%%       mode definitions for list_routines() from tkl-modes.sl.
+%%       
+%%       Users of make_ini (e.g. via the jed-extra Debian package) can
+%%       also overwrite the tokenlist_hook in their jed.rc file, e.g.
+%%        
+%%          define tokenlist_hook()
+%%          {
+%%             % load prepared definitions
+%%             require("tkl-modes"); 
+%%             % overwrite some definitons with custom version
+%%             eval("define slang_list_routines_extract(nRegexp)" 
+%%                + "{ return line_as_string(); }");
+%%             eval("define slang_list_routines_done()"
+%%                + "{ tkl_sort_by_line; }");
+%%             % customize keybindings
+%%             definekey ("tkl_quit", "^W", "tokenlist");
+%%          }
+%%
+%% EXTENSION
+%%    
+%%    A set of mode definitions for list_routines is defined in the file
+%%    tkl_list_tokens(). They are loaded by the default tokenlist_hook().
+%%    
+%%    To use list_routines in a new mode MODENAME, define a list of
+%%    regular expressions (or search functions) and (optionally)
+%%    an extractor function and a list formatting hook:
+%% 
 %%       variable MODENAME_list_routines_regexp = {"regexp0", "regexp1", &search_fn};
 %%          A set of regular expressions or references to function like:
 %%             
@@ -53,16 +85,21 @@
 %%       String   MODENAME_list_routines_extract  (Integer I)
 %%          Extractor function to extract the match from the currnet
 %%          buffer. I is the index of the regexp in the array.
-%%          If it is not defined, the default _list_routines_extract
+%%          Optional. If it is not defined, the default _list_routines_extract
 %%          extracts the whole current line.
 %% 
 %%       Void MODENAME_list_routines_done (Void)
 %%          Optional. When this hook is called, the buffer with
 %%          the extracted lines is the current buffer.
+%%    
+%%    These definitions can be done in
+%%      jed.rc, 
+%%      (a private copy of) tkl-modes.sl,
+%%      a second mode-definition file (modify tokenlist_hook() to require it),
+%%    or by modifying the tokenlist_hook(), using eval() as you normally
+%%    cannot define functions or global variables in a function.
 %% 
-%% See tkl_list_tokens().
-%% 
-%% Changes:
+%% CHANGES:
 %%   2000: Marko Mahnic
 %%     First version
 %%   2006-03-08: Marko Mahnic
@@ -85,23 +122,63 @@
 %%     - tokenlist menu
 %%     - moccur; prepared for mlist_routines
 %%     - simple syntax coloring
+%%   2006-11-17 Guenter Milde
+%%     - hook for delayed and customizable loading of tkl-modes.sl
+%%     - INITIALIZATION section (for make_ini() or manual copy to .jedrc)
+%%     - tm documentation for TokenList_Startup_Mode  
+%%   2006-12-19  Marko Mahnic
+%%     changed the interface to use _list_routines_setup (the old interface still works)
 
-%% Controls what happens right after the list is displayed:
-%%   0 - normal mode
-%%   1 - start in isearch mode
-%%   2 - start in filter mode
+
+#<INITIALIZATION>
+
+autoload("list_routines", "tokenlist");
+autoload("occur", "tokenlist");
+add_completion("list_routines");
+
+% Add menu entry
+define tokenlist_load_popup_hook(menubar)
+{
+   menu_insert_item("Se&t Bookmark", "Global.&Search", 
+      "&List Routines", "list_routines");
+}
+append_to_hook("load_popup_hooks", &tokenlist_load_popup_hook);
+
+
+% default hook to add prepared mode definitions for list_routines:
+define tokenlist_hook()
+{
+   if (expand_jedlib_file("tkl-modes"))
+     require("tkl-modes");
+}
+
+#</INITIALIZATION>
+
+
+%!%+
+%\variable{TokenList_Startup_Mode}
+%\synopsis{Initial mode of the tokenlist}
+%\usage{variable TokenList_Startup_Mode = 0}
+%\description
+%  Controls what happens right after the list is displayed:
+%    0 - normal mode
+%    1 - start in isearch mode
+%    2 - start in filter mode
+%\seealso{occur, moccur, list_routines}
+%!%-
 custom_variable ("TokenList_Startup_Mode", 0);
 
 private variable tkl_TokenBuffer  = "*TokenList*";
 private variable tkl_ExtractMacro = "_list_routines_extract";
 private variable tkl_DoneMacro    = "_list_routines_done";
+private variable tkl_SetupMacro   = "_list_routines_setup";
 private variable tkl_mode = "tokenlist";
 private variable tkl_BufferMark = "[Buffer]:";
 
 %% Default extraction routine
 define _list_routines_extract (nRegexp)
 {
-   return (line_as_string());
+   return line_as_string();
 }
 
 !if (is_defined("Tokenlist_Operation_Type")) %{{{
@@ -226,24 +303,23 @@ define tkl_list_tokens (opt) %{{{
 %% #######################################################################
 %{{{
 
-$1 = tkl_mode;
-!if (keymap_p ($1))
+!if (keymap_p (tkl_mode))
 {
-   make_keymap ($1);
-   definekey ("tkl_display_token", " ", $1);
-   definekey ("tkl_display_token", "d", $1);
-   definekey ("tkl_goto_token", "\r", $1);
-   definekey ("tkl_goto_token", "g", $1);
-   definekey ("isearch_forward", "s", $1);
-   definekey ("isearch_forward", "/", $1);
-   definekey ("tkl_filter_list", "f", $1);
-   definekey ("tkl_filter_list", ":", $1);
-   definekey ("tkl_quit", "q", $1);
-   definekey ("other_window", "w", $1);
+   make_keymap (tkl_mode);
+   definekey ("tkl_display_token", " ", tkl_mode);
+   definekey ("tkl_display_token", "d", tkl_mode);
+   definekey ("tkl_goto_token", "\r", tkl_mode);
+   definekey ("tkl_goto_token", "g", tkl_mode);
+   definekey ("isearch_forward", "s", tkl_mode);
+   definekey ("isearch_forward", "/", tkl_mode);
+   definekey ("tkl_filter_list", "f", tkl_mode);
+   definekey ("tkl_filter_list", ":", tkl_mode);
+   definekey ("tkl_quit", "q", tkl_mode);
+   definekey ("other_window", "w", tkl_mode);
 }
 
-create_syntax_table($1);
-define_syntax(tkl_BufferMark, "", '%', $1);
+create_syntax_table(tkl_mode);
+define_syntax(tkl_BufferMark, "", '%', tkl_mode);
 
 private define tkl_menu(menu)
 {
@@ -584,6 +660,7 @@ public define list_routines()
    variable tkopt = @Tokenlist_Operation_Type;
 
    % Needed for first loading of the file containinig tokenlist_routine_setup_hook
+   % TODO: this should only load the file !!!
    tkopt.mode = "";
    runhooks("tokenlist_routine_setup_hook", tkopt);
 
@@ -595,16 +672,24 @@ public define list_routines()
    tkopt.fn_extract = &_list_routines_extract;
    tkopt.onlistcreated = NULL;
    
-   if (-2 == is_defined (sprintf ("%s_list_routines_regexp", tkopt.mode))) {
-      eval (sprintf ("%s_list_routines_regexp;", tkopt.mode));
-      tkopt.list_regex = ();
+   fn = sprintf ("%s%s", tkopt.mode, tkl_SetupMacro);
+   if (+2 == is_defined (fn)) 
+   {
+      call_function (fn, tkopt);      
    }
+   else
+   {  % the old interface
+      if (-2 == is_defined (sprintf ("%s_list_routines_regexp", tkopt.mode))) {
+         eval (sprintf ("%s_list_routines_regexp;", tkopt.mode));
+         tkopt.list_regex = ();
+      }
    
-   fn = sprintf ("%s%s", tkopt.mode, tkl_ExtractMacro);
-   if (+2 == is_defined (fn)) tkopt.fn_extract = __get_reference(fn);
+      fn = sprintf ("%s%s", tkopt.mode, tkl_ExtractMacro);
+      if (+2 == is_defined (fn)) tkopt.fn_extract = __get_reference(fn);
    
-   fn = sprintf ("%s%s", tkopt.mode, tkl_DoneMacro);
-   if (+2 == is_defined (fn)) tkopt.onlistcreated = __get_reference(fn);
+      fn = sprintf ("%s%s", tkopt.mode, tkl_DoneMacro);
+      if (+2 == is_defined (fn)) tkopt.onlistcreated = __get_reference(fn);
+   }
    
    runhooks("tokenlist_routine_setup_hook", tkopt);
    
@@ -613,3 +698,7 @@ public define list_routines()
    tkl_display_results();
 }
 
+%% Run the tokenlist_hook hook 
+%% (for delayed and customizable loading of tkl-modes.sl)
+
+runhooks("tokenlist_hook");
