@@ -10,7 +10,7 @@
 %%  
 %%    Put on your jed_library_path.
 %%    
-%%    Insert the content of the INITALIZATION block (see below) or just
+%%    Insert the content of the INITIALIZATION block (see below) or just
 %%      require("tokenlist");                  % evaluate at startup
 %%    into your jed.rc (or .jedrc) file.
 %%    (or use the "make_ini" and  "home-lib" modes from jedmodes.sf.net)
@@ -66,31 +66,45 @@
 %% EXTENSION
 %%    
 %%    A set of mode definitions for list_routines is defined in the file
-%%    tkl_list_tokens(). They are loaded by the default tokenlist_hook().
+%%    tkl-modes.sl. They are loaded by the default tokenlist_hook().
 %%    
-%%    To use list_routines in a new mode MODENAME, define a list of
-%%    regular expressions (or search functions) and (optionally)
-%%    an extractor function and a list formatting hook:
-%% 
-%%       variable MODENAME_list_routines_regexp = {"regexp0", "regexp1", &search_fn};
-%%          A set of regular expressions or references to function like:
+%%    To use list_routines in a new mode MODENAME, define a function
+%%
+%%      Void  MODENAME_list_routines_setup(Tokenlist_Operation_Type opt)
+%%      
+%%    and fill the fields of the structure opt:
+%%    
+%%    opt.list_regex = {"regexp0", "regexp1", &search_fn};
+%%       A set of regular expressions or references to function like:
+%%          
+%%          % Int_Type searc_fn(Int_Type array_index)
+%%          % returns 0 when no more matches
+%%          define searc_fn(idx)
+%%          {
+%%             return fsearch("something");
+%%          }
 %%             
-%%             % Int_Type searc_fn(Int_Type array_index)
-%%             % returns 0 when no more matches
-%%             define searc_fn(idx)
-%%             {
-%%                return fsearch("something");
-%%             }
+%%    opt.fn_extract = &MODENAME_list_routines_extract;
+%%       A reference to a (private) function like:
+%%       
+%%          String   MODENAME_list_routines_extract  (Integer I)
+%%             Extractor function to extract the match from the currnet
+%%             buffer. I is the index of the regexp in the array.
+%%             When the function is called the point in the buffer
+%%             is at the current match. When the function returns
+%%             the point should be restored.
+%%             Optional. If it is not defined, the default 
+%%             _list_routines_extract extracts the whole current line.
 %% 
-%%       String   MODENAME_list_routines_extract  (Integer I)
-%%          Extractor function to extract the match from the currnet
-%%          buffer. I is the index of the regexp in the array.
-%%          Optional. If it is not defined, the default _list_routines_extract
-%%          extracts the whole current line.
-%% 
-%%       Void MODENAME_list_routines_done (Void)
-%%          Optional. When this hook is called, the buffer with
-%%          the extracted lines is the current buffer.
+%%    opt.onlistcreated = &MODENAME_list_routines_done;
+%%       A reference to a (private) function like:
+%%       
+%%          Void   MODENAME_list_routines_done (Void)
+%%             When this hook is called, the buffer with
+%%             the extracted lines is the current buffer.
+%%             You can use tkl_sort_by_value or tkl_sort_by_line 
+%%             instead of a custom function.
+%%             Optional. Default is NULL.
 %%    
 %%    These definitions can be done in
 %%      jed.rc, 
@@ -134,6 +148,7 @@
 
 autoload("list_routines", "tokenlist");
 autoload("occur", "tokenlist");
+autoload("moccur", "tokenlist");
 add_completion("list_routines");
 
 % Add menu entry
@@ -659,11 +674,6 @@ public define list_routines()
    variable buf, mode, fn;
    variable tkopt = @Tokenlist_Operation_Type;
 
-   % Needed for first loading of the file containinig tokenlist_routine_setup_hook
-   % TODO: this should only load the file !!!
-   tkopt.mode = "";
-   runhooks("tokenlist_routine_setup_hook", tkopt);
-
    (mode,) = what_mode();
    mode = strlow(mode);
    
@@ -674,9 +684,7 @@ public define list_routines()
    
    fn = sprintf ("%s%s", tkopt.mode, tkl_SetupMacro);
    if (+2 == is_defined (fn)) 
-   {
       call_function (fn, tkopt);      
-   }
    else
    {  % the old interface
       if (-2 == is_defined (sprintf ("%s_list_routines_regexp", tkopt.mode))) {

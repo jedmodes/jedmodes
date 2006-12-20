@@ -4,6 +4,7 @@
    <meta http-equiv="Content-Type" content="text/html; charset=ascii">
    <meta http-equiv="Author" content="Marko Mahnic">
 <style>
+  BODY { width: 720px }
   PRE {background:#e0e0ff; padding: 8px;}
 </style>
 </head>
@@ -12,133 +13,178 @@
 
 First you have to copy <code>tokenlist.sl</code> somewhere on your jed_library_path.
 Optionally you can also copy <code>tkl-modes.sl</code> if you will use the
-default settings for some modes (SLang, C, python).
+default settings for some modes (SLang, C, python, PHP, HTML, LaTeX).
 
-Then you activate it in your <code>.jedrc (or jed.rc)</h3>:
+Insert the content of the INITIALIZATION block (from <code>tokenlist.sl</code>) or just
+<pre>
+  require("tokenlist");
+</pre>
+
+into your jed.rc (or .jedrc) file (or use the "make_ini" and "home-lib"
+modes from jedmodes.sf.net). Optionally add some keybindings, e.g.:
 
 <pre>
-autoload("list_routines", "tokenlist");
-autoload("occur", "tokenlist");
+  setkey("list_routines", "^R");
+  setkey("occur", "^O");
 </pre>
 
 The function list_routines is very simple in its default implementation
 and is conditionally useful for C and SLang mode. To extend its capabilities you
 have to add some macros to search for routines and extract them into the
-list-buffer. The easyest way is to add
+list-buffer. Extensions are provided for more modes in the file <code>tkl-modes.sl</code> 
+which can be loaded in <code>tokenlist_hook()</code> which you define in 
+<code>.jedrc (jed.rc)</code>:
 
 <pre>
-require("tkl-modes");
+  define tokenlist_hook()
+  {
+     if (expand_jedlib_file("tkl-modes"))
+       require("tkl-modes");
+  }
 </pre>
 
-to your <code>.jedrc (jed.rc)</code>. This will add support for SLang, C, Python,
-HTML(H1-H9, TABLE, FORM) and LaTeX (section, subsection). If you are not
-satisfied with the default implementation or need additional modes, you
-should write a separate file (for example <code>myroutines.sl</code>) and add
-
-<pre>
-autoload("tokenlist_routine_setup_hook", "myroutines");
-</pre> 
-
-to <code>.jedrc (jed.rc)</code>, instead of <code>require</code>. 
-
-<h4>Defining your own routine-search</h4>
-
-You can write the macros for routine-search directly into .jedrc but it is
-much better to add them to a separate file so they will be loaded only
-when needed. Here is a minimal example for <code>myroutines.sl</code>:
-
-<pre>
-% ----------- myroutines.sl ------
-define tokenlist_routine_setup_hook(opt)
-{
-}
-% --------------------------------
-</pre>
-
-The above code does not add anything new to the editor.
-In this case <code>tokenlist_routine_setup_hook</code> works just as a
-placeholder to load <code>myroutines.sl</code>. A minimal implementation
-that does add something is:
-
-<pre>
-% ----------- myroutines.sl ------
-require("tkl-modes");
-define tokenlist_routine_setup_hook(opt)
-{
-}
-% --------------------------------
-</pre>
-
-This is the same as putting the <code>require</code> statement directly into
-<code>.jedrc</code>. The advantage is that <code>tkl-modes.sl</code> will be
-loaded only when needed and this will improve the startup time of jed.
+If you use <code>require("tokenlist")</code> to load <code>tokenlist.sl</code>
+then you should put the definition of <code>tokenlist_hook()</code> <b>before</b>
+<code>require("tokenlist")</code>.
 
 <p>
-If you have decided that you need to search for routines in a different
-manner, you have to do the following:
-
-<ol>
-  <li> add a list of regular expressions to search for
-  (<code>&lt;mode&gt;_list_routines_regexp</code>)
-  <li> add a function that will extrat what was found
-  (<code>&lt;mode&gt;_list_routines_extract</code>)
-  <li> optionally add a function that will execute when the list is
-  populated (<code>&lt;mode&gt;_list_routines_done</code>)
-</ol>
-
-Here is an example for X-TEXT mode where the titles on the first level
-start with '::', on the second with '==' an and on the third level with
-'--':
+You can add more definitions to <code>tkl-modes.sl</code> 
+but it is better to write a separate file like <code>mytklist.sl</code> and 
+change <code>tokenlist_hook()</code> to:
 
 <pre>
-% ----------- myroutines.sl ------
-require("tkl-modes");
-define tokenlist_routine_setup_hook(opt)
-{
-}
-
-variable x_text_list_routines_regexp = {
-  '^::',
-  '^==',
-  '^--'
-};
-
-define x_text_list_routines_extract(n)
-{
-  if (n == 0) {
-    bol(); 
-    skip_chars(":"); 
-    push_mark();
-    eol;
-    return (strtrim(bufsubstr()));
+  define tokenlist_hook()
+  {
+     if (expand_jedlib_file("tkl-modes"))
+       require("tkl-modes");
+     if (expand_jedlib_file("mytklist"))
+       require("mytklist");
   }
-  if (n == 1) {
+</pre>
+
+
+<h3>Defining your own routine-search</h3>
+
+You can write the macros for routine-search directly into <code>.jedrc</code>
+but it is better to add them to a separate file so they will be loaded only
+when needed. Here is a minimal example for <code>mytklist.sl</code>:
+
+<pre>
+% ----------- mytklist.sl ------
+provide("mytklist");
+</pre>
+
+Let us now define a special X-TEXT mode where the titles on the first level
+start with '::', on the second with '==' an and on the third level with
+'--'. In the result list the titles should be indented depending on
+the level of the title.
+
+<p>
+For the new mode to work we have to define the function
+<code>x_text_list_routines_setup(opt)</code> where <code>opt</code> is a structure
+that defines the behaviour of <code>list_routines</code>. It has the following
+fields:
+
+<p>
+<table border=1 cellspacing=0 cellpadding=2>
+  <tr><th>Field</th><th>Description</th><th>Default</th></tr>
+  <tr><td><code>mode</code></td><td>
+  The name of the mode.
+  </td>
+  <td>&nbsp;</td></tr>
+  
+  <tr><td><code>list_regex</code></td><td>
+  A list of regular expressions to search for. <code>list_routines</code> will
+  take every item from the list and search for all the occurences in the
+  active buffer that match the item (regular expression). After an expression
+  is found, some text is extracted from the buffer with a call to <code>fn_extract</code>.
+  <p>
+  An item from the list can be a function reference instead of a regular expression.
+  In this case the function will be called by <code>list_routines</code> until
+  it returns 0. The function takes an integer parameter which is the current
+  index and looks like this:
+<pre>
+    % Int_Type searc_fn(Int_Type array_index)
+    define searc_fn(idx)
+    {
+       return fsearch("something");
+    }
+</pre>
+  </td>
+  <td><code>{"^[a-zA-Z].*("};</code></td></tr>
+  
+  <tr><td><code>fn_extract</code></td><td>
+  A reference to a (private) function that extracts some text at the current point in the 
+  active buffer and returns it as a string.
+  It is called after every match that <code>list_routines</code> finds.
+  The function takes an integer parameter which is the current
+  index and looks like this:
+<pre>
+    % String extract_fn(Int_Type array_index)
+    define extract_fn(idx)
+    {
+       return line_as_string();
+    }
+</pre>
+  </td>
+  <td>
+  <code>&amp;_list_routines_extract</code>
+  <p>
+  The function is defined in tokenlist and returns the current line (line_as_string).
+  </td></tr>
+  
+  <tr><td><code>onlistcreated</code></td><td>
+  A reference to a (private) function that is called after all the items from <code>list_regex</code>
+  have been processed. The active buffer is the list of matches and it is narrowed to the
+  matches found in the last buffer.
+  <p>
+  You can use this hook to sort the matched lines or do any other processing of the
+  buffer. There are two helper functions defined in <code>tokenlist.sl</code> to
+  sort the lines by line number (<code>tkl_sort_by_line</code>) or 
+  by content (<code>tkl_sort_by_value</code>).
+  </td>
+  <td><code>NULL</code></td></tr>
+</table>
+
+<p>
+Here is the code for the "X-TEXT" mode:
+
+<pre>
+% ----------- mytklist.sl ------
+autoload("tkl_sort_by_value", "tokenlist");
+autoload("tkl_sort_by_line", "tokenlist");
+provide("mytklist");
+
+private define x_text_list_routines_extract(n)
+{
+  variable chars  = [":", "=", "-"];
+  variable prefix = ["", "..", "...."];
+  if (n < 3) {
     bol(); 
-    skip_chars("="); 
+    skip_chars(chars[n]); 
     push_mark();
-    eol;
-    return (".." + strtrim(bufsubstr()));
-  }
-  if (n == 2) {
-    bol(); 
-    skip_chars("-"); 
-    push_mark();
-    eol;
-    return ("...." + strtrim(bufsubstr()));
+    eol();
+    return (prefix[n] + strtrim(bufsubstr()));
   }
   return "";
 }
-% --------------------------------
+
+define x_text_list_routines_setup(opt)
+{
+  opt.list_regexp = {
+    '^::',
+    '^==',
+    '^--'
+  };
+  opt.fn_extract = &x_text_list_routines_extract;
+  opt.onlistcreated = &tkl_sort_by_line;
+}
+
 </pre>
 
-The function <code>x_text_list_routines_extract</code> accepts a parameter
-<code>n</code> which tells what regular expression is currently being used
-so we can act accordingly. In our case we indent the title depending on
-the active regular expression.
 
 <p>
-The result of the search would be a list of titles indented depending on
-the title level. A buffer like
+If have a buffer TestBufer.xtxt with the content like
 
 <pre>
 ::Heading 1
@@ -150,33 +196,7 @@ the title level. A buffer like
 ==Heading 4
 </pre>
 
-would generate a list of 'routines' like
-
-<pre>
-Buffer: TestBufer.xtxt
-     3 : Heading 1
-    27 : ..Heading 2
-    43 : ..Heading 4
-    33 : ....Heading 3
-</pre>
-
-As you can see the list is not sorted nor by line neither by heading name.
-But if you look closer, you can see that the results are in the order the
-search was performed: for each regular expression the whole buffer was
-searched from top to bottom.
-
-<P>
-To fix this we also have to write <code>x_text_list_routines_done</code> that
-will sort the titles by line number:
-
-<pre>
-define x_text_list_routines_done()
-{
-   tkl_sort_by_line();
-}
-</pre>
-
-The list would now look like
+<code>list_routines</code> would generate the following list:
 
 <pre>
 Buffer: TestBufer.xtxt
@@ -184,59 +204,93 @@ Buffer: TestBufer.xtxt
     27 : ..Heading 2
     33 : ....Heading 3
     43 : ..Heading 4
+</pre>
+
+You can see that the list is sorted by line number. This is because we set 
+<code>opt.onlistcreated</code> to <code>&amp;tkl_sort_by_line</code>. If
+we set it to <code>NULL</code> we get the following list:
+
+<pre>
+Buffer: TestBufer.xtxt
+     3 : Heading 1
+    27 : ..Heading 2
+    43 : ..Heading 4
+    33 : ....Heading 3
 </pre>
 
 If we wanted to sort the titles by value, we could use
 <code>tkl_sort_by_value</code>. Unfortunately it would not sort the titles
-aphabetically because the titles in the buffer are indented.
+alphabetically because the titles in the buffer are indented.
 
 <p>
-<B>Mode writers</B> are encouraged to add _list_routines_
+<B>Mode writers</B> are encouraged to add <code>_list_routines_setup</code>
 definitions to their modes.
 
-<h4>Advanced use</h4>
+<h3>Extending existing modes</h3>
 
-In the beginning we defined the function
-<code>tokenlist_routine_setup_hook(opt)</code> but we didn't use it yet.
-What I will present here is still experimental and might change in the
-future.
+Suppose you would like to list all the special blocks like
+<code>#&lt;INITIALIZATION&gt;</code> in SLang mode. You could change the 
+function <code>slang_list_routines_setup</code> in <code>tkl-modes.sl</code> or copy the
+contents from <code>tkl-modes.sl</code> to <code>mytklist.sl</code> and change it there. This
+would be hard to maintain. 
+
+<p>
+That is why another hook was added to tokenlist:
+
+<pre>
+  Void  tokenlist_routine_setup_hook(opt)
+</pre>
+
+This hook is not defiend by default. You can add it to a file like
+<code>mytklist.sl</code>. In our example we add a new regular expression and
+modify the extraction function. We store some values from
+the structure <code>opt</code> for later use.
+
+<pre>
+private variable slang_nregex = NULL;
+private variable slang_fn_extract = NULL;
+private variable slang_onlistcreated = NULL;
+
+private define my_slang_fn_extract(idx)
+{
+   if (idx < slang_nregex && slang_fn_extract != NULL)
+      return (@slang_fn_extract)(idx);
+   else
+      return strtrim(line_as_string());
+}
+  
+define tokenlist_routine_setup_hook(opt)
+{
+   if (opt.mode == "slang")
+   {
+      slang_nregex = length(opt.list_regex);
+      slang_fn_extract = opt.fn_extract;
+      slang_onlistcreated = opt.onlistcreated;
+      list_append(opt.list_regex, "^#\\<[a-zA-Z]");
+      opt.fn_extract = &amp;my_slang_fn_extract;
+   }
+}
+</pre>
+
+<code>my_slang_fn_extract</code> will use the original extraction function for
+the original regular expressions and extract the current line for the new
+regular expression.
 
 <P>
 Imagine that you woud like to sometimes list only functions and at other
-times only variables. You woud define a global variable
+times only variables. You would define a global variable and prepare the
+members of the parameter <code>opt</code> according to the value of the variable:
 
 <pre>
 % 0 - all; 1 - variables; 2 - macros
 variable slang_routine_mode = 0;
-</pre>
 
-and in slang_list_routines_extract do something
-
-<pre>
-define slang_list_routines_extract(n)
-{
-   ...
-   if (n == 0) { % variables
-     if (slang_routine_mode != 0 and slang_routine_mode != 1) return '';
-     ...
-   }
-   if (n == 1) { % macros
-     if (slang_routine_mode != 0 and slang_routine_mode != 2) return '';
-     ...
-   }
-}
-</pre>
-
-Alternatively you could use the parameter <code>opt</code> which is a
-structure type defined in <code>tokenlist.sl</code>.
-
-<pre>
-define my_slang_extract_variable(n)
+private define my_slang_extract_variable(n)
 {
   return(strtrim(line_as_string()));
 }
 
-define my_slang_extract_macro(n)
+private define my_slang_extract_macro(n)
 {
   return(strtrim(line_as_string()));
 }
@@ -258,6 +312,8 @@ define tokenlist_routine_setup_hook(opt)
    }
 }
 </pre>
+
+<h3>Future</h3>
 
 The structure <code>opt</code> could have more members so tokenlist could
 be made extremely configurable:
