@@ -18,9 +18,10 @@
 %                   define get_keystring()
 % 2006-03-01  1.4.2 added provide()
 %                   added autoload for push_defaults()
-% 2007-01-15  1.5 added str_re_replace_by_line() after a report by
-% 	      	  Morten Bo Johansen that str_re_replace_all is dead slow
-% 	      	  for large strings.                  
+% 2007-01-15  1.5   added str_re_replace_by_line() after a report by
+% 	      	    Morten Bo Johansen that str_re_replace_all is dead slow
+% 	      	    for large strings.
+% 	      1.5.1 bugfix in str_re_replace_all() by M. Johansen
 %
 % (projects for further functions in projects/str_utils.sl)
 
@@ -165,7 +166,7 @@ define str_re_replace_all(str, pattern, rep)
 public define str_re_replace_by_line(str, pattern, rep)
 {
    variable lines = strchop(str, '\n', 0);
-   lines = array_map(String_Type, str_re_replace_all, lines, pattern, rep);
+   lines = array_map(String_Type, &str_re_replace_all, lines, pattern, rep);
    return strjoin(lines, "\n");
 }
 
