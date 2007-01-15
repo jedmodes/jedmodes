@@ -1,6 +1,6 @@
 % Utilities for processing of strings
 % 
-% Copyright (c) 2005 Günter Milde
+% Copyright (c) 2005 Guenter Milde (milde users.sf.net)
 % Released under the terms of the GNU General Public License (ver. 2 or later)
 % 
 % Version     0.9 first public version
@@ -18,6 +18,9 @@
 %                   define get_keystring()
 % 2006-03-01  1.4.2 added provide()
 %                   added autoload for push_defaults()
+% 2007-01-15  1.5 added str_re_replace_by_line() after a report by
+% 	      	  Morten Bo Johansen that str_re_replace_all is dead slow
+% 	      	  for large strings.                  
 %
 % (projects for further functions in projects/str_utils.sl)
 
@@ -127,12 +130,43 @@ define str_re_replace(str, pattern, rep, max_n)
 %\description
 %  Regexp equivalent to \sfun{str_replace_all}. Replaces all occurences
 %  of \var{pattern} with \var{rep} and returns the resulting string.
-%\seealso{str_re_replace, str_replace_all, string_get_match}
+%  
+%  Other than using \sfun{query_replace_match}, this function
+%  will find and replace across line boundaries.
+%\notes
+%  As the whole string is searched as one piece, \sfun{str_re_replace_all}
+%  will become *very* slow for larger strings. If there is no need to find
+%  a matches across lines, \sfun{str_re_replace_by_line} should be used.
+%\seealso{str_re_replace, str_replace_all, str_re_replace_by_line}
 %!%-
 define str_re_replace_all(str, pattern, rep)
 {
    (str, ) = str_re_replace(str, pattern, rep, strlen(str));
    return str;
+}
+
+
+%!%+
+%\function{str_re_replace_by_line}
+%\synopsis{Regexp replace \var{pattern} with \var{rep}}
+%\usage{str_re_replace_by_line(str, pattern, rep)}
+%\description
+%  Replace all occurences of the regular expression \var{pattern} with
+%  \var{rep}. In contrast to \sfun{str_re_replace_all}, this function
+%  will not find matches across lines (similar to a regexp replace in a
+%  buffer).
+%\notes
+%  This function splits \var{str} into an array of lines, calls
+%  \sfun{str_re_replace_all} on them and joins the result. As result, it
+%  takes 4 seconds to make 15000 replacements in a 10 MB string on a 2 GHz
+%  cpu/1 GB ram computer (where str_re_replace_all took hours). 
+%\seealso{str_re_replace, str_re_replace_all}
+%!%-
+public define str_re_replace_by_line(str, pattern, rep)
+{
+   variable lines = strchop(str, '\n', 0);
+   lines = array_map(String_Type, str_re_replace_all, lines, pattern, rep);
+   return strjoin(lines, "\n");
 }
 
 
