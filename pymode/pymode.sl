@@ -74,7 +74,17 @@
 %	    dfa error flagging: allow imaginary numbers (1j or 1J)
 %	- added and updated documentation  
 % 	- leave the TAB value as is (so hard-tabs will not show as '^I' if
-% 	  indentation uses spaces) 
+% 	  indentation uses spaces)
+% 2.1.1 UNPUB
+% 	- catch errors and widen in py_shift_region_left()
+% 	- new function browse_pydoc_server()
+% 	- added browse_url() autoload and require("keydefs")
+% 	- replaced calculate_indent_col() with calculate_indent
+% 	- define in_literal_string() without narrow_to_region, as this 
+% 	  does a "spurious" update.
+% 	- added True and False keywords
+% 	- py_indent_line() keeps point
+% 	- bugfix in reindent_block()
 
 provide("pymode");
 
@@ -83,6 +93,7 @@ provide("pymode");
 
 % SLang 2 (List_Type, throw keyword, and "foreach" loop with variable)
 require("comments"); % (un-)commenting lines and regions
+require("keydefs");  % symbolic constants for many function and arrow keys
 
 % utilities from http://jedmodes.sf.net/
 autoload("popup_buffer", "bufutils");
@@ -98,6 +109,8 @@ autoload("string_get_match", "strutils");
 autoload("get_word", "txtutils");
 autoload("bget_word", "txtutils");
 autoload("untab_buffer", "bufutils");
+autoload("run_local_hook", "bufutils");
+autoload("browse_url", "browse_url");
 
 
 implements("python");
@@ -121,8 +134,8 @@ private variable mode = "python";
 %  
 %  The special value 0 means use hard tabs ("\\t") for indentation.
 %\example
-%  To have tab-indentation by default with a tab-width of 3, write in jed.rc
-%  something like
+%  To have tab-indentation by default with visible tab-width of 3, write in
+%  jed.rc something like
 %#v+
 %    Py_Indent_Level = 0;
 %    TAB_DEFAULT = 3;
@@ -248,6 +261,15 @@ static define skip_string()
    return 0;
 }
 
+% Test if point is "behind" the position saved in (col, line)
+static define is_behind(line, col)
+{
+   return orelse{what_line() > line}
+     {andelse{what_line() == line}
+	  {what_column() > col}
+     };
+}
+
 % Test if point is inside string literal
 % 
 % parse_to_point() doesnot work, as Python allows long  (i.e. line
@@ -261,22 +283,26 @@ static define skip_string()
 % place known to be outside a string.
 static define in_literal_string() % [Mark_Type start_mark]
 {
-   % narrow the search space ...
-   push_mark();
+   variable col = what_column(), line = what_line(), in_string = 0;
+   
+   push_spot();
+   EXIT_BLOCK { pop_spot(); }
+   
+   % Scan for literal strings. If quotes are unbalanced, we are inside
+   %
+   %    % Alternative: Narrow the search space ...
+   %      narrow_to_region() has the side-effect, that an undo() after
+   %      any function that used it (directly or indirectly) will move the
+   %      cursor to the beginning of the region (in this case bob or the
+   %      start_mark())
+
+   % start outside a literal string:
    if (_NARGS)
      goto_user_mark(()); % get arg from stack
    else
      bob();
-   narrow_to_region();
-   % ... and undo when returning.
-   EXIT_BLOCK 
-     {
-	eob();
-	widen_region();
-     }
-
-   % find the next begin-quote
-   while (re_fsearch("['\"]"))
+   % the scanning loop
+   while (re_fsearch("['\"]")) % find the next begin-quote
      {
 	% skip if escaped or in a comment
 	if (orelse{blooking_at("\\")}{parse_to_point() == -2})
@@ -284,8 +310,13 @@ static define in_literal_string() % [Mark_Type start_mark]
 	     skip_chars("'\"");
 	     continue;
 	  }
+	% now at string-opening quote, abort if we passed the original point
+	if (is_behind(line,col))
+	  return 0;
 	% skip to end of literal string
-	if (not(skip_string()) and eobp)
+	() = skip_string(); % False, if no matching end-quote found
+	% check if we passed the original point
+	if (is_behind(line,col))
 	  return 1;
      }
    return 0;
@@ -314,21 +345,24 @@ static define is_continuation_line()
      return col;
    %  long literal string (test for balance of """ """ and ''' ''')
    goto_spot();
+   bol();
    if (in_literal_string)
      return col;
    %  parentheses, brackets and braces
-   foreach (")]}")
+   foreach delim (")]}")
      {
-	delim = ();
 	goto_spot();
 	bol();
 	!if (find_matching_delimiter(delim) == 1) % goto (, [, or {
 	  continue;
-	col = what_column() + 1;
+	col = what_column();
 	switch (find_matching_delimiter(0))     % goto ), ], or }
-	  { case 0: return col; }     		% unbalanced
-	  { case 1 and (what_line() >= line): 
-	     return col; } 	       	      	% spans current line
+	  { case 0: return col + 1; }     		% unbalanced
+	  { case 1 and (what_line() > line):    % spans current line
+	     return col + 1; } 	       	      	
+	  { case 1 and (what_line() == line):   % ends at current line
+	     bol_skip_white();
+	     return col + not(looking_at_char(delim)); }
      }
    return 0;  % test negative
 }
@@ -534,7 +568,7 @@ static define line_starts_block()
 % 
 % Used in py_indent_line, indent_line_hook (for indent_line() and
 % newline_and_indent(), and electric_colon()
-static define calculate_indent_col()
+static define calculate_indent()
 {  
    variable col, new_subblock, has_colon, indent_width = get_indent_width();
    
@@ -544,17 +578,17 @@ static define calculate_indent_col()
    if (col > 0)
      {
 	pop_spot();
-	return col;
+	return col-1;
      }
    % Parse current and preceding lines for indentation clues
    new_subblock = line_starts_subblock();
    % go to preceding line
    !if (up_1)
-     return 1;    % first column: do not indent
+     return 0;    % first column: do not indent
    has_colon = line_ends_with_colon();
    % bskip continuation lines
    while (is_continuation_line())
-     go_up_1();    % secure, as the first line cannot be a continuation line 
+     go_up_1();    % no infinite recursion: line 1 is no continuation line 
    % get indentation
    bol_skip_white();
    col = what_column();
@@ -564,7 +598,7 @@ static define calculate_indent_col()
    if (endblock_cmd() or (new_subblock and not line_starts_block()))
      col -= indent_width;
    pop_spot();
-   return col;
+   return col-1;
 }
 
 % Indent current line
@@ -572,19 +606,23 @@ static define calculate_indent_col()
 % Change the indentation of the current line using given or calculated amount
 % of whitespace. 
 % Tab- or space-use is determined by get_indent_level() (0 -> use tabs)
-public  define py_indent_line() % (width = calculate_indent_col()-1)
+public  define py_indent_line() % (width = calculate_indent())
 {
    variable width;
    if (_NARGS)
      width = ();
    else
-     width = calculate_indent_col()-1;
+     width = calculate_indent();
    
+   push_spot();
    bol_trim();
-   if (get_indent_level)
+   if (get_indent_level())
      insert_spaces(width);
    else
      whitespace(width);
+   pop_spot();
+   if (bolp())
+     skip_white();
 }
 
 %!%+
@@ -623,7 +661,7 @@ static define py_shift_line_right()
 static define py_shift_region_right()
 {
    variable prefix = prefix_argument(1);
-   check_region(1);		%  push spot, point at end of region
+   check_region(0);		%  push spot, point at end of region
    narrow();
    do
      {
@@ -632,7 +670,6 @@ static define py_shift_region_right()
      }
    while (up_1());
    widen();
-   pop_spot();
 }
 
 %!%+
@@ -660,13 +697,11 @@ static define py_shift_region_right()
 %!%-
 public define py_shift_right()
 {
-   push_spot();
    if (is_visible_mark()) {
       py_shift_region_right();
    } else {
       py_shift_line_right();
    }
-   pop_spot();
 }
 
 % decrease the indentation of the current line one level
@@ -681,21 +716,35 @@ static define py_shift_line_left()
       level, level*indent_width);
 
    if (level < 0)
-     throw RunTimeError, 
-     sprintf("Line is indented less than %d level(s)", steps);
+     {
+	if (eolp) 
+	  return trim(); % empty line, trim and return
+	else
+	  throw RunTimeError, 
+	  sprintf("Line is indented less than %d level(s)", steps);
+     }
    
    py_indent_line(level * indent_width);
 }
 
 static define py_shift_region_left()
 {
-   variable steps = prefix_argument(1);
+   variable e, steps = prefix_argument(1);
    check_region (1);
    narrow();
    do
      {
 	set_prefix_argument(steps);
-	py_shift_line_left();
+	try (e)
+	  {
+	     py_shift_line_left();
+	  }
+	catch AnyError:
+	  {
+	     widen();
+	     % show(e);
+	     throw e.error, e.message;
+	  }
      }
    while (up_1());
    widen();
@@ -865,7 +914,7 @@ static define reindent_block()
 {
    % push spot at end of current line or last line of visible region
    if (is_visible_mark())
-     () = check_region();
+     () = check_region(0);
    eol(); % this way the current line is also found by the bsearch
    push_spot();
    if (is_visible_mark) % and go to beg of region  
@@ -945,7 +994,7 @@ static define electric_colon()
    if (line_starts_subblock())  % else:, elif:, except:, finally:
      {
 	bol_skip_white();
-	indent = calculate_indent_col();
+	indent = calculate_indent();
 	if (indent < what_column()) % Ensure dedent only
 	  py_indent_line(indent); % use already calculated value
      }
@@ -969,16 +1018,17 @@ static define electric_delim(ch)
 %!%+
 %\function{py_exec}
 %\synopsis{Run python on current region or buffer}
-%\usage{py_exec()}
+%\usage{py_exec(cmd="python")}
 %\description
 % Run python interpreter on current region or the whole buffer.
-% Display output in *python-output* buffer window.
+% Display output in *python output* buffer window.
 % Parse for errors and goto foulty line.
 %\seealso{python_shell}
 %!%-
-public  define py_exec()
+public  define py_exec() % (cmd="python")
 {
-   variable buf = whatbuf(), outbuf = "*python-output*";
+   variable cmd = push_defaults("python", _NARGS);
+   variable buf = whatbuf(), outbuf = "*$cmd output*"$;
    variable error_regexp = "^  File \"\\([^\"]+\\)\", line \\(\\d+\\).*";
    variable file, line, start_line = 1, py_source = buffer_filename();
    
@@ -1000,8 +1050,13 @@ public  define py_exec()
 		%   }
 		exchange_point_and_mark();
      }
-   shell_cmd_on_region_or_buffer("python", outbuf);
    
+   shell_cmd_on_region_or_buffer(cmd, outbuf);
+   
+   % no output? we are done
+   if (buf == whatbuf())
+     return;
+     
    %  Check for error message
    eob();
    while (re_bsearch(error_regexp) != 0) {
@@ -1058,13 +1113,34 @@ define py_help_on_word()
    msw_help( getenv("PYLIBREF"), tag, 0);
 }
 
+#else
+static define browse_pydoc_server()
+{
+   sw2buf("*ps output tmp*");
+   set_prefix_argument(1);
+   do_shell_cmd("ps ax");
+   bob();
+   !if (fsearch("pydoc -p 1200"))
+     {
+	flush("starting Python Documentation Server");
+	system("pydoc -p 1200 &");
+     }
+   else
+      message("Python Documentation Server already running");
+   set_buffer_modified_flag(0);
+   delbuf(whatbuf());
+   
+   browse_url("http://localhost:1200");
+}
+
 #endif
 
 % find lines with global imports (import ... and  from ... import ...)
 % (needed for python help on imported objects)
 static define get_import_lines()
 {
-   variable tag, import_lines="";
+   variable tag, import_lines="", case_search_before=CASE_SEARCH;
+   CASE_SEARCH = 1;  % python keywords are case sensitive
    foreach tag (["import", "from"])
      {
 	push_spot_bob();
@@ -1075,6 +1151,8 @@ static define get_import_lines()
 		  eol();
 		  continue;
 	       }
+	     if (in_literal_string)
+	       continue;
 	     do % get line and continuation lines
 	       {
 		  import_lines += line_as_string()+"\n";
@@ -1083,6 +1161,7 @@ static define get_import_lines()
 	  }
 	pop_spot();
      }
+   CASE_SEARCH = case_search_before;
    return import_lines;
 }
 
@@ -1147,19 +1226,27 @@ public define py_help() %(topic=NULL)
    set_prefix_argument (1);      % insert output at point
    % show(help_cmd);
    flush("Calling: " + help_cmd);
-   shell_command(help_cmd);
+   do_shell_cmd(help_cmd);
    
    fit_window(get_blocal("is_popup", 0));
    view_mode();
-   define_blocal_var("help_for_word_hook", "python->py_help_for_word_hook");
+   % navigating
+   set_buffer_hook("newline_indent_hook", "python_context_help_hook");
+   define_blocal_var("context_help_hook", "python_context_help_hook");
    if (is_defined("help_2click_hook"))
      set_buffer_hook ( "mouse_2click", "help_2click_hook");
 }
 
-% we need a special help for word hook that includes the . in word_chars
-static define py_help_for_word_hook(word)
+% context help:
+public  define python_context_help_hook()
 {
    py_help(bget_word("A-Za-z0-9_."));
+}
+
+% we need a special help for word hook that includes the . in word_chars
+static define python_help_for_word_hook(word)
+{
+   python_context_help_hook();
 }
 
 % Browse the html documentation for a specific module
@@ -1206,9 +1293,9 @@ set_syntax_flags (mode, 0);			% keywords ARE case-sensitive
 () = define_keywords_n (mode, "id", 2, 1);
 () = define_keywords_n (mode, "abschrcmpdirhexintlenmapmaxminoctordpowstrzip",
    3, 1);
-() = define_keywords_n (mode, "Nonedictevalfilehashiterlistlongopenreprtypevars",
+() = define_keywords_n (mode, "NoneTruedictevalfilehashiterlistlongopenreprtypevars",
    4, 1);
-() = define_keywords_n (mode, "applyfloatinputrangeroundslicetuple", 5, 1);
+() = define_keywords_n (mode, "Falseapplyfloatinputrangeroundslicetuple", 5, 1);
 () = define_keywords_n (mode, "buffercoercedivmodfilterinternlocalsreducereload"
    + "unichrxrange",
    6, 1);
@@ -1310,11 +1397,13 @@ static define python_menu(menu)
    menu_append_item(menu, "Reindent &block|region", "python->reindent_block");
    menu_append_item(menu, "&Untab buffer", "py_untab");
    menu_append_separator(menu);
-   menu_append_item(menu, "&Run Buffer", "py_exec");
+   menu_append_item(menu, "&Run Buffer", &run_local_hook, "run_buffer_hook");
    menu_append_item(menu, "Python &Shell", "python_shell");
    menu_append_separator(menu);
    menu_append_item(menu, "Python &Help", "py_help");
-   menu_append_item(menu, "Browse Python Module &Doc", "py_browse_module_doc");
+   menu_append_item(menu, "Python &Documentation Server", 
+      			  "python->browse_pydoc_server");
+   menu_append_item(menu, "Browse Python &Module Doc", "py_browse_module_doc");
 }
 
 %!%+
