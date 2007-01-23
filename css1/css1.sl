@@ -1,8 +1,4 @@
 % -*- mode: slang; mode: folding -*-
-% 
-%  Copyright (c) 2001 Johann Gerell, Francesc Rocher
-%  Released under the terms of the GNU General Public License (ver. 2 or later)
-
 %
 %{{{ Documentation
 %
@@ -41,18 +37,23 @@
 %
 %   1.5 - 2001/01/07 (FR): 
 %     - First public release.
+%   1.5.1 2007-01-23 (GM):
+%     - bugfix in call to run_mode_hooks()
+%     - comments with comments.sl  
 %
 % Authors
 % 
 %   Johann Gerell <johann dot gerell at home dot se>
 %   Francesc Rocher <f.rocher@computer.org>
 %   
-% Copyright (c) 2001 Francesc Rocher, Johann Gerell
-%  Released under the terms of the GNU General Public License (ver. 2 or later)
-%   
 %}}}
 
 $0 = "css1";
+
+%{{{ Comments
+require("comments");  % Jed standard mode but not autoloaded by default
+set_comment_info("css1", "/* ", " */", 2|4);
+%}}}
 
 %{{{ Syntax definition
 create_syntax_table($0);
@@ -291,4 +292,5 @@ public define css1_mode() {
   set_mode($0, 0);
   use_syntax_table($0);
   mode_set_mode_info($0, "init_mode_menu", &css1_menu);
+  run_mode_hooks($0 + "_mode_hook");
 }
