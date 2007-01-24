@@ -5,6 +5,9 @@
 % Versions:
 % 0.1 2006-03-03 as part of gmisc.sl (unpublished)
 % 0.2 2007-01-23 added pylit_check, public release as pylit.sl
+% 0.2.1 2007-01-24 bugfix in pylit_check(): do nothing if both files are of 
+%                  same age
+
 
 % Requirements
 % http://jedmodes.sf.net/mode/sl_utils/
@@ -66,8 +69,8 @@ public define pylit_check()
    else
      outfile = file + ".txt";
    
-   if (file_time_compare(file, outfile) > 0)
-     return; % buffer-file is newer
+   if (file_time_compare(file, outfile) >= 0)
+     return; % buffer-file is newer or same age (e.g. both nonexistant)
      
    if (get_y_or_n(path_basename(outfile) + " is more recent. Load it instead?"))
      pylit_switch_to_output(outfile);
