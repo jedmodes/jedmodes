@@ -1,26 +1,25 @@
 % info.sl      -*- mode: SLang; mode: fold -*-
 % Info reader for JED
 %
-% $Id: info.sl,v 1.12 2006/10/21 18:02:16 paul Exp paul $
+% $Id: info.sl,v 1.13 2007/01/28 12:37:34 paul Exp paul $
 % Keywords: help
 % 
-% Copyright (c) 2000-2006 JED, Paul Boekholt
+% Copyright (c) 2000-2007 JED, Paul Boekholt
 % Released under the terms of the GNU GPL (version 2 or later).
+
 
 _autoload("info_search", "infomisc",
 	  "info_index", "infomisc",
 	  "info_index_next", "infomisc",
 	  "browse_url", "browse_url",
 	  4);
+require("pcre");
 provide("info");
 implements("info");
 variable Info_This_Filename = Null_String;
 variable Info_This_Filedir = Null_String;
+variable indirect = NULL;
 
-% Info file that Info is now looking at. This is the name that was
-% specified in Info, not the actual file name.  This was used by infotree,
-% but now it could probably be replaced with local vars from info_extract_pointer()
-variable current_filename = Null_String;
 
 %{{{ info file
 
@@ -28,18 +27,13 @@ variable current_filename = Null_String;
 % returns compression extension if file is compressed or "" if not 
 define info_is_compressed (file)
 {
-   variable exts, ext, n;
-   exts = ".Z,.z,.gz,.bz2";
-   n = 0;
-   forever
+   variable ext;
+   foreach ext ([".Z", ".z", ".gz", ".bz2"])
      {
-	ext = extract_element(exts, n, ',');
-	if (ext == NULL) return "";
-
-	if (1 == file_status(file + ext)) break;
-	n++;
+	if (1 == file_status(file + ext))
+	  return ext;
      }
-   ext;
+   return "";
 }
 #endif
 
@@ -111,7 +105,11 @@ define info_make_file_name (file)
 	dirfile = df_low;
 	X_USER_BLOCK0;
 	
-	!if (strlen(dir)) error ("Info file not found: " + file);
+	!if (strlen(dir))
+	  {
+	     throw RunTimeError, "Info file not found: " + file;
+	  }
+	
 	++n;
      }
 }
@@ -124,14 +122,7 @@ define make_unzip_cmd (ext)
      { "uncompress -c"; }
 }
 
-% deleting the markers takes long, so make just 100
-#ifnexists set_line_color
-variable headline_marks = Mark_Type[100];
-#endif
-variable headline_color = [color_number("keyword"),
-		    color_number("comment"),
-		    color_number("string")];
-
+define info_mode_menu();
 define info_find_file (file)
 {
    variable dirfile,  ext;
@@ -146,40 +137,15 @@ define info_find_file (file)
 #endif
      () = insert_file(dirfile);
    bob();
-   variable i= 0, headnumber, underline;
-   1;
-   while (bol_fsearch("\x1F"))
-     {
-	()=down(4);
-	push_mark; push_mark; eol; underline = bufsubstr;
-	if (orelse
-	    {headnumber = 0, string_match(underline, "^\\*+$", 1)}
-	      {headnumber++, string_match(underline, "^\\=+$", 1)}
-	      {headnumber++, string_match(underline, "^\\-+$", 1)}
-	      {pop_mark_0, 0})
-	  {
-	     del_region;
-	     % The tags table is not correct anymore,
-	     % but we only use it to determine which
-	     % file a node is in.
-	     del;
-	     up; % take a 1 from the stack and push one for next round
-#ifnexists set_line_color
-	     headline_marks[i] =create_line_mark(headline_color[headnumber]);
-	     i++;
-	     if (i == 100) break;
-#else
-	     set_line_color(headline_color[headnumber]);
-#endif
-	  }
-     }
-   pop;
-   bob;
    Info_This_Filename = dirfile;
    set_readonly(1);
    set_buffer_modified_flag(0);
    set_mode("info", 0);
+   mode_set_mode_info("info", "init_mode_menu", &info_mode_menu);
    use_keymap("Infomap");
+#ifdef HAS_DFA_SYNTAX
+   use_syntax_table("info");
+#endif
 }
 
 
@@ -190,9 +156,6 @@ define info_find_file (file)
 %{{{ finding the node
 
 define info_find_node_split_file();  % extern
-
-variable Info_Split_File_Buffer = Null_String;
-variable Info_Split_Filename = Null_String;
 
 define info_search_marker(dir)
 {
@@ -207,9 +170,9 @@ define narrow_to_node()
    if (info_search_marker(1)) go_up_1(); else eob();
    narrow();
    bob();
-   go_down_1;
+   go_down_1();
    recenter(1);
-   current_filename = path_sans_extname(info_extract_pointer("File"));
+   variable current_filename = path_sans_extname(info_extract_pointer("File"));
    set_status_line(sprintf("Jed Info:  (%%m)  (%s)%s  (%%p)  %%t",
    			   current_filename, info_extract_pointer("Node")), 0);
 
@@ -221,110 +184,107 @@ define info_find_node_this_file (the_node)
    widen(); bob();
    forever
      {
-	!if (re_fsearch(sprintf("^File:.*Node: ?%s[,\t]", str_quote_string 
+	!if (re_fsearch(sprintf("\\c^File:.*Node: ?%s[,\t]", str_quote_string 
 				(the_node, "\\^$[]*.+?", '\\'))))
 	  {
 	     % dont give up, maybe this is a split file
-	     !if (strlen(Info_Split_File_Buffer)) 
-	       error("Marker not found!. Node: " + the_node);
-	     setbuf(Info_Split_File_Buffer);
+ 	     if (indirect == NULL)
+	       throw RunTimeError, "Marker not found!. Node: " + the_node;
 	     info_find_node_split_file(the_node);
 	     return;
 	  }
-	go_up_1;
-	bol;
+	go_up_1();
+	bol();
 	!if (looking_at_char(0x1F))
 	  {
 	     go_down_1 ();
-	     eol;
+	     eol();
 	     continue;
 	  }
-	go_down_1;
+	go_down_1();
 	break;
      }
-   narrow_to_node;
+   narrow_to_node();
+}
+
+define make_indirect()
+{
+   variable mark = create_user_mark();
+   bob ();
+   ()=bol_fsearch("Indirect:");
+   push_mark();
+   !if (info_search_marker(1)) eob();
+   narrow();
+   variable re=pcre_compile("^(.*): ([\\d]+)");
+   variable entry, i=0;
+   indirect = struct{files, bytes, tag_table};
+   indirect.files=String_Type[what_line()];
+   indirect.bytes=Integer_Type[what_line()];
+   bob();
+   
+   while (down_1())
+     {
+	entry=line_as_string();
+	if (pcre_exec(re, entry))
+	  {
+	     indirect.files[i]=pcre_nth_substr(re, entry, 1);
+	     indirect.bytes[i]=atoi(pcre_nth_substr(re, entry, 2));
+	     i++;
+	  }
+     }
+   indirect.files=indirect.files[[:i-1]];
+   indirect.bytes=indirect.bytes[[:i-1]];
+   eob();
+   widen();
+   push_mark();
+   eob();
+   indirect.tag_table=bufsubstr();
+   goto_user_mark(mark);
 }
 
 define info_find_node_split_file (node)
 {
    variable tag, tagpos, pos, pos_len, tag_len, file;
-   variable re, offset =0;
-  
-   !if (bufferp(" *Info*"), setbuf(" *Info*")) 
+   variable re, offset = 0;
+   if (indirect == NULL)
+     make_indirect();
+
+   re = pcre_compile(strcat("^Node: \\Q", node, "\\E[\t \x7F](\\d+)[ \t]*$"),
+		     PCRE_MULTILINE);
+   if (pcre_exec(re, indirect.tag_table))
      {
-	insbuf("*Info*");
+   	tagpos = pcre_nth_substr(re, indirect.tag_table, 1);
      }
-   
-   widen();
-      
-   % make this re safe 
-   tag = str_quote_string (node, "\\^$[]*.+?", '\\');
-   
-   eob();
-  
-   
-   re = strcat("^Node: ", tag, "[\t \x7F]\\(\\d+\\)[ \t]*$");
-   if (re_bsearch(re))
-     tagpos=regexp_nth_match(1);
    else
      {
-	% look for refs and footnotes in tag table
-	re = strcat("Ref: ", tag, "[\t \x7F]\\(\\d+\\)[ \t]*$");
-	!if (re_bsearch(re)) 
-	  verror ("tag %s not found.", tag);
-	()=ffind_char(0x7F);
-	go_right_1; push_mark; eol;
-	% the byte offset is not correct because we removed underlinings,
-	% but we're still close (and footnotes don't have underlinings)
-	% will probably not work on 16-bit systems
-	offset = integer(regexp_nth_match(1));
-	!if (re_bsearch("^Node: *\\(.*\\)\x7F\\(\\d+\\)[ \t]*$")) verror ("tag %s not found.", tag);
-	go_right(5); skip_white;
-	push_mark; () =ffind_char(0x7F);
-	node = regexp_nth_match(1);
-	go_right_1; push_mark; eol;
-	tagpos=regexp_nth_match(2);
-	offset -= integer(tagpos);
+	% This finds footnotes hidden in special footnote nodes such as in
+	% the groff info page
+	re = pcre_compile(strcat("^Node: *(.*)\x7F(\\d+)[ \t]*\n(?:^Ref:.*\n)*^Ref: \\Q",
+				 node, "\\E[\t \x7F](\\d+)[ \t]*$"),
+			  PCRE_MULTILINE | PCRE_UNGREEDY);
+	if (pcre_exec(re, indirect.tag_table))
+	  {
+	     node = pcre_nth_substr(re, indirect.tag_table, 1);
+	     tagpos = pcre_nth_substr(re, indirect.tag_table, 2);
+	     offset = atoi(pcre_nth_substr(re, indirect.tag_table, 3)) - atoi(tagpos);
+	  }
+	else
+	  throw RunTimeError, "could not find node in tag table";
      }
-   tag_len = strlen(tagpos);
-  
-   bob ();
-   bol_fsearch("Indirect:"); pop();
-   push_mark();
-   !if (info_search_marker(1)) eob();
-   narrow();
-   bob();
-   forever
-     {
-	!if (down_1 ()) break;
-	% bol(); --- implicit in down
-	!if (ffind(": ")) break;
-	go_right(2);
-	
-	% This will not work on DOS with 16 bit ints.  Do strcmp instead.
-	push_mark_eol(); pos = bufsubstr(); 
-	pos_len = strlen(pos);
-	if (tag_len > pos_len) continue;
-	if (tag_len < pos_len) break;
-	% now ==
-	if (strcmp(tagpos, pos) < 0) break;
-     }
+
+   file = wherelast (indirect.bytes <= atoi(tagpos));
+   if (file == NULL)
+     throw RunTimeError, "tag before any nodes?";
    
-   Info_Split_File_Buffer = Null_String;
-   go_up_1 ();  bol();
-   push_mark();
-   () = ffind(": ");
-   widen();
-   file = dircat(Info_This_Filedir, bufsubstr());
+   file = dircat(Info_This_Filedir, indirect.files[file]);
 
    info_find_file(file);
    info_find_node_this_file(node);
    if (offset)
      {
-	bob;
+	bob();
 	go_right(offset);
      }
-   Info_Split_File_Buffer = " *Info*";
 }
 
 
@@ -337,7 +297,7 @@ define info_narrow()
    push_spot();
    () = info_search_marker(-1);
    go_down_1 ();
-   narrow_to_node;
+   narrow_to_node();
    pop_spot();
 }
 
@@ -348,7 +308,7 @@ define info_narrow()
    typedef struct
      {
 	filename,
-	split_filename,
+	indirect,
 	line_number
      }
    Info_Position_Type;
@@ -359,20 +319,18 @@ variable Info_Position_Stack = Info_Position_Type [16],
   Info_Stack_Depth = 0,
   Forward_Stack_Depth = 0;
 
-define info_push_position(file, split, line)
+define info_push_position(file, indirect, line)
 {
-   variable pos;
-
    if (Info_Stack_Depth == 16)
      {
         --Info_Stack_Depth;
 	  Info_Position_Stack  = Info_Position_Stack [Info_Position_Rotator];
      }
    
-   pos = Info_Position_Stack [Info_Stack_Depth];
+   variable pos = Info_Position_Stack [Info_Stack_Depth];
 
    pos.filename = file;
-   pos.split_filename = split;
+   pos.indirect = indirect;
    pos.line_number = line;
 
    ++Info_Stack_Depth;
@@ -382,56 +340,29 @@ define info_push_position(file, split, line)
 variable info_keep_history = 1;
 define info_record_position ()
 {
-   variable file;
-  
    if (whatbuf() != "*Info*") return;
    !if (info_keep_history) return;
    widen();
-   file = "";
    
-   if (strlen (Info_Split_File_Buffer)) file = Info_Split_Filename;
-   info_push_position(Info_This_Filename, file, what_line());
+   info_push_position(Info_This_Filename, indirect, what_line());
    info_narrow();
 }
 
 define goto_stack_position()
 {
-   variable split_file, file, n;
-   variable pos;
-
-   pos = Info_Position_Stack [Info_Stack_Depth];
-
-   split_file = pos.split_filename;
-   file = pos.filename;
-   n = pos.line_number;
+   variable pos = Info_Position_Stack [Info_Stack_Depth];
+   indirect = pos.indirect;
   
-   if ((file == Info_This_Filename) and bufferp("*Info*"))
+   if ((pos.filename == Info_This_Filename) and bufferp("*Info*"))
      {
         widen();
-        goto_line(n); bol();
+        goto_line(pos.line_number); bol();
         info_narrow();
         return;
      }
-   if (strlen(split_file))
-     {
-	setbuf(" *Info*");
-	set_readonly(0);
-	widen();
-	erase_buffer();
-#ifndef VMS
- 	variable ext = info_is_compressed (split_file);
- 	if (strlen(ext))
-	  () = run_shell_cmd(sprintf("%s %s%s", make_unzip_cmd (ext), split_file, ext));
-	else
-#endif
-	  () = insert_file (split_file);
-
-	Info_Split_File_Buffer = whatbuf ();
-	setbuf ("*Info*");
-     }
-   !if (strlen(file)) return;
-   info_find_file(file);
-   goto_line(n); bol();
+   !if (strlen(pos.filename)) return;
+   info_find_file(pos.filename);
+   goto_line(pos.line_number); bol();
    info_narrow();
 }
 
@@ -474,83 +405,47 @@ define find_dir();
 define follow_current_xref();
 public define info_find_node(node)
 {
-   variable file, n;
-   n = 0;
-  
+   variable file, n = 0;
+   variable current_filename = path_sans_extname(info_extract_pointer("File"));
    % Replace \n and \t characters in name by spaces
    node = strcompress (node, " \t\n");
    info_record_position();
-   variable info_split_stuff,
-     what_was_split_file_buffer = "",
-     obuf;
-   ERROR_BLOCK 
+   variable old_indirect = indirect;
+   
+   try
      {
-	if (strlen(what_was_split_file_buffer))
+	% if it looks like (file)node, extract file, node
+	if (is_substr(node, "(") == 1)
+	  if (n = is_substr(node, ")"), n)
+	  if (file = substr(node, 2, n - 2), 
+	      node = substr(node, n+1, strlen(node)),
+	      file != current_filename)
 	  {
-	     Info_Split_File_Buffer = what_was_split_file_buffer;
-	     setbuf(what_was_split_file_buffer);
-	     erase_buffer;
-	     insert(info_split_stuff);
+	     indirect = NULL;
+	     info_find_file(file);
 	  }
+	node = strtrim (node);
+	!if (strlen(node)) node = "Top";
+	widen();
+	variable mark = create_user_mark();
+	bob ();
+	!if (info_search_marker(1)) 
+	  throw RunTimeError, "Marker not found.";
+	go_down_1 ();
+	if (looking_at("Indirect:"), goto_user_mark(mark))
+	  info_find_node_split_file(node);
+	else
+	  info_find_node_this_file(node);
 	sw2buf("*Info*");
-	info_mode ();
-	pop_position();
      }
-   
-
-   % if it looks like (file)node, extract file, node
-   if (andelse
-       {is_substr(node, "(") == 1}
-	 {n = is_substr(node, ")"), n}
-	 {file = substr(node, 2, n - 2), 
-	    node = substr(node, n+1, strlen(node)),
-	    file != current_filename})
+   catch AnyError:
      {
-	% We're visiting a different file, so remember what was in the
-	% Info_Split_File_Buffer so we can restore it if we have to back
-	% up.
-	if (strlen(Info_Split_File_Buffer))
-	  {
-	     what_was_split_file_buffer = Info_Split_File_Buffer;
-	     obuf = whatbuf;
-	     setbuf(Info_Split_File_Buffer);
-	     mark_buffer;
-	     info_split_stuff = bufsubstr;
-	     setbuf(obuf);
-	  }
-	
-	if (bufferp(Info_Split_File_Buffer)) delbuf(Info_Split_File_Buffer);
-	Info_Split_File_Buffer = Null_String;
-	ERROR_BLOCK
-	  {
-	     variable my_keep_history = info_keep_history;
-	     info_keep_history=0;
-	     find_dir;
-	     if (bol_fsearch(sprintf("* %s:",  file)))
-	       {
-		  follow_current_xref;
-		  _clear_error;
-	       }
-	     info_keep_history=my_keep_history;
-	  }
-	info_find_file(file);
+	indirect = old_indirect;
+   	sw2buf("*Info*");
+   	info_reader ();
+   	pop_position();
+   	throw RunTimeError, "node not found";
      }
-   
-   node = strtrim (node);
-   !if (strlen(node)) node = "Top";
-   widen();
-   push_spot_bob ();
-   !if (info_search_marker(1)) error("Marker not found.");
-   go_down_1 ();
-   if (looking_at("Indirect:"), pop_spot())
-     {
-	Info_Split_Filename = Info_This_Filename;
-	info_find_node_split_file(node);
-     }
-   else
-     info_find_node_this_file(node);
-   
-   sw2buf("*Info*");
 }
 
 % If buffer has a menu, point is put on line after menu marker if argument
@@ -559,20 +454,16 @@ public define info_find_node(node)
 define info_find_menu(save)
 {
    push_spot_bob ();
-
    !if (re_fsearch("^\\c\\* Menu:"))
      {
 	pop_spot();
-	error ("Node has no menu.");
+	throw RunTimeError, "Node has no menu.";
      } 
-	
-   
    !if (save) 
      {
 	pop_spot();
 	return;
      }
-
    go_down_1 ();
    push_mark(); pop_spot(); pop_mark_1 ();
 }
@@ -588,11 +479,11 @@ define next_xref ()
 	if ((bolp() and looking_at ("* ")) or re_looking_at("\\C\\*note"))
 	  {
 	     if (re_looking_at("\\C^* menu")) continue;
-	     exchange_point_and_mark;
+	     exchange_point_and_mark();
 	     break;
 	  }
      }
-   pop_mark_1;
+   pop_mark_1();
 }
 
 
@@ -606,11 +497,11 @@ define prev_xref ()
 	if ((bolp() and looking_at ("* ")) or re_looking_at("\\C\\*note"))
 	  {
 	     if (re_looking_at("\\C^* menu")) continue;
-	     exchange_point_and_mark;
+	     exchange_point_and_mark();
 	     break;
 	  }
      }
-   pop_mark_1;
+   pop_mark_1();
 }
 
 
@@ -624,7 +515,8 @@ define follow_current_xref ()
   
    !if (fsearch_char (':'))
      {
-	pop_spot(); error ("Corrupt File?");
+	pop_spot();
+	throw RunTimeError, "Corrupt File?";
      }
    
    if (looking_at("::"))
@@ -648,7 +540,7 @@ define follow_current_xref ()
 	skip_chars("^,\t.("); % does not skip newlines
 	if (eolp) 
 	  {
-	     go_down_1;
+	     go_down_1();
 	     skip_chars("^,\t.(");
 	  }
 	node = strcompress(bufsubstr(), " \n");
@@ -660,7 +552,7 @@ define follow_current_xref ()
 % follow the menu item on this line. We are at bol.
 define follow_menu()
 {
-   !if (ffind_char(':')) error ("Corrupt File?");
+   !if (ffind_char(':')) throw RunTimeError, "Corrupt File?";
 
    if (looking_at("::"))
      {
@@ -681,27 +573,27 @@ define follow_menu()
 	 
         bskip_chars(" ");
      }
-   info_find_node(bufsubstr(()));
+   info_find_node(bufsubstr());
 }
 
 % This reads the menu items into a comma-delimited string
 define get_menu_items()
 {
-   push_spot_bob;
+   push_spot_bob();
    !if (re_fsearch("^\\c\\* Menu:"))
      return pop_spot, NULL;
-   eol;
+   eol();
    variable n = 0;
    ",";
    while (bol_fsearch("* "))
      {
 	go_right(2);
-	push_mark;
+	push_mark();
 	()=ffind_char(':');
-	bufsubstr;
+	bufsubstr();
 	n++;
      }
-   pop_spot;
+   pop_spot();
    return create_delimited_string(n);
 }
 
@@ -709,23 +601,22 @@ define menu ()
 {
    variable node = Null_String;
    info_find_menu (0);
-   variable items = get_menu_items;
+   variable items = get_menu_items();
    
    bol ();
-   if (andelse 
-       {looking_at("* ")}
-	 {ffind(":")})
+   if (looking_at("* "))
+     if (ffind(":"))
      {
 	push_mark();
 	bol(); go_right(2);
-	node = bufsubstr() + ":";
-	bol ();
+	node = bufsubstr();
+	bol();
      }
 
    node = read_string_with_completion("Menu item:", node, items);
    info_find_menu (1);
-   !if (bol_fsearch("* " + node)) error ("Menu Item not found.");
-   follow_menu;
+   !if (bol_fsearch(sprintf("* %s:", node))) throw RunTimeError, "Menu Item not found.";
+   follow_menu();
 }
 
 define follow_nearest_node ()
@@ -741,17 +632,17 @@ define follow_nearest_node ()
      }
    
    info_find_menu (0);
-   bol;
-   follow_menu;
+   bol();
+   follow_menu();
 }
 
 define find_dir() 
 {
    if ("*Info*" == whatbuf())
      {
-	"* " + path_sans_extname(info_extract_pointer("File"));
+	variable file = "* " + path_sans_extname(info_extract_pointer("File"));
 	info_find_node ("(DIR)Top");
-	() = bol_fsearch();
+	() = bol_fsearch(file);
      }
    else
      info_find_node ("(DIR)Top");
@@ -762,14 +653,15 @@ define info_extract_pointer()
 {
    variable name, errorname = NULL;
    if (_NARGS == 2) errorname = ();
-   push_spot_bob;
-   go_down_1;
-   variable length =  re_bsearch(() + ":");
-   if (length) go_right(length - 1);
+   push_spot_bob();
+   go_down_1();
+   variable len = re_bsearch(() + ":");
+   if (len)
+     go_right(len - 1);
    else
      {
-	pop_spot;
-	if (errorname != NULL) error ("node has no " + errorname);
+	pop_spot();
+	if (errorname != NULL) throw RunTimeError, "node has no " + errorname;
 	else return "";
      }
    skip_white();
@@ -777,7 +669,7 @@ define info_extract_pointer()
    skip_chars("^,\t\n");
    bskip_white();
    bufsubstr();
-   pop_spot;
+   pop_spot();
 }
 
 define info_up ()
@@ -916,7 +808,7 @@ define mouse_hook(line, col, but, shift)
      }
    else if (bfind("http://"))
      {
-	push_mark;
+	push_mark();
 	go_right(7);
 	skip_chars("-a-zA-Z0-9~/.+&#=?");
 	bskip_chars(".?");
@@ -940,9 +832,7 @@ define setup_dfa_callback (mode)
    % but not the *menu: line
    dfa_define_highlight_rule ("^\\*[^:]+:[: ]", "keyword0", mode);
    dfa_define_highlight_rule ("\\*[Nn]ote", "keyword0", mode);
-   dfa_define_highlight_rule 
-     ("http://[\\-a-zA-Z0-9~/\\\.]+[a-zA-Z0-9/]",
-      "string", mode);
+   dfa_define_highlight_rule ("http://[\\-a-zA-Z0-9~/\\\.]+[a-zA-Z0-9/]", "string", mode);
    dfa_build_highlight_table(mode);
 }
 dfa_set_init_callback (&setup_dfa_callback, "info");
@@ -1015,7 +905,7 @@ enable_dfa_syntax_for_mode("info");
 %   
 %\seealso{help_for_word_at_point, unix_man}
 %!%-
-public define info_mode ()
+private define start_info_reader ()
 {
    variable ibuf = "*Info*";
    if (bufferp(ibuf)) return sw2buf(ibuf);
@@ -1024,14 +914,9 @@ public define info_mode ()
    !if (bufferp(ibuf)) find_dir();
    sw2buf(ibuf);
    onewindow();
-   mode_set_mode_info("info", "init_mode_menu", &info_mode_menu);
-   set_mode("info", 0);
-#ifdef HAS_DFA_SYNTAX
-   use_syntax_table("info");
-#endif
    run_mode_hooks ("info_mode_hook");
    set_buffer_hook("mouse_up", &mouse_hook);
-   define_blocal_var("generating_function", ["info_mode"]);
+   define_blocal_var("generating_function", ["info_reader"]);
 }
 
 %}}}
@@ -1056,33 +941,28 @@ define info_looking_at (ref)
    push_mark ();
    ref = strcompress(strlow(ref), " ");
    
-   go_down_1;
-   eol;
-   exchange_point_and_mark;
+   go_down_1();
+   eol();
+   exchange_point_and_mark();
    not strncmp(strcompress(strlow(bufsubstr()), " \t\n"), ref, strlen(ref));
 }
 
 define follow_reference ()
 {
-   variable colon, colons, note, err, ref;
-   colon = ":"; colons = "::";
-   note = "*Note";
-   err = "No cross references.";
+   variable ref;
    
    push_spot_bob();
-   fsearch(note);
-   pop_spot;
-   !if ()
-     error(err);
+   !if (fsearch("*Note"), pop_spot())
+     error("No cross references.");
   
    ref = read_mini("Follow *Note", Null_String, Null_String);
    push_spot_bob ();
    forever
      {
-	!if (fsearch(note))
+	!if (fsearch("*Note"))
 	  {
 	     pop_spot();
-	     error ("Bad reference.");
+	     throw RunTimeError, "Bad reference.";
 	  }
 	go_right (5);  skip_chars (" \t\n");
 	if (info_looking_at(ref)) break;
@@ -1104,18 +984,18 @@ define follow_reference ()
 define menu_number ()
 {
    variable n = LAST_CHAR;
-   if ((n < '1') or (n > '9')) return (beep());
+   if ((n < '1') or (n > '9')) return beep();
    n -= '0';
   
    info_find_menu(1);
 
    while (n)
      { 
-	!if (bol_fsearch("* ")) return (beep());
+	!if (bol_fsearch("* ")) return beep();
 	if (ffind(":")) --n; else eol();
      }
-   bol;
-   follow_menu;
+   bol();
+   follow_menu();
 
 }
 
@@ -1140,14 +1020,14 @@ define next_up()
    pointer = info_extract_pointer("Node");
    if (string_match(info_extract_pointer("Node"), ".*Index$", 1))
      {
-	error ("this is the end");
+	throw RunTimeError, "this is the end";
      }
    pointer = info_extract_pointer("Next");
-   if (pointer == "Top") error ("this is the end");
+   if (pointer == "Top") throw RunTimeError, "this is the end";
    if (pointer == "")
      {
-	up;
-	next_up;
+	up();
+	next_up();
      }
    else
      info_find_node(pointer);
@@ -1177,3 +1057,46 @@ define scroll()
 
 %}}}
 
+%{{{ info reader
+%Type jed -info SUBJECT to start jed as an info reader.
+
+public define info_reader ()
+{
+   variable file, node;
+   
+   start_info_reader ();
+
+   if (_NARGS == 0)
+     return;
+   
+   variable args = ();
+   variable nargs = length (args);
+
+   local_setkey ("exit_jed",		"q");
+   local_setkey ("exit_jed",		"Q");
+
+   if (nargs > 0)
+     {
+	file = args[0];
+
+#ifdef UNIX
+	if (path_basename (file) != file)
+	  {
+	     variable dir = path_dirname (file);
+	     file = path_basename (file);
+	     Info_Directory = strcat (dir, "," + Info_Directory);
+	  }
+#endif
+	% Goto top incase the requested node does not exist.
+	info_find_node (sprintf ("(%s)top", file));
+	if (nargs > 1)
+	  info_find_node (sprintf ("(%s)%s", file, args[1]));
+     }
+}
+
+public define info_mode()
+{
+   info_reader();
+}
+
+%}}}
