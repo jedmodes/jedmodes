@@ -7,6 +7,7 @@
 % 0.2 2007-01-23 added pylit_check, public release as pylit.sl
 % 0.2.1 2007-01-24 bugfix in pylit_check(): do nothing if both files are of 
 %                  same age
+% 0.2.2 UNPU       call rst_mode() if the output buffer is text
 
 
 % Requirements
@@ -29,6 +30,8 @@ private define pylit_switch_to_output(outfile)
    close_buffer();
    () = find_file(outfile);
    goto_line(line);
+   if (path_extname(outfile) == ".txt")
+     call_function("rst_mode"); % if it exists
 }
 
 %!%+
