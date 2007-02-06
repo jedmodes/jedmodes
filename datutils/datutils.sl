@@ -22,7 +22,7 @@
 % 2.2   2006-11-27 removed array_reverse(): it is not used anywhere and 
 % 		   conflicts with the internal SLang function of the same 
 % 		   name (not activated by default in Jed)
-% 2.2.1 UNPUBL     new function list_inject(),
+% 2.2.1 2007-02-06 new function list_inject(),
 % 		   new versions of assoc_get_key() and array_sum() (JED)
 
 _autoload(
