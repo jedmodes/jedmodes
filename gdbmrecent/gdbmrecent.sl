@@ -1,9 +1,9 @@
 % gdbmrecent.sl
 % 
-% $Id: gdbmrecent.sl,v 1.4 2006/05/21 10:27:35 paul Exp paul $
+% $Id: gdbmrecent.sl,v 1.5 2007/02/06 18:03:27 paul Exp paul $
 % Keywords: convenience
 %
-% Copyright (c) 2004, 2005, 2006 Paul Boekholt.
+% Copyright (c) 2004-2007 Paul Boekholt.
 % Released under the terms of the GNU GPL (version 2 or later).
 % 
 % Yet another recent mode. This one was written to test my gdbm module.
@@ -27,6 +27,8 @@
 
 provide("recent");
 provide("gdbmrecent");
+require ("bufutils");
+require ("sl_utils");
 
 % customvariables.
 
@@ -66,9 +68,8 @@ private define getbuf_filemark()
    if (string_match(entry, Recent_Files_Exclude_Pattern, 1))
      return NULL;
    variable varname, val=sprintf("%d:%d:%d",_time(), what_line_if_wide(), what_column());
-   foreach(strchop(Gdbm_Pvars, ',', 0))
+   foreach varname (strchop(Gdbm_Pvars, ',', 0))
      {
-	varname=();
 	if (blocal_var_exists(varname))
 	  val = sprintf("%s:%s=%s", val, varname, get_blocal_var(varname));
      }
@@ -95,9 +96,8 @@ private define open_hook ()
    variable val = NULL, db=gdbm_open(Recent_Db, GDBM_READER, 0600);
    if (db != NULL)
      val = db[filename];
-   if (andelse
-       {val != NULL}
-       {4 == sscanf(val, "%d:%d:%d%s", &date, &line, &column, &pvars)})
+   if (val != NULL)
+     if (4 == sscanf(val, "%d:%d:%d%s", &date, &line, &column, &pvars))
      {
 	% goto saved position
 	goto_line(line);
@@ -110,12 +110,11 @@ private define open_hook ()
 	  }
 	if (strlen(pvars))
 	  {
-	     foreach(strchop(pvars, ':', 0))
+	     foreach pvar (strchop(pvars, ':', 0))
 	       {
-		  pvar=();
 		  pvar=strchop(pvar, '=', 0);
 		  if (2==length(pvar))
-		       define_blocal_var(pvar[0], pvar[1]);
+		    define_blocal_var(pvar[0], pvar[1]);
 	       }
 	  }
      }
@@ -137,9 +136,8 @@ private define save_hook()
 private define update_db(db)
 {
    variable k, v;
-   foreach(recent_files) using ("keys", "values")
+   foreach k, v (recent_files) using ("keys", "values")
      {
-	(k,v) = ();
 	% if write fails, stop trying
 	if (gdbm_store(db, k, v, GDBM_REPLACE))
 	  break;
@@ -153,7 +151,7 @@ private define _get_files(db)
    variable keys, values, dates;
    (keys, values) = gdbm_get_keys_and_values(db);
    dates = array_map(Integer_Type, &atoi, values);
-   keys=keys[array_sort(-dates)];
+   keys = keys[array_sort(-dates)];
    return keys;
 }
 
@@ -171,7 +169,7 @@ private define menu_callback (popup)
    variable db=gdbm_open(Recent_Db, GDBM_WRCREAT, 0600);
    if (db == NULL) return vmessage("gdbm: %s", gdbm_error());
    update_db(db);
-   variable keys, cmd, l, i;
+   variable keys, l, i;
    
    keys = _get_files(db);
    l = length(keys);
@@ -179,11 +177,9 @@ private define menu_callback (popup)
    if (l > Recent_Max_Cached_Files)
      l = Recent_Max_Cached_Files;
    
-   _for(0, l - 1, 1)
+   _for i (0, l - 1, 1)
      {
-	i=();
-	cmd = sprintf ("() = find_file (\"%s\")", keys[i]);
-	menu_append_item (popup, keys[i], cmd);
+	menu_append_item (popup, keys[i], sprintf ("() = find_file (\"%s\")", keys[i]));
      }  
 }
 
@@ -192,12 +188,12 @@ private define menu_callback (popup)
 % current buffer's directory or a subdirectory thereof.
 private define recent_here_callback (popup)
 {
-   variable dir = buffer_dirname(), dirlen = strlen(dir), key;
+   variable dir = buffer_dirname(), dirlen = strlen(dir);
    !if(dirlen) return;
    variable db=gdbm_open(Recent_Db, GDBM_WRCREAT, 0600);
    if (db == NULL) return vmessage("gdbm: %s", gdbm_error());
    update_db(db);
-   variable keys, cmd, l, i;
+   variable keys, l, i;
    
    keys = _get_files(db);
    keys = keys[where(not array_map(Integer_Type, &strncmp, keys, dir, dirlen))];
@@ -206,11 +202,9 @@ private define recent_here_callback (popup)
    if (l > Recent_Max_Cached_Files)
      l = Recent_Max_Cached_Files;
    
-   _for(0, l - 1, 1)
+   _for i (0, l - 1, 1)
      {
-	i=();
-	cmd = sprintf ("() = find_file (\"%s\")", keys[i]);
-	menu_append_item (popup, keys[i], cmd);
+	menu_append_item (popup, keys[i], sprintf ("() = find_file (\"%s\")", keys[i]));
      }  
 }
 
@@ -223,9 +217,8 @@ private define purge_not_so_recent(db)
    keys = keys[where(dates < cutoff_date)];
    % it's not possible to use foreach(db) here
    % see info:(gdbm)Sequential
-   foreach(keys)
+   foreach key (keys)
      {
-	key=();
 	gdbm_delete(db, key);
      }
 }
@@ -234,25 +227,32 @@ private define purge_not_so_recent(db)
 % purge entries older than a week
 private define exit_hook()
 {
-   variable db=gdbm_open(Recent_Db, GDBM_WRCREAT, 0600);
-   if (db == NULL) return 1;
-   variable filemark;
-   % update line/col info
-   loop(buffer_list)
+   try
      {
-	sw2buf();
-	filemark = getbuf_filemark();
-	if (filemark != NULL)
-	  recent_files[filemark[0]] = filemark[1];
+	variable db=gdbm_open(Recent_Db, GDBM_WRCREAT, 0600);
+	variable filemark, buf;
+	if (db != NULL)
+	  {
+	     % update line/col info
+	     loop (buffer_list())
+	       {
+		  buf = ();
+		  !if(strlen(buf)) continue;
+		  sw2buf(buf);
+		  filemark = getbuf_filemark();
+		  if (filemark != NULL)
+		    recent_files[filemark[0]] = filemark[1];
+	       }
+	     update_db(db);
+	     purge_not_so_recent(db);
+	     variable st=stat_file(Recent_Db);
+	     if (st.st_size > 50000)
+	       ()=gdbm_reorganize(db);
+	  }
      }
-   update_db(db);
-   purge_not_so_recent(db);
-   variable st=stat_file(Recent_Db);
-   if (st.st_size > 50000)
-     ()=gdbm_reorganize(db);
+   catch AnyError;
    return 1;   % tell _jed_exit_hooks to continue
 }
-
 
 private define add_recent_files_popup_hook (menubar)
 {
