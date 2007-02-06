@@ -59,6 +59,7 @@
 %       - use indent_hook instead of binding the TAB key
 %       - various small twiddles
 %       - use comments.sl instead of special commenting functions
+%       - added mode menu
 % 2.1 2006-11-23
 %       - Auto-determine the indent-string from first indented code line
 %     	  (as emacs does and PEP 0008 recommends)
@@ -75,7 +76,7 @@
 %	- added and updated documentation  
 % 	- leave the TAB value as is (so hard-tabs will not show as '^I' if
 % 	  indentation uses spaces)
-% 2.1.1 UNPUB
+% 2.1.1 2007-01-18
 % 	- catch errors and widen in py_shift_region_left()
 % 	- new function browse_pydoc_server()
 % 	- added browse_url() autoload and require("keydefs")
@@ -85,6 +86,8 @@
 % 	- added True and False keywords
 % 	- py_indent_line() keeps point
 % 	- bugfix in reindent_block()
+% 2.1.2 2007-02-06
+%       - use sprintf() instead of ""$ for `outbuf` string in py_exec()
 
 provide("pymode");
 
@@ -111,7 +114,6 @@ autoload("bget_word", "txtutils");
 autoload("untab_buffer", "bufutils");
 autoload("run_local_hook", "bufutils");
 autoload("browse_url", "browse_url");
-
 
 implements("python");
 private variable mode = "python";
@@ -1028,7 +1030,7 @@ static define electric_delim(ch)
 public  define py_exec() % (cmd="python")
 {
    variable cmd = push_defaults("python", _NARGS);
-   variable buf = whatbuf(), outbuf = "*$cmd output*"$;
+   variable buf = whatbuf(), outbuf = sprintf("*%s output*", cmd);
    variable error_regexp = "^  File \"\\([^\"]+\\)\", line \\(\\d+\\).*";
    variable file, line, start_line = 1, py_source = buffer_filename();
    
