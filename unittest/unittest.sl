@@ -13,7 +13,8 @@
 %                  py.test (http://codespeak.net/py/current/doc/test.html)
 %                  find and evaluate all functions matching 
 %                  Unittest_Function_Pattern
-% 0.3.1 2006-10-05 added requirements              
+% 0.3.1 2006-10-05 added requirements
+% 0.4   2007-02-06 removed _lists_equal() and is_equal(), using _eqs() instead
 
 require("sl_utils");  % push_defaults, ...
 require("datutils");  % push_list, pop2list, ...
@@ -27,9 +28,9 @@ custom_variable("Unittest_Reportfile", "testreport.txt");
 
 % The regexp pattern for test-file detection
 % % Test or test as word in a file with ".sl" extension
-custom_variable("Unittest_File_Pattern", "\\C\\<test\\>.*\.sl$"); 
-% The regexp pattern for test-function detection
-custom_variable("Unittest_Function_Pattern", "\\Ctest_"); % Test_ or test_ as substring
+custom_variable("Unittest_File_Pattern", "\C\<test\>.*\.sl$"R);
+% The regexp pattern for test-function detection (Test_ or test_ as substring)
+custom_variable("Unittest_Function_Pattern", "\Ctest_"R); 
   
 static variable reportbuf = "*test report*";
 % number of errors in one file
@@ -37,7 +38,8 @@ static variable Error_Count = 0;
 % list of return value(s) of the last function tested with test_function
 static variable Last_Result = {};
 
-private variable plural = ["", "s"]; % usage: sprintf("%d noun%s", num, plural(num!=1));
+% plural 's' or not? usage: sprintf("%d noun%s", num, plurals(num!=1));
+private variable plurals = ["", "s"]; 
 
 %!%+
 %\variable{AssertionError}
@@ -67,29 +69,6 @@ private variable plural = ["", "s"]; % usage: sprintf("%d noun%s", num, plural(n
 
 % Auxiliary functions
 % -------------------
-
-static define _lists_equal(a, b)
-{
-   variable i;
-   if (length(a) != length(b))
-     return 0;
-   for (i=0; i<length(a); i++)
-     {
-        try
-          {
-             if (a[i] != b[i])
-               return 0;
-          }
-        catch TypeMismatchError:
-          return 0;
-     }
-   return 1;
-}
-
-% _lists_equal({1}, {"foo"});                 % 0
-% _lists_equal({1, 2}, {1,2});                % 1
-% _lists_equal({1, 2}, {1,2,"foo"});          % 0
-% _lists_equal({1, "foo", 2}, {1,2,"foo"});   % 0
 
 % Print a list to a string (simple version, see sprint_variable.sl for full)
 % (Also, this version doesnot add the {} around the elements)
@@ -165,51 +144,19 @@ public  define test_true() % (a, comment="")
 
 
 %!%+
-%\function{is_equal}
-%\synopsis{Robust test for equality}
-%\usage{is_equal(a, b)}
+%\function{test_equal}
+%\synopsis{Test if \var{a} equals \var{b}}
+%\usage{ test_equal(a, b, comment="")}
 %\description
-%  Test two values for equality without giving errors.
-%  Incompatible data types == not equal.
-%  Works for Arrays and Lists: tests all arguments.
-%\example
-%#v+
-%  1 == is_equal(1, 1.0);
-%  1 == is_equal([1, 2, 3], [1:3]);
-%  1 == is_equal({1, 2, 3}, [1:3]);
-%#v-
-%\notes
-%  
-%\seealso{}
+%  Test if \var{a} equals \var{b}, report if not.
+%\seealso{_eqs, test_true}
 %!%-
-public define is_equal(a, b)
-{
-   variable err, result;
-   try (err)
-     {
-        if (typeof(a) == Array_Type and typeof(b) == Array_Type)
-          if (length(where(a==b)) == length(a))
-            return 1;
-        if (typeof(a) == List_Type and typeof(b) == List_Type)
-          if (_lists_equal(a, b))
-            return 1;
-        if (a == b)
-          return 1;
-     }
-   catch AnyError:
-     {
-        message(sprint_error(err));
-     }
-   return 0;
-}
-
-% Test if \var{a} equals \var{b}:
 public  define test_equal() % (a, b, comment="")
 {
    variable a, b, comment;
    (a, b, comment) = push_defaults( , , "", _NARGS);
    
-   !if (is_equal(a, b))
+   !if (_eqs(a, b))
      {
         testmessage("\n  E: %s==%s failed. %s", 
            sprint_variable(a), sprint_variable(b), comment);
@@ -317,7 +264,7 @@ public  define test_last_result() % args
 {
    variable expected_result = pop2list(_NARGS);
    % silently pass if Last_Result meets expectations
-   if (_lists_equal(Last_Result, expected_result))
+   if (_eqs(Last_Result, expected_result))
      return;
    testmessage("\n  E: return value is not (%s) ",
       _sprint_list(expected_result));
@@ -396,7 +343,7 @@ public define test_file(file)
           @_mode_teardown();
    if (Error_Count)
      testmessage("\n ");
-   testmessage("\n %d error%s", Error_Count, plural[Error_Count!=1] );
+   testmessage("\n %d error%s", Error_Count, plurals[Error_Count!=1] );
 }
 
 % test the current buffer
@@ -406,6 +353,8 @@ public define test_buffer()
    test_file(buffer_filename());
    popup_buffer(reportbuf);
    view_mode();
+   % goto last error
+   () = bsearch("E:");
 }
 
 
@@ -461,7 +410,8 @@ public define test_files() % (dir="")
    files = array_map(String_Type, &path_concat, dir, files);
 
    no_of_files = length(files);
-   testmessage("testing %d file%s ", no_of_files, plural[no_of_files!=1]);
+   variable plural = plurals[no_of_files!=1];
+   testmessage("testing %d file%s|dir%s ", no_of_files, plural, plural);
    update_sans_update_hook(1); % flush message
    
    if (1 == file_status(setup_file))
@@ -473,8 +423,8 @@ public define test_files() % (dir="")
           { case 1: test_file(file); no_of_errors += Error_Count;}
           { case 2: no_of_errors += test_files(path_concat(file, ""));}
      }
-   testmessage("\n%d file%s, %d error%s ", no_of_files, 
-      plural[no_of_files!=1], no_of_errors, plural[no_of_errors!=1]);
+   testmessage("\n%d file%s|dir%s, %d error%s ", no_of_files, plural, plural,
+      no_of_errors, plurals[no_of_errors!=1]);
    if (1 == file_status(teardown_file))
      evalfile(teardown_file);
 
