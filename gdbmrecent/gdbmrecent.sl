@@ -1,6 +1,6 @@
 % gdbmrecent.sl
 % 
-% $Id: gdbmrecent.sl,v 1.5 2007/02/06 18:03:27 paul Exp paul $
+% $Id: gdbmrecent.sl,v 1.6 2007/02/07 17:58:32 paul Exp paul $
 % Keywords: convenience
 %
 % Copyright (c) 2004-2007 Paul Boekholt.
@@ -219,7 +219,7 @@ private define purge_not_so_recent(db)
    % see info:(gdbm)Sequential
    foreach key (keys)
      {
-	gdbm_delete(db, key);
+	()=gdbm_delete(db, key);
      }
 }
 
