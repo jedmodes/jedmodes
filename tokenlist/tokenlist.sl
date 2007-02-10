@@ -433,14 +433,20 @@ define tkl_filter_list()
          push_spot();
          bob();
          if (flt == "") 
-            while (down_1) set_line_hidden(0);
-         else while (down_1)
          {
-            bol(); 
-            if (looking_at(tkl_BufferMark)) continue;
-            else if (ffind(flt)) set_line_hidden(0);
-            else set_line_hidden(1);
-            if (input_pending(0)) break;
+            while (down_1)
+               set_line_hidden(0);
+         }
+         else
+         {
+            while (down_1)
+            {
+               bol(); 
+               if (looking_at(tkl_BufferMark)) continue;
+               else if (ffind(flt)) set_line_hidden(0);
+               else set_line_hidden(1);
+               if (input_pending(0)) break;
+            }
          }
          pop_spot();
          try if (is_line_hidden()) call("previous_line_cmd");
