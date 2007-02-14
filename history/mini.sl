@@ -14,8 +14,6 @@
 %    srch = read_mini("Find:", "", "");
 %    mini_use_history(NULL);
 %    
-%  Replaces: jed/lib/mini.sl
-%  
 %  Installation:
 %  a) Global
 %    1. add hist-cls.sl somewhere on your jed library path

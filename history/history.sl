@@ -1,6 +1,4 @@
 %
-% Replaces: jed/lib/history.sl
-%
 % Installation
 % a) Global
 %    1. add hist-cls.sl somewhere on your jed library path
@@ -12,7 +10,11 @@
 %    3. Add the following to .jedrc:
 %       () = evalfile("jedhist/mini.sl");
 %       autoload("history_load", "jedhist/history");
-%    
+%       
+% History:
+%   2000: Created by Rocher, Francesc
+%   2007: Modified by Marko Mahnic to enable saving multiple histories
+%
 
 %!%+
 %\variable{History_File}
