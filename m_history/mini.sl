@@ -102,10 +102,12 @@ public define mini_exit_minibuffer ()
 {
    bol_skip_white ();
    !if (eolp ())
-   try 
-      history.store_value (line_as_string ());
-   finally 
-      call ("exit_mini");
+   {
+      try 
+         history.store_value (line_as_string ());
+      catch AnyError: ;
+   }
+   call ("exit_mini");
 }
 
 
