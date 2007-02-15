@@ -30,7 +30,27 @@
 %    2007-02-11: Marko Mahnic
 %      - mini_load_history and mini_save_history added
 %
-      
+%  TODO:
+%    The history list could switch automatically based on the current
+%    minibuffer prompt.
+%    
+%    define _minibuffer_prompt_changed_hook(prompt)
+%    {
+%       variable hist;
+%       % The regex/histname pairs could be stored in a list
+%       if (0 <= string_match(prompt, "^M-x", 1)) hist = "slangname";
+%       else if (0 <= string_match(prompt, "^apropos", 1)) hist = "slangname";
+%       else if (0 <= string_match(prompt, "^S-Lang>", 1)) hist = "slangexpr";
+%       else if (0 <= string_match(prompt, "file", 1)) hist = "filename";
+%       else if (0 <= string_match(prompt, "Save as", 1)) hist = "filename";
+%       else if (0 <= string_match(prompt, "Search", 1)) hist = "search";
+%       else if (0 <= string_match(prompt, "Find", 1)) hist = "search";
+%       else if (0 <= string_match(prompt, "Regexp", 1)) hist = "search";
+%       ...
+%       else hist = "default";
+%       mini_use_history(hist);
+%    }
+%    
 require("hist-cls");
 require("keydefs");
 
