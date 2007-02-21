@@ -32,7 +32,7 @@ define brief_home ()
 %   1: move to end of line
 %   2: move to end of window
 %   3: move to end of buffer
-public define brief_end ()
+define brief_end ()
 {
    if (LAST_KBD_COMMAND != "brief_end") {
       Brief_HomeEnd_Count = 0;
@@ -49,32 +49,32 @@ public define brief_end ()
 }
 
 % Scroll current line to end of window
-public define brief_line_to_eow ()
+define brief_line_to_eow ()
 {
    recenter (window_info ('r'));
 }
 
 % Scroll current line to beginning of window
-public define brief_line_to_bow ()
+define brief_line_to_bow ()
 {
    recenter (1);
 }
 
 % Scroll current line to center of window
-public define brief_line_to_mow ()
+define brief_line_to_mow ()
 {
    recenter (window_info ('r') / 2);
 }
 
 % Set bookmark number n
-public define brief_set_bkmrk_cmd (n)
+define brief_set_bkmrk_cmd (n)
 {
    ungetkey (n + '0');
    bkmrk_set_mark ();
 }
 
 % Delete from current position to end of line
-public define brief_delete_to_bol ()
+define brief_delete_to_bol ()
 {
    push_mark ();
    bol();
@@ -82,7 +82,7 @@ public define brief_delete_to_bol ()
 }
 
 % Open  a blank  line below the current line 
-public define brief_open_line ()
+define brief_open_line ()
 {
    eol ();
    newline ();
@@ -96,7 +96,7 @@ private define onoff(val)
 }
 
 % Toggle the case-sensitive search mode
-public define brief_toggle_case_search ()
+define brief_toggle_case_search ()
 {
    CASE_SEARCH = not (CASE_SEARCH);
    vmessage ("Case sensitive search is %s.", onoff(CASE_SEARCH));
@@ -105,7 +105,7 @@ public define brief_toggle_case_search ()
 variable Brief_Regexp_Search = 1;
 
 % Toggle regular expression search
-public define brief_toggle_regexp ()
+define brief_toggle_regexp ()
 {
    Brief_Regexp_Search = not (Brief_Regexp_Search);
    vmessage ("Regular expression search is %s.", onoff(Brief_Regexp_Search));
@@ -114,7 +114,7 @@ public define brief_toggle_regexp ()
 variable Brief_Search_Forward = 1;
 
 % The main search function
-public define brief_search_cmd ()
+define brief_search_cmd ()
 {
    if (Brief_Search_Forward) {
       if (Brief_Regexp_Search) re_search_forward ();
@@ -127,7 +127,7 @@ public define brief_search_cmd ()
 }
 
 % Reverse the search direction and start the search
-public define brief_reverse_search ()
+define brief_reverse_search ()
 {
    Brief_Search_Forward = not (Brief_Search_Forward);
    brief_search_cmd ();
@@ -136,7 +136,7 @@ public define brief_reverse_search ()
 % The main replace function.
 % When a region is marked the buffer is narrowed to the region
 % before search/replace and widened afterwards.
-public define brief_replace_cmd()
+define brief_replace_cmd()
 {
    variable bWiden = 0;
    if (markp()) {
@@ -222,7 +222,7 @@ private define brief_get_scrap_name ()
 }
 
 % Yanking whole lines from the pastebuffer
-public define brief_yank_lines ()
+define brief_yank_lines ()
 {
    call ("mark_spot");
    bol (); 
@@ -232,7 +232,7 @@ public define brief_yank_lines ()
 
 % Select the yank mode based on the type of data stored
 % in the pastebuffer.
-public define brief_yank ()
+define brief_yank ()
 {
    switch (brief_get_scrap_type(" <paste>"))
      { case 2: insert_rect (); message ("Columns inserted."); }
@@ -242,7 +242,7 @@ public define brief_yank ()
 
 % Select the yank mode based on the type of data stored
 % in the named buffer.
-public define brief_yank_named ()
+define brief_yank_named ()
 {
    variable sctype, scbuf, b;
    variable scrapname = brief_get_scrap_name();
@@ -272,7 +272,7 @@ public define brief_yank_named ()
 % Prototype: brief_complete_line_region ()
 % Makes a line region complete including whole first line
 % and whole last line (with newline character).
-public define brief_complete_line_region ()
+define brief_complete_line_region ()
 {
    check_region (0);           %% region is canonical
    exchange_point_and_mark (); %% mark entire first line
@@ -287,7 +287,7 @@ public define brief_complete_line_region ()
 
 % Check if a marked region exists. If it does not, mark the current line.
 % Returns 1 if the region was automarked, 0 otherwise.
-public define brief_check_marked_automark ()
+define brief_check_marked_automark ()
 {
    if (markp() == 0) {                % not marked --> copy line
       if (eobp() and bolp()) return (0);
@@ -350,19 +350,19 @@ private define brief_region_to_scrap(opinfo, macro, rectmacro, namedscrap)
 }
 
 % Copy the region to pastebuffer based on current mark type (normal, lines, columns)
-public define brief_copy_region ()
+define brief_copy_region ()
 {
    brief_region_to_scrap("copied", "copy_region", "copy_rect", NULL);
 }
 
 % Cut the region to pastebuffer based on current mark type (normal, lines, columns)
-public define brief_kill_region ()
+define brief_kill_region ()
 {
    brief_region_to_scrap("cut", "kill_region", "kill_rect", NULL);
 }
 
 % Copy the region to a named buffer based on current mark type (normal, lines, columns)
-public define brief_copy_region_named ()
+define brief_copy_region_named ()
 {
    variable name = brief_get_scrap_name();
    if (name != NULL)
@@ -370,7 +370,7 @@ public define brief_copy_region_named ()
 }
 
 % Cut the region to a named buffer based on current mark type (normal, lines, columns)
-public define brief_kill_region_named ()
+define brief_kill_region_named ()
 {
    variable name = brief_get_scrap_name();
    if (name != NULL)
@@ -379,7 +379,7 @@ public define brief_kill_region_named ()
 
 % Delete the next charactre.
 % If a region is marked, delete it based on current mark type (normal, lines, columns)
-public define brief_delete ()
+define brief_delete ()
 {
    if (markp ()) {
       if (Brief_Mark_Type == 2)  {
@@ -403,7 +403,7 @@ public define brief_delete ()
 % If a region is marked and it is of type MarkType,
 % the region is unmarked, 1 is returned. It returns
 % 0 otherwise.
-public define brief_unmark (n)
+define brief_unmark (n)
 {
    if (markp ()) {
       if (Brief_Mark_Type == n) {
@@ -420,7 +420,7 @@ public define brief_unmark (n)
 % Start marking a region and set region type to Lines.
 % If a region is already marked and is not of type Lines,
 % change region type to Lines.
-public define brief_line_mark ()
+define brief_line_mark ()
 {
    !if (brief_unmark (3)) {
       Brief_Mark_Type = 3;
@@ -433,7 +433,7 @@ public define brief_line_mark ()
 }
 
 % void brief_set_mark_cmd (int MarkType)
-public define brief_set_mark_cmd (n)
+define brief_set_mark_cmd (n)
 {
    !if (brief_unmark (n)) {
       Brief_Mark_Type = n;
@@ -449,7 +449,7 @@ public define brief_set_mark_cmd (n)
 % Start marking a region and set region type to Columns.
 % If a region is already marked and is not of type Columns,
 % change region type to Columns.
-public define brief_set_column_mark ()
+define brief_set_column_mark ()
 {
    !if (brief_unmark (2)) {
       Brief_Mark_Type = 2;
@@ -459,7 +459,7 @@ public define brief_set_column_mark ()
 }
 
 % Start macro recording. If recording is already in progress, stop recording.
-public define brief_record_kbdmacro ()
+define brief_record_kbdmacro ()
 {
    if (DEFINING_MACRO) {
       call ("end_macro");
@@ -475,7 +475,7 @@ public define brief_record_kbdmacro ()
 %    if direction >= 0 ==> next buffer
 %    if direction  < 0 ==> prev buffer
 % It skips system buffers and buffers with names beginning with '*'. 
-public define brief_next_buffer (direction)
+define brief_next_buffer (direction)
 {
    variable n, buf;
    
@@ -516,7 +516,7 @@ private define brief_store_last_column ()
 % Prototype: brief_pageup ()
 % Moves one page up leaving the cursor on the same position in the
 % window.
-public define brief_pageup ()
+define brief_pageup ()
 {
    variable woffs;
    
@@ -535,7 +535,7 @@ public define brief_pageup ()
 % Prototype: brief_pagedown ()
 % Moves one page down leaving the cursor on the same position in the
 % window.
-public define brief_pagedown ()
+define brief_pagedown ()
 {
    variable woffs;
      
@@ -553,7 +553,7 @@ public define brief_pagedown ()
 
 % Prototype: brief_delete_buffer ()
 % Deletes the current buffer if it is not the minibuffer.
-public define brief_delete_buffer ()
+define brief_delete_buffer ()
 {
    if (MINIBUFFER_ACTIVE) return;
    delbuf (whatbuf ());
