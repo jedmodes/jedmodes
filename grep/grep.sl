@@ -37,19 +37,28 @@
 % 1.1.2 2006-09-20  bugfix in grep_fsearch(): did not find matches right
 % 		    after the separator
 % 1.1.3 2006-09-22  removed spurious debug output (report P Boekholt)
+% 1.1.4 2007-02-23  bugfix: grep() did recursive grep for empty basename
+% 		    in grep pattern
 %
 % USAGE
 %
-% From jed:              M-x grep
-% From the command line: grep -nH "sometext" * | jed --grep_mode
-% (You should have grep_mode in your autoload list for this to work.)
-% The second approach doesnot work for xjed, use
-%   xjed -f "grep(\"sometext\", \"*\")"
+% * from jed:  `M-x grep` (or bind to a key)
+% 
+% * from the command line: `grep -nH "sometext" * | jed --grep_mode`
+% 
+%   You should have grep_mode in your autoload list for this to work.
+%   
+%   Doesnot work for xjed, use e.g. `xjed -f "grep(\"sometext\", \"*\")"`
+%   or the X selection.
 %
-% To open a file on a find, go to the line press ENTER or double click on it
+% * To open a file on a result line, go to the line press ENTER or double click
+%   on it
 %
-% To replace text across the grep results, use your normal keybinding for the
-% replace_cmd().
+% * To replace text across the grep results, use your normal keybinding for
+%   the replace_cmd(). 
+%   
+%   (Find it with `Help>Where is Command` replace_cmd, in any buffer but the
+%   *grep-output*
 %
 % CUSTOMIZATION
 %
@@ -351,7 +360,7 @@ public define grep() % ([what], [path])
    path = contract_filename(path);
 
    % recursive grep with special char '!' (analog to kpathsea)
-   if (is_substr(basename, "!") == strlen(basename))
+   if (substr(basename, strlen(basename), 1 ) == "!")
      {
 	options = "-r";
 	path = path_dirname(path);
@@ -366,8 +375,8 @@ public define grep() % ([what], [path])
    cmd = strjoin([Grep_Cmd, options, what, path], " ");
 
    % Prepare the output buffer
-   popup_buffer("*grep_output*", FileList_max_window_size);
-   setbuf_info("", dir, "*grep_output*", 0);
+   popup_buffer("*grep-output*", FileList_max_window_size);
+   setbuf_info("", dir, "*grep-output*", 0);
    erase_buffer();
    set_buffer_modified_flag(0);
 
@@ -378,13 +387,10 @@ public define grep() % ([what], [path])
    variable msg = ["OK", "No results for ", "Error (or file not found) in "];
    if (status)
      {
-	% show(status, msg[status] + cmd);
-	% close_buffer();
-        message(msg[status] + cmd);
-	% return;
+        insert(msg[status] + cmd);
      }
    if (bolp() and eolp())
-     call("backward_delete_char");
+     delete_line();
    fit_window(get_blocal("is_popup", 0));
    bob();
    set_status_line("Grep: " + cmd + " (%p)", 0);
@@ -394,4 +400,3 @@ public define grep() % ([what], [path])
 %}}}
 
 provide(mode);
-
