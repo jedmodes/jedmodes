@@ -50,6 +50,8 @@
 %                  * Erase the export output buffer before exporting
 %                  * rename rst_list_routines_hook() to 
 %                    rst_list_routines_done() to match the new tokenlist.sl
+% 1.7.1 2007-02-26 * the rst2pdf.py script did not work. It is replaced by
+%                    `py.rest --topdf`.
 % ===== ========== ==============================================================
 % 
 % 
@@ -160,11 +162,11 @@ custom_variable("Rst2Latex_Cmd", "rst2latex");
 % these changes are only valid for the current jed session. Permanent changes
 % should be done by defining the variable in the jed.rc file.
 %\notes
-% The default works if the executable `rst2pdf.py` is installed in the
-% PATH (e.g. with the Debian package python-docutils.deb).
+% The default works if the executable `py.rest` is installed in the
+% PATH (e.g. with the Debian package `python-codespeak-lib`).
 %\seealso{rst_mode, Rst2Pdf_Cmd, Rst2Html_Cmd}
 %!%-
-custom_variable("Rst2Pdf_Cmd", "rst2pdf.py");
+custom_variable("Rst2Pdf_Cmd", "py.rest --topdf");
 
 %!%+
 %\variable{Rst_Documentation_Path}
@@ -187,7 +189,7 @@ custom_variable("Rst_Documentation_Path",
 % ::
 
 static variable Last_Underline_Char = "-";
-static variable Underline_Chars = "*=-~\"'`^:+#<>_";
+static variable Underline_Chars = "-*=~\"'`^:+#<>_";
 static variable Underline_Regexp = sprintf("^\\([%s]\\)\\1+[ \t]*$",
    str_quote_string(Underline_Chars, "\\^$[]*.+?", '\\')); 
 
@@ -242,15 +244,16 @@ Markup_Tags["substitution"]       = ["\n.. |", "|"];
 % ::
 
 % export the buffer/region to outfile using export_cmds[]
-static define rst_export() % (to, outfile=path_sans_extname(whatbuf())+".html")
+static define rst_export() % (to, outfile=path_sans_extname(whatbuf())+"."+to)
 {
    variable to, outfile;
-   (to, outfile) = 
-     push_defaults( , path_sans_extname(whatbuf())+".html", _NARGS);
+   (to, outfile) = push_defaults( , , _NARGS);
    
    if (to == NULL)
      to = read_with_completion(strjoin(assoc_get_keys(export_cmds), ","),
-      "Export buffer to ", "html", "", 's'); 
+      "Export buffer to ", "html", "", 's');
+   if (outfile == NULL)
+     outfile = path_sans_extname(whatbuf()) + "." + to;
    outfile = path_concat(buffer_dirname(), outfile);
 
    variable cmd = strjoin([@export_cmds[to], buffer_filename(), outfile], " ");
@@ -402,9 +405,7 @@ static define section_markup() % ([ch])
 
 #ifexists list_routines
 
-% message("tokenlist present");
-% 
-% ::
+%% message("tokenlist present");
 
 % array of regular expressions matching routines
 public  variable rst_list_routines_regexp = [Underline_Regexp];
