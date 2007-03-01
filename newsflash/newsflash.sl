@@ -1,6 +1,6 @@
 % newsflash.sl
 % 
-% $Id: newsflash.sl,v 1.1 2006/12/02 11:52:37 paul Exp paul $
+% $Id: newsflash.sl,v 1.2 2007/03/01 17:26:30 paul Exp paul $
 %
 % Copyright (c) 2006 Paul Boekholt.
 % Released under the terms of the GNU GPL (version 2 or later).
@@ -50,7 +50,7 @@ variable userdata = struct {
    is_read
 };
 
-variable debug_mode=1;
+variable debug_mode=0;
 %{{{ database
 
 variable db, dbfile = dircat(Jed_Home_Directory, "rss.db");
@@ -90,7 +90,6 @@ db = sqlite_open(dbfile);
      sqlite_exec(db, sprintf("INSERT OR IGNORE INTO feeds ('name', 'url') VALUES ('%s', '%s')",
 			     $2[0], $2[1]));
    sqlite_exec(db, "UPDATE feeds SET cleanlevel=0 WHERE name='JED checkins'");
-   sqlite_exec(db, "UPDATE feeds SET cleanlevel=2 WHERE name='w3c'");
 }
 sqlite_exec(db, "PRAGMA synchronous = OFF;");
 
@@ -110,11 +109,12 @@ define pop_state(p)
    else p.userdata.state = "";
 }
 
-% We need all these function because it's not possible to pass  a reference
-% to a structure member.  It would be easier to just read characterdata into a
-% "characterdata" member and copy it to the correct member when the element's
-% closing tag is seen, but in some RSS dialects the "item" elements are
-% children of the "channel" element and in some they are siblings.
+% We need all these functions because it's not possible to pass a reference
+% to a structure member in slang 2.0.  It would be easier to just read
+% characterdata into a "characterdata" member and copy it to the correct
+% member when the element's closing tag is seen, but in some RSS dialects the
+% "item" elements are children of the "channel" element and in some they are
+% siblings.
 define read_title(p, s)
 {
    p.userdata.item.title += s;
@@ -305,7 +305,6 @@ define store_feed(feed, items)
 
    
 %}}}
-
 %{{{ rss mode
 %{{{ html tagsoup cleaner
 
@@ -353,7 +352,6 @@ define clean_tagsoup()
      }
    catch ExpatError:
      {
-	message("could not clean tagsoup");
 	remove_tags();
      }
 }
@@ -450,10 +448,19 @@ define get_item()
    return -1;
 }
 
+define view_item()
+{
+   variable buf = whatbuf();
+   ()=get_item();
+   pop2buf(buf);
+}
+
 define scroll()
 {
    variable buf =  whatbuf();
    variable item = item_at_point();
+   !if(buffer_visible("news description"))
+     return view_item();
    pop2buf("news description");
    if (item == get_blocal_var("item", NULL))
      {
@@ -481,14 +488,6 @@ define scroll()
      }
 }
 
-define view_item()
-{
-   variable buf = whatbuf();
-   ()=get_item();
-   pop2buf(buf);
-}
-
-
 define rss_goto_page()
 {
    variable item = item_at_point();
@@ -510,7 +509,7 @@ define rss_jedscape()
    definekey(&next_unread_item, "n", mode);
    definekey(&scroll, " ", mode);
 }
-      
+
 define rss_mode()
 {
    view_mode();
@@ -519,7 +518,6 @@ define rss_mode()
 }
 
 %}}}
-
 %{{{ start reading news
 
 define get_is_read(feed)
@@ -622,6 +620,8 @@ public define read_rss_data(url, data)
      }
    variable p = rss_new(url);
    p.userdata.is_read = get_is_read(feed);
+   p.userdata.cleanlevel = sqlite_get_row(db, sprintf("select cleanlevel from feeds where name='%s'",
+					  str_quote_string(feed, "'", '\'')));
    p.userdata.itemhandler = &item_handler;
    p.userdata.buffer = feed;
    pop2buf(feed);
