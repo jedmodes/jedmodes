@@ -1,6 +1,6 @@
 % Number the buffers and bind Alt-1 .. Alt-9 to go to numbered_buffer
 % 
-% Copyright (c) 2003 Günter Milde
+% Copyright (c) 2006 Guenter Milde (milde users.sf.net)
 % Released under the terms of the GNU General Public License (ver. 2 or later)
 % 
 % Version 1.0  first public version
@@ -13,7 +13,9 @@
 %              (buffer-numbers and keybindings start at 1)
 %         1.3  new custom variable Numbuf_number_all: number also buffers
 %              not bound to a file
-%         1.3.1  2005-11-02 Fix "public" statements     
+%         1.3.1  2005-11-02 Fix "public" statements
+%         1.3.2  2007-03-07 numbuf_menu_callback() depended on Global.sw2buf()
+%         	 	    from bufutils. Report Sangoi Dino Leonardo
 %              
 % USAGE
 % 
@@ -85,7 +87,7 @@ define numbuf_menu_callback (popup)
      {
         buf = ();
         if (bufferp(buf))
-          menu_append_item (popup, "&"+string(i)+" "+buf, "go2buf", buf);
+          menu_append_item (popup, "&"+string(i)+" "+buf, &go2buf, buf);
 	i++;
      }
    % append the unnumbered buffers
