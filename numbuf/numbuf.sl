@@ -3,20 +3,21 @@
 % Copyright (c) 2006 Guenter Milde (milde users.sf.net)
 % Released under the terms of the GNU General Public License (ver. 2 or later)
 % 
-% Version 1.0  first public version
-%         1.1  removed hidden dependency on datutils
-%              cleaned up code
-%         1.2  bugfix: buffer number did not show up when buffername was still
-%                      present in Numbered_Buffer_List when (re)loading the
-%                      buffer
-%              Numbered_Buffer_List[0] now used as well (was kept empty)
-%              (buffer-numbers and keybindings start at 1)
-%         1.3  new custom variable Numbuf_number_all: number also buffers
-%              not bound to a file
-%         1.3.1  2005-11-02 Fix "public" statements
-%         1.3.2  2007-03-07 numbuf_menu_callback() depended on Global.sw2buf()
-%         	 	    from bufutils. Report Sangoi Dino Leonardo
-%              
+% VERSIONS
+% 1.0    first public version
+% 1.1    removed hidden dependency on datutils
+%        cleaned up code
+% 1.2    bugfix: buffer number did not show up when buffername was still
+%        present in Numbered_Buffer_List when (re)loading the buffer
+%        Numbered_Buffer_List[0] now used as well (was kept empty)
+%        (buffer-numbers and keybindings start at 1)
+% 1.3    new custom variable Numbuf_number_all
+% 1.3.1  2005-11-02 Fix "public" statements
+% 1.3.2  2007-03-07 patches by Sangoi Dino Leonardo 
+% 	 	    numbuf_menu_callback() called sw2buf() from bufutils,
+% 	 	    number_buffer() and Numbered_Buffer_List made private, 
+% 	 	    fix message in goto_numbered_buffer(n) 
+%      
 % USAGE
 % 
 % Put in jed_library_path and insert a line
@@ -43,13 +44,13 @@ custom_variable("Numbuf_number_all", 0);
 
 private variable chbuf_menu = "Global.&Buffers.&Change Buffer";
 
-variable Numbered_Buffer_List = String_Type[10];
+private variable Numbered_Buffer_List = String_Type[10];
 Numbered_Buffer_List[*] = ""; % initialize
 
 % --- Functions ------------------------------------------------------------
 
 % number the buffer if not done
-define number_buffer()
+private define number_buffer()
 {
    _pop_n(_NARGS);  % remove possible arguments from stack
    variable buf = whatbuf(), free_numbers;
@@ -118,7 +119,7 @@ define goto_numbered_buffer(n)
    else if (Numbuf_show_list_when_failing)
      menu_select_menu(chbuf_menu);
    else
-     message("Buffer "+string(n+1)+" doesn't exist.");
+     message("Buffer "+string(n)+" doesn't exist.");
 }
 
 % Keybindings: Default is to bind Alt-1 to Alt-9 to goto_numbered_buffer
