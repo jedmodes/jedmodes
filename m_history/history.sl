@@ -14,7 +14,8 @@
 % History:
 %   2000: Created by Rocher, Francesc
 %   2007: Modified by Marko Mahnic to enable saving multiple histories
-%
+%   2007-03-10: Paul Boekholt
+%     - bugfix: save_history_at_exit sometimes prevented exiting jed
 
 %!%+
 %\variable{History_File}
@@ -183,7 +184,11 @@ define history_local_save ()
 
 private define save_history_at_exit ()
 {
-   () = history_save ();
+   try 
+     {
+        () = history_save ();
+     }
+   catch AnyError;
    return 1;
 }
 
