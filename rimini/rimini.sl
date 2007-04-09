@@ -1,8 +1,8 @@
 % rimini.sl
 % 
-% $Id: rimini.sl,v 1.7 2006/10/03 10:31:34 paul Exp paul $
+% $Id: rimini.sl,v 1.8 2007/04/09 12:01:50 paul Exp paul $
 % 
-% Copyright (c) 2003,2006 Paul Boekholt
+% Copyright (c) 2003,2006,2007 Paul Boekholt
 % Released under the terms of the GNU GPL (version 2 or later).
 % 
 % Bash-like reverse-isearch function for the minibuffer.
@@ -12,8 +12,9 @@
 %   make_keymap ("Mini_Map");
 % definekey ("mini_isearch", "^r","Mini_Map");
 
-static variable last_isearch = "";
-variable rimini_array=NULL;
+private variable last_isearch = "";
+% don't overwrite this variable when this is autoloaded by ffap.sl
+custom_variable("rimini_array", NULL);
 
 % 
 %!%+
@@ -54,16 +55,21 @@ public define mini_isearch ()
    variable lines, c, s = "", n;
    if (rimini_array != NULL)
      {
-	ERROR_BLOCK
+	try 
+	  {
+	     if (Array_Type == typeof(rimini_array))
+	       lines = rimini_array;
+	     else if (Ref_Type == typeof(rimini_array))
+	       {
+		  lines = @rimini_array;
+		  lines = lines[[::-1]];
+	       }
+	     else lines = mini_get_lines(NULL);
+	  }
+	finally 
 	  {
 	     rimini_array = NULL;
 	  }
-	if (Array_Type == typeof(rimini_array))
-	  lines = rimini_array;
-	else if (Ref_Type == typeof(rimini_array))
-	  lines = @rimini_array;
-	else lines = mini_get_lines(NULL);
-	EXECUTE_ERROR_BLOCK;
      }
    else if (andelse
 	    {is_defined("recent_get_files")}	
@@ -78,10 +84,9 @@ public define mini_isearch ()
      lines = [buffer_list(), pop];
    else lines = mini_get_lines(NULL);
    variable matches = NULL;
-   variable default="";
-   bol;
-   push_mark_eol;
-   default = bufsubstr;
+   bol();
+   push_mark_eol();
+   variable default = bufsubstr();
    erase_buffer();
    insert ("isearch `':");
    update(0);
@@ -93,7 +98,7 @@ public define mini_isearch ()
 	  {
 	     erase_buffer();
 	     insert(strcat ("isearch `", s, "': ", matches[-1]));
-	     bol;
+	     bol();
 	     () = ffind (":");
 	     () = ffind (s);
 	     update(1);
@@ -105,99 +110,103 @@ public define mini_isearch ()
 	     update(1);
 	  }
      }
-   ERROR_BLOCK
+
+   try 
      {
-   	pop; % C-g left on stack
-   	_clear_error;
-   	erase_buffer();
-   	insert(default);
-     }
-
-   forever
-     {
-	c = getkey();
-	switch (c)
-	  { case 18:	% ^r - search next occurrence
-	     if (s == "")
-	       {	% pressing ^r twice gives you the last saved isearch
-		  s = last_isearch;
-		  X_USER_BLOCK0;
-	       }
-	     else if (length (matches) == 1 + n)
-	       beep();
-	     else
-	       {
-		  n++;
-		  erase_buffer();
-		  insert(strcat ("isearch `", s, "': ", matches[-1 -n]));
-		  bol;
-		  () = ffind (":");
-		  () = ffind (s);
-		  update(1);
-	       }
-	  }
-	  { case 19:	% ^s - previous occurrence
-	     if (n == 0)
-	       beep();
-	     else
-	       {
-		  n--;
-		  erase_buffer();
-		  insert(strcat ("isearch `", s, "': ", matches[-1 -n]));
-		  bol;
-		  () = ffind (":");
-		  () = ffind (s);
-		  update(1);
-	       }
-	  }
-	  { case  127 :	% backspace
-	     if (strlen(s) > 1)
-	       {
-		  s = s[[:-2]];
-		  X_USER_BLOCK0;
-	       }
-	     else
-	       {
-		  s = "";
-		  matches = NULL;
-		  erase_buffer();
-		  insert ("isearch `':");
-		  update(0);
-	       }
-	  }
-
-	% Do we need something for '\e'? (See isearch.sl)
-
+	forever
 	  {
-#ifdef IBMPC_SYSTEM 	% This OK?  I don't have an IBM.
-	    case 0xE0 or	% \224: prefix for cursor keys on IBM
-#endif
-	     (c < 32) :	% stop searching, ungetkey (if you pressed 
-			% enter it will be entered immediately)
-	     erase_buffer();
-	     if (andelse { matches != NULL} {length(matches)})
-	       {
-		  last_isearch = s;
-		  insert(matches[-1 -n]);
+	     c = getkey();
+	     switch (c)
+	       { case 18:	% ^r - search next occurrence
+		  if (s == "")
+		    {	% pressing ^r twice gives you the last saved isearch
+		       s = last_isearch;
+		       X_USER_BLOCK0;
+		    }
+		  else if (length (matches) == 1 + n)
+		    beep();
+		  else
+		    {
+		       n++;
+		       erase_buffer();
+		       insert(strcat ("isearch `", s, "': ", matches[-1 -n]));
+		       bol;
+		       () = ffind (":");
+		       () = ffind (s);
+		       update(1);
+		    }
 	       }
-	     else insert(default);
-	     ungetkey(c);
-	     break;
+	       { case 19:	% ^s - previous occurrence
+		  if (n == 0)
+		    beep();
+		  else
+		    {
+		       n--;
+		       erase_buffer();
+		       insert(strcat ("isearch `", s, "': ", matches[-1 -n]));
+		       bol();
+		       () = ffind (":");
+		       () = ffind (s);
+		       update(1);
+		    }
+	       }
+	       { case  127 :	% backspace
+		  if (strlen(s) > 1)
+		    {
+		       s = s[[:-2]];
+		       X_USER_BLOCK0;
+		    }
+		  else
+		    {
+		       s = "";
+		       matches = NULL;
+		       erase_buffer();
+		       insert ("isearch `':");
+		       update(0);
+		    }
+	       }
+	     
+	     % Do we need something for '\e'? (See isearch.sl)
+	     
+	       {
+#ifdef IBMPC_SYSTEM 	% This OK?  I don't have an IBM.
+		case 0xE0 or	% \224: prefix for cursor keys on IBM
+#endif
+		    (c < 32) :	% stop searching, ungetkey (if you pressed 
+		  % enter it will be entered immediately)
+		  erase_buffer();
+		  if (andelse { matches != NULL} {length(matches)})
+		    {
+		       last_isearch = s;
+		       insert(matches[-1 -n]);
+		    }
+		  else insert(default);
+		  ungetkey(c);
+		  break;
+	       }
+	       {		% add to search string
+		  s += char(c);
+		  X_USER_BLOCK0;
+	       }
 	  }
-	  {		% add to search string
-	     s += char(c);
-	     X_USER_BLOCK0;
-	  }
+     }
+   catch AnyError:
+     {
+	erase_buffer();
+	insert(default);
      }
 }
-
+   
 define read_string_with_completion (prompt, dflt, list)
 {
    rimini_array=strchop(list, ',', 0);
-   ERROR_BLOCK
+   try
+     {
+	read_with_completion (list, prompt, dflt, Null_String, 's');
+     }
+   finally
      {
 	rimini_array = NULL;
      }
-   read_with_completion (list, prompt, dflt, Null_String, 's');
-   EXECUTE_ERROR_BLOCK;
 }
+   

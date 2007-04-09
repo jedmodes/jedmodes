@@ -1,8 +1,8 @@
 % ffap.sl
 % 
-% $Id: ffap.sl,v 1.6 2006/03/22 09:08:38 paul Exp paul $
+% $Id: ffap.sl,v 1.7 2007/04/09 12:01:50 paul Exp paul $
 % 
-% Copyright (c) 2003-2006 Paul Boekholt.
+% Copyright (c) 2003-2007 Paul Boekholt.
 % Released under the terms of the GNU GPL (version 2 or later).
 % 
 % Find File At Point, something like Emacs' ffap.  You can use this as a
@@ -40,22 +40,10 @@ custom_variable("Ffap_Prompt_Level", 3);
 
 autoload("get_word", "txtutils");
 autoload("dired_read_dir", "dired");
-
 variable rimini_array;
 %{{{ helper fun
 
-%!%+
-%\function{add_list_element}
-%\synopsis{prepend an element to a string with delimiters}
-%\usage{String_Type add_list_element(String_Type list, String_Type elem,Integer_Type delim)}
-%\description
-%   If \var{elem} is not an element of \var{list}, return the concatenation
-%   of \var{elem} and \var{list} with delimiter \var{delim}, otherwise
-%   return \var{list}.
-%   
-%\seealso{is_list_element, extract_element, create_delimited_string}
-%!%-
-public  define add_list_element(list, elem, delim)
+private define add_list_element(list, elem, delim)
 {
    if (strlen(elem) and not is_list_element(list, elem, delim))
      {
@@ -118,7 +106,7 @@ public  define ffap_set_info(mode, ext, path, always)
    ffap_info[mode].always = always;
 }
 
-ffap_set_info("SLang", ".sl", get_jed_library_path, 2);
+ffap_set_info("SLang", ".sl", get_jed_library_path(), 2);
 
 %}}}
 
@@ -132,11 +120,11 @@ ffap_set_info("SLang", ".sl", get_jed_library_path, 2);
 %            1  'file' is a valid file
 %            2  'file' is a directory
 %            3  'file' is a URL
-static define ffap_find()
+private define ffap_find()
 {
    variable mode, path = "", exts= "", always = 0, 
      word, file, this_file, dir, ext;
-   (mode, ) = what_mode;
+   (mode, ) = what_mode();
    if (assoc_key_exists(ffap_info, mode))
      {
 	exts = ffap_info[mode].ext;
@@ -153,7 +141,7 @@ static define ffap_find()
    if ((is_substr(word, "http://")==1) or (is_substr(word, "ftp://")==1))
      return(word, 3);
    
-   (this_file, dir, ,) = getbuf_info;
+   (this_file, dir, ,) = getbuf_info();
    switch (file_status(dircat(dir, word)))
      { case 1: return (word, 1); } % file in buffer-dir or absolute filename
      { case 2: return(word, 2); }  % dir in buffer-dir or absolute dirname
@@ -166,7 +154,7 @@ static define ffap_find()
    else
      {
 	path = add_list_element(path, strtrim_end(dir, "/"), ',');
-	if (strncmp(word, ".", 1)) % this is to look for dotfile in HOME
+	!if (strncmp(word, ".", 1)) % this is to look for dotfile in HOME
 	  path = add_list_element(path, getenv("HOME"), ',');
      }
    !if (strlen(word)) 
@@ -176,9 +164,8 @@ static define ffap_find()
    file = search_path_for_file(path, word);   %  try file 'as is'
    if (file != NULL)
         return (file, 1);  % found with original extension
-   foreach (strchop(exts, ',', 0))     %  try with ext
+   foreach ext (strchop(exts, ',', 0))     %  try with ext
      {
-	ext = ();
 	file = search_path_for_file(path, word + ext);
 	if (file != NULL)
 	  break;
@@ -218,7 +205,7 @@ static define ffap_find()
 public define ffap()
 {
    variable file, status;
-   (file, status) = ffap_find;
+   (file, status) = ffap_find();
    if (status == 3) % URL
      {
 	if (is_defined(Ffap_URL_Reader))
@@ -234,10 +221,18 @@ public define ffap()
    if (Ffap_Prompt_Level - status > 0)
      {
 	if (is_defined("recent_get_files"))
-	  rimini_array=runhooks("recent_get_files");
-	ERROR_BLOCK { rimini_array = NULL; }
-	file = read_with_completion("Find file:", "", file, 'f');
-	EXECUTE_ERROR_BLOCK;
+	  {
+	     rimini_array=__get_reference("recent_get_files");
+	  }
+	
+	try 
+	  {
+	     file = read_with_completion("Find file:", "", file, 'f');
+	  }
+	finally
+	  {
+	      rimini_array = NULL;
+	  }
      }
    () = find_file(file);
 }
