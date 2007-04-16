@@ -1,6 +1,6 @@
 % ding.sl   Ding dictionary lookup
 % 
-% Copyright (c) 2006 Günter Milde
+% Copyright (c) 2006 Guenter Milde (milde users.sf.net)
 % Released under the terms of the GNU General Public License (ver. 2 or later)
 %
 % inspired by the tcl/tk program "ding" for german-english translation
@@ -11,6 +11,8 @@
 % 2005-11-07 1.2   changed _implements() to implements()
 % 2006-05-26 1.2.1 missing autoload and forward def. for ding() (J. Sommer)
 % 2006-06-01 1.2.2 forward def needs to be public
+% 2007-04-16 1.3   renamed Wordlists -> Ding_Wordlists
+% 	     	   error message, if no word-lists found
 % 
 % 
 % REQUIREMENTS
@@ -43,7 +45,7 @@
 
 % --- requirements ---
 
-require("keydefs"); % symbolic names for keys
+require("keydefs"); % symbolic constants for many function and arrow keys
 % non-standard extensions
 require("view"); %  readonly-keymap
 autoload("push_defaults", "sl_utils");
@@ -77,20 +79,21 @@ custom_variable("Ding_Word_Search", 1);
 
 % the list of known dictionaries, define here
 % if not done in the .jedrc. this default works for Debian and SuSE Linux
-!if (is_defined("Wordlists"))
+!if (is_defined("Ding_Wordlists"))
 {
-   public variable Wordlists = Assoc_Type[String_Type];
    foreach(["/usr/share/trans/de-en", "/usr/X11R6/lib/ding/ger-eng.txt"])
      if (file_status(dup))
        {
-	  Wordlists["de-en"] = ();
+	  Ding_Wordlists["de-en"] = ();
 	  break;
        }
+   error("No dictionary found. Please define at least one in `Ding_Wordlists'");
+   public variable Ding_Wordlists = Assoc_Type[String_Type];
 }
 
 % or with custom separator-string given after a newline-char
-%   Wordlists["de-en"] = ["/usr/X11R6/lib/ding/ger-eng.txt\n::"];
-% TODO: Wordlists[key] = (file\n sep="::"\n word_chars=get_word_chars);
+%   Ding_Wordlists["de-en"] = ["/usr/X11R6/lib/ding/ger-eng.txt\n::"];
+% TODO: Ding_Wordlists[key] = (file\n sep="::"\n word_chars=get_word_chars);
 
 % --- static variables -------------------------------------------
 
@@ -140,7 +143,7 @@ static define toggle_word_search()
 % {
 %    variable key, file, sep;
 %    (key, file, sep) = push_defaults( , , Default_Sep, _NARGS);
-%    Wordlists[key] = file+\n+sep;
+%    Ding_Wordlists[key] = file+\n+sep;
 % }
 
 % Switch focus to side: 0 left, 1 right, 2 toggle 
@@ -192,10 +195,13 @@ public define ding() % ([word], direction=Ding_Direction)
    (word, direction) = push_defaults( , Ding_Direction, _NARGS);
    if (word == NULL)
      word = read_mini("word to translate:", bget_word(), "");
+   % TODO: poor mans utf-8 conversion
+   % !if (_slang_utf8_ok)
+   %   word = lat1_to_utf8(word);
 
    variable pattern, lookup_cmd = "grep",
-     file = extract_element(Wordlists[Ding_Dictionary], 0, '\n'),
-   sep  = extract_element(Wordlists[Ding_Dictionary],1,'\n');
+     file = extract_element(Ding_Wordlists[Ding_Dictionary], 0, '\n'),
+   sep  = extract_element(Ding_Wordlists[Ding_Dictionary],1,'\n');
    
    if (sep == NULL)
      sep = Default_Sep;
@@ -317,7 +323,7 @@ static define ding_menu (menu)
    menu_append_item (menu, "Toggle &Direction", "ding->toggle_direction");
    menu_append_item (menu, "Toggle &Word Search", "ding->toggle_word_search");
    menu_append_item (menu, "&Quit", "close_buffer");
-% TODO: popup_menu "Set &Wordlist", list assoc_get_keys(Wordlists)
+% TODO: popup_menu "Set &Wordlist", list assoc_get_keys(Ding_Wordlists)
 % 		   		    set Dictionary
 % 	better feedback in toggle Case/Direction
 }
@@ -329,10 +335,10 @@ define_syntax ("::", "", '%', mode);   % Comments (2nd language as comment)
 
 set_syntax_flags (mode, 0);
 
-define ding_mode()
+public define ding_mode()
 {
    set_mode(mode, 0);
-%   use_syntax_table (mode);
+%  use_syntax_table (mode);
    set_readonly(1);
    set_buffer_modified_flag(0);
    use_keymap (mode);
