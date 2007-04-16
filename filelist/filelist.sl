@@ -2,7 +2,7 @@
 % A special mode for file listings (ls, ls -a, locate)
 % -> replace/extend dired mode
 %
-% Copyright (c) 2005 Günter Milde
+% Copyright (c) 2005 Guenter Milde (milde users.sf.net)
 % Released under the terms of the GNU General Public License (ver. 2 or later)
 %
 % Version   0.9   * initial version (beta)
@@ -45,18 +45,23 @@
 % 2005-11-25  1.5.1 bugfix: mark directories and cleanup again
 % 	      	    code cleanup regarding FileList_Cleanup
 % 2006-02-16  1.5.2 added fit_window() to autoloads (report Mirko Rzehak)
+% 2006-03-13  1.5.3 USAGE docu fix
+% 2006-05-23  1.6   Copy and delete instead of rename if the destination is
+%                   on a different filesystem.
+% 2007-04-16  1.7   Changed the keybinding for (i)search from '^S' to 's'
+% 	      	    to match the one in tokenlist and keep the original '^S'.
 %
 %
 % TODO: * more bindings of actions: filelist_cua_bindings
-% 	* detailed directory listing (ls -l)
-% 	* quoting of special file names
-% 	* give error reason with errno/errno_string (if not automatically done)
-%       * custom_variable("dir_ls_cmd", "ls -la --quoting-style=shell")
 %       * copy from filelist to filelist ...
 %         ^C copy : cua_copy_region und copy_tagged (in separaten buffer)
 %         ^X kill:  yp_kill_region und kill_tagged    ""   ""        ""
 %         ^V filelist_insert (im filelist modus)
 %         bzw die bindungen abfragen.
+% 	* detailed directory listing (ls -l)
+%       * custom_variable("dir_ls_cmd", "ls -la --quoting-style=shell")
+% 	* quoting of special file names
+% 	* give error reason with errno/errno_string (if not automatically done)
 %       * use MIME_types and mailcap (view and edit commands) for
 %         FileList_Default_Commands
 %
@@ -66,9 +71,10 @@
 % * Use filelist_list_dir() to open a directory in the "jed-file-manager"
 
 % * To make file finding functions list the directory contents
-%   if called with a directory path as argument (instead of reporting an
-%   error), insert the INITALIZATION block into your .jedrc (or jed.rc)
-%   (or use the "make_ini" and "home-lib" modes from jedmodes.sf.net)
+%   if called with a directory path as argument (instead of reporting
+%   an error), insert the content of the INITALIZATION block into your
+%   .jedrc (or jed.rc) (or use the "make_ini" and "home-lib" modes from
+%   jedmodes.sf.net)
 
 #<INITIALIZATION>
 "filelist_list_dir", "filelist.sl";
@@ -86,9 +92,7 @@ define filelist_find_file_hook(filename)
      }
    return 0;  % try other hooks or use opening function
 }
-append_to_hook("_jed_find_file_before_hooks",
-	       &filelist_find_file_hook);
-
+append_to_hook("_jed_find_file_before_hooks", &filelist_find_file_hook);
 #</INITIALIZATION>
 
 % _debug_info = 1;
@@ -160,7 +164,7 @@ custom_variable("FileList_Cleanup", 1);
 %!%+
 %\variable{FileList_max_window_size}
 %\synopsis{}
-%\usage{Int_Type FileList_max_window_size = 1.0}
+%\usage{FileList_max_window_size = 1.0}
 %\description
 %  How big shall the filelist window be maximal
 %    Integer: no. of rows,
@@ -226,8 +230,19 @@ static variable Dir_Sep = path_concat("a", "")[[1:]];  % path separator
 
 % ------ Function definitions -------------------------------------------
 
-% dummy definition (circular dependencies)
-public  define filelist_mode();
+public  define filelist_mode(); % forward definition
+
+% truncate a string to the n last characters (prepending "..." if n >= 4)
+static define strtail(str, n)
+{
+   if (strlen(str) <= n)
+     return str;
+   
+   if (n >= 4)
+     return "..." +  str[[-(n-3):]];
+   return str[[-n:]];
+}
+   
 
 % Extract the filename out of a string (with position given as blocal-var)
 % Str = extract_filename(Str line)
@@ -276,27 +291,41 @@ static define extract_line_no(str)
 % Move file/files
 static define filelist_rename_file(line, dest)
 {
-   variable file = extract_filename(line);
-   % show("moving", file, "to", dest);
+   variable result, file = extract_filename(line);
+   file = expand_filename(file);
    if (file_status(dest) == 2) % directory
      dest = path_concat(dest, path_basename(file));
-   if (file_status(dest) > 0)
-     if (listing->get_confirmation(dest + " exists, overwrite") != 1)
-       return 0;
-   if (rename_file(file, dest)) % return value != 0
-     {
-	% alternative: if dest is on a different filesystem, copy and delete
-	% 	if (copy_file(file, dest)) % return value != 0
-	% 	  verror ("rename %s to %s failed: %s",
-	% 		  file, dest, errno_string (errno));
-	% 	else % copy successfull
-	% 	  delete_file(file);
+   % vshow("moving %s to %s", file, dest);
+   if (andelse{file_status(dest) > 0}
+       {listing->get_confirmation(sprintf("'%s' exists, overwrite",
+                                          strtail(dest, 30))) != 1})
+     return 0;
+   
+   result = rename_file(file, dest);
 
-	% keep this one on list but continue with other tagged
-	vmessage ("rename failed: %s", errno_string (errno));
-	return 0;
-     }
-   return 2;
+   if (result == 0) % success
+     return 2;
+
+   % if dest is on a different filesystem, copy and delete
+   % show("rename_file failed, try copy and delete", errno_string (errno));
+   
+   result = copy_file(file, dest); % -1 -> failure
+   
+   if (result != 0)
+     verror ("copy '%s' to '%s' failed: %s",
+        strtail(file, 10), strtail(dest, 20), errno_string (errno));
+   
+   result = delete_file(file); % 0 -> failure
+   
+   if (result != 0)
+     return 2;
+     
+   if (get_y_or_n(sprintf("Delete %s failed (%s), remove copy? ", 
+                           errno_string(errno))) == 1)
+     result = delete_file(dest);
+  
+   % verror ("cannot delete '%s': %s", strtail(file, 10), errno_string (errno));
+   return 1;
 }
 
 %!%+
@@ -319,19 +348,23 @@ public  define filelist_rename_tagged()
 % Copy file/files
 static define filelist_copy_file(line, dest)
 {
-   variable file = extract_filename(line);
+   variable result, file = extract_filename(line);
    if (file_status(dest) == 2) % directory
      dest = path_concat(dest, path_basename(file));
-   if (file_status(dest) > 0)
-     if (listing->get_confirmation(dest + " exists, overwrite") != 1)
-       return 0;
+   if (andelse{file_status(dest) > 0}
+       {listing->get_confirmation(sprintf("'%s' exists, overwrite",
+                                          strtail(dest, 30))) != 1})
+     return 0;
    % show("copying", file, "to", dest);
-   if(copy_file(extract_filename(line), dest))
-     {
-	vmessage("copy failed: %s", errno_string(errno));
-	return 0;
-     }
-   return 1;
+   result = copy_file(extract_filename(line), dest);
+   
+   if(result == 0) % success
+     return 1;
+     
+   if (get_y_or_n(sprintf("Copy failed %s, continue? ", 
+                           errno_string(errno))) != 1)
+     verror("copy failed: %s", errno_string(errno));
+   return 0;
 }
 
 %!%+
@@ -369,20 +402,26 @@ public  define filelist_make_directory()
    help_message();
 }
 
-% Delete file/files
+% Delete file
 static define filelist_delete_file(line)
 {
    variable file = extract_filename(line);
    if (listing->get_confirmation("Delete " + file) != 1)
      return 0;
+   % copy to Trash Bin
    if (strlen(FileList_Trash_Bin))
        return filelist_rename_file(line, FileList_Trash_Bin);
+   % delete directory
    if (file_status(file) == 2)
-     % TODO: warn if dir is not empty
-     () = rmdir(file);
-   else
-     () = delete_file(file);
-   return 2;
+     if (rmdir(file) == 0) % successfully removed dir
+       return 2;
+   % delete normal file
+   if (delete_file(file) != 0) % success
+     return 2;
+   if (get_y_or_n(sprintf("Delete failed %s, continue? ", 
+                           errno_string(errno))) != 1)
+     verror("Delete failed %s", errno_string(errno));
+   return 1;
 }
 
 %!%+
@@ -399,11 +438,11 @@ static define filelist_delete_file(line)
 public  define filelist_delete_tagged()
 {
    % check Trash Bin for existence
-   while (strlen(FileList_Trash_Bin) and
-	  file_status(FileList_Trash_Bin) != 2)
-     % not a directory, ask for another
-     FileList_Trash_Bin = expand_filename(read_with_completion
-     ("Trash Bin (leave empty for real delete)", "", FileList_Trash_Bin, 'f'));
+   while (andelse{FileList_Trash_Bin!=""}{file_status(FileList_Trash_Bin)!=2})
+        FileList_Trash_Bin = 
+          read_with_completion("Trash Bin (leave empty for real delete)", 
+             "", FileList_Trash_Bin, 'f');
+        
    () = chdir(buffer_dirname());
    listing_map(FileList_Action_Scope, &filelist_delete_file);
    help_message();
@@ -433,7 +472,7 @@ public  define filelist_reread()
 %  List all files in the current (or given) directory and set the buffer to
 %  \sfun{filelist_mode}.
 %\notes
-%  With the filelist_find_file_hook() as proposed in the <INITIALIZATION>
+%  With the filelist_find_file_hook() as proposed in the INITIALIZATION
 %  block of filelist.sl, Jed will open directories as a file listing instead
 %  of issuing an error.
 %\seealso{filelist_mode, FileList_Cleanup, listdir}
@@ -676,8 +715,8 @@ static define mc_bindings()
    definekey("select_menubar",       	   Key_F9,  mode); % PullDn
    definekey("close_buffer",               Key_F10, mode); % Quit
    definekey("filelist_open_file_with(0)", "^M",    mode); % Return
-   undefinekey("^S", mode);
-   definekey("isearch_forward", 	   "^S",    mode);
+   definekey("isearch_forward", 	   "s",     mode);
+   definekey("isearch_forward", 	   "/",     mode);
    % show("call set_help_message", "1Help...", mode);
    set_help_message(
      "1Help 2Menu 3View 4Edit 5Copy 6RenMov 7Mkdir 8Delete 9PullDn 10Quit",
@@ -686,7 +725,6 @@ static define mc_bindings()
 
 static define dired_bindings()
 {
-   undefinekey("^S", mode);
    definekey("filelist_copy_tagged",		"C",  mode); % Copy
    definekey("filelist_delete_tagged",		"x",  mode); % Delete
    definekey("filelist_make_directory",		"+",  mode); % Mkdir
@@ -697,11 +735,11 @@ static define dired_bindings()
    definekey("filelist_do_rename_regexp",	"%r", mode); % rename regexp
    definekey("filelist_reread",			"g",  mode); % reread
    definekey("filelist_view_file",		"v",  mode); % View
-   definekey("isearch_forward",			"^S", mode);
+   definekey("isearch_forward",			"s", mode);
    definekey("listing->tag_matching(1)",	"%d", mode); % tag regexp
    definekey("listing->tag(0); go_up_1",	_Backspace_Key,  mode);
    set_help_message(
-     "Enter:Open t/Ins:Tag +/-:Tag-Matching ^R:Reread q:Quit",
+     "Enter:Open t/Ins:Tag +/-:Tag-Matching s:search ^R:Reread q:Quit",
 		    mode);
 }
 
