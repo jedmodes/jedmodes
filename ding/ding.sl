@@ -68,32 +68,38 @@ private variable mode = "ding";
 
 % --- custom variables
 
+% map of known dictionaries (values are path of dictionary files)
+custom_variable("Ding_Wordlists", Assoc_Type[String_Type]);
+
 % The default wordlist, given as language pair
-custom_variable("Ding_Dictionary", "de-en");
+custom_variable("Ding_Dictionary", "de-ens");
+
 % Translating Direction: 0 to, 1 from, 2 both ["->", "<-", "<->"]
 custom_variable("Ding_Direction", 2);
+
 % what to look for  (0,1) == ["substring", "word"]
 custom_variable("Ding_Word_Search", 1);
 
-% --- public variables
 
-% the list of known dictionaries, define here
-% if not done in the .jedrc. this default works for Debian and SuSE Linux
-!if (is_defined("Ding_Wordlists"))
+% Initialization
+% --------------
+
+% dictionary map: this default works for Debian and SuSE Linux
+!if (assoc_key_exists(Ding_Wordlists, "de-en"))
 {
-   foreach(["/usr/share/trans/de-en", "/usr/X11R6/lib/ding/ger-eng.txt"])
-     if (file_status(dup))
-       {
-	  Ding_Wordlists["de-en"] = ();
-	  break;
-       }
-   error("No dictionary found. Please define at least one in `Ding_Wordlists'");
-   public variable Ding_Wordlists = Assoc_Type[String_Type];
+   foreach $1 (["/usr/share/trans/de-en", "/usr/X11R6/lib/ding/ger-eng.txt"])
+   if (file_status($1))
+       Ding_Wordlists["de-en"] = $1;
 }
-
 % or with custom separator-string given after a newline-char
 %   Ding_Wordlists["de-en"] = ["/usr/X11R6/lib/ding/ger-eng.txt\n::"];
 % TODO: Ding_Wordlists[key] = (file\n sep="::"\n word_chars=get_word_chars);
+
+% sanity check
+!if (assoc_key_exists(Ding_Wordlists, Ding_Dictionary))
+  verror("Default dictionary Ding_Wordlists[\"%s\"] not defined.", 
+     Ding_Dictionary);
+
 
 % --- static variables -------------------------------------------
 
