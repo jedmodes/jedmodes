@@ -26,18 +26,20 @@
 % 2006-10-05 3.0   * use the new (SLang2) "list" datatype,
 % 	     	     removed obsolete static functions get_tag() and 
 % 	     	     delete_tagged_lines()
+% 2007-04-17 3.1   * removed the dired-style Key_BS binding (tag&up) as this
+% 	     	     overrides the default (page_up) of the basic "view" mode
 %
 % TODO:  * Shift-Click tags from point to Mousepoint
 %          may be also: right-drag tags lines
 
-% _debug_info = 1;
 
-% --- requirements ---
+% Requirements 
+% ------------
 
-% S-Lang >= 2.0 (providing the List_Type datatype)
+% S-Lang >= 2.0 (introduces the List_Type datatype)
 % from jed's standard library
-require("keydefs"); % symbolic names for keys
-% non-standard extensions
+require("keydefs"); % symbolic constants for many function and arrow keys
+% extensions from http://jedmodes.sf.net/
 require("view"); % readonly-keymap depends on bufutils.sl
 autoload("array", "datutils");
 autoload("list_concat", "datutils");  % >= 2.1
@@ -385,31 +387,32 @@ static define listing_update_hook()
 !if (keymap_p(mode))
   copy_keymap(mode, "view");
 
-definekey(mode+"->edit",              "e", mode);
-definekey(mode+"->tag(2)",            "t", mode); % toggle tag
-definekey(mode+"->tag(1); go_down_1", "d", mode); % dired-like
-definekey(mode+"->tag(0); go_down_1", "u", mode); % untag (dired-like)
-definekey(mode+"->tag_matching(1)",   "+", mode);
-definekey(mode+"->tag_matching(0)",   "-", mode);
-definekey(mode+"->tag_all(2)",        "*", mode); % toggle all tags
-definekey(mode+"->tag_all(1)",        "a", mode);
-definekey(mode+"->tag_all(0)",        "z", mode);
-definekey(mode+"->tag_all(0)",        "\e\e\e",       mode); % "meta-escape"
-definekey(mode+"->tag(2); go_down_1", Key_Ins,        mode); % MC like
-definekey("go_up_1;"+mode+"->tag(2)", Key_BS,         mode); % Dired
-definekey(mode+"->tag(2); go_down_1", Key_Shift_Down, mode); % CUA style
-definekey(mode+"->tag(2); go_up_1",   Key_Shift_Up,   mode); % CUA style
+definekey("listing->edit",              "e", mode);
+definekey("listing->tag(2)",            "t", mode); % toggle tag
+definekey("listing->tag(1); go_down_1", "d", mode); % dired-like
+definekey("listing->tag(0); go_down_1", "u", mode); % untag (dired-like)
+definekey("listing->tag_matching(1)",   "+", mode);
+definekey("listing->tag_matching(0)",   "-", mode);
+definekey("listing->tag_all(2)",        "*", mode); % toggle all tags
+definekey("listing->tag_all(1)",        "a", mode);
+definekey("listing->tag_all(0)",        "z", mode);
+definekey("listing->tag_all(0)",        "\e\e\e",       mode); % "meta-escape"
+definekey("listing->tag(2); go_down_1", Key_Ins,        mode); % MC like
+% this overwrites the page-up binding of the view map:
+% definekey("go_up_1; listing->tag(2)",   Key_BS,         mode); % Dired
+definekey("listing->tag(2); go_down_1", Key_Shift_Down, mode); % CUA style
+definekey("listing->tag(2); go_up_1",   Key_Shift_Up,   mode); % CUA style
 
 % --- the mode dependend menu
 static define listing_menu (menu)
 {
-   menu_append_item(menu, "&Tag/Untag",      mode+"->tag(2)");
-   menu_append_item(menu, "Tag &All", 	      mode+"->tag_all(1)");
-   menu_append_item(menu, "Untag A&ll",      mode+"->tag_all(0)");
-   menu_append_item(menu, "Tag &Matching",   mode+"->tag_matching(1)");
-   menu_append_item(menu, "&Untag Matching", mode+"->tag_matching(0)");
-   menu_append_item(menu, "&Invert Tags",    mode+"->tag_all(2)");
-   menu_append_item(menu, "&Edit Listing",   mode+"->edit");
+   menu_append_item(menu, "&Tag/Untag",      "listing->tag(2)");
+   menu_append_item(menu, "Tag &All", 	     "listing->tag_all(1)");
+   menu_append_item(menu, "Untag A&ll",      "listing->tag_all(0)");
+   menu_append_item(menu, "Tag &Matching",   "listing->tag_matching(1)");
+   menu_append_item(menu, "&Untag Matching", "listing->tag_matching(0)");
+   menu_append_item(menu, "&Invert Tags",    "listing->tag_all(2)");
+   menu_append_item(menu, "&Edit Listing",   "listing->edit");
 }
 
 public define listing_mode()
