@@ -5,7 +5,10 @@
 % Copyright (c) 2005 Guenter Milde (milde users.sf.net)
 % Released under the terms of the GNU General Public License (ver. 2 or later)
 %
-% Version   0.9   * initial version (beta)
+% Changelog
+% ---------
+%
+%           0.9   * initial version (beta)
 %           0.9.1 (based on report by Paul Boekholt)
 %                 * added USAGE documentation (including ...find_file_hook)
 %                 * filelist_list_dir:
@@ -49,8 +52,19 @@
 % 2006-05-23  1.6   Copy and delete instead of rename if the destination is
 %                   on a different filesystem.
 % 2007-04-16  1.7   Changed the keybinding for (i)search from '^S' to 's'
-% 	      	    to match the one in tokenlist and keep the original '^S'.
-%
+% 	      	    (match the one in tokenlist and keep the original '^S')
+% 2007-04-18  1.7.1 * filelist_open_file() improvements
+% 	      	      - close the calling buffer before opening new
+% 	      	        (keeps the right order for navigate_back())
+% 	      	      - "smart" fit_window() for files openend from filelist
+% 	      	      - localise `FileList_Cleanup' with blocal var
+% 	      	        and optional argument `close'
+% 	      	      - return to the filelist, if a buffer 
+% 	      	        opened from there is closed with close_buffer()
+% 	      	    * filelist_open_in_otherwindow() (request by Lechee Lai)
+% 	      	      open file, return focus to filelist 
+% 	      	    * highlight rule for directories listed with `ls -l`
+% 	      	    * locate(): dont't close list if going to a directory
 %
 % TODO: * more bindings of actions: filelist_cua_bindings
 %       * copy from filelist to filelist ...
@@ -65,14 +79,16 @@
 %       * use MIME_types and mailcap (view and edit commands) for
 %         FileList_Default_Commands
 %
-% USAGE:
+% Usage
+% -----
+%
 % * Place filelist.sl and required files in your library path.
-
+%
 % * Use filelist_list_dir() to open a directory in the "jed-file-manager"
-
+%
 % * To make file finding functions list the directory contents
-%   if called with a directory path as argument (instead of reporting
-%   an error), insert the content of the INITALIZATION block into your
+%   if called with a directory path as argument (instead of reporting an
+%   error), copy the content of the INITALIZATION block below into your
 %   .jedrc (or jed.rc) (or use the "make_ini" and "home-lib" modes from
 %   jedmodes.sf.net)
 
@@ -95,29 +111,21 @@ define filelist_find_file_hook(filename)
 append_to_hook("_jed_find_file_before_hooks", &filelist_find_file_hook);
 #</INITIALIZATION>
 
-% _debug_info = 1;
+% Requirements
+% ------------
 
-% --- Requirements ------------------------------------------------------
-
-require("listing");  % the listing widget, depends on datutils
-"get_blocal", "sl_utils";
-"run_function", "sl_utils";
-"push_defaults", "sl_utils";
-"push_array", "sl_utils";
-"buffer_dirname", "bufutils";
-"close_buffer", "bufutils";
-"popup_buffer", "bufutils";
-"fit_window", "bufutils";
-"string_get_match", "strutils";
-"get_line", "txtutils";
-_autoload(10);
+% extensions from http://jedmodes.sf.net/
+require("listing");  % the listing widget, depends on datutils, view, bufutils
+require("bufutils");
+require("sl_utils");
+autoload("string_get_match", "strutils");
 % optional extensions
 if(strlen(expand_jedlib_file("filelistmsc")))
   _autoload("filelist_do_rename_regexp", "filelistmsc",
 	    "filelist_do_tar", "filelistmsc", 2);
 
+% name and namespace
 provide("filelist");
-
 implements("filelist");
 variable mode = "filelist";
 
@@ -139,7 +147,7 @@ custom_variable("FileList_Action_Scope", 1);
 %!%+
 %\variable{FileList_KeyBindings}
 %\synopsis{Keybinding set for the filelist mode}
-%\usage{String_Type FileList_KeyBindings = ""mc""}
+%\usage{String_Type FileList_KeyBindings = "mc"}
 %\description
 %  Which set of keybindings should the filelist mode emulate?
 %  ("mc" or "dired")
@@ -153,10 +161,12 @@ custom_variable("FileList_KeyBindings", "mc");
 %\usage{Int_Type FileList_Cleanup = 1}
 %\description
 %  Close the directory listing when opening a file/dir from it?
-%
 %    0 keep open,
 %    1 close when going to a new directory,
-%    2 always close,
+%    2 always close
+%\notes
+%  The global default will be overridden by a buffer local variable of
+%  the same name.
 %\seealso{filelist_mode}
 %!%-
 custom_variable("FileList_Cleanup", 1);
@@ -185,7 +195,7 @@ custom_variable("FileList_max_window_size", 1.0);  % my default is full screen
 % KDE users might want to set this to "~/Desktop/Trash"
 % \notes
 %  The value will be expanded with \sfun{expand_filename}.
-%  The Trash_Bin will be checked for existence in filelist_delete_tagged,
+%  The \var{Trash_Bin} is checked for existence in \sfun{filelist_delete_tagged},
 %\seealso{filelist_mode, filelist_delete_tagged}
 %!%-
 custom_variable("FileList_Trash_Bin", "");
@@ -237,12 +247,11 @@ static define strtail(str, n)
 {
    if (strlen(str) <= n)
      return str;
-   
+
    if (n >= 4)
      return "..." +  str[[-(n-3):]];
    return str[[-n:]];
 }
-   
 
 % Extract the filename out of a string (with position given as blocal-var)
 % Str = extract_filename(Str line)
@@ -253,24 +262,30 @@ static define extract_filename(line)
 
    !if (strlen(filename))
      {
-	variable fp = get_blocal("filename_position", 0);
+	variable position = get_blocal("filename_position", 0);
 	variable del = get_blocal("delimiter");
-	if (del == NULL)
-	   filename = strtok(line)[fp];
+	if (del == NULL) % use any whitespace
+	   filename = strtok(line)[position];
 	else
-	  filename = extract_element(line, fp, del);
+	  filename = extract_element(line, position, del);
      }
    % remove trailing path-separator
    return strtrim_end(filename, Dir_Sep);
+}
+
+% Return array of tagged filenames
+static define get_tagged_files() % (scope, untag)
+{
+   variable args = __pop_args(_NARGS);
+   variable lines = listing_list_tags(__push_args(args));
+   return array_map(String_Type, &extract_filename, lines);
 }
 
 % Return the filenames of the tagged lines as a space separated string
 static define list_tagged_files() % (scope, untag)
 {
    variable args = __pop_args(_NARGS);
-   variable tag_lines = listing_list_tags(__push_args(args));
-   tag_lines = array_map(String_Type, &extract_filename, tag_lines);
-   return strjoin(tag_lines, " ");
+   return strjoin(get_tagged_files(__push_args(args)), " ");
 }
 
 % Extract the line number out of a string (with position given as blocal-var)
@@ -300,7 +315,7 @@ static define filelist_rename_file(line, dest)
        {listing->get_confirmation(sprintf("'%s' exists, overwrite",
                                           strtail(dest, 30))) != 1})
      return 0;
-   
+
    result = rename_file(file, dest);
 
    if (result == 0) % success
@@ -308,22 +323,22 @@ static define filelist_rename_file(line, dest)
 
    % if dest is on a different filesystem, copy and delete
    % show("rename_file failed, try copy and delete", errno_string (errno));
-   
+
    result = copy_file(file, dest); % -1 -> failure
-   
+
    if (result != 0)
      verror ("copy '%s' to '%s' failed: %s",
         strtail(file, 10), strtail(dest, 20), errno_string (errno));
-   
+
    result = delete_file(file); % 0 -> failure
-   
+
    if (result != 0)
      return 2;
-     
-   if (get_y_or_n(sprintf("Delete %s failed (%s), remove copy? ", 
+
+   if (get_y_or_n(sprintf("Delete %s failed (%s), remove copy? ",
                            errno_string(errno))) == 1)
      result = delete_file(dest);
-  
+
    % verror ("cannot delete '%s': %s", strtail(file, 10), errno_string (errno));
    return 1;
 }
@@ -357,11 +372,11 @@ static define filelist_copy_file(line, dest)
      return 0;
    % show("copying", file, "to", dest);
    result = copy_file(extract_filename(line), dest);
-   
+
    if(result == 0) % success
      return 1;
-     
-   if (get_y_or_n(sprintf("Copy failed %s, continue? ", 
+
+   if (get_y_or_n(sprintf("Copy failed %s, continue? ",
                            errno_string(errno))) != 1)
      verror("copy failed: %s", errno_string(errno));
    return 0;
@@ -418,7 +433,7 @@ static define filelist_delete_file(line)
    % delete normal file
    if (delete_file(file) != 0) % success
      return 2;
-   if (get_y_or_n(sprintf("Delete failed %s, continue? ", 
+   if (get_y_or_n(sprintf("Delete failed %s, continue? ",
                            errno_string(errno))) != 1)
      verror("Delete failed %s", errno_string(errno));
    return 1;
@@ -439,10 +454,10 @@ public  define filelist_delete_tagged()
 {
    % check Trash Bin for existence
    while (andelse{FileList_Trash_Bin!=""}{file_status(FileList_Trash_Bin)!=2})
-        FileList_Trash_Bin = 
-          read_with_completion("Trash Bin (leave empty for real delete)", 
+        FileList_Trash_Bin =
+          read_with_completion("Trash Bin (leave empty for real delete)",
              "", FileList_Trash_Bin, 'f');
-        
+
    () = chdir(buffer_dirname());
    listing_map(FileList_Action_Scope, &filelist_delete_file);
    help_message();
@@ -494,7 +509,7 @@ public  define filelist_list_dir() % ([dir], ls_cmd="listdir")
    if (file_status(dir) != 2)
      error(dir + " is not a directory");
    % create (or reuse) the buffer
-   popup_buffer(dir);
+   popup_buffer(dir, FileList_max_window_size);
    setbuf_info("", dir, dir, 0);
    erase_buffer();
 
@@ -503,9 +518,9 @@ public  define filelist_list_dir() % ([dir], ls_cmd="listdir")
      {
 	variable files = listdir(dir);
 	files = files[array_sort(files)];
-%	files = array_map(String_Type, &str_quote_string, files, "* ", '\\');
-	insert("..\n");
-	insert(strjoin(files, "\n"));
+	% quote spaces and stars
+	% files = array_map(String_Type, &str_quote_string, files, "* ", '\\');
+	insert(strjoin(["..", files], "\n"));
 	do
 	  if (file_status(dir + line_as_string()) == 2)
 	      insert(Dir_Sep);
@@ -538,10 +553,65 @@ public  define filelist_list_dir() % ([dir], ls_cmd="listdir")
 %!%-
 public  define filelist_list_base_dir()
 {
-   variable line = get_line();
-   % extract filename
-   variable filename = extract_filename(line);
+   variable filename = extract_filename(line_as_string());
    filelist_list_dir(path_dirname(filename));
+}
+
+% return to the filelist, if a buffer opened from there is closed with
+% close_buffer()
+static define filelist_close_buffer_hook(buf)
+{
+   !if (buffer_visible(buf))
+     return;
+   
+   variable calling_buf = get_blocal("calling_buf", "");
+     
+   if (bufferp(calling_buf))
+     {
+	go2buf(calling_buf);
+	fit_window(get_blocal("is_popup", 0)); % resize popup window
+     }
+}
+
+
+% open file|directory|tar-archive, goto line number
+% return success
+private define _open_file(filename, line_no)
+{
+   variable buf = whatbuf(), fit = (get_blocal("is_popup", 0) != 0);
+   
+   ERROR_BLOCK { return 0; }
+   
+   if (file_status(filename) == 2)        % directory
+     filelist_list_dir(filename);
+#ifexists check_for_tar
+   else if (check_for_tar(filename)) % tar archive
+     tar(filename, 0);               % open in tar-mode, read-write
+#endif
+   else
+     {
+	% open file in second window
+	() = read_file(filename);
+	pop2buf(path_basename(filename));
+	% save return data in blocal variables
+	define_blocal_var("close_buffer_hook", &filelist_close_buffer_hook);
+	define_blocal_var("calling_buf", buf);
+	% fit window (eventually closing the filelists window)
+	if (fit)
+	  {
+	     fit_window(FileList_max_window_size);
+	     % Shrink the filelist buffer, if there is excess space
+	     if (nwindows > 1)
+	       {
+		  pop2buf(buf);
+		  fit_window(window_info('r'));
+		  pop2buf(path_basename(filename));
+	       }
+	  }
+     }
+   if (line_no)                      % line_no == 0 means don't goto line
+     goto_line(line_no);
+   return 1;
 }
 
 %!%+
@@ -558,42 +628,38 @@ public  define filelist_list_base_dir()
 %   "delimiter"         (Char_Type, default == NULL, meaning 'whitespace')
 %\seealso{filelist_mode, FileList_Cleanup}
 %!%-
-public  define filelist_open_file() % (scope=0)
+public  define filelist_open_file() % (scope=0, close=FileList_Cleanup)
 {
-   variable scope = push_defaults(0, _NARGS);
+   variable scope, close;
+   (scope, close) = push_defaults(0,
+      	   	    get_blocal("FileList_Cleanup", FileList_Cleanup), _NARGS);
+
    variable buf = whatbuf(), bufdir = buffer_dirname();
-   variable line, tag_lines = listing_list_tags(scope, 1);
-   variable open_dir = 0;
+   variable lines = listing_list_tags(scope, 1); % get and untag
+   variable filenames = array_map(String_Type, &extract_filename, lines);
+   filenames = array_map(String_Type, &path_concat, bufdir, filenames);
+   filenames = array_map(String_Type, &expand_filename, filenames);
+   variable file_states = array_map(Int_Type, &file_status, filenames);
+   variable line_numbers = array_map(Int_Type, &extract_line_no, lines);
 
-   foreach (tag_lines)
-     {
-        line = ();
-
-        % extract filename and line number
-        variable filename = extract_filename(line);
-        variable line_no = extract_line_no(line);
-        filename = path_concat(bufdir, filename);
-
-        % open the file or directory
-        if (file_status(expand_filename(filename)) == 2) % directory
-	  {
-	     open_dir = 1;
-	     filelist_list_dir(filename);
-	  }
-        else if (andelse % tar archive
-           {is_defined("check_for_tar")} % optional fun from tarhooks.sl
-             {runhooks("check_for_tar", filename)}
-           )
-          runhooks("tar", filename, 0); % open in tar-mode, read-write
-        else
-          () = find_file(filename);
-
-        if (line_no)              % line_no == 0 means don't goto line
-          goto_line(line_no);
+   % close the calling buffer (see also FileList_Cleanup)
+   switch (close)
+     % case 0: do not close calling buffer
+     { case 1:
+	if (wherefirst(file_states == 2) != NULL)
+	  close_buffer(buf);
      }
-   % eventually close the calling buffer
-   if (FileList_Cleanup + open_dir >= 2)
-     close_buffer(buf);
+     { case 2: close_buffer(buf);}
+
+   array_map(Int_Type, &_open_file, filenames, line_numbers);
+}
+
+public  define filelist_open_in_otherwindow()
+{
+   % open file on current line, don't close current buffer
+   filelist_open_file(0, 0);
+   % go back to calling buffer, splitting window in 2
+   popup_buffer(get_blocal_var("calling_buf"));
 }
 
 %!%+
@@ -607,7 +673,7 @@ public  define filelist_open_file() % (scope=0)
 %  in JED.
 %\seealso{filelist_mode}
 %!%-
-public define filelist_open_tagged()
+public  define filelist_open_tagged()
 {
    filelist_open_file(FileList_Action_Scope);
 }
@@ -694,8 +760,9 @@ create_syntax_table(mode);
 static define setup_dfa_callback(mode)
 {
    dfa_enable_highlight_cache(mode + ".dfa", mode);
-   dfa_define_highlight_rule(".*" + Dir_Sep + "$", "keyword", mode);
-   dfa_define_highlight_rule(".*\\~$", "comment", mode);
+   dfa_define_highlight_rule(".*" + Dir_Sep + "$", "keyword", mode); % dir
+   dfa_define_highlight_rule("^d[\\-r][\\-w]x.*$", "keyword", mode); % dir with "ls -l"
+   dfa_define_highlight_rule(".*~$", "comment", mode); % backup copies
    dfa_build_highlight_table(mode);
 }
 dfa_set_init_callback(&setup_dfa_callback, mode);
@@ -706,17 +773,16 @@ enable_dfa_syntax_for_mode(mode);
 static define mc_bindings()
 {
    definekey("menu_select_menu(\"Global.M&ode\")", Key_F2,  mode); % Menu
-   definekey("filelist_view_file",         Key_F3,  mode); % View
-   definekey("filelist_open_file",         Key_F4,  mode); % Edit
-   definekey("filelist_copy_tagged",       Key_F5,  mode); % Copy
-   definekey("filelist_rename_tagged",     Key_F6,  mode); % Ren/Move
-   definekey("filelist_make_directory",    Key_F7,  mode); % Mkdir
-   definekey("filelist_delete_tagged",     Key_F8,  mode); % Delete
-   definekey("select_menubar",       	   Key_F9,  mode); % PullDn
-   definekey("close_buffer",               Key_F10, mode); % Quit
-   definekey("filelist_open_file_with(0)", "^M",    mode); % Return
-   definekey("isearch_forward", 	   "s",     mode);
-   definekey("isearch_forward", 	   "/",     mode);
+   definekey("filelist_view_file",           Key_F3,  mode); % View
+   definekey("filelist_open_file",           Key_F4,  mode); % Edit
+   definekey("filelist_copy_tagged",         Key_F5,  mode); % Copy
+   definekey("filelist_rename_tagged",       Key_F6,  mode); % Ren/Move
+   definekey("filelist_make_directory",      Key_F7,  mode); % Mkdir
+   definekey("filelist_delete_tagged",       Key_F8,  mode); % Delete
+   definekey("select_menubar",       	     Key_F9,  mode); % PullDn
+   definekey("close_buffer",                 Key_F10, mode); % Quit
+   definekey("filelist_open_file_with(0)",   "^M",    mode); % Return
+   definekey("filelist_open_in_otherwindow", "o",     mode);
    % show("call set_help_message", "1Help...", mode);
    set_help_message(
      "1Help 2Menu 3View 4Edit 5Copy 6RenMov 7Mkdir 8Delete 9PullDn 10Quit",
@@ -735,8 +801,8 @@ static define dired_bindings()
    definekey("filelist_do_rename_regexp",	"%r", mode); % rename regexp
    definekey("filelist_reread",			"g",  mode); % reread
    definekey("filelist_view_file",		"v",  mode); % View
-   definekey("isearch_forward",			"s", mode);
    definekey("listing->tag_matching(1)",	"%d", mode); % tag regexp
+   definekey("filelist_open_in_otherwindow",	" ",  mode);
    definekey("listing->tag(0); go_up_1",	_Backspace_Key,  mode);
    set_help_message(
      "Enter:Open t/Ins:Tag +/-:Tag-Matching s:search ^R:Reread q:Quit",
@@ -758,9 +824,10 @@ static define filelist_menu(menu)
    menu_insert_separator("&Edit Listing", menu);
    menu_insert_item ("&Edit Listing", menu, "&Open",             "filelist_open_file");
    menu_insert_item ("&Edit Listing", menu, "Open &With",        "filelist_open_file_with(1)");
-   menu_insert_item ("&Edit Listing", menu, "Open &Tagged Files", "filelist_open_tagged");
+   menu_insert_item ("&Edit Listing", menu, "Open in other window", "filelist_open_in_otherwindow");
    menu_insert_item ("&Edit Listing", menu, "&View (read-only)", "filelist_view_file");
    menu_insert_item ("&Edit Listing", menu, "Open &Directory",    "filelist_list_base_dir");
+   menu_insert_item ("&Edit Listing", menu, "Open Tagged &Files", "filelist_open_tagged");
    menu_insert_separator("&Edit Listing", menu);
    menu_insert_item ("&Edit Listing", menu, "&Copy",      	 "filelist_copy_tagged");
    menu_insert_item ("&Edit Listing", menu, "Rename/&Move", 	 "filelist_rename_tagged");
@@ -833,7 +900,7 @@ public define locate() % (what=<Ask>)
 	LAST_LOCATE = what;
      }
 
-   popup_buffer("*locate*");
+   popup_buffer("*locate*", FileList_max_window_size);
    set_readonly(0);
    erase_buffer();
 
@@ -849,5 +916,6 @@ public define locate() % (what=<Ask>)
    filelist_mode();
    set_status_line("locate:" + what + " (%p)", 0);
    define_blocal_var("generating_function", [_function_name, what]);
+   define_blocal_var("FileList_Cleanup", 0);
    bob();
 }
