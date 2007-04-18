@@ -141,8 +141,11 @@
 %%     - INITIALIZATION section (for make_ini() or manual copy to .jedrc)
 %%     - tm documentation for TokenList_Startup_Mode  
 %%   2006-12-19  Marko Mahnic
-%%     changed the interface to use _list_routines_setup (the old interface still works)
-
+%%     - changed the interface to use _list_routines_setup 
+%%       (the old interface still works)
+%%   2007-04-18 G Milde
+%%     - bugfix in tkl_list_tokens() preventing an infinite loop if there is a
+%%       match on the last line of a buffer
 
 #<INITIALIZATION>
 
@@ -261,8 +264,9 @@ define tkl_list_tokens (opt) %{{{
       if (rtype == String_Type) if (opt.list_regex[i] == Null_String) break;
 
       bob();
-      while (1)
+      do
       {
+	 bol();
          if (rtype == Ref_Type) rv = (@opt.list_regex[i])(i);
          else rv = re_fsearch (opt.list_regex[i]);
          
@@ -287,12 +291,10 @@ define tkl_list_tokens (opt) %{{{
 	    vinsert ("%7d: %s\n", line, token);
 	    setbuf (buf);
 	 }
-	 
-	 go_down(1);
-	 bol();
       }
+      while (down(1));
    }
-
+   
    pop_spot();
    
    setbuf (tkl_TokenBuffer);
