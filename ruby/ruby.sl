@@ -353,7 +353,7 @@ dfa_build_highlight_table (mode);
 () = define_keywords_n(mode, "TRUE", 4, 1);
 () = define_keywords_n(mode, "FALSE", 5, 1);
 
-define ruby_mode()
+public define ruby_mode()
 {
    set_mode(mode, 2);
    use_keymap(mode);
