@@ -4,8 +4,10 @@
 % Released under the terms of the GNU General Public License (ver. 2 or later)
 %
 % Versions
+% --------
+% 
 % 0.9.1  2003/01/15
-%   * A total remake of Dino Sangois jedgrep under use of the new listing
+%   * A remake of Dino Sangois jedgrep under use of the new listing
 %     and filelist modes. (Which are inspired by the old jedgrep by Dino!)
 %   * grep_replace_command: Replace in the grep results
 %     (both, result display and source files!)
@@ -39,42 +41,69 @@
 % 1.1.3 2006-09-22  removed spurious debug output (report P Boekholt)
 % 1.1.4 2007-02-23  bugfix: grep() did recursive grep for empty basename
 % 		    in grep pattern
+% 1.1.5 2007-04-19  added mode menu and more Customisation hints
 %
-% USAGE
+% Usage
+% -----
 %
 % * from jed:  `M-x grep` (or bind to a key)
 % 
 % * from the command line: `grep -nH "sometext" * | jed --grep_mode`
 % 
-%   You should have grep_mode in your autoload list for this to work.
-%   
-%   Doesnot work for xjed, use e.g. `xjed -f "grep(\"sometext\", \"*\")"`
-%   or the X selection.
+%   - You should have grep_mode in your autoload list for this to work.
+%   - Doesnot work for xjed, use e.g. `xjed -f "grep(\"sometext\", \"*\")"`
+%     or the X selection.
 %
 % * To open a file on a result line, go to the line press ENTER or double click
 %   on it
 %
-% * To replace text across the grep results, use your normal keybinding for
-%   the replace_cmd(). 
+% * To replace text across the matches (both, grep output buffer and source
+%   files), use the keybinding for the replace_cmd() or the Mode menu.
 %   
-%   (Find it with `Help>Where is Command` replace_cmd, in any buffer but the
-%   *grep-output*
+%   (Find it with 'Help>Where is Command' replace_cmd, in any buffer but the
+%   *grep-output*)
 %
-% CUSTOMIZATION
+% Customisation
+% -------------
+% 
+% You can
+% 
+% * set the grep command to use with grep(), e.g in your .jedrc::
+% 
+%     variable Grep_Cmd = "rgrep -nH";
 %
-% You can set the grep command to use with grep(), e.g in your .jedrc
-%   variable Grep_Cmd = "rgrep -nH";
-%
-% Optionally customize the jedgrep_mode using the "grep_mode_hook", e.g.
-%   % give the result-buffer a number
-%   autoload("number_buffer", "numbuf"); % jedmodes.sf.net/mode/numbuf/
-%   define grep_mode_hook(mode)
-%   {
-%      number_buffer();
-%   }
+% * customize the jedgrep_mode using the "grep_mode_hook", e.g.::
+%   
+%     % give the result-buffer a number
+%     autoload("number_buffer", "numbuf"); % jedmodes.sf.net/mode/numbuf/
+%     define grep_mode_hook(mode)
+%     {
+%        number_buffer();
+%     }
+%   
+% * use current word as default pattern :
+%         
+%   If you want the current word as pattern (without asking in the
+%   minibuffer), use something like
+%   
+%     definekey("^FG", "grep(get_word())")
+%   
+%   If you want the current word as default pattern (instead of the LAST_GREP
+%   pattern), define a wrapper (and bind this to a key), e.g.
+%   
+%     define grep_word_at_point()
+%     {
+%        grep(read_mini("String to grep: ", get_word, ""));
+%     }
+%   
+%   Or, with the word at point as init string (so it can be modified)
+%   
+%     define grep_word_at_point2()
+%     {
+%        grep(read_mini("String to grep: ", "", get_word,));
+%     } 
 %
 % TODO: use search_file and list_dir if grep is not available
-%       take current word as default (optional)
 %       make it Windows-secure (filename might contain ":")
 
 % _debug_info=1;
@@ -84,11 +113,8 @@
 require("keydefs");
 autoload("replace_with_query", "srchmisc");
 % nonstandard modes (from jedmodes.sf.net)
-autoload("popup_buffer", "bufutils");
-autoload("close_buffer", "bufutils");
-autoload("buffer_dirname", "bufutils");
-autoload("rebind", "bufutils");
-require("filelist"); % which does require "listing" and "datutils"
+require("bufutils"); % autoloads "txtutils"
+require("filelist"); % which requires "listing", "view", and "datutils"
 autoload("contract_filename", "sl_utils");
 autoload("get_word", "txtutils");
 %}}}
@@ -245,7 +271,10 @@ define grep_replace_cmd()
 }
 %}}}
 
-% --- The grep-mode ----------------------------------------------- %{{{
+% grep mode 
+% ---------
+
+% %{{{
 
 create_syntax_table(mode);
 
@@ -274,6 +303,17 @@ enable_dfa_syntax_for_mode(mode);
    copy_keymap(mode, "filelist");
    rebind("replace_cmd", "grep->grep_replace_cmd", mode);
 }
+
+% --- the mode dependend menu
+static define grep_menu(menu)
+{
+   filelist->filelist_menu(menu);
+   menu_insert_item("&Grep", menu, "&Replace across matches", "grep_replace");
+   menu_delete_item(menu + ".&Grep");
+   menu_delete_item(menu + ".Tar");
+}
+
+
 %}}}
 
 % Interface: %{{{
@@ -281,13 +321,11 @@ enable_dfa_syntax_for_mode(mode);
 %!%+
 %\function{grep_mode}
 %\synopsis{Mode for results of the grep command}
-%\usage{ grep_mode()}
+%\usage{grep_mode()}
 %\description
-%   A mode for the file listing as returned by the "grep -Hn" command.
-%   Provides highlighting and convenience functions.
-%   Open the file(s) and go to the hit(s) pressing Enter. Do a
-%   find-and-replace accross the files.
-%\seealso{grep, grep_replace}
+%   A mode for the file listing as returned by \sfun{grep} or the "grep -Hn"
+%   command line tool. Provides highlighting and convenience functions. 
+%\seealso{grep, grep_replace, filelist_mode}
 %!%-
 public define grep_mode()
 {
@@ -297,6 +335,7 @@ public define grep_mode()
    set_mode(mode, 0);
    use_syntax_table (mode);
    use_keymap(mode);
+   mode_set_mode_info(mode, "init_mode_menu", &grep_menu);
    run_mode_hooks("grep_mode_hook");
 }
 
@@ -394,6 +433,7 @@ public define grep() % ([what], [path])
    fit_window(get_blocal("is_popup", 0));
    bob();
    set_status_line("Grep: " + cmd + " (%p)", 0);
+   define_blocal_var("generating_function", [_function_name, what, path]);
    grep_mode();
 }
 
