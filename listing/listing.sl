@@ -28,6 +28,7 @@
 % 	     	     delete_tagged_lines()
 % 2007-04-17 3.1   * removed the dired-style Key_BS binding (tag&up) as this
 % 	     	     overrides the default (page_up) of the basic "view" mode
+% 2007-04-19 3.1.1 * added a "Save Listing" entry to the mode menu
 %
 % TODO:  * Shift-Click tags from point to Mousepoint
 %          may be also: right-drag tags lines
@@ -413,6 +414,7 @@ static define listing_menu (menu)
    menu_append_item(menu, "&Untag Matching", "listing->tag_matching(0)");
    menu_append_item(menu, "&Invert Tags",    "listing->tag_all(2)");
    menu_append_item(menu, "&Edit Listing",   "listing->edit");
+   menu_append_item(menu, "&Save Listing",   "save_buffer_as");
 }
 
 public define listing_mode()
