@@ -83,8 +83,8 @@
 %   
 % * use current word as default pattern :
 %         
-%   If you want the current word as pattern (without asking in the
-%   minibuffer), use something like
+%   If you want the word at the cursor position (point)  as pattern (without
+%   asking in the minibuffer), use something like
 %   
 %     definekey("^FG", "grep(get_word())")
 %   
