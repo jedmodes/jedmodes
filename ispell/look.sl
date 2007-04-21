@@ -1,10 +1,8 @@
 % look.sl
 %
-% Author:        Paul Boekholt
-%
-% $Id: look.sl,v 1.9 2005/09/18 07:21:31 paul Exp paul $
+% $Id: look.sl,v 1.10 2007/04/21 10:14:47 paul Exp paul $
 % 
-% Copyright (c) 2003,2005 Paul Boekholt.
+% Copyright (c) 2003-2007 Paul Boekholt.
 % Released under the terms of the GNU GPL (version 2 or later).
 %
 % This file provides completion of words from the system dictionary.  This
@@ -21,7 +19,7 @@ init_char_array(keys, keys_string);
 
 private define skip_past_newline(p)
 {
-   variable ch, s;
+   variable s;
    ()=fseek(fp, p, SEEK_SET);
    ()=fgets(&s, fp);
    return ftell(fp);
@@ -29,10 +27,10 @@ private define skip_past_newline(p)
 
 private define compare(p)
 {
-   variable s2;
+   variable s;
    ()=fseek(fp, p, SEEK_SET);
-   ()=fgets(&s2, fp);
-   return strncmp(word, strlow(s2), l);
+   ()=fgets(&s, fp);
+   return strncmp(word, strlow(s), l);
 }
 
 private define binary_search(front, back)
@@ -72,7 +70,7 @@ define look(w, file)
    word=w;
    l=strlen(w);
    fp = fopen(file, "r");
-   if (fp == NULL) verror ("could not open file %s", file);
+   if (fp == NULL) throw RunTimeError, sprintf("could not open file %s", file);
    variable front, back, result;
    ()=fseek(fp, 0, SEEK_SET);
    front = ftell(fp);
@@ -92,17 +90,15 @@ define look(w, file)
 public define ispell_complete()
 {
    variable word, new_word, buf = whatbuf, cbuf = "*completions*",
-     num_win = nwindows, obuf, n, completions, num,
-     wordlen, lookfun;
+     num_win = nwindows, obuf, completions, i, wordlen;
    _pop_n(_NARGS);
-   push_spot;
-   push_mark;
-   ispell_beginning_of_word;	       %  The Dutch dictionary does have
+   push_spot();
+   push_mark();
+   ispell_beginning_of_word();	       %  The Dutch dictionary does have
    				       %  "-'" chars in words
-   word = bufsubstr;
+   word = strlow(bufsubstr());
    wordlen = strlen(word);
-   pop_spot;
-   word = strlow(word);
+   pop_spot();
    if (ispell_wordlist == "") return message ("no wordlist");
    completions = look(word, ispell_wordlist);
    !if (length(completions)) return message ("no completions");
@@ -116,10 +112,11 @@ public define ispell_complete()
 	variable len = strlen (first_completion);
 	% Either first_completion is a substring of last_completion,
 	% or they differ somewhere, so this won't give an array range error
-	variable i;
-	for (i = 0; i < len; i++)
-	  if (first_completion[i] != last_completion[i])
-	    break;
+	_for i (0, strlen(first_completion), 1)
+	  {
+	     if (first_completion[i] != last_completion[i])
+	       break;
+	  }
 	i--;
 
 	insert (strtrim_end(first_completion[[wordlen:i]], "\n"));
@@ -128,7 +125,7 @@ public define ispell_complete()
 
    obuf = pop2buf_whatbuf(cbuf);
    erase_buffer;
-   for (i = 0; i < length (completions); i++)
+   _for i (0,  length(completions) - 1, 1)
       {
     	vinsert ("(%c)  %s", keys[i], completions[i]);
       }
@@ -137,33 +134,28 @@ public define ispell_complete()
    bob;
    insert ("completions for " + word + "\n");
 
-   ERROR_BLOCK
-     {
-	sw2buf(obuf);
-	pop2buf(buf);
-	if (num_win == 1) onewindow();
-	bury_buffer(cbuf);
-     }
 
    set_buffer_modified_flag(0);
    message ("Enter choice (SPACE to leave unchanged)");
 
    update_sans_update_hook(0);
-   variable c = getkey();
-   if (c == ' ')
+   try
+     {
+	i  = getkey();
+     }
+   finally
      {
 	sw2buf(obuf);
 	pop2buf(buf);
 	if (num_win == 1) onewindow();
 	bury_buffer(cbuf);
-	return;
      }
-   sw2buf(obuf);
-   pop2buf(buf);
-   num = where (c == keys);
-   if (length(num))
-     insert (strtrim_end(completions[num[0]][[wordlen:]]));
-   if (num_win == 1) onewindow();
-   bury_buffer(cbuf);
+   if (i != ' ')
+     {
+	i = wherefirst (i == keys);
+	if (i != NULL)
+	  if (i < length(completions))
+	    insert (strtrim_end(completions[i][[wordlen:]]));
+     }
 }
 

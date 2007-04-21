@@ -1,8 +1,6 @@
-% ispell_common.sl	-*- mode: SLang; mode: fold -*-
+% ispell_common.sl
 %
-% Author:	Paul Boekholt
-%
-% $Id: ispell_common.sl,v 1.16 2006/06/03 18:06:35 paul Exp paul $
+% $Id: ispell_common.sl,v 1.17 2007/04/21 10:14:47 paul Exp paul $
 % 
 % Copyright (c) 2003-2006 Paul Boekholt.
 % Released under the terms of the GNU GPL (version 2 or later).
@@ -36,7 +34,7 @@ define kill_flyspell();
 
 % make the ispell command (except for options only needed by some modes)
 % and set the ispell_language settings
-define make_ispell_command()
+private define make_ispell_command()
 {
    variable options, ispell_options = "";
    % this was added after a discussion on the JED mailing list about a
@@ -70,14 +68,14 @@ define make_ispell_command()
 %{{{ set language
 
 %{{{ change the current language
-static define ispell_change_current_dictionary(new_language)
+private define ispell_change_current_dictionary(new_language)
 {
    if (new_language != ispell_current_dictionary)
      {
 	ispell_current_dictionary = new_language;
 	make_ispell_command();
 	kill_ispell();
-	if (get_blocal("flyspell", 0)
+	if (get_blocal_var("flyspell", 0)
 	    and flyspell_current_dictionary != ispell_current_dictionary)
 	  {
 	     kill_flyspell();
@@ -154,7 +152,7 @@ public define ispell_change_local_dictionary() % ([new_language])
      {
 	new_language = read_with_completion
 	  (strjoin(assoc_get_keys(Ispell_Hash_Name), ","),
-	   "new language", get_blocal("ispell_dictionary", Ispell_Dictionary), "", 's');
+	   "new language", get_blocal_var("ispell_dictionary", Ispell_Dictionary), "", 's');
      }
    define_blocal_var("ispell_dictionary", new_language);
    ispell_change_current_dictionary(new_language);
@@ -166,9 +164,9 @@ public define ispell_local_dictionary_menu_item(language)
    ispell_change_local_dictionary(language);
 }
 
-static define ispell_switch_buffer_hook(old_buffer)
+define ispell_switch_buffer_hook(old_buffer)
 {
-   ispell_change_current_dictionary(get_blocal("ispell_dictionary", Ispell_Dictionary));
+   ispell_change_current_dictionary(get_blocal_var("ispell_dictionary", Ispell_Dictionary));
    flyspell_switch_active_buffer_hook();
 }
 
@@ -195,7 +193,7 @@ public define ispell_change_dictionary_callback (popup)
    menu_radio (popup, "dictionary", &Ispell_Dictionary, languages, ,
 	       &ispell_change_dictionary); 
 
-   menu_local_dummy= get_blocal("ispell_dictionary", Ispell_Dictionary);
+   menu_local_dummy= get_blocal_var("ispell_dictionary", Ispell_Dictionary);
    menu_radio (popup, "&buffer dictionary", &menu_local_dummy, languages, , 
 	       &ispell_change_local_dictionary);
 }
@@ -205,12 +203,12 @@ public define ispell_change_dictionary_callback (popup)
 %{{{ some helper functions
 
 % this only works right if you're on a word of course
-static define ispell_beginning_of_word()
+define ispell_beginning_of_word()
 {
    bskip_chars(ispell_wordchars);
    skip_chars(ispell_otherchars);
 }
-static define ispell_end_of_word()
+define ispell_end_of_word()
 {
    skip_chars(ispell_wordchars);
    bskip_chars(ispell_otherchars);

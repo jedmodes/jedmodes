@@ -1,18 +1,23 @@
 ispell mode
 * news
-**flyspell.sl
-  works in utf-8 mode. See [ispell and utf-8]
-**ispell.sl
-  ispell_region will now check from point to the end of the file when no
-  region is defined.
+** 1.22
+   The ispell package now requires slang 2.0 or greater.
+** flyspell.sl
+   collect ispell output in an accumulator to process it one line at a time.
+** 1.21
+*** flyspell.sl
+    works in utf-8 mode. See [ispell and utf-8]
+*** ispell.sl
+    ispell_region will now check from point to the end of the file when no
+    region is defined.
 * installation
   Simply put it all in your load path, add
   require ("ispell_init");
   to your .jedrc, and any keybindings you want.  And set up your dictionaries.
 * dictionaries
   On Debian the dictionaries should be automatically initialised by the
-  (next version of the) dictionaries_common package.  On other systems,
-  use ispell_add_dictionary().
+  dictionaries-common package.  On other systems, use
+  ispell_add_dictionary().
   
 hash_name: the name by which ispell knows the language (a .hash file in
   /usr/lib/ispell)
@@ -36,44 +41,12 @@ wordlist: just needed for ispell_complete, it would be annoying to have to
   set the language for ispell AND a wordlist for completions.  For Debian
   users, this one is not automatically filled in.
 
-I have ispell 3.1.20.
+I have ispell 3.1.20 and aspell 0.60.4.
 * ispell and utf-8
-  Support for utf-8 is still experimental, and has only been tested with
-  aspell 0.60-4.  Flyspell uses syntax highlighting to highlight
-  misspellings, which uses byte semantics, but you have to give a utf-8
-  string to the "letters" argument of ispell_add_dictionary().  YMMV.  If
-  you're using JED 0.99.17-x, you should also apply this patch to syntax.sl:
-#v+  
---- /usr/local/jed/lib/syntax.sl	Mon Oct 24 18:41:46 2005
-+++ syntax.sl	Mon Jan  9 21:47:51 2006
-@@ -33,7 +33,7 @@
-    % add old keywords
-    kws += define_keywords_n (tbl, "", len, n);
- 
--   num = strlen (kws) / len;
-+   num = strbytelen (kws) / len;
-    !if (num) return "";
- 
-    hash = Assoc_Type[Int_Type];
-@@ -41,7 +41,7 @@
-    _for (0, num-1, 1)
-      {
- 	i = ();
--	hash [substr (kws, 1 + i * len, len)] = 1;
-+	hash [kws[[i * len:(1 +i) * len - 1]]] = 1;
-      }
-    
-    add_hash_to_syntax_table (tbl, hash, len, n);
-@@ -58,7 +58,7 @@
- %!%-
- define add_keyword_n (tbl, kw, n)
- {
--   variable len = strlen (kw);
-+   variable len = strbytelen (kw);
-    !if (len) return;
-    () = add_keywords (tbl, kw, len, n);
- }
-#v-
+  Support for utf-8 is still experimental.  Flyspell uses syntax
+  highlighting to highlight misspellings, which uses byte semantics, but you
+  have to give a utf-8 string to the "letters" argument of
+  ispell_add_dictionary().  YMMV.
 * using (i|fly)spell with other modes
 ** checking TeX
    When in TeX mode, ispell_region() will tell the ispell process to switch

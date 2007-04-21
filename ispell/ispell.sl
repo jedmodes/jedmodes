@@ -1,6 +1,6 @@
 % ispell.sl	-*- mode: SLang; mode: fold -*-
 % 
-% $Id: ispell.sl,v 1.21 2006/06/03 18:06:35 paul Exp paul $
+% $Id: ispell.sl,v 1.22 2007/04/21 10:14:47 paul Exp paul $
 % 
 % Copyright (c) 2001-2006 Guido Gonzato, John Davis, Paul Boekholt.
 % Released under the terms of the GNU GPL (version 2 or later).
@@ -15,6 +15,8 @@ use_namespace("ispell");
 static variable buf, obuf, num_win;
 static variable ibuf = " *ispell*", corbuf = "*corrections*";
 
+% This is just to unwind the call stack if you press 'q'
+new_exception("IspellError", RunTimeError, "Quit!");
 %{{{ ispell process
 
 define kill_ispell()
@@ -59,9 +61,13 @@ static define start_ispell_process ()
    foreach (args)
      ;
    length (args) - 1;
+#ifexists open_process_pipe
+   ispell_process = open_process_pipe ();
+#else
    ispell_process = open_process ();
+#endif
    if (ispell_process == -1)
-     verror ("Unable to open ispell process");
+     throw RunTimeError, "Unable to open ispell process";
 
    % () = wait_for_ispell_output (5); 
    % The header is NOT followed by a blank line...
@@ -75,7 +81,7 @@ static define start_ispell_process ()
 	pop2buf(whatbuf);
 	ispell_process = -1;
 	pop2buf(buf);
-	verror ("Ispell crashed!");
+	throw RunTimeError, "Ispell crashed!";
      }
    send_process(ispell_process, "!\n");
    process_query_at_exit (ispell_process, 0);
@@ -98,7 +104,7 @@ static define send_string_to_ispell_process (word)
    send_process (ispell_process, strcat ("^", word, "\n"));
 
    if (wait_for_ispell_output (5) == -1)
-     verror ("ispell process is not responding");
+     throw RunTimeError, "ispell process is not responding";
 }
 
 define get_ispell_command(word, key_array, corrections)
@@ -117,7 +123,7 @@ define get_ispell_command(word, key_array, corrections)
 	  {case 'u': send_process (ispell_process, strcat ("*", strlow(word), "\n#\n"));
 	     return NULL;}
 	  {case 'n': return -1;}
-	  {case 'x' or case 'X' or case 'q': error("quit!");}
+	  {case 'x' or case 'X' or case 'q': throw IspellError;}
 	if (corrections != NULL)
 	  {
 	     if (num == '')  return corrections[0];
@@ -168,7 +174,7 @@ define ispell_parse_output (is_auto)
      
    if (line[0] == '&')
      {
-	ispell_offset = integer (strtok (line, " :")[3]);
+	ispell_offset = atoi (strtok (line, " :")[3]);
 	corrections = strchop(extract_element(line, 1, ':'), ',', 0);
 	if (length(corrections) > 20)
 	  corrections = corrections[[:19]];
@@ -191,7 +197,7 @@ define ispell_parse_output (is_auto)
      }
    else % there was no '&' so it was a '#'
      {
-	ispell_offset = integer (extract_element(line, 2, ' '));
+	ispell_offset = atoi (extract_element(line, 2, ' '));
         setbuf (corbuf);
 	erase_buffer();
 	insert ("no suggestions");
@@ -230,18 +236,24 @@ define ispell_parse_output (is_auto)
    
    set_buffer_modified_flag(0);
 
-   ERROR_BLOCK
+   try
+     {
+	new_word = get_ispell_command(word, key_array, corrections);
+     }
+   catch IspellError:
      {
 	sw2buf(old_buf);
 	pop2buf(buf);
         if (num_win == 1) onewindow();
 	pop_mark_0();
+	throw IspellError;
      }
-   new_word = get_ispell_command(word, key_array, corrections);
+	
    sw2buf(old_buf);
    pop2buf(buf);
    if (num_win == 1) onewindow();
-   if (andelse {typeof(new_word) == Integer_Type}{new_word == -1})
+   if (typeof(new_word) == Integer_Type)
+     if (new_word == -1)
      return pop_mark_0;
    if (new_word != NULL)
      {  
@@ -337,10 +349,6 @@ public define ispell_region()
 	get_process_input(10);
      }
    push_narrow();
-   ERROR_BLOCK
-     {
-	_clear_error();
-     }
    if (is_visible_mark) 
      {
 	narrow();
@@ -350,29 +358,34 @@ public define ispell_region()
      send_process (ispell_process,  "+\n");
    else
      send_process (ispell_process,  "-\n");
-   if (blocal_var_exists("ispell_region_hook"))
+   try
      {
-	variable ispell_hook = get_blocal_var("ispell_region_hook");
-	forever
+	if (blocal_var_exists("ispell_region_hook"))
 	  {
-	     if (@ispell_hook)
-	       ispell_line;
-	     !if (down_1) break;
-	     skip_chars("\n");
+	     variable ispell_hook = get_blocal_var("ispell_region_hook");
+	     forever
+	       {
+		  if (@ispell_hook)
+		    ispell_line;
+		  !if (down_1) break;
+		  skip_chars("\n");
+	       }
+	  }
+	else
+	  {
+	     forever
+	       {
+		  ispell_line;
+		  !if (down_1) break;
+		  skip_chars("\n");
+	       }
 	  }
      }
-   else
-     {
-	forever
-	  {
-	     ispell_line;
-	     !if (down_1) break;
-	     skip_chars("\n");
-	  }
-     }
+   catch IspellError;
    pop_narrow();
    if (bufferp(corbuf))
      delbuf(corbuf);
 }
-
+   
 %}}}
+   

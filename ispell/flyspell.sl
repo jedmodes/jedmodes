@@ -1,15 +1,12 @@
-% flyspell.sl  -*- mode: SLang; mode: Fold -*-
+% flyspell.sl
 %
-% $Id: flyspell.sl,v 1.19 2006/06/03 18:06:35 paul Exp paul $
+% $Id: flyspell.sl,v 1.20 2007/04/21 10:14:47 paul Exp paul $
 % 
-% Copyright (c) 2003-2006 Paul Boekholt.
+% Copyright (c) 2003-2007 Paul Boekholt.
 % Released under the terms of the GNU GPL (version 2 or later).
 % 
-% This file provides a minor mode for on-the-fly spell checking.  We use
-% the _jed_switch_active_buffer_hooks to set the _jed_after_key_hooks
-% depending on the flyspell blocal var.  In English: you need JED 0.99.16
-% or greater.
-  
+% This file provides a minor mode for on-the-fly spell checking.
+
 require("syntax");
 require("ispell_common");
 use_namespace("ispell");
@@ -18,10 +15,11 @@ use_namespace("ispell");
 variable flyspell_otherchars = strtrim_beg(ispell_otherchars, "-");
 variable flyspell_wordchars = flyspell_otherchars + ispell_letters;
 variable flyspell_syntax_table;
+private variable accumulator = "";
 
 % do you want to use keyword2 to have red misspellings?
 custom_variable("flyspell_use_keyword2", 1);
-static variable flyspell_chars = " ";
+variable flyspell_chars = " ";
 
 !if (is_defined("flyspell_process"))
   public variable flyspell_process = -1;
@@ -35,30 +33,42 @@ define kill_flyspell()
      kill_process(flyspell_process);
 }
 
-public define flyspell_parse_output (pid, output)
+private define flyspell_parse_output (pid, output)
 {
+   accumulator += output;
    variable name = flyspell_syntax_table;
-   output = strtrim(output);
-   if (strlen(output))
+   variable lines = strchop(accumulator, '\n', 0);
+   if (length(lines) < 2)
      {
-	output = strtok(output)[1];
-	update_sans_update_hook(0);
-	if (flyspell_use_keyword2)
-	  add_keyword_n(name, output, 2);
-	else
-	  add_keyword(name, output);
+	return;
+     }
+   accumulator = lines[-1];
+   variable line;
+   foreach line (lines[[:-2]])
+     {
+	line = strtok(strtrim(line));
+	if (length(line) < 2) continue;
+	line = line[1];
+	try 
+	  {
+	     if (flyspell_use_keyword2)
+	       add_keyword_n(name, line, 2);
+	     else
+	       add_keyword(name, line);
+	  }
+	catch AnyError;
      }
 }
 
-public define flyspell_is_dead (pid, flags, status)
+private define flyspell_is_dead (pid, flags, status)
 {
    if (flags & 14)
      flyspell_process = -1;
 }
 
-define toggle_local_flyspell();
+private define toggle_local_flyspell();
 
-static define flyspell_init_process ()
+private define flyspell_init_process ()
 {
    % we need to redefine these in case this process was started
    % by switching to a buffer in another language
@@ -86,7 +96,7 @@ static define flyspell_init_process ()
    get_process_input(2);
 
    if (flyspell_process == -1)
-     error ("could not start ispell");
+     throw RunTimeError, "could not start ispell";
    
    % Give ispell a chance to start.  Maybe I should use 
    % wait_for_ispell_output() here.
@@ -114,12 +124,13 @@ static define flyspell_init_process ()
 	pop2buf(whatbuf);
 	flyspell_process = -1;
 	pop2buf(buf);
-	verror ("Flyspell crashed!");
+	throw RunTimeError, "Flyspell crashed!";
      }
    send_process(flyspell_process, "!\n");
-   set_process (flyspell_process, "signal", "flyspell_is_dead");
-   set_process (flyspell_process, "output", "flyspell_parse_output");
+   set_process (flyspell_process, "signal", &flyspell_is_dead);
+   set_process (flyspell_process, "output", &flyspell_parse_output);
    process_query_at_exit(flyspell_process, 0);
+   accumulator = "";
    setbuf(buf);
 }
 
@@ -128,11 +139,10 @@ static define flyspell_init_process ()
 
 %{{{ Flyspelling
 
-static variable lastword = "", lastpoint = 0;
+variable lastword = "", lastpoint = 0;
 public define flyspell_word()
 {
    variable word, point;
-#ifexists _slang_utf8_ok
    if (flyspell_process == -1)
      {
 	try
@@ -145,18 +155,6 @@ public define flyspell_word()
 	     return;
 	  }
      }
-#else
-   if (flyspell_process == -1)
-     {
-	ERROR_BLOCK
-	  {
-	     _clear_error;
-	     toggle_local_flyspell(0);
-	     return;
-	  }
-	flyspell_init_process();
-     }
-#endif
    push_spot();
    bskip_chars(ispell_non_letters);
    push_mark();
@@ -193,14 +191,17 @@ public define flyspell_word()
    send_process( flyspell_process, strcat ("^", word, "\n"));
 }
 
-static define after_key_hook ()
+private define after_key_hook ()
 {
-   ERROR_BLOCK
+   try
+     {
+	if (is_substr(flyspell_chars, LASTKEY))
+	  flyspell_word();
+     }
+   catch AnyError:
      {
 	toggle_local_flyspell(0);
      }
-   if (is_substr(flyspell_chars, LASTKEY))
-     flyspell_word();
 }
 
 
@@ -211,15 +212,15 @@ static define after_key_hook ()
 define flyspell_switch_active_buffer_hook()
 {
    remove_from_hook ("_jed_after_key_hooks", &after_key_hook);
-   if (get_blocal("flyspell", 0))
+   if (get_blocal_var("flyspell", 0))
      add_to_hook ("_jed_after_key_hooks", &after_key_hook);
-   flyspell_syntax_table = get_blocal("flyspell_syntax_table", "Flyspell_" + flyspell_current_dictionary);
+   flyspell_syntax_table = get_blocal_var("flyspell_syntax_table", "Flyspell_" + flyspell_current_dictionary);
 }
 
-define toggle_local_flyspell() % on/off
+private define toggle_local_flyspell() % on/off
 {
    variable flyspell;
-   !if (_NARGS) not get_blocal("flyspell", 0);
+   !if (_NARGS) not get_blocal_var("flyspell", 0);
    flyspell = ();
    define_blocal_var("flyspell", flyspell);
    if (flyspell)
@@ -243,7 +244,7 @@ define toggle_local_flyspell() % on/off
 
 #ifdef HAS_DFA_SYNTAX
 %%% DFA_CACHE_BEGIN %%%
-static define setup_dfa_callback (name)
+define setup_dfa_callback (name)
 {
    dfa_define_highlight_rule 
      (sprintf("[%s][%s]*[%s]",ispell_letters, flyspell_wordchars, ispell_letters),
@@ -255,7 +256,7 @@ static define setup_dfa_callback (name)
 
 private variable syntax_tables = Assoc_Type[Integer_Type, 0];
 
-static define flyspell_make_syntax_table(name)
+define flyspell_make_syntax_table(name)
 {
    flyspell_otherchars = strtrim_beg(ispell_otherchars, "-");
    flyspell_wordchars = flyspell_otherchars + ispell_letters;
@@ -263,10 +264,6 @@ static define flyspell_make_syntax_table(name)
    syntax_tables[name] = 1;
    create_syntax_table(name);
    set_syntax_flags(name, 0);
-#ifnexists _slang_utf8_ok
-   define_syntax(ispell_wordchars, 'w', name);
-   dfa_set_init_callback (&setup_dfa_callback, name);
-#else
    if (_slang_utf8_ok)
      {
 	% this won't highlight "thye're".
@@ -280,7 +277,6 @@ static define flyspell_make_syntax_table(name)
 	define_syntax(flyspell_wordchars, 'w', name);
 	dfa_set_init_callback (&setup_dfa_callback, name);
      }
-#endif
 }
 
 % A change in syntax table is from starting flyspell in a buffer with
@@ -289,7 +285,7 @@ static define flyspell_make_syntax_table(name)
 % should continue to use its own syntax table. 
 define flyspell_change_syntax_table(language)
 {
-   variable table = get_blocal("flyspell_syntax_table", NULL);
+   variable table = get_blocal_var("flyspell_syntax_table", NULL);
    if(table != NULL)
      {
    	use_syntax_table(table);
@@ -307,7 +303,8 @@ define flyspell_change_syntax_table(language)
    % this will get confused when you change the global language from a
    % buffer that has a blocal language.
    use_syntax_table(table);
-   use_dfa_syntax(0); % the DFA otherchars trick works even without DFA?
+   !if (_slang_utf8_ok)
+     use_dfa_syntax(1);
 }
 
 %!%+
@@ -339,8 +336,6 @@ public define flyspell_mode()
 }
 
 
-% I can't give a whole region at once, see also the the changelog for
-% version 1.4 of ishell.sl
 %!%+
 %\function{flyspell_region}
 %\synopsis{highlight misspellings in the region}
@@ -356,20 +351,25 @@ public define flyspell_region()
    variable line;
    
    flyspell_current_dictionary = ispell_current_dictionary;
-   !if (get_blocal("flyspell", 0))
-     flyspell_mode;
+   !if (get_blocal_var("flyspell", 0))
+     flyspell_mode();
 
-   push_spot;
-   !if (is_visible_mark) 
-     mark_buffer;
+   push_spot();
+   !if (is_visible_mark()) 
+     mark_buffer();
    flush ("flyspelling...");
-   foreach(strchop(bufsubstr(), '\n', 0))
+
+   try
      {
-   	line = ();
-   	send_process( flyspell_process, "^" + line + "\n");
-   	get_process_input(1);
+	foreach line (strchop(bufsubstr(), '\n', 0))
+	  {
+	     send_process( flyspell_process, "^" + line + "\n");
+	  }
      }
-   pop_spot;
+   finally
+     {
+	pop_spot();
+     }
    flush("flyspelling...done");
 }
 

@@ -1,10 +1,8 @@
 % ispell_init.sl	-*- mode: SLang; mode: fold -*-
 %
-% Author:	Paul Boekholt
+% $Id: ispell_init.sl,v 1.13 2007/04/21 10:14:47 paul Exp paul $
 %
-% $Id: ispell_init.sl,v 1.12 2006/06/03 18:06:35 paul Exp paul $
-%
-% Copyright (c) 2003-2006 Paul Boekholt.
+% Copyright (c) 2003-2007 Paul Boekholt.
 % Released under the terms of the GNU GPL (version 2 or later).
 %
 % This defines global variables and functions for the ispell package. 
@@ -14,7 +12,7 @@
 require("sl_utils");
 provide ("ispell_init");
 
-variable ispell_version = "ispell.sl 1.21";
+variable ispell_version = "ispell.sl 1.22";
 
 %{{{ autoloads
 
