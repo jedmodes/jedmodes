@@ -65,6 +65,7 @@
 % 	      	      open file, return focus to filelist 
 % 	      	    * highlight rule for directories listed with `ls -l`
 % 	      	    * locate(): dont't close list if going to a directory
+% 2007-04-23  1.7.2 * filelist_view_file(): never close calling filelist
 %
 % TODO: * more bindings of actions: filelist_cua_bindings
 %       * copy from filelist to filelist ...
@@ -688,7 +689,7 @@ public  define filelist_open_tagged()
 %!%-
 public  define filelist_view_file()
 {
-   filelist_open_file();
+   filelist_open_file(FileList_Action_Scope, 0);
    set_readonly(1);
    view_mode();
 }
