@@ -1,3 +1,5 @@
+% -*- mode: slang -*-
+%
 % (Standard MIT/X11 license follows)
 % 
 % Copyright (c) 2003,2006 Juho Snellman
@@ -25,14 +27,13 @@
 % 
 %    ** Installation **
 % 
-% Add this file into a directory that's in your JED_LIBRARY path 
-% (the lib-directory of your jed install is a good bet, if you haven't
-% manually set the library path). After that, just add the following line
-% into your .jedrc: 
+% Add this file into a directory that's in your "Jed library path" (try
+% M-X get_jed_library_path() to see what this is). 
 % 
-%  () = evalfile("cvs");
-% 
-% 
+% After that, copy
+% the <INITIALIZATION> block into your .jedrc (or run update_ini() from
+% jedmodes.sf.net/mode/make_ini/)
+%  
 %    ** Functionality **
 %   
 % Only the most common (for me) CVS operations are supported (add, commit,
@@ -142,22 +143,43 @@
 %   
 % 2006-11-21 / Juho Snellman <jsnell@iki.fi>
 %   * Rough SVN port
+% 2007-04-27 / Guenter Milde <milde users.sf.net>
+%   * <INITIALIZATION> block replacing the evaluation of svn.sl at startup
+%   * bugfix: return to directory listing before postprocessing
+%   * use popup_buffer instead of pop2buf: 
+%     - closing with close_buffer() closes the window as well 
+%       (if it wasn't open before).
 %   
+% TODO: 
+%   * syntax highlight (DFA) in directory listing
+%   * auto-determine if cvs or svn is used (check for .CVS or .svn dir)
+%   * fit_window() for popup buffers
    
 % Uncomment these for bug hunting
 % _debug_info=1; _traceback=1; _slangtrace=1;
 
-% requirements
-autoload("reload_buffer", "bufutils"); % jedmodes.sf.net/mode/bufutils/
+#<INITIALIZATION>
+% the CVS menu 
+autoload("svn_menu_callback", "svn");
+define svn_load_popup_hook(menubar)
+{
+   variable menu = "Global.&File";
+   menu_insert_popup("Canc&el Operation", menu, "&Version Control");
+   menu_insert_separator("Canc&el Operation", menu);
+   menu_set_select_popup_callback(menu+".&Version Control", &svn_menu_callback);
+}
+append_to_hook("load_popup_hooks", &svn_load_popup_hook);
+#</INITIALIZATION>
+
+
+% Requirements
+% from  http://jedmodes.sourceforge.net/
+autoload("reload_buffer", "bufutils");
+autoload("popup_buffer", "bufutils");
 
 %% Variables %{{{
-if (_featurep(__FILE__)) {
-    use_namespace("cvs"); 1;
-} else {
-    implements("cvs"); 0;
-}
-provide(__FILE__);
-private variable reloading = ();
+implements("svn");
+provide("svn");
 
 custom_variable("cvs_executable", "/usr/bin/svn");
 custom_variable("cvs_set_reserved_keybindings", 1);
@@ -373,7 +395,7 @@ define do_cvs (args, dir, use_default_buf, signal_error) { %{{{
 #endif
     
     if (use_default_buf) {
-        pop2buf(message_buffer);
+        popup_buffer(message_buffer);
         set_readonly(0);
         erase_buffer();
     }
@@ -401,11 +423,11 @@ define do_cvs (args, dir, use_default_buf, signal_error) { %{{{
 
 %% Marking files %{{{
 
-!if (reloading) {
-    typedef struct {
-        filename, diff_line_mark, list_line_mark, dirlist_line_mark
-    } Cvs_Mark_Type;
-}
+!if (is_defined("Cvs_Mark_Type"))
+   typedef struct {
+      filename, diff_line_mark, list_line_mark, dirlist_line_mark
+   } Cvs_Mark_Type;
+
 
 variable marks = Assoc_Type [];
 
@@ -572,7 +594,7 @@ private variable diff_filenames = Assoc_Type [];
 
 private define init_diff_buffer(new_window) { %{{{
     if (new_window)
-      pop2buf(diff_buffer);
+     popup_buffer(diff_buffer);
     else
       sw2buf(diff_buffer);
     
@@ -633,7 +655,7 @@ private define diff_extract_filename() { %{{{
 %}}}
 
 private define postprocess_diff_buffer() { %{{{
-    pop2buf(diff_buffer);
+    popup_buffer(diff_buffer);
     push_spot();
     bob();
     () = down(2);
@@ -725,7 +747,7 @@ private define init_list_buffer(erase) { %{{{
 %}}}
 
 public define cvs_list_marked() { %{{{
-    pop2buf(list_buffer);
+    popup_buffer(list_buffer);
     
     init_list_buffer(1);
     
@@ -847,7 +869,10 @@ public define cvs_list_dir() { %{{{
     erase_buffer();
     
     do_cvs(["status"], dir, 0, 0);
-    
+   
+    % return to directory listing and postprocess
+    otherwindow();
+    sw2buf(dirlist_buffer);
     postprocess_dirlist_buffer();
 }
 %}}}
@@ -1114,18 +1139,7 @@ public define cvs_re_eval() { %{{{
 
 %% Initialization %{{{
 
-private define menu_init() { %{{{
-    if (reloading) {
-        return;
-    }      
-    
-    %() = evalfile("popups");
-    variable menu = "Global.&File";
-    
-    menu_insert_popup("Canc&el Operation", menu, "C&VS");
-    menu_insert_separator("Canc&el Operation", menu);
-    
-    menu = "Global.&File.C&VS";
+public define svn_menu_callback(menu) { %{{{
     menu_append_item(menu, "&Add buffer", "cvs_add_buffer");
     menu_append_item(menu, "&Commit buffer", "cvs_commit_buffer");
     menu_append_item(menu, "&Diff buffer", "cvs_diff_buffer");
