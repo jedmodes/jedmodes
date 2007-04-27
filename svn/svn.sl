@@ -178,8 +178,9 @@ autoload("reload_buffer", "bufutils");
 autoload("popup_buffer", "bufutils");
 
 %% Variables %{{{
-implements("svn");
+implements("cvs");
 provide("svn");
+% provide("cvs");
 
 custom_variable("cvs_executable", "/usr/bin/svn");
 custom_variable("cvs_set_reserved_keybindings", 1);
