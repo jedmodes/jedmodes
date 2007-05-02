@@ -66,6 +66,7 @@
 % 	      	    * highlight rule for directories listed with `ls -l`
 % 	      	    * locate(): dont't close list if going to a directory
 % 2007-04-23  1.7.2 * filelist_view_file(): never close calling filelist
+% 2007-05-02  1.7.3 * documentation update
 %
 % TODO: * more bindings of actions: filelist_cua_bindings
 %       * copy from filelist to filelist ...
@@ -89,7 +90,8 @@
 %
 % * To make file finding functions list the directory contents
 %   if called with a directory path as argument (instead of reporting an
-%   error), copy the content of the INITALIZATION block below into your
+%   error), copy the content of the INITALIZATION block below 
+%   (without the preprocessor #<INITALIZATION> lines) into your
 %   .jedrc (or jed.rc) (or use the "make_ini" and "home-lib" modes from
 %   jedmodes.sf.net)
 
