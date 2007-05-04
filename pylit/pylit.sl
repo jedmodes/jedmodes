@@ -1,25 +1,39 @@
 % pylit.sl: Helper functions for literal programming with PyLit
 % Copyright (c) 2006 Günter Milde
 % Released under the terms of the GNU General Public License (ver. 2 or later)
-%
+% 
 % Versions:
-% 0.1 2006-03-03 as part of gmisc.sl (unpublished)
-% 0.2 2007-01-23 added pylit_check, public release as pylit.sl
+% 
+% ===== ========== ==========================================================
+% 0.1   2006-03-03 as part of gmisc.sl (unpublished)
+% 0.2   2007-01-23 added pylit_check, public release as pylit.sl
 % 0.2.1 2007-01-24 bugfix in pylit_check(): do nothing if both files are of 
 %                  same age
-% 0.2.2 UNPU       call rst_mode() if the output buffer is text
-
-
+% 0.2.2 2007-03-09 call rst_mode() if the output buffer is text
+%                  literate version
+% ===== ========== ==========================================================
+% 
+% 
 % Requirements
-% http://jedmodes.sf.net/mode/sl_utils/
+% ------------
+% 
+% `sl_utils` and `ishell mode` from http://jedmodes.sf.net/mode/sl_utils/ and
+% http://jedmodes.sf.net/mode/ishell/ ::
+
 autoload("push_defaults", "sl_utils");
-% http://jedmodes.sf.net/mode/ishell/
 autoload("shell_cmd_on_region_or_buffer", "ishell");
 
 % Customization
+% -------------
+% 
+% the pylit command (give a full path if pylit is not in your PATH)::
+
 custom_variable("Pylit_Cmd", "pylit");
 
-%---------------------------------------------------------------------------
+% Functions
+% ---------
+% 
+% ::
 
 private variable output_buffer = "*PyLit output*";
 
@@ -54,7 +68,8 @@ private define pylit_switch_to_output(outfile)
 %  define rst_mode_hook() { pylit_check(); }
 %  define python_mode_hook() {pylit_check(); }
 %#v-
-%  (or extend the mode hooks if they already exist).
+%  (or extend the mode hooks if they already exist). Repeat this for all
+%  programming languages where you do literate programming in.
 %\notes
 %  \sfun{pylit_check} handles only the case with default filename extensions
 %  (".txt" added for the text source and stripped for the code source).
@@ -81,7 +96,7 @@ public define pylit_check()
 
 %!%+
 %\function{pylit_buffer}
-%\synopsis{}
+%\synopsis{Convert the current buffer with PyLit}
 %\usage{pylit_buffer()}
 %\description
 %  PyLit (http://pylit.berlios.de/) converts between text and code format
@@ -119,6 +134,3 @@ public define pylit_diff()
 {
    shell_cmd_on_region_or_buffer(Pylit_Cmd + " --diff ", output_buffer);
 }
-
-
-% check for a newer version of the buffer-file
