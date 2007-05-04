@@ -105,26 +105,20 @@
 % of this module.
 %      
 %   SVN_executable:  [/usr/bin/svn/] 
-%     The location of the svn executable
-%     
 %   SVN_set_reserved_keybindings: [1]
-%     By default, the initialization routines set up global keybindings,
-%     using the reserved prefix (defaults to C-c). Giving setting this 
-%     variable to zero *before the file is evaluated* prevents the 
-%     keybindings from being created.
-%   
 %   SVN_help: [1]
-%     Setting this variable to 0 disables showing the keyboard help
-%     in the marked files, diff, and directory list views.
-%     
+%
+% See the definition below or 'Help>Describe Variable' for details.
 %    
-%    ** Todo **
+% TODO
+% ----
 % 
 %  - Document most public variables/functions
 %  - Add support for 'diff -r HEAD'
 %    
 %
-%    ** Changelog **
+% Changelog
+% ---------
 % 
 % 2003-05-31 / Juho Snellman <jsnell@iki.fi>
 %   * First public release
@@ -152,11 +146,14 @@
 % 2007-04-30 (Joachim Schmitz, Guenter Milde)
 %   * bugfix in dirlist_extract_filename(): strip spurious whitespace
 %   * replace cvs -> svn, CVS -> SVN in names and documentation
+% 2007-05-04 (GM)
+%   * Support both SVN and CVS (checking for CVS or .svn dir)
+%   * removed otherwindow_if_messagebuffer_active(), its not used
 %   
 % TODO: 
 %   * syntax highlight (DFA) in directory listing
-%   * auto-determine if cvs or svn is used (check for .SVN or .svn dir)
 %   * fit_window() for popup buffers
+%   * support svk as well
    
 % Uncomment these for bug hunting
 % _debug_info=1; _traceback=1; _slangtrace=1;
@@ -168,7 +165,6 @@ define svn_load_popup_hook(menubar)
 {
    variable menu = "Global.&File";
    menu_insert_popup("Canc&el Operation", menu, "&Version Control");
-   menu_insert_separator("Canc&el Operation", menu);
    menu_set_select_popup_callback(menu+".&Version Control", &svn_menu_callback);
 }
 append_to_hook("load_popup_hooks", &svn_load_popup_hook);
@@ -183,8 +179,6 @@ autoload("popup_buffer", "bufutils");
 %% Variables %{{{
 implements("svn");
 provide("svn");
-% provide("cvs");
-
  
 %!%+
 %\variable{SVN_executable}
@@ -194,7 +188,17 @@ provide("svn");
 %  Name or path to the SVN command line client
 %\seealso{svn_list_dir, svn_diff_buffer}
 %!%-
-custom_variable("SVN_executable", "/usr/bin/svn");
+custom_variable("SVN_executable", "svn");
+
+%!%+
+%\variable{CVS_executable}
+%\synopsis{The location of the svn executable}
+%\usage{variable CVS_executable = "/usr/bin/svn"}
+%\description
+%  Name or path to the CVS command line client
+%\seealso{svn_list_dir, svn_diff_buffer}
+%!%-
+custom_variable("CVS_executable", "cvs");
 
 %!%+
 %\variable{SVN_set_reserved_keybindings}
@@ -227,100 +231,42 @@ private variable message_buffer = " *SVN output*";
 private variable diff_buffer = " *SVN diff*";
 private variable list_buffer = " *SVN marked files*";
 private variable dirlist_buffer = " *SVN directory list*";
-variable project_root = "";
+private variable project_root = ""; % cache for get_op_dir()
 %}}}
 
 %% Prototypes %{{{
 
 public define svn_add_buffer();
-
-private define setbuf_unmodified();
-private define killbuf();
-private define setbuf_ro();
-private define save_buffer_if_modified();
-private define otherwindow_if_messagebuffer_active();
-private define buffer_filename(buf);
-private define buffer_dirname(buf);
-private define require_buffer_dir_in_svn();
-private define entries_contains_filename(entries, filename);
-private define require_buffer_file_in_svn();
-private define escape (str);
-private define make_line_mark ();
-private define mark_file(file);
-private define unmark_file(file);
-private define init_diff_buffer(new_window);
-private define extract_filename();
-private define insert_help();
-private define update_diff_buffer (mark);
-private define diff_extract_root();
-private define diff_extract_filename();
+private define update_list_buffer();
+private define update_diff_buffer();
+private define update_dirlist_buffer();
+private define init_diff_buffer();
 private define postprocess_diff_buffer();
+private define diff_extract_filename();
 private define list_extract_filename();
-private define init_list_buffer(erase);
-private define update_list_buffer (mark);
 private define dirlist_extract_filename();
-private define update_dirlist_buffer (mark);
-private define array_concat(a, b);
-private define find_marked_common_root();
-private define get_op_dir();
-private define menu_init();
-private define keymap_init();
 %}}}
 
 %% Manipulating buffers/windows %{{{
 
-private define setbuf_unmodified() { %{{{
-    setbuf_info( getbuf_info() & ~1 );
-}
-%}}}
-
 private define killbuf() { %{{{
-    setbuf_unmodified();
+    set_buffer_modified_flag(0);
     delbuf(whatbuf());
 }
 %}}}
 
 private define setbuf_ro() { %{{{
-    setbuf_unmodified();
+    set_buffer_modified_flag(0);
     set_readonly(1);
 }
 %}}}
 
 private define save_buffer_if_modified() { %{{{
-    variable flags;
-    (,,,flags) =  getbuf_info();
-    
-    if (flags & 1) {
-        save_buffer();
-    }
+   if (buffer_modified())
+     save_buffer();
 }
 %}}}
 
-%% Actually, experience shows that this was a really bad idea. Code
-%% not deleted in case someone actually wants to use it.
-private define otherwindow_if_messagebuffer_active() { %{{{
-    variable file; 
-    (file,,,) = getbuf_info();
-    
-    % For the user's convenience. If we're currently in the SVN
-    % output buffer (for example due to scrolling through a svn diff), and 
-    % there's exactly one other window visible, switch to that window 
-    % and continue. 
-    if (file == "") {
-        if (nwindows != 2) {
-            error("Active buffer doesn't contain a file. Can't execute SVN functions.");
-        } 
-        otherwindow();
-        
-        (file,,,) = getbuf_info();        
-        if (file == "") {
-            otherwindow();
-            error("No visible window contains a file. Can't execute SVN functions.");
-        }
-    }
-}
-
-%}}}
 
 private define buffer_filename(buf) { %{{{
     if (bufferp(buf)) {
@@ -350,25 +296,37 @@ private define buffer_dirname(buf) { %{{{
 
 %% Executing SVN commands %{{{
 
+% find out how version contro is managed for `dir'
+private define get_version_control_tool(dir)
+{
+   if (file_status(path_concat(dir, ".svn")) == 2)
+     return "svn";
+   if (file_status(path_concat(dir, "CVS")) == 2)
+     return "cvs";
+   % TODO: check for version control with `svk`
+   
+   return ""; % don't know
+}
+
 private define require_buffer_dir_in_svn() { %{{{
     %% otherwindow_if_messagebuffer_active();
     
-    variable file, dir; 
+    variable file, dir, entries; 
     (file, dir,,) = getbuf_info ( whatbuf() );
     
-    if (file == Null_String or file == "") {
-        error("Can't do SVN operations on buffers that don't contain a file.");
+    if (file == "") {
+        error("There is no file attached to this buffer.");
     }
     
-    variable svn_dir = path_concat(dir, ".svn");
-    variable entries = path_concat(svn_dir, "entries");
-    
-    if (file_status(svn_dir) != 2) {
-        error("Working directory " + dir + " lacks .svn/ subdirectory");
-    }
+   switch (get_version_control_tool(dir))
+     { case "cvs": 
+        entries = path_concat(path_concat(dir, "CVS"), "Entries");}
+     { case "svn": 
+        entries = path_concat(path_concat(dir, ".svn"), "entries");}
+     { error(dir + " is not under version control");}
     
     if (file_status(entries) != 1) {
-        error("Working directory " + dir + " lacks .svn/entries");
+        error("Missing stat file " + entries);
     }
     
     return (file, dir);
@@ -419,14 +377,20 @@ private define require_buffer_file_in_svn() { %{{{
 }
 %}}}
 
-private define escape (str) { %{{{
+private define escape_arg(str) { %{{{
     return "\"" + str_quote_string(str, "\\\"$@", '\\') + "\"";
 }
 %}}}
 
-define do_svn (args, dir, use_default_buf, signal_error) { %{{{
-    variable cmd = svn_executable + " " +
-      strjoin(array_map(String_Type, &escape, args), " ");        
+define do_svn(args, dir, use_default_buf, signal_error) { %{{{
+   variable executable, cmd;
+   switch (get_version_control_tool(dir))
+     { case "cvs": executable = CVS_executable; }
+     { case "svn": executable = SVN_executable; }
+     { error(dir + " is not under version control");}
+
+   args = array_map(String_Type, &escape_arg, args);
+   cmd = strjoin([executable, args], " ");
     
 #ifdef OS2 UNIX
     cmd += " 2>&1";    % re-direct stderr
@@ -613,7 +577,7 @@ define toggle_marked() { %{{{
 %}}}
 
 private define insert_help() { %{{{
-    if (svn_help) {
+    if (SVN_help) {
         insert("Commands:\n" +
                "  Affect selected file:    a:Add  c:Commit  d:Diff  u:Update\n" +
                "                           m:Toggle mark r:revert\n" +
@@ -898,6 +862,16 @@ private define postprocess_dirlist_buffer() { %{{{
 
 %}}}
 
+private define get_op_dir() { %{{{
+   if (project_root == "") {
+      project_root = getcwd();
+   } 
+   project_root = read_with_completion("Enter dir for operation: ", 
+                                        "", project_root, 'f');
+   return project_root;
+}
+%}}}
+
 public define svn_list_dir() { %{{{
     variable dir = get_op_dir();
     
@@ -905,8 +879,12 @@ public define svn_list_dir() { %{{{
     use_keymap("svn-list");
     set_readonly(0);
     erase_buffer();
-    
-    do_svn(["status"], dir, 0, 0);
+   
+   % cvs returns a very verbose list with the status command 
+   % the info recommends a dry-run of update for a short list
+   switch (get_version_control_tool(dir))
+     { case "cvs": do_svn(["-n", "-q", "update"], dir, 0, 0); }
+     { do_svn(["status"], dir, 0, 0); }
    
     % return to directory listing and postprocess
     otherwindow();
@@ -1104,41 +1082,9 @@ public define svn_open_selected() { %{{{
 
 %% SVN directory-level operations %{{{
 
-private define get_op_dir() { %{{{
-    variable default = project_root;
-    
-    if (default == "") {
-        default = getcwd();
-    } 
-    
-    % Filename completion wants to use the directory of the current
-    % buffer as a prefix, even if a default value is given. Use
-    % this massive kludge as a workaround. (We also need tinker with
-    % cwd for the same reason).
-    
-    variable orig_buf = whatbuf();
-    ERROR_BLOCK {
-        sw2buf(orig_buf);    
-    }
-    
-    sw2buf(" *Kludge*");
-    setbuf_info("", "", " *Kludge*", 0);
-    chdir(default);
-    
-    variable dir = read_with_completion("Enter dir for operation: ", 
-                                        Null_String, Null_String, 'f');
-
-    sw2buf(orig_buf);
-    
-    project_root = dir;
-    
-    return project_root;
-}
-%}}}
-
 public define svn_add_dir() { %{{{ 
     %% Kludge to get rid of a possible trailing separator
-    variable dir = path_dirname(path_concat(get_op_dir(), "foo"));
+    variable dir = path_dirname(path_concat(get_op_dir(), ""));
     variable parent = path_dirname(dir);
     variable name = path_basename(dir);
     
@@ -1162,14 +1108,6 @@ public define svn_update_dir() { %{{{
 }
 %}}}
 
-%}}}
-
-
-%% Internal development helpers %{{{
-
-public define svn_re_eval() { %{{{
-   () = evalfile("svn");
-}
 %}}}
 
 %}}}
@@ -1197,12 +1135,12 @@ public define svn_menu_callback(menu) { %{{{
     menu_append_item(menu, "Add directory", "svn_add_dir");
     menu_append_item(menu, "Diff directory", "svn_diff_dir");
     menu_append_item(menu, "Update directory", "svn_update_dir");
-    menu_append_item(menu, "Open directory list", "svn_list_dir");
+    menu_append_item(menu, "&Open directory list", "svn_list_dir");
 }
 %}}}
 
 private define keymap_init() { %{{{
-    if (svn_set_reserved_keybindings) {
+    if (SVN_set_reserved_keybindings) {
         setkey_reserved( "svn_add_buffer", "a");
         setkey_reserved( "svn_add_marked", "ma");
         setkey_reserved( "svn_add_dir", "^a");
@@ -1230,7 +1168,6 @@ private define keymap_init() { %{{{
     }
     
     variable kmap = "svn-list";
-    
     !if (keymap_p(kmap)) {
         make_keymap(kmap);
         definekey("svn_add_marked", "A", kmap);
@@ -1256,7 +1193,6 @@ private define keymap_init() { %{{{
 }
 %}}}
 
-menu_init();
 keymap_init();
 
 %}}}
