@@ -646,6 +646,10 @@ public define occur ()
    tkl_display_results();
 }
 
+%% Function: moccur
+%% \usage{Void moccur ()}
+%% Search for a regexp in all loaded buffers.
+%% Does not search in internal and temporary buffers.
 public define moccur ()
 {
    variable buf;
