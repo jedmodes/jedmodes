@@ -37,9 +37,9 @@
 %%    
 %%    Custom Variables: 
 %%       TokenList_Startup_Mode -- Initial mode of the tokenlist
-%%                                    0 - normal mode
-%%				      1 - start in isearch mode
-%%    				      2 - start in filter mode
+%%          0 - normal mode
+%%          1 - start in isearch mode
+%%          2 - start in filter mode
 %%
 %%    Hooks:
 %%       tokenlist_hook() -- called after this file is evaluated. 
@@ -266,31 +266,31 @@ define tkl_list_tokens (opt) %{{{
       bob();
       do
       {
-	 bol();
+         bol();
          if (rtype == Ref_Type) rv = (@opt.list_regex[i])(i);
          else rv = re_fsearch (opt.list_regex[i]);
          
          if (not rv) break;
          
-	 push_spot();
+         push_spot();
          if (extype == Ref_Type) (@opt.fn_extract)(i);
          else eval (sprintf ("%s(%ld)", opt.fn_extract, i));
-	 token = ();
-	 pop_spot();
-	 while (str_replace(token, "\n", " ")) token = ();
+         token = ();
+         pop_spot();
+         while (str_replace(token, "\n", " ")) token = ();
 
-	 if (strtrim(token) != Null_String)
-	 {
-	    line = what_line();
-	    setbuf (tkl_TokenBuffer);
+         if (strtrim(token) != Null_String)
+         {
+            line = what_line();
+            setbuf (tkl_TokenBuffer);
             if ( not found)
             {
                found = 1;
                vinsert ("%s %s\n", tkl_BufferMark, buf);
             }
-	    vinsert ("%7d: %s\n", line, token);
-	    setbuf (buf);
-	 }
+            vinsert ("%7d: %s\n", line, token);
+            setbuf (buf);
+         }
       }
       while (down(1));
    }
