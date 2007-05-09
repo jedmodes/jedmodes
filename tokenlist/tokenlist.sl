@@ -1,6 +1,6 @@
 % -*- mode:SLang; mode:fold; -*-
 %
-% file: tokenlist.sl    v1.00
+% file: tokenlist.sl    v1.10
 % Author: Marko Mahnic
 %
 % Copyright (c) 2006 Marko Mahnic
