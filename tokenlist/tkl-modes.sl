@@ -13,6 +13,9 @@
 %   2006-12-19  Marko Mahnic
 %               changed the interface to use _list_routines_setup
 %               (the old interface still works)
+%   2007-05-09  Marko Mahnic
+%               renamed list_regex -> list_regexp
+%               fixed PHP and Python setup
 
 autoload("tkl_sort_by_value", "tokenlist");
 autoload("tkl_sort_by_line", "tokenlist");
@@ -52,7 +55,7 @@ private define c_list_routines_extract (nRegexp)
 
 define c_list_routines_setup (opt)
 {
-   opt.list_regex = { 
+   opt.list_regexp = { 
       "^[a-zA-Z_][a-zA-Z0-9_]*[ \t*&].*(",  % Ordinary function or method
       "^[a-zA-Z_][a-zA-Z0-9_]*::~.+("       % Destructor
    };
@@ -80,7 +83,7 @@ private define slang_list_routines_extract (nRegexp)
 
 define slang_list_routines_setup(opt)
 {
-   opt.list_regex = { 
+   opt.list_regexp = { 
       "^define[ \t]",
       "^variable[ \t]",
       "^public[ \t]+[dv]",
@@ -97,7 +100,7 @@ define slang_list_routines_setup(opt)
 %% 
 define html_list_routines_setup(opt)
 {
-   opt.list_regex = { 
+   opt.list_regexp = { 
     "^[ \t]*<H[1-9][ \t>]",
     "^[ \t]*<TABLE[ \t>]",
     "^[ \t]*<FORM[ \t>]"
@@ -109,7 +112,7 @@ define html_list_routines_setup(opt)
 %%  
 define latex_list_routines_setup(opt)
 {
-   opt.list_regex = { 
+   opt.list_regexp = { 
     "\\section"R,
     "\\\(sub\)*section"R,
     "\\subsubsection"R
@@ -119,9 +122,9 @@ define latex_list_routines_setup(opt)
 %%
 %% PHP
 %%
-define php_list_routines_regexp(opt)
+define php_list_routines_setup(opt)
 {
-   opt.list_regex = { 
+   opt.list_regexp = { 
       "^class[ \t]",
       "^function[ \t]"
    };
@@ -130,9 +133,9 @@ define php_list_routines_regexp(opt)
 %%  
 %%        Python
 %%  
-define python_list_routines_regexp(opt)
+define python_list_routines_setup(opt)
 {
-   opt.list_regex = { 
+   opt.list_regexp = { 
       "^[ \t]*def[ \t]",
        "^[ \t]*class[ \t]"
    };

@@ -93,7 +93,7 @@ fields:
   </td>
   <td>&nbsp;</td></tr>
   
-  <tr><td><code>list_regex</code></td><td>
+  <tr><td><code>list_regexp</code></td><td>
   A list of regular expressions to search for. <code>list_routines</code> will
   take every item from the list and search for all the occurences in the
   active buffer that match the item (regular expression). After an expression
@@ -134,7 +134,7 @@ fields:
   </td></tr>
   
   <tr><td><code>onlistcreated</code></td><td>
-  A reference to a (private) function that is called after all the items from <code>list_regex</code>
+  A reference to a (private) function that is called after all the items from <code>list_regexp</code>
   have been processed. The active buffer is the list of matches and it is narrowed to the
   matches found in the last buffer.
   <p>
@@ -263,10 +263,10 @@ define tokenlist_routine_setup_hook(opt)
 {
    if (opt.mode == "slang")
    {
-      slang_nregex = length(opt.list_regex);
+      slang_nregex = length(opt.list_regexp);
       slang_fn_extract = opt.fn_extract;
       slang_onlistcreated = opt.onlistcreated;
-      list_append(opt.list_regex, "^#\\<[a-zA-Z]");
+      list_append(opt.list_regexp, "^#\\<[a-zA-Z]");
       opt.fn_extract = &amp;my_slang_fn_extract;
    }
 }
@@ -301,12 +301,12 @@ define tokenlist_routine_setup_hook(opt)
    {
       if (slang_routine_mode == 1)
       {
-         opt.list_regex = { "^variable[ \t]" };
+         opt.list_regexp = { "^variable[ \t]" };
          opt.fn_extract = &my_slang_extract_variable;
       }
       if (slang_routine_mode == 2)
       {
-         opt.list_regex = { "^define[ \t]" };
+         opt.list_regexp = { "^define[ \t]" };
          opt.fn_extract = &my_slang_extract_macro;
       }
    }

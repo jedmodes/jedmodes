@@ -74,7 +74,7 @@
 %%      
 %%    and fill the fields of the structure opt:
 %%    
-%%    opt.list_regex = {"regexp0", "regexp1", &search_fn};
+%%    opt.list_regexp = {"regexp0", "regexp1", &search_fn};
 %%       A set of regular expressions or references to function like:
 %%          
 %%          % Int_Type searc_fn(Int_Type array_index)
@@ -146,6 +146,10 @@
 %%   2007-04-18 G Milde
 %%     - bugfix in tkl_list_tokens() preventing an infinite loop if there is a
 %%       match on the last line of a buffer
+%%   2007-05-09  Marko Mahnic
+%%     - renamed list_regex -> list_regexp
+%%     - removed the old list_routines interface. Use _list_routines_setup.
+%%     - added "construcotr" New_Tokenlist_Operation_Type
 
 #<INITIALIZATION>
 
@@ -204,10 +208,20 @@ define _list_routines_extract (nRegexp)
    typedef struct
    {
       mode,           % mode identifier
-      list_regex,     % list of regex / search function pointers
+      list_regexp,    % list of regex / search function pointers
       fn_extract,     % a function to extract what was found
       onlistcreated   % a function that is run when the list is created
    } Tokenlist_Operation_Type;
+}
+
+define New_Tokenlist_Operation_Type()
+{
+   variable tkopt = @Tokenlist_Operation_Type;
+   tkopt.mode = NULL;
+   tkopt.list_regexp = NULL;
+   tkopt.fn_extract = NULL;
+   tkopt.onlistcreated = NULL;
+   return tkopt;
 }
 
 %}}}
@@ -234,8 +248,8 @@ define tkl_list_tokens (opt) %{{{
    variable buf = whatbuf(), line, token;
    variable found = 0;
 
-   if (List_Type != typeof(opt.list_regex) and Array_Type != typeof(opt.list_regex))
-      opt.list_regex = { opt.list_regex };
+   if (List_Type != typeof(opt.list_regexp) and Array_Type != typeof(opt.list_regexp))
+      opt.list_regexp = { opt.list_regexp };
    if (opt.fn_extract == NULL) 
       opt.fn_extract = &_list_routines_extract;
    
@@ -253,22 +267,22 @@ define tkl_list_tokens (opt) %{{{
    set_readonly (0);
    setbuf (buf);
    push_spot();
-   for (i = 0; i < length(opt.list_regex); i++)
+   for (i = 0; i < length(opt.list_regexp); i++)
    { 
       % The array may be larger than the number of needed regular expressions.
       % We can end the search with a Null_String or NULL.
-      if (opt.list_regex[i] == NULL) break;
+      if (opt.list_regexp[i] == NULL) break;
       
-      rtype = typeof(opt.list_regex[i]);
+      rtype = typeof(opt.list_regexp[i]);
       if (rtype != Ref_Type and rtype != String_Type) continue;
-      if (rtype == String_Type) if (opt.list_regex[i] == Null_String) break;
+      if (rtype == String_Type) if (opt.list_regexp[i] == Null_String) break;
 
       bob();
       do
       {
          bol();
-         if (rtype == Ref_Type) rv = (@opt.list_regex[i])(i);
-         else rv = re_fsearch (opt.list_regex[i]);
+         if (rtype == Ref_Type) rv = (@opt.list_regexp[i])(i);
+         else rv = re_fsearch (opt.list_regexp[i]);
          
          if (not rv) break;
          
@@ -628,17 +642,25 @@ define tkl_sort_by_line ()
 %% ##############  override the default occur ############################
 %% #######################################################################
 #iftrue
-% \usage{Void occur ()}
+%% Function: occur
+%% \usage{Void occur ([regexp])}
+%% Search for a regexp in current buffer.
+%% 
+%% If the parameter regexp is not supplied the value can
+%% be entered interactively.
+%% 
+%% tokenlist_occur_setup_hook(tkopt) is called before the search
+%% is started so the user has a chance to modify the search
+%% parameters and display. tkopt.mode is set to "@occur".
 public define occur ()
 {
-   variable tkopt = @Tokenlist_Operation_Type;
+   variable tkopt = New_Tokenlist_Operation_Type();
    if (_NARGS == 0)
-      tkopt.list_regex = read_mini("Find All (Regexp):", LAST_SEARCH, Null_String);
+      tkopt.list_regexp = read_mini("Find All (Regexp):", LAST_SEARCH, Null_String);
    else
-      tkopt.list_regex = ();
-
-   tkopt.fn_extract = NULL;
-      
+      tkopt.list_regexp = ();
+  
+   tkopt.mode = "@occur";
    runhooks("tokenlist_occur_setup_hook", tkopt);
 
    tkl_erase_buffer();
@@ -647,20 +669,26 @@ public define occur ()
 }
 
 %% Function: moccur
-%% \usage{Void moccur ()}
+%% \usage{Void moccur ([regexp])}
 %% Search for a regexp in all loaded buffers.
 %% Does not search in internal and temporary buffers.
+%% 
+%% If the parameter regexp is not supplied the value can
+%% be entered interactively.
+%% 
+%% tokenlist_occur_setup_hook(tkopt) is called before the search
+%% is started so the user has a chance to modify the search
+%% parameters and display. tkopt.mode is set to "@moccur".
 public define moccur ()
 {
    variable buf;
-   variable tkopt = @Tokenlist_Operation_Type;
+   variable tkopt = New_Tokenlist_Operation_Type();
    if (_NARGS == 0)
-      tkopt.list_regex = read_mini("Find All (Regexp):", LAST_SEARCH, Null_String);
+      tkopt.list_regexp = read_mini("Find All (Regexp):", LAST_SEARCH, Null_String);
    else
-      tkopt.list_regex = ();
+      tkopt.list_regexp = ();
 
-   tkopt.fn_extract = NULL;
-      
+   tkopt.mode = "@moccur";
    runhooks("tokenlist_occur_setup_hook", tkopt);
 
    tkl_erase_buffer();
@@ -684,24 +712,24 @@ public define moccur ()
 public define list_routines()
 {
    variable buf, mode, fn;
-   variable tkopt = @Tokenlist_Operation_Type;
+   variable tkopt = New_Tokenlist_Operation_Type();
 
    (mode,) = what_mode();
    mode = strlow(mode);
    
    tkopt.mode = strtrans(mode, "-", "_");
-   tkopt.list_regex = {"^[a-zA-Z].*("};
+   tkopt.list_regexp = {"^[a-zA-Z].*("};
    tkopt.fn_extract = &_list_routines_extract;
-   tkopt.onlistcreated = NULL;
    
    fn = sprintf ("%s%s", tkopt.mode, tkl_SetupMacro);
    if (+2 == is_defined (fn)) 
-      call_function (fn, tkopt);      
+      call_function (fn, tkopt);
+#iffalse
    else
    {  % the old interface
       if (-2 == is_defined (sprintf ("%s_list_routines_regexp", tkopt.mode))) {
          eval (sprintf ("%s_list_routines_regexp;", tkopt.mode));
-         tkopt.list_regex = ();
+         tkopt.list_regexp = ();
       }
    
       fn = sprintf ("%s%s", tkopt.mode, tkl_ExtractMacro);
@@ -710,7 +738,10 @@ public define list_routines()
       fn = sprintf ("%s%s", tkopt.mode, tkl_DoneMacro);
       if (+2 == is_defined (fn)) tkopt.onlistcreated = __get_reference(fn);
    }
-   
+#endif
+
+   % Setup routine for current mode,
+   % give the user a chance to modify default behaviour.
    runhooks("tokenlist_routine_setup_hook", tkopt);
    
    tkl_erase_buffer();
