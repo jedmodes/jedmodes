@@ -1,52 +1,51 @@
 % Utilities for processing of strings
-% 
+%
 % Copyright (c) 2005 Guenter Milde (milde users.sf.net)
 % Released under the terms of the GNU General Public License (ver. 2 or later)
-% 
+%
 % Version     0.9 first public version
 %             1.0 moved here string_repeat(), string_reverse() from datutils
-%                 new: strwrap(), strbreak(), string_get_last_match() 
+%                 new: strwrap(), strbreak(), string_get_last_match()
 %                 (the latter suggested as string_nth_match() by PB)
 %             1.1 new functions get_keystring() and unget_string()
-%             1.2 removed unget_string() after learning about 
-%             	  buffer_keystring() (standard fun, which does the same)
+%             1.2 removed unget_string() after learning about
+%                 buffer_keystring() (standard fun, which does the same)
 %             1.3 new function str_re_replace_all()
 % 2005-01-01  1.4 removed the string_get_last_match() alias, call
-% 	      	  string_nth_match() instead.
-% 	      	  added tm documentation
-% 2005-11-21  1.4.1 removed the public from define str_repeat() and 
+%                 string_nth_match() instead.
+%                 added tm documentation
+% 2005-11-21  1.4.1 removed the public from define str_repeat() and
 %                   define get_keystring()
 % 2006-03-01  1.4.2 added provide()
 %                   added autoload for push_defaults()
 % 2007-01-15  1.5   added str_re_replace_by_line() after a report by
-% 	      	    Morten Bo Johansen that str_re_replace_all is dead slow
-% 	      	    for large strings.
-% 	      1.5.1 bugfix in str_re_replace_all() by M. Johansen
+%                   Morten Bo Johansen that str_re_replace_all is dead slow
+%                   for large strings.
+%             1.5.1 bugfix in str_re_replace_all() by M. Johansen
+% 2007-05-09  1.6   new function strsplit()
 %
 % (projects for further functions in projects/str_utils.sl)
 
 autoload("array_append", "datutils");
 autoload("push_defaults", "sl_utils");
-           
-% debug information, uncomment to locate errors
- % _debug_info = 1;
 
+provide("strutils");
 
 %!%+
 %\function{string_nth_match}
 %\synopsis{Return the (nth) substring of the last call to string_match}
 %\usage{ string_nth_match(str, n)}
 %\description
-%  After matching a string against a regular expression with 
+%  After matching a string against a regular expression with
 %  string_match(), string_nth_match can be used to extract the
 %  exact match.
-%    
+%
 %  By convention, \var{nth} equal to zero means the entire match.
 %  Otherwise, \var{nth} must be an integer with a value 1 through 9,
 %  and refers to the set of characters matched by the \var{nth} regular
 %  expression enclosed by the pairs \var{\(, \)}.
 %\notes
-%  There was an alias string_get_last_match() for this function 
+%  There was an alias string_get_last_match() for this function
 %  in earlier versions of bufutils.sl
 %\seealso{string_match, string_match_nth, string_get_match, str_re_replace}
 %!%-
@@ -63,11 +62,11 @@ define string_nth_match(str, n)
 %\synopsis{Return a substring matching a regexp pattern}
 %\usage{String string_get_match(String str, String pattern, pos=1, nth=0)}
 %\description
-%  Use string_match() to do a regexp matching on a string and return 
+%  Use string_match() to do a regexp matching on a string and return
 %  the matching substring
-%  
+%
 %  Performs the match starting at position \var{pos} (numbered from 1)
-%  
+%
 %  By convention, \var{nth} equal to zero means the entire match.
 %  Otherwise, \var{nth} must be an integer with a value 1 through 9,
 %  and refers to the set of characters matched by the \var{nth} regular
@@ -92,7 +91,7 @@ define string_get_match() % (str, pattern, pos=1, nth=0)
 %\description
 %  Regexp equivalent to \sfun{strreplace}. Replaces up to max_n occurences
 %  of \var{pattern} with \var{rep}.
-%  
+%
 %  Returns the string with replacements and the number of replacements done.
 %\notes
 %  Currently, rep may contain 1 backref '\1'
@@ -102,27 +101,26 @@ define string_get_match() % (str, pattern, pos=1, nth=0)
 define str_re_replace(str, pattern, rep, max_n)
 {
    variable n, pos, len, outstr="", match, backref, x_rep;
-   
+
    for(n = 0; n < max_n; n++)
      {
-	!if (string_match(str, pattern, 1))
-	  break;
-	% get the backref, i.e. the part matching pattern in \( \)
-	backref = string_nth_match(str, 1);
-	% split the string in 3 parts (outstr, match, str)
-	(pos, len) = string_match_nth(0);
-	outstr += substr(str, 1, pos);
-	pos++;
-	match = substr(str, pos, len);
-	str = substr(str, pos+len, -1);
-	% expand replacement pattern
-	(x_rep, ) = strreplace(rep, "\\1", backref, 1);
-	% append expanded replacement
-	outstr += x_rep;
+        !if (string_match(str, pattern, 1))
+          break;
+        % get the backref, i.e. the part matching pattern in \( \)
+        backref = string_nth_match(str, 1);
+        % split the string in 3 parts (outstr, match, str)
+        (pos, len) = string_match_nth(0);
+        outstr += substr(str, 1, pos);
+        pos++;
+        match = substr(str, pos, len);
+        str = substr(str, pos+len, -1);
+        % expand replacement pattern
+        (x_rep, ) = strreplace(rep, "\\1", backref, 1);
+        % append expanded replacement
+        outstr += x_rep;
      }
    return (outstr+str, n);
 }
-
 
 %!%+
 %\function{str_re_replace_all}
@@ -131,7 +129,7 @@ define str_re_replace(str, pattern, rep, max_n)
 %\description
 %  Regexp equivalent to \sfun{str_replace_all}. Replaces all occurences
 %  of \var{pattern} with \var{rep} and returns the resulting string.
-%  
+%
 %  Other than using \sfun{query_replace_match}, this function
 %  will find and replace across line boundaries.
 %\notes
@@ -146,7 +144,6 @@ define str_re_replace_all(str, pattern, rep)
    return str;
 }
 
-
 %!%+
 %\function{str_re_replace_by_line}
 %\synopsis{Regexp replace \var{pattern} with \var{rep}}
@@ -160,7 +157,7 @@ define str_re_replace_all(str, pattern, rep)
 %  This function splits \var{str} into an array of lines, calls
 %  \sfun{str_re_replace_all} on them and joins the result. As result, it
 %  takes 4 seconds to make 15000 replacements in a 10 MB string on a 2 GHz
-%  cpu/1 GB ram computer (where str_re_replace_all took hours). 
+%  cpu/1 GB ram computer (where str_re_replace_all took hours).
 %\seealso{str_re_replace, str_re_replace_all}
 %!%-
 public define str_re_replace_by_line(str, pattern, rep)
@@ -170,13 +167,12 @@ public define str_re_replace_by_line(str, pattern, rep)
    return strjoin(lines, "\n");
 }
 
-
 %!%+
 %\function{strcap}
 %\synopsis{Capitalize a string}
 %\usage{String strcap(String str)}
 %\description
-%  Convert a string to a capitalized  version (first character upper case, 
+%  Convert a string to a capitalized  version (first character upper case,
 %  other characters lower case) and return the result.
 %\seealso{strlow, strup, xform_region, capitalize_word, define_case}
 %!%-
@@ -184,7 +180,6 @@ define strcap(str)
 {
    return strup(substr(str, 1, 1)) + strlow(substr(str, 2, strlen(str)));
 }
-
 
 %!%+
 %\function{string_reverse}
@@ -205,7 +200,6 @@ define string_reverse(s)
      return s;
    __tmp(s)[[i:0:-1]];
 }
-
 
 %!%+
 %\function{string_repeat}
@@ -230,10 +224,10 @@ define string_repeat(str, n)
 
 %!%+
 %\function{strwrap}
-%\synopsis{Split a string into lines of maximal \var{wrap} chars}
+%\synopsis{Split a string into chunks of maximal \var{wrap} chars}
 %\usage{Array strwrap(String str, wrap=WRAP, delim=' ', quote = 0)}
 %\description
-%  Line wrapping for strings: Split a string into substrings of maximal 
+%  Line wrapping for strings: Split a string into chunks of maximal
 %  \var{wrap} chars, breaking at \var{delim} (if not quoted, cv. \sfun{strchop}).
 %  Return array of strings.
 %\seealso{strbreak, strtok, WRAP}
@@ -250,11 +244,11 @@ define strwrap() % (str, wrap=WRAP, delim=' ', quote = 0)
    lines = words[[0]];
    foreach (words[[1:]])
      {
-	word = ();
-	if ( strlen(lines[-1]) + strlen(word) < wrap)
-	  lines[-1] += char(delim) + word;
-	else
-	  lines = array_append(lines, word);
+        word = ();
+        if ( strlen(lines[-1]) + strlen(word) < wrap)
+          lines[-1] += char(delim) + word;
+        else
+          lines = array_append(lines, word);
      }
    return lines;
 }
@@ -264,10 +258,10 @@ define strwrap() % (str, wrap=WRAP, delim=' ', quote = 0)
 %\synopsis{}
 %\usage{(String, String) strbreak(String str, wrap=WRAP, delim=' ')}
 %\description
-% One-time string wrapping: Split a string at a breakpoint defined by delim, 
+% One-time string wrapping: Split a string at a breakpoint defined by delim,
 % so that the first part is no longer than \var{wrap} characters.
 % Return two strings.
-% 
+%
 % The delimiter is left at the end of the first return string.
 %\seealso{strwrap, WRAP}
 %!%-
@@ -285,14 +279,13 @@ define strbreak() % (str, wrap=WRAP, delim=' ')
    i = length(where(breakpoints <= wrap)) - 1;
    if (i<0) % no breakpoint in allowed range, take first possible breakpoint
      {
-	breakpoints = where(bstring_to_array(str) == delim);
-	i = 0;
-	!if (length(breakpoints)) % no breakpoint at all
-	  return (str, "");
+        breakpoints = where(bstring_to_array(str) == delim);
+        i = 0;
+        !if (length(breakpoints)) % no breakpoint at all
+          return (str, "");
      }
    return (str[[:breakpoints[i]]], str[[breakpoints[i]+1:]]);
 }
-
 
 %!%+
 %\function{get_keystring}
@@ -312,9 +305,9 @@ define strbreak() % (str, wrap=WRAP, delim=' ')
 %     else
 %       {
 %  #ifdef XWINDOWS
-%  	key += sprintf(" X-Keysym: %X", X_LAST_KEYSYM);
+%       key += sprintf(" X-Keysym: %X", X_LAST_KEYSYM);
 %  #endif
-%  	message ("Key sends " + key);
+%       message ("Key sends " + key);
 %       }
 %  }
 %#v-
@@ -328,13 +321,52 @@ define get_keystring()
    variable ch, key = "";
    do
      {
-	ch = char(getkey());
-	!if (strlen(ch)) % Null character \000
-	  ch = "^@";
-	key = strcat(key, ch);
+        ch = char(getkey());
+        !if (strlen(ch)) % Null character \000
+          ch = "^@";
+        key = strcat(key, ch);
      }
    while (input_pending(0));
    return key;
 }
 
-provide("strutils");
+%!%+
+%\function{strsplit}
+%\synopsis{Split a string in tokens.}
+%\usage{strsplit(str, sep, max_n=0)}
+%\description
+%  Return a list of the words in the string \var{str}, using \var{sep} as the
+%  delimiter string.  If \var{max_n} is given, at most \var{max_n} splits are
+%  done. (Counting from the end, if \var{max_n} is negative.)
+%\example
+%#v+
+%  strsplit("1, 2, 3,5, 4  5. 6", ", ")     == ["1", "2", "3,5", "4  5. 6"]
+%  strsplit("1, 2, 3,5, 4  5. 6", ", ", 1)  == ["1", "2, 3,5, 4  5. 6"]
+%  strsplit("1, 2, 3,5, 4  5. 6", ", ", -1) == ["1, 2, 3,5", "4  5. 6"]
+%#v-
+%\seealso{strchop, strtok, strreplace, is_substr}
+%!%-
+define strsplit() % (str, sep, max_n=0)
+{
+   variable str, sep, max_n;
+   (str, sep, max_n) = push_defaults( , , 0, _NARGS);
+   if (max_n == 0)
+     max_n = strlen(str);
+
+   variable sep_char;
+   if (strlen(sep) == 1)
+     sep_char = sep[0];
+   else
+     {  % find an unused character -> use it as delimiter
+        sep_char = 0;
+        while (is_substr(str, char(sep_char)))
+          {
+             sep_char++;
+             if (sep_char > 255)
+               error ("strsplit: did not find unique replacement for multichar sep");
+          }
+        (str, ) = strreplace(str, sep, char(sep_char), max_n);
+     }
+   return strchop(str, sep_char, 0);
+}
+
