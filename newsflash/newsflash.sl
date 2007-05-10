@@ -2,7 +2,7 @@
 % 
 % $Id: newsflash.sl,v 1.2 2007/03/01 17:26:30 paul Exp paul $
 %
-% Copyright (c) 2006 Paul Boekholt.
+% Copyright (c) 2006, 2007 Paul Boekholt.
 % Released under the terms of the GNU GPL (version 2 or later).
 % 
 % This is a RSS+Atom reader for JED.  It uses the expat module.
@@ -14,7 +14,9 @@ require("pcre");
 require("sqlite");
 require("view");
 autoload("jedscape_get_url", "jedscape");
+autoload("browse_url", "browse_url");
 
+provide("newsflash");
 implements("newsflash");
 variable mode = "newsflash";
 variable item_struct = struct {
@@ -28,7 +30,7 @@ variable item_struct = struct {
 };
 
 variable userdata = struct {
-   is_atom, % not used
+   is_atom,
    % <channel> will be an item_struct
    channel, % not used
    
@@ -181,7 +183,23 @@ define startElement(p, name, atts) {
 	  }
 	  {
 	   case "link":
-	     p.characterdatahandler = &read_link;
+	     % In Atom feeds, the url is in a "href" attribute like in html.
+	     % Also Atom feeds can have more than one link per item, but I
+	     % can't deal with that.
+	     if (p.userdata.is_atom)
+	       {
+		  variable att;
+		  foreach att (atts)
+		    {
+		       if (att.name=="href")
+			 {
+			    p.userdata.item.link = att.value;
+			    break;
+			 }
+		    }
+	       }
+	     else
+	       p.characterdatahandler = &read_link;
 	  }
 	  {
 	     % summary and content are for Atom feeds
@@ -215,8 +233,6 @@ define startElement(p, name, atts) {
 
    push_state(p, name);
 }
-
-
 
 define endElement(p, name)
 {
@@ -426,7 +442,7 @@ define get_item()
      {
 	do
 	  {
-	     skip_chars(" \n");
+	     skip_chars(" \t\n");
 	     call("format_paragraph");
 	  }
 	while (bol_fsearch("\n"));
