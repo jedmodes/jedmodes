@@ -3,7 +3,10 @@
 % Copyright (c) 2006 Guenter Milde (milde users.sf.net)
 % Released under the terms% of the GNU General Public License (version 2 or later).
 %
-% Version    1.0   first public version
+% Versions
+% --------
+% 
+%            1.0   first public version
 %            1.1   bugfix: restore_buffer now resets the "changed on disk" flag
 %            1.2   new: "blocal_hooks"
 %            1.2.2 "outsourcing" of window_set_rows (hint by Thomas Clausen)
@@ -17,23 +20,18 @@
 %	                arrayread_file(name): read file to array (P. Boekholt)
 %	           changed: close_buffer calls blocal_hook
 %	                    popup_buffer uses this
-%	     	moved next_buffer() to cuamisc.sl
-%	     	renamed restore_buffer() to reload_buffer() (this is what it does)
+%	     	   moved next_buffer() to cuamisc.sl
+%	     	   renamed restore_buffer() to reload_buffer() 
 %	     1.4.1 bugfix popup_buffer/close_buffer/popup_close_buffer_hook
-%	           bugfix reload_buffer() reset "changed on disk" flag
-%	                                  before reloading,
-%	                                  reset buffer_modified flag
-%	     1.5   (2004-03-17)
-%	           new function bufsubfile() (save region|buffer to a tmp-file)
-%	     1.5.1 (2004-03-23)
-%	           bugfix: spurious ";" in delete_temp_files()
-%	           (helper for bufsubfile)
-%	     1.6   moved untab_buffer from recode.sl here
+%	           bugfix reload_buffer()
+% 2004-03-17 1.5   new function bufsubfile() (save region|buffer to a tmp-file)
+% 2004-03-23 1.5.1 bugfix: spurious ";" in delete_temp_files()
+%	     1.6   moved untab_buffer() from recode.sl here
 %	     1.6.1 small bugfix in bufsubfile()
 % 2005-03-24 1.7   bufsubfile() always writes a temp-file (hint P. Boekholt)
 %	  	   (-> more consistency, no asking)
 %	  	   removed custom var Bufsubfile_Save_Ask)
-%	  	   bufsubfile() take a second optional argument `base`
+%	  	   bufsubfile() takes an optional argument `base`
 % 2005-03-31 1.7.1 made slang-2 proof: A[[0:-2]] --> A[[:-2]]
 % 2005-04-01 1.8   fast strread_file() (Paul Boekholt)
 % 2005-04-08 1.8.1 made preparse-proof
@@ -65,10 +63,18 @@
 % 2007-04-18 1.14  new function run_local_function() (used in help.sl)
 % 	     	   example for "Fit Window" menu entry
 % 	     	   TODO: (should this become an INITIALIZATION block?)
+% 2007-05-11 1.15  removed non-standard fun latex_compose() from documentation
+% 		   run_local_function(): try mode-info also with 
+% 		   normalized_modename()
+% 		   use mode_info instead of global var for help_message()
 
-% --- Requirements ----------------------------------------------------
+% Requirements 
+% ------------
 
-% standard:
+% Jed >= 0.99.17.135 for proper working of reload_buffer()
+% but at least Jed >= 0.99.16 (mode_set_mode_info() with arbitrary fields)
+
+% standard (not loaded by default):
 require("keydefs"); % symbolic constants for many function and arrow keys
 % jedmodes.sf.net modes:
 autoload("get_blocal", "sl_utils");
@@ -77,12 +83,8 @@ autoload("run_function", "sl_utils");
 autoload("get_word", "txtutils");
 autoload("mark_word", "txtutils");
 
-% --- Variables -------------------------------------------------------
-
-% A help string for modes to be shown on the message-line
-variable Help_Message = Assoc_Type[String_Type, "no help available"];
-
-% --- Functions -------------------------------------------------------
+% Functions 
+% ---------
 
 % Convert the modename to a canonic form (the donwcased first part)
 % This can be used for mode-dependend help, variables, ...
@@ -99,21 +101,23 @@ define normalized_modename() % (mode=get_mode_name())
 define set_help_message() % (str, mode=normalized_modename())
 {
    variable str, mode; % optional argument
-   if (_NARGS == 2)
-     mode = ();
-   else
-     mode = normalized_modename();
-   str = ();
-   Help_Message[mode] = str;
+   (str, mode) = push_defaults(get_mode_name(), _NARGS-1);
+   mode_set_mode_info(mode, "help_message", str);
 }
 
 % Show a mode-dependend string with help (e.g. on keybindings)
 define help_message()
 {
-  message(Help_Message[normalized_modename]);
+   variable str = mode_get_mode_info(get_mode_name(), "help_message");
+   if (str == NULL)
+     str = mode_get_mode_info(normalized_modename(), "help_message");
+   if (str == NULL)
+     str = sprintf("no help available for '%s' mode", get_mode_name());
+   message(str);
 }
 
-% --- Local hooks  -----------------------------------------------
+% Local hooks  
+% -----------
 %
 % Tools for the definition and use of mode- or buffer local hooks -- just like
 % the indent_hook or the newline_and_indent_hook jed already provides. Extend
@@ -142,6 +146,8 @@ define run_local_function() % (fun, [args])
    variable lfun = get_blocal(fun);
    if (lfun == NULL)
      lfun = mode_get_mode_info(fun);
+   if (lfun == NULL)
+     lfun = mode_get_mode_info(normalized_modename(), fun);
    if (lfun == NULL)
      lfun = sprintf("%s_%s", normalized_modename(), fun);
    return run_function(lfun, __push_args(args));
@@ -175,7 +181,6 @@ define run_local_function() % (fun, [args])
 %   define run_buffer() { run_local_hook("run_buffer_hook"); }
 %   setkey("run_buffer", "^[^M");    % Alt-Return
 %   mode_set_mode_info("SLang", "run_buffer_hook", "evalbuffer");
-%   mode_set_mode_info("latex", "run_buffer_hook", "latex_compose");
 %   mode_set_mode_info("python", "run_buffer_hook", "py_exec");
 %#v-
 %\seealso{runhooks, run_local_function, get_blocal, run_buffer}
@@ -206,7 +211,7 @@ define run_blocal_hook() % (hook, [args])
 %  Some modes set the \sfun{run_mode_hook} by themself, for others you can use
 %  \sfun{mode_set_mode_info} (since Jed 0.99.17), e.g.
 %#v+
-%   mode_set_mode_info("latex", "run_buffer_hook", "latex_compose");
+%   mode_set_mode_info("SLang", "run_buffer_hook", "evalbuffer");
 %#v-
 %  or using mode_hooks (this variant is also proof for Jed <= 0.99.16)
 %#v+
@@ -684,6 +689,10 @@ public define reload_buffer()
    (file, dir, name, flags) = getbuf_info();
    variable col = what_column(), line = what_line();
 
+   % Variant: only update (make this an option?)
+   % !if (flags & 4)
+   %   return;
+     
    % reset the changed-on-disk flag
    setbuf_info(file, dir, name, flags & ~0x004);
 
