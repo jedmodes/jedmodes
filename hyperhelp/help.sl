@@ -7,6 +7,7 @@
 %
 % Versions
 % --------
+% 
 %   1.0   - added Guido Gonzatos function_help (renamed to
 %   	    help_for_word_at_point()) 
 %   	  - when no documentation is available, give message in minibuffer
@@ -67,15 +68,13 @@
 %   	  	      patches by Paul Boekholt:
 %   	  	      append Jed_Doc_Files to doc_files instead of overwriting
 %   	  	      keybindings can now also be references, adapt showkey()
-%   	  	      sort inherited and new defined keys in describe_bindings()
-%		      (Jörg Sommer)   	  	      
-%
-%   TODO: use _get_namespaces() to make apropos aware of functions in
-%   	  "named namespaces" (When called with a numeric prefix arg [PB] 
-%   	  or if given a pattern containing "->" [GM])
-%
-% ------------------------------------------------------------------------
-% USAGE:
+%   	  	      sort inherited and new keys in describe_bindings()
+%		      (Jörg Sommer)
+%   1.9   2007-04-19  edited help_string, removed use of prompt_for_argument()
+%   	  	      fix in help_search(), handle "namespace->object" notation
+% 
+% Usage
+% -----
 %
 % Place help.sl, txtutils.sl, bufutils.sl in the "jed library path"
 % (use get_jed_library_path() to see what your "jed library path" is)
@@ -134,10 +133,6 @@ define hyperhelp_load_popup_hook(menubar)
 append_to_hook ("load_popup_hooks", &hyperhelp_load_popup_hook);
 #</INITIALIZATION>
 
-% ------------------------------------------------------------------------
-
-% _debug_info = 1;
-
 % Requirements
 % ------------
 
@@ -150,7 +145,6 @@ require("view"); %  readonly-keymap
 autoload("run_function",        "sl_utils");
 autoload("get_blocal",          "sl_utils");
 autoload("push_array",          "sl_utils");
-autoload("prompt_for_argument", "sl_utils");
 autoload("bget_word",           "txtutils");
 autoload("popup_buffer",        "bufutils");
 autoload("close_buffer",        "bufutils");
@@ -158,6 +152,7 @@ autoload("strread_file",        "bufutils");
 autoload("set_help_message",    "bufutils");
 autoload("help_message",        "bufutils");
 autoload("string_get_match",	"strutils");
+autoload("strsplit", 		"strutils"); % >= 1.6
 
 % Optional modes from http://jedmodes.sourceforge.net/
 % (not really needed but nice to have)
@@ -179,11 +174,11 @@ if (strlen(expand_jedlib_file("circle.sl")))
    autoload("circ_append", "circle");
 }
 
-% The "hyperhelp" help browser is a drop-in replacement for the standard help.
-provide("help");
-% Modes depending on extensions in this file should 
+% This help browser (with "hyperlinks") is a drop-in replacement for the
+% standard help. Modes depending on extensions in this file should 
 %   require("hyperhelp", "help.sl").
-provide("hyperhelp");  % help browser (with "hyperlinks")
+provide("help");
+provide("hyperhelp");
 
 % --- name it
 implements("help");
@@ -211,17 +206,16 @@ private variable helplist = "helplist";
 
 % The symbolic names for keystrings defined in keydefs.sl
 % filled when needed by expand_keystring()
-static variable Keydef_Keys;
+private variable Keydef_Keys;
 
 static variable current_topic; % ["fun", "subject"]
 
-% this one is predefined in jed, adapt to hyperhelp
+% adapt help-message (defined in site.sl) extended help
 help_for_help_string =
-"Keys: Apropos Fun Definition Key Help Isert Set-variable Unix-man Var Where";
-% insert into Help_Message
+"a:Apropos f:Function h:Help k:Key q:Quit u:Unix-man v:Var w:Where /:Search";
 set_help_message(help_for_help_string, mode);
 
-% reserved keywords, taken from Klaus Schmidts sltabc  %{{{
+% reserved keywords, taken from Klaus Schmidt's sltabc  %{{{
 static variable Keywords =
   [
    "ERROR_BLOCK",         % !if not used here
@@ -274,11 +268,10 @@ static define help_for_object() {}
 
 static define read_object_from_mini(prompt, default, flags)
 {
-   variable objs;
+   if (MINIBUFFER_ACTIVE) 
+     return;
 
-   if (MINIBUFFER_ACTIVE) return;
-
-   objs = _apropos("Global", "", flags);
+   variable objs = _apropos("Global", "", flags);
    objs = strjoin(objs[array_sort (objs)], ",");
 
    return read_string_with_completion(prompt, default, objs);
@@ -286,12 +279,39 @@ static define read_object_from_mini(prompt, default, flags)
 
 public  define read_function_from_mini(prompt, default)
 {
-   read_object_from_mini(prompt, default, 0x3);
+   return read_object_from_mini(prompt, default, 0x3);
 }
 
 public  define read_variable_from_mini(prompt, default)
 {
-   read_object_from_mini(prompt, default, 0xC);
+   return read_object_from_mini(prompt, default, 0xC);
+}
+
+% Return function or variable object at cursor position as string
+% works also for static objects in "namespace->object" notation
+static define get_object()
+{
+   mark_word(Slang_word_chars, -1);
+   if (looking_at("->"))
+      {
+	 go_right(2);
+	 skip_chars(Slang_word_chars);
+      }
+   exchange_point_and_mark();
+   if (blooking_at("->"))
+     {
+	go_left(2);
+	bskip_chars(Slang_word_chars);
+     }
+   exchange_point_and_mark();
+   return bufsubstr();
+}
+
+% from sltabc.sl by Klaus Schmidt: filter array by regexp pattern
+private define re_filter(a, pat)
+{
+   variable i = array_map(Integer_Type, &string_match, a, pat, 1);
+   return a[where(i)];
 }
 
 % History
@@ -335,16 +355,18 @@ static define help_display_list(a)
 #ifexists list2table  % insert as formatted table (using csvutils.sl)
    a = list2table(a);
    help_display(strjoin2d(a, " ", "\n", "l"));
+   set_readonly(0);
    trim_buffer();
 #else                 % align columns by setting TAB
    help_display(strjoin(a, "\n"));
    set_readonly(0);
    buffer_format_in_columns();   
-   set_buffer_modified_flag(0);
-   set_readonly(1);
    fit_window(get_blocal("is_popup", 0));
 #endif
+   % define_blocal_var("Word_Chars", Slang_word_chars + "->");
    use_syntax_table(helplist);
+   set_buffer_modified_flag(0);
+   set_readonly(1);
 }
 
 % --- basic help -----------------------------------------------------
@@ -393,18 +415,40 @@ define help_for_help() {help("help.hlp");}
 %   global namespace that match a given regular expression. If the
 %   optional search-string is missing, the user will be prompted for
 %   a pattern in the minibuffer.
-%\seealso{help_mode, describe_function, describe_variable }
+%\seealso{_apropos, help_mode, describe_function, describe_variable}
 %!%-
 public  define apropos() % ([pattern])
 {
-   variable pattern = prompt_for_argument(&read_mini,
-					  "apropos:", "", "", _NARGS);
-   variable list = _apropos("Global", pattern, 0xF);
-   vmessage ("Found %d matches.", length(list));
-   !if (length(list))
-     list = ["No results for \"" + pattern + "\""];
+   !if (_NARGS)
+     read_mini("apropos:", get_object(), ""); % push to stack
+   variable pattern = ();
+
+   variable namespace, namespaces, namespace_pattern, object_pattern,
+     objects = String_Type[0];
+   if (is_substr(pattern, "->"))
+     {
+	namespace_pattern = strsplit(pattern, "->")[0];
+	object_pattern = strsplit(pattern, "->")[-1];
+     }
+   else
+     {
+	namespace_pattern = "Global";
+	object_pattern = pattern;
+     }
+   namespaces = re_filter(_get_namespaces(), namespace_pattern);
+   foreach namespace (namespaces)
+     {
+	if (namespace == "Global")
+	  objects = [objects, _apropos(namespace, object_pattern, 0xF)];
+	else
+	  objects = [objects, namespace + "->" 
+		     + _apropos(namespace, object_pattern, 0xF)];
+     }
+   vmessage ("Found %d matches.", length(objects));
+   !if (length(objects))
+     objects = ["No results for \"" + pattern + "\""];
    current_topic = [_function_name, pattern];
-   help_display_list(list[array_sort(list)]);
+   help_display_list(objects[array_sort(objects)]);
 }
 
 % Search for \var{str} in the internal doc files list (or \var{Jed_Doc_Files})
@@ -485,9 +529,10 @@ define _do_help_search(str)
 %!%-
 public define help_search() % ([str])
 {
-   variable str = prompt_for_argument(&read_mini,
-				      "Search in help docs:", "", "",
-				      _NARGS);
+   !if (_NARGS)
+     read_mini("Search in help docs:", "", ""); % push to stack
+   variable str = ();
+   
    variable list = _do_help_search(str);
    vmessage ("Found %d matches.", length(list));
    !if (length(list))
@@ -606,10 +651,10 @@ public  define showkey() % ([keystring])
 %!%-
 public  define where_is()
 {
-   variable cmd = prompt_for_argument(&read_function_from_mini,
-				      "Where is command:",
-				      bget_word(Slang_word_chars),
-				      _NARGS);
+   !if (_NARGS)
+     read_function_from_mini("Where is command:", get_object());
+     read_mini("apropos:", "", ""); 
+   variable cmd = ();
    variable n, help_str = cmd + " is on ";
 
    n = which_key(cmd);
@@ -643,12 +688,11 @@ static define variable_value_str(name)
      {
 	value = @vref;
 	type = typeof(value);
-	if (run_function("sprint_variable", value))
-	  {
-	     value = (); % get nice representation from stack
-	     if (is_substr(value, "\n")) % multi-line string
-	       value += "\n";
-	  }
+#ifexists sprint_variable
+	value = sprint_variable(value); % get nice representation
+	if (is_substr(value, "\n")) % multi-line string
+	  value += "\n";
+#endif
      }
    return sprintf("%S `%s' == %S", type, name, value);
 }
@@ -720,10 +764,10 @@ static define help_for_object(obj)
 %!%-
 public  define describe_function () % ([fun])
 {
-   variable fun = prompt_for_argument(&read_function_from_mini,
-				      "Describe Function:",
-				      bget_word(Slang_word_chars),
-				      _NARGS);
+   !if (_NARGS)
+     read_function_from_mini("Describe Function:", 
+	get_object());
+   variable fun = ();
    current_topic = [_function_name, fun];
    help_display(help_for_object(fun));
 }
@@ -739,10 +783,10 @@ public  define describe_function () % ([fun])
 %!%-
 public  define describe_variable() % ([var])
 {
-   variable var = prompt_for_argument(&read_variable_from_mini,
-				      "Describe Variable:",
-				      bget_word(Slang_word_chars),
-				      _NARGS);
+   !if (_NARGS)
+     read_variable_from_mini("Describe Variable:", 
+	get_object());
+   variable var = ();
    current_topic = [_function_name, var];
    help_display(help_for_object(var));
 }
@@ -782,8 +826,10 @@ public  define describe_mode ()
 %!%-
 public  define describe_bindings() % (keymap=what_keymap())
 {
-   variable keymap = prompt_for_argument(&read_mini,
-                                         "Keymap:", what_keymap(), "", _NARGS);
+   !if (_NARGS)
+     read_mini("Keymap:", what_keymap(), "");
+   variable keymap = ();
+   
    flush("Building bindings..");
    variable buf = whatbuf();
    current_topic = [_function_name, keymap];
@@ -850,6 +896,7 @@ public  define describe_bindings() % (keymap=what_keymap())
    % bob;
    set_buffer_modified_flag(0);
    set_readonly(1);
+   % use_syntax_table(helplist); This also colours the keybindings
    fit_window(get_blocal("is_popup", 0));
 }
 
@@ -874,8 +921,9 @@ public  define describe_bindings() % (keymap=what_keymap())
 %!%-
 public define grep_slang_sources() % ([what])
 {
-   variable what = prompt_for_argument
-     (&read_mini, "Grep in Slang sources:", "", bget_word(), _NARGS);
+   !if (_NARGS)
+     read_mini("Grep in Slang sources:", "", get_object());
+   variable what = ();
    % build the search string and filename mask
    variable files = strchop(get_jed_library_path, ',', 0);
    files = files[where(files != ".")]; % filter the current dir
@@ -900,10 +948,9 @@ public define grep_slang_sources() % ([what])
 %!%-
 public define grep_definition() % ([obj])
 {
-   variable obj = prompt_for_argument(&read_object_from_mini,
-				      "Grep Definition:",
-				      bget_word(Slang_word_chars), 0xF,
-				      _NARGS);
+   !if (_NARGS)
+     read_object_from_mini("Grep Definition:", get_object(), 0xF);
+   variable obj = ();
    variable type = is_defined(obj);
    if (abs(type) != 2)
      if (get_y_or_n(obj + ": not a library function|variable. Grep anyway?")
@@ -912,6 +959,8 @@ public define grep_definition() % ([obj])
 
    variable what, lib, files, results, grep_buf = "*grep_output*";
 
+   % build the grep-pattern
+   obj = strsplit(obj, "->")[-1]; % remove the namspace part
    if (type >= 0) % function or undefined
 	what = sprintf("-s 'define %s[ (]'",  obj );
    else % variable
@@ -942,7 +991,7 @@ public define grep_definition() % ([obj])
 % defaults to the word under cursor or the current help topic
 define grep_current_definition()
 {
-   variable obj = bget_word(Slang_word_chars);
+   variable obj = get_object();
    if (is_defined(obj) == 2) % library function
      grep_definition(obj);
    else if (current_topic[0] == "describe_function")
@@ -968,7 +1017,7 @@ define grep_current_definition()
 %!%-
 public define set_variable()
 {
-   variable name = bget_word(Slang_word_chars);
+   variable name = get_object();
    if (andelse {whatbuf()=="*help*"}
 	{is_substr(name, "_Type")}
        )
@@ -1004,6 +1053,9 @@ public define set_variable()
    @var = value;
    % display new value
    message(variable_value_str(name));
+   % redisplay help window
+   if (current_topic[0] == "describe_variable")
+     describe_variable(name);
 }
 
 %!%+
@@ -1125,11 +1177,11 @@ public define mini_help_for_object(obj)
 %!%-
 public define help_for_word_at_point()
 {
-   variable word_at_point = bget_word();
+   variable word_at_point = get_object();
    if (word_at_point == "")
-     error("don't know what to give help for");
-   () = run_function(get_blocal("help_for_word_hook", &describe_function),
-		     word_at_point);
+     run_local_hook("context_help_hook");
+   else
+     run_local_hook("help_for_word_hook", word_at_point);
 }
 
 %!%+
@@ -1137,18 +1189,33 @@ public define help_for_word_at_point()
 %\synopsis{Give context sensitive help}
 %\usage{context_help()}
 %\description
-%   Give a mode-dependend help for the current context, e.g.
-%   find the word under the cursor and give mode-dependend help.
-%\seealso{describe_function, describe_variable, help_for_word_at_point}
+%  Give a mode-dependend help for the current context, e.g.
+%  find the word under the cursor and give mode-dependend help.
+%\notes
+%  Uses \sfun{run_local_hook} to give a mode- or buffer local help.
+%  It is up to the language modes to define a context_help_hook.
+%  "hyperhelp" defines a \sfun{slang_context_help_hook} that calls
+%  \sfun{describe_function} on the word-at-point.   
+%\seealso{run_local_hook, describe_function, bget_word}
 %!%-
 public define context_help()
 {
-   () = run_function(get_blocal("context_help_hook", &help_for_word_at_point));
+   !if (run_local_function("context_help_hook"))
+     run_local_hook("help_for_word_hook", bget_word());
+}
+
+public  define slang_context_help_hook()
+{
+   variable word_at_point = get_object();
+   if (word_at_point == "")
+     describe_function();
+   else
+     describe_function(word_at_point);
 }
 
 public  define help_2click_hook (line, col, but, shift)
 {
-   help_for_word_at_point();
+   context_help();
    return(0);
 }
 
@@ -1208,15 +1275,15 @@ static define fsearch_defined_word()
 define goto_next_object()
 {
    if (is_list_element("help_search,apropos", current_topic[0], ','))
-     skip_word(Slang_word_chars);
+     skip_word();
    else if (fsearch_defined_word())
      return;
    else if(push_spot, re_bsearch("^ +SEE ALSO"), pop_spot)
-	skip_word(Slang_word_chars);
+	skip_word();
    else if (re_fsearch("^ +SEE ALSO"))
      {
 	eol();
-	skip_word(Slang_word_chars);
+	skip_word();
      }
    % wrap
    if (eobp)
@@ -1227,16 +1294,16 @@ define goto_next_object()
 define goto_prev_object ()
 {
    if (is_list_element("help_search,apropos", current_topic[0], ','))
-     return bskip_word(Slang_word_chars);
+     return bskip_word();
    !if(andelse {push_spot, re_bsearch("^ +SEE ALSO"), pop_spot}
-	 {bskip_word(Slang_word_chars), not looking_at("ALSO")})
+	 {bskip_word(), not looking_at("ALSO")})
      {
         push_mark;
 	while (andelse {bsearch_char('\'')} % skip back over word at point if any
 		 {re_bsearch("`[_a-zA-Z]+'")})
 	  {
 	     go_right_1;
-	     if (is_defined(get_word(Slang_word_chars)))
+	     if (is_defined(get_word()))
 	       {
 		  pop_mark_0;
 		  return;
@@ -1256,9 +1323,10 @@ set_syntax_flags(mode, 0);
 static define help_dfa_callback(mode)
 {
    % dfa_define_highlight_rule("\\\".*\\\"", "Qstring", mode);
-   dfa_define_highlight_rule("`[^']+'", "Kstring", mode);
-   dfa_define_highlight_rule(" [a-zA-Z_]+,",   "KQnormal", mode);
-   dfa_define_highlight_rule(" [a-zA-Z_]+$",   "QKnormal", mode);
+   dfa_define_highlight_rule("`[^']+'",      "Kstring", mode);
+   dfa_define_highlight_rule("->",           "operator", mode);
+   dfa_define_highlight_rule(" [a-zA-Z_]+,", "KQnormal", mode);
+   dfa_define_highlight_rule(" [a-zA-Z_]+$", "QKnormal", mode);
    dfa_build_highlight_table(mode);
 }
 dfa_set_init_callback(&help_dfa_callback, mode);
@@ -1273,7 +1341,8 @@ set_syntax_flags(helplist, 0);
 %%% DFA_CACHE_BEGIN %%%
 static define helplist_dfa_callback(helplist)
 {
-   dfa_define_highlight_rule ("[A-Za-z0-9_]*", "keyword", helplist);
+   dfa_define_highlight_rule("[A-Za-z0-9_]*", "keyword", helplist);
+   dfa_define_highlight_rule("->", "operator", helplist);
    dfa_build_highlight_table(helplist);
 }
 dfa_set_init_callback(&helplist_dfa_callback, helplist);
@@ -1282,7 +1351,7 @@ dfa_set_init_callback(&helplist_dfa_callback, helplist);
 enable_dfa_syntax_for_mode(helplist);
 #endif
 
-static define _add_keyword(keyword)
+private define _add_keyword(keyword)
 {
    variable word = strtrim(keyword, "`',() \t");
    % show("adding keyword", keyword, is_defined(word));
@@ -1323,7 +1392,7 @@ static define help_mark_keywords()
 % Keybindings (customize with help_mode_hook)
 !if (keymap_p (mode))
   copy_keymap (mode, "view");
-definekey("help_for_word_at_point",     "^M",          mode); % Return
+definekey("context_help",     		"^M",          mode); % Return
 definekey("help->goto_next_object",     "^I",          mode); % Tab
 definekey("help->goto_prev_object",     Key_Shift_Tab, mode);
 definekey("help->goto_next_object",     "n",          mode);
@@ -1358,7 +1427,7 @@ public define help_mode()
    help_mark_keywords();
    use_syntax_table(mode);
    set_buffer_hook("mouse_2click", &help_2click_hook);
-   define_blocal_var("help_for_word_hook", "describe_function");
+   define_blocal_var("context_help_hook", &slang_context_help_hook);
    define_blocal_var("generating_function", current_topic);
    define_blocal_var("Word_Chars", Slang_word_chars);
    set_status_line(sprintf( "  %s   %s: %s  ",
