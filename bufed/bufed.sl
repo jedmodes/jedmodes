@@ -1,8 +1,8 @@
 % bufed.sl
 %
-% $Id: bufed.sl,v 1.4 2006/01/16 19:25:29 paul Exp paul $
-% 
-% Copyright (c) Mark Olesen; (c) 2003-2006 Paul Boekholt
+% $Id: bufed.sl,v 1.5 2007/05/13 08:25:55 paul Exp paul $
+%
+% Copyright (c) Mark Olesen; (c) 2003-2007 Paul Boekholt
 % Released under the terms of the GNU GPL (version 2 or later).
 %
 % Bufed is a simple buffer manager -- patterned somewhat after dired.
@@ -18,10 +18,11 @@
 require("listing");
 require("bufutils");
 
-autoload ("bufed_search_tagged", "bufed_srch");
-autoload ("bufed_replace_tagged", "bufed_srch");
 
 implements("bufed");
+autoload ("search_tagged", "bufed_srch");
+autoload ("replace_tagged", "bufed_srch");
+
 variable Bufed_buf = "*BufferList*";	% as used by `list_buffers' (buf.sl)
 
 %{{{ extract buffername
@@ -36,29 +37,34 @@ define bufed_get ()
    variable buf;
 
    push_spot_bol ();
-   EXIT_BLOCK { pop_spot (); }
-
-   !if (ffind_char ('"'))
-     return Null_String;
-
-   go_right_1 ();
-   push_mark ();
-   !if (ffind_char ('"'))
+   try
      {
-	pop_mark_1 ();
-	return Null_String;
+	!if (ffind_char ('"'))
+	  return Null_String;
+
+	go_right_1 ();
+	push_mark ();
+	!if (ffind_char ('"'))
+	  {
+	     pop_mark_1 ();
+	     return Null_String;
+	  }
+
+	buf = bufsubstr ();
+	!if (bufferp (buf))
+	  {
+	     set_readonly(0);
+	     delete_line();
+	     set_readonly(1);
+	     set_buffer_modified_flag(0);
+	     buf = "";
+	  }
+	return buf;
      }
-   
-   buf = bufsubstr ();
-   !if (bufferp (buf)) 
+   finally
      {
-	set_readonly(0);
-	delete_line();
-	set_readonly(1);
-	set_buffer_modified_flag(0);
-	buf = "";
+	pop_spot();
      }
-   return buf;
 }
 
 %}}}
@@ -70,11 +76,11 @@ public define list_buffers ()
    variable i, j, tmp, this, name, flags, flag_chars, skip;
    variable umask;
    variable name_col, dir_col, mode_col;
-   
+
    name_col = 21;
    mode_col = 13;
    dir_col = 45;
-   
+
    skip = 0;
    if (prefix_argument(-1) == -1) skip = 1;
    tmp = "*BufferList*";
@@ -83,7 +89,7 @@ public define list_buffers ()
    set_readonly(0);
    erase_buffer();
    TAB = 8;
-   
+
    flag_chars = "CBKN-UORDAM";
    insert ("  Flags");
    goto_column (mode_col);
@@ -91,7 +97,7 @@ public define list_buffers ()
    goto_column (name_col);
    insert ("Buffer Name");
    goto_column(dir_col); insert("Dir/File\n");
-   
+
    loop (buffer_list())
      {
 	name = ();
@@ -111,7 +117,7 @@ public define list_buffers ()
 	goto_column (mode_col);
 	vinsert (" %03o", umask);
 	goto_column (name_col);
-	
+
 	% Since the buffername may contain whitespace, enclose it in quotes
 	insert_char ('"');
 	insert(()); %% buffer name
@@ -122,11 +128,11 @@ public define list_buffers ()
 	  {
 	     eol(); insert_single_space();
 	  }
-	
+
 	insert(()); insert(());               %% dir/file
 	newline();
      }
-   
+
    insert("\nU:Undo O:Overwrite R:Readonly D:Disk File Changed, A:Autosave, M:Modified\n");
    insert("C:CRmode, B:Binary File, K:Not backed up, N:No autosave");
 
@@ -150,7 +156,6 @@ define bufed_list ()
    %goto_column (21);
 }
 
-
 %}}}
 
 %{{{ killing buffers
@@ -164,19 +169,21 @@ define bufed_kill (line)
    !if (bufferp (buf)) return 2;
    (,,,flags) = getbuf_info (buf);
 
-    if (flags & 1)		% modified
-      {
-    	pop2buf (buf);
-    	pop2buf (Bufed_buf);
-    	update (1);
-      }
-   ERROR_BLOCK
+   if (flags & 1)		% modified
      {
-	_clear_error;
+	pop2buf (buf);
+	pop2buf (Bufed_buf);
+	update (1);
+     }
+   try
+     {
+	delbuf (buf);
+     }
+   catch AnyError:
+     {
 	pop2buf (Bufed_buf);
 	return 1;		       %  untag line
      }
-   delbuf (buf);
    return 2;			       %  kill line
 }
 
@@ -233,7 +240,7 @@ define bufed_update ()
    if (flags & 2)		% file on disk modified?
      {
 	!if (find_file (dircat (dir, file)))
-	  error ("Error reading file");
+	  throw RunTimeError, "Error reading file";
      }
 }
 
@@ -246,7 +253,7 @@ define bufed_pop2buf ()
    % if the buffer is already visible, scroll down
    buffer_visible (buf);	% leave on the stack
    pop2buf (buf);
-   if (() and not(eobp ())) 
+   if (() and not(eobp ()))
      call ("page_down");
 
    bufed_update ();
@@ -279,16 +286,15 @@ define bufed_toggle_flag(line, flag, value)
 
 define change_flag_map()
 {
-   variable prefix = prefix_argument(-1), 
+   variable prefix = prefix_argument(-1),
    flagstring="CBKN-UORDAM",
-     flag, flagindex, key;
+     flag, flagindex;
    message ("Cr, Binary, no bacKup, Undo, Ovwrt, Rdonly, Disk changed, Autosave, Modified?");
    update_sans_update_hook(0);
-   key=toupper(getkey());
-   flagindex = where(key == bstring_to_array(flagstring));
-   if (length(flagindex))
+   flagindex = wherefirst(toupper(getkey()) == bstring_to_array(flagstring));
+   if (flagindex != NULL)
      {
-	flag = 0x400 shr flagindex[0];
+	flag = 0x400 shr flagindex;
 	listing_map(1, &bufed_toggle_flag, flag, prefix);
      }
 }
@@ -299,7 +305,6 @@ define bury_tagged ()
 }
 
 %}}}
-
 
 %{{{ keybindings
 
@@ -325,12 +330,12 @@ definekey ("bufed->help",	"?",	$1);
 definekey ("bufed->bury_tagged", "b",	$1);
 definekey_reserved ("bufed->change_flag_map", "f", $1);
 % Analogous to Emacs' dired-do-search.
-definekey ("bufed_search_tagged","A",	$1);
-definekey ("bufed_replace_tagged", "Q", $1);
-rebind_reserved("search_forward", "bufed_search_tagged", $1);
+definekey ("bufed->search_tagged","A",	$1);
+definekey ("bufed->replace_tagged", "Q", $1);
+rebind_reserved("search_forward", "bufed->search_tagged", $1);
 % Emacs has no binding for search_forward, so bind ^c^s too
-rebind_reserved("isearch_forward", "bufed_search_tagged", $1);
-rebind_reserved("replace_cmd", "bufed_replace_tagged", $1);
+rebind_reserved("isearch_forward", "bufed->search_tagged", $1);
+rebind_reserved("replace_cmd", "bufed->replace_tagged", $1);
 
 %}}}
 
@@ -345,9 +350,9 @@ define bufed_menu(menu)
    menu_append_item (menu, "&Save", "bufed->save_tagged");
    menu_append_item (menu, "&Bury", "bufed->bury_tagged");
    menu_append_separator(menu);
-   menu_append_item (menu, "Search &Forward", 	 "bufed_search_tagged");
+   menu_append_item (menu, "Search &Forward", 	 "bufed->search_tagged");
    menu_append_item (menu, "R&egexp Search", 	 ". 1 set_prefix_argument bufed_search_tagged");
-   menu_append_item (menu, "&Replace", 	 "bufed_replace_tagged");
+   menu_append_item (menu, "&Replace", 	 "bufed->replace_tagged");
    menu_append_item (menu, "Regexp Re&place", ". 1 set_prefix_argument bufed_replace_tagged");
 }
 
@@ -359,16 +364,16 @@ define bufed_menu(menu)
 %\description
 % Mode designed to aid in navigating through multiple buffers
 % patterned somewhat after dired.
-% 
+%
 % To invoke Bufed, do \var{M-x bufed} or bind to \var{C-x C-b} (emacs)
-% 
+%
 % \var{g}	Update the buffer listing.
 % \var{d}	Tag a buffer
 % \var{u}	Untag a buffer
-% \var{k} 	Kill the buffer described on the current 
-% 	line, like typing \var{M-x kill_buffer} and supplying that 
+% \var{k} 	Kill the buffer described on the current
+% 	line, like typing \var{M-x kill_buffer} and supplying that
 % 	buffer name.
-% 
+%
 % \var{x}	Kill the tagged buffers.
 % \var{s} 	Save the tagged buffers or the buffer described on the current line.
 % \var{b} 	Bury buffers.
@@ -377,9 +382,9 @@ define bufed_menu(menu)
 % 	With prefix 0, turn flag off.  Other prefix, turn on.
 % \var{A} 	Search across tagged buffers.  With prefix, do a regexp search.
 % \var{Q} 	Replace across tagged buffers.  With prefix, do a regexp replace.
-% 
+%
 % \var{f}, \var{SPC}, \var{CR}, \var{TAB}
-% 	Visit the buffer described on the current line. 
+% 	Visit the buffer described on the current line.
 % 	\var{f} and \var{SPC} will create a new window if required.
 % 	\var{CR} will use the current window.
 % 	\var{TAB} will revert to a single window.
@@ -388,9 +393,7 @@ define bufed_menu(menu)
 public define bufed ()
 {
    variable mode = "bufed";
-   variable this_buf;
-   
-   this_buf = sprintf ("\"%s\"", whatbuf ());
+   variable this_buf = sprintf ("\"%s\"", whatbuf ());
    bufed_list ();
    () = fsearch (this_buf);
 

@@ -1,8 +1,9 @@
-% bufed_srch.sl  -*- mode:SLang; mode: fold -*-
+% bufed_srch.sl
 % 
-% Author:        Paul Boekholt <p.boekholt@hetnet.nl>
+% $Id: bufed_srch.sl,v 1.4 2007/05/13 08:25:55 paul Exp paul $
 % 
-% $Id: bufed_srch.sl,v 1.3 2006/01/16 19:25:29 paul Exp paul $
+% (c) 2003-2007 Paul Boekholt
+% Released under the terms of the GNU GPL (version 2 or later).
 % 
 % The search functions for bufed.sl, placed in a 
 % separate file to make bufed load faster.
@@ -11,7 +12,7 @@ provide ("bufed_srch");
 
 require ("search");
 require ("srchmisc");
-require ("regexp");
+() = evalfile ("regexp");
 use_namespace("bufed");
 
 % this is now a private function in regexp.sl
@@ -46,7 +47,8 @@ static define bufed_search_buffer(line)
    if (search_maybe_again (search_fun, pat, 1, &bufed_srch_ok_fun))
      {
 	listing->Dont_Ask = -1;
-	error("Quit!");
+	setbuf (Bufed_buf);
+	throw UserBreakError, "Quit";
      }
    goto_user_mark(buf_mark);
    pop2buf (Bufed_buf);
@@ -54,7 +56,7 @@ static define bufed_search_buffer(line)
 }
 
 % Search the tagged buffers.  With prefix, do a regexp search.
-public define bufed_search_tagged ()
+define search_tagged ()
 {
    continued = 0;
    last_search_replace_cmd="search";
@@ -64,7 +66,11 @@ public define bufed_search_tagged ()
      search_fun = &re_search_dir;
    LAST_SEARCH = read_mini("Search", LAST_SEARCH, "");
    pat = LAST_SEARCH;
-   listing_map(2, &bufed_search_buffer);
+   try
+     {
+	listing_map(2, &bufed_search_buffer);
+     }
+   catch UserBreakError;
 }
 
 %}}}
@@ -149,7 +155,8 @@ static define bufed_replace_with_query (line)
 	  { case '+' :
 	     () = replace_do_replace (rep_rep, pat_len); 
 	     listing->Dont_Ask = -1;
-	     error("Quit!");
+	     setbuf (Bufed_buf);
+	     throw UserBreakError, "Quit";
 	     break;
 	  }
 	  { case '!' :
@@ -157,7 +164,8 @@ static define bufed_replace_with_query (line)
 	  }
           { case 'q' :  % Don't bother with the remaining buffers 
 	     listing->Dont_Ask = -1;
-	     error("Quit!");
+	     setbuf (Bufed_buf);
+	     throw UserBreakError, "Quit";
 	  }
           {
 	     flush ("y:replace, n:skip, !:replace all, u: undo last, +:replace then quit, q:quit");
@@ -170,7 +178,7 @@ static define bufed_replace_with_query (line)
 }
 
 % Replace across the tagged buffers.  With prefix, do a regexp search.
-public define bufed_replace_tagged ()
+define replace_tagged ()
 {
    variable prompt;
    continued = 0;
@@ -184,7 +192,11 @@ public define bufed_replace_tagged ()
    !if (strlen (rep_pat)) return;
    prompt = strcat ("Replace '", rep_pat, "' with:");
    rep_rep = read_mini(prompt, "", "");
-   listing_map(2, &bufed_replace_with_query);
+   try
+     {
+	listing_map(2, &bufed_replace_with_query);
+     }
+   catch UserBreakError;
 }
 
 %}}}
@@ -199,9 +211,21 @@ public define bufed_search_or_replace_continue()
    continued = 1;
    setbuf(Bufed_buf);
    if (last_search_replace_cmd == "search")
-     listing_map(2, &bufed_search_buffer);
+     {
+	try
+	  {
+	     listing_map(2, &bufed_search_buffer);
+	  }
+	catch UserBreakError;
+     }
    else if (last_search_replace_cmd == "replace")
-     listing_map(2, &bufed_replace_with_query);
+     {
+	try
+	  {
+	     listing_map(2, &bufed_replace_with_query);
+	  }
+	catch UserBreakError;
+     }
 }
 %}}}
 
