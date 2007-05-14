@@ -1,6 +1,6 @@
 % cuamisc.sl: helper functions for the cua suite
 %
-% Copyright (c) 2006 Guenter Milde <milde users.sf.net>
+% Copyright (c) 2006 Guenter Milde (milde users.sf.net)
 % Released under the terms of the GNU General Public License (ver. 2 or later)
 %
 % Changelog:
@@ -26,6 +26,11 @@
 %                    (http://jedmodes.sf.net/mode/txtutils/)
 % 2006-03-23 1.6.1 * cua_repeat_search() now searches across lines and has
 %                    optional arg `direction'
+% 2007-05-14 1.6.2 * removed ``add_completion("cua_save_as")``
+% 	     	   * added Joergs Sommers jbol()
+
+
+provide ("cuamisc");
 
 autoload("search_across_lines", "search");
 
@@ -259,6 +264,43 @@ define cua_save_buffer()
    
    () = write_buffer(file);
 
-} add_completion("cua_save_buffer");
+}
 
-provide ("cuamisc");
+%!%-
+%!%+
+%\function{jbol}
+%\synopsis{Jumps to the begin of line or the first non-space character}
+%\usage{jbol(skip_white)}
+%\description
+% Move the point to either the first column or the first non-white character
+% of a line. The first call to \sfun{jbol} calls either \sfun{bol} or
+% \sfun{bol_skip_white}, depending on the setting of the \var{skip_white}
+% argument. Subsequent calls will jump between column 1 and the first
+% non-white character.
+%\example
+% Get the behaviour of gedit with
+%#v+
+%   setkey("jbol(0)",                    Key_Home); % move to bol first
+%#v-
+% or the behaviour of jEdit, NetBeans, SciTe, or Boa Constructor with
+%#v+
+%   setkey("jbol(1)",                    Key_Home); % bol-skip-white first
+%#v-
+%\notes
+% It's really handy if you use indention.
+%\seealso{beg_of_line, bol, LAST_KBD_COMMAND}
+%!%-
+public define jbol(skip_white)
+{
+   if (skip_white)
+     bol_skip_white();
+   else
+     bol();
+   if (LAST_KBD_COMMAND == "jbol")
+   {
+     if (bolp())
+       skip_white();
+     else
+       bol();
+   }
+}
