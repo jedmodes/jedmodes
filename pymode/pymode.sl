@@ -1,5 +1,4 @@
-% Python mode
-% File: pymode.sl v1.4.1
+% pymode.sl: Python editing mode for Jed
 %
 % For editing source code written in the Python programming language.
 % Provides basic compatibility with Python mode under real Emacs
@@ -23,7 +22,7 @@
 % See the online doc for python_mode() and python_mode_hook().
 %
 % Shortcomings: does not highligt triple-quoted strings well. It works
-% OK with """ but NOT with '''.
+% OK with """ but NOT with ''' if DFA syntax highlight is off.
 % 
 % Versions
 % --------
@@ -88,6 +87,10 @@
 % 	- bugfix in reindent_block()
 % 2.1.2 2007-02-06
 %       - use sprintf() instead of ""$ for `outbuf` string in py_exec()
+% 2.1.3 2007-05-14 
+%       - simplified browse_pydoc_server()
+%       - added info about DFA syntax highlight to pymode_hook doc
+%         (TODO: how about a syntax highlight toggle function?)
 
 provide("pymode");
 
@@ -159,6 +162,7 @@ custom_variable("Py_Indent_Level", 4);
 %!%-
 custom_variable("Python_Doc_Root", "/usr/share/doc/python/html/");
 
+
 %!%+
 %\function{python_mode_hook}
 %\synopsis{Customization hook called by \sfun{python_mode}}
@@ -167,43 +171,62 @@ custom_variable("Python_Doc_Root", "/usr/share/doc/python/html/");
 %  If \sfun{python_mode_hook} is defined by the user, it will be called by
 %  \sfun{python_mode}. This provides a very flexible way for user
 %  customization. This can be used for e.g. setting of the TAB value, code
-%  indentation check or fix, buffer reformatting or simply customizing the
-%  keybindings.
+%  indentation check or fix, buffer reformatting, or customizing the 
+%  keybindings or syntax highlight scheme.
 %\example
-%  Check the code indentation at startup:
-%    * warn in minibuffer if tabs and spaces are mixed
+%  * Check the code indentation at startup:
+%    - warn in minibuffer if tabs and spaces are mixed
 %#v+
 %        define python_mode_hook() { py_check_indentation() }
 %#v-
-%    * untab: replace all hard tabs if indentation uses spaces
-%             This is more efficient than re-indenting to get rid of tabs.
-%             (Not only in code indentation but in the whole buffer.)
+%    - untab: replace all hard tabs if indentation uses spaces
+%      This is more efficient than re-indenting to get rid of tabs.
+%      (Not only in code indentation but in the whole buffer.)
 %             
-%             (Conversion of spaces to tabs is possible with a 
-%             \sfun{prefix_argument} and \sfun{py_untab}. However, this doesnot
-%             guarantee a non-mixed indentation, as spaces remain in places
-%             where the whitespace doesnot end at a multiple of TAB. This is
-%             why py_reindent() is recommended in this case.)
+%      (Conversion of spaces to tabs is possible with
+%      a  \sfun{prefix_argument} and \sfun{py_untab}. However, this does not
+%      guarantee a non-mixed indentation, as spaces remain in places where the
+%      whitespace does not end at a multiple of TAB. This is why py_reindent()
+%      is recommended in this case.)
 %#v+
 %        define python_mode_hook() {
 %           if (python->get_indent_level())
 %             py_untab();
+%           % more customization...
 %        }
 %#v-
-%    * ask: in case of mixed whitespace, ask for fixing by re-indentation
+%    - ask: in case of mixed whitespace, ask for fixing by re-indentation
 %#v+
 %        define python_mode_hook() {
 %           !if (python->check_indentation())
 %              py_reindent();
+%           % more customization...
 %        }
 %#v-
-%    * auto: in case of mixed whitespace, reindent with global \var{Py_Indent_Level}
+%    - auto: in case of mixed whitespace, reindent with global \var{Py_Indent_Level}
 %#v+
 %        define python_mode_hook() { 
 %           !if (python->check_indentation())
 %              python->reindent_buffer(Py_Indent_Level);
+%           % more customization...
 %        }
-%  }
+%#v-
+%  * Set the syntax highlight scheme
+%  
+%    Syntax highlight could use either a DFA syntax highlight scheme or the
+%    "traditional" one. Advantages are:
+%    
+%    traditional: highlights muliti-line string literals (if enclosed in """)
+%    
+%    dfa: highlights some syntax errors (e.g. invalid number formats, 
+%    	  mix of Spaces and Tab in code indention, or quote with trailing 
+%    	  whitespace at eol)
+%#v+
+%        define python_mode_hook() { 
+%           enable_dfa_syntax_for_mode("python");
+%           % disable_dfa_syntax_for_mode("python");
+%           % more customization...
+%        }
 %#v-
 %\seealso{py_untab, py_reindent, python->check_indentation}
 %!%-
@@ -1118,20 +1141,9 @@ define py_help_on_word()
 #else
 static define browse_pydoc_server()
 {
-   sw2buf("*ps output tmp*");
-   set_prefix_argument(1);
-   do_shell_cmd("ps ax");
-   bob();
-   !if (fsearch("pydoc -p 1200"))
-     {
-	flush("starting Python Documentation Server");
-	system("pydoc -p 1200 &");
-     }
-   else
-      message("Python Documentation Server already running");
-   set_buffer_modified_flag(0);
-   delbuf(whatbuf());
-   
+   flush("starting Python Documentation Server");
+   variable result = system("pydoc -p 1200 &");
+   % sleep(0.5);
    browse_url("http://localhost:1200");
 }
 
@@ -1363,7 +1375,7 @@ static define setup_dfa_callback (mode)
 }
 dfa_set_init_callback (&setup_dfa_callback, mode);
 %%% DFA_CACHE_END %%%
-enable_dfa_syntax_for_mode(mode);
+% enable_dfa_syntax_for_mode(mode);
 #endif
 
 
