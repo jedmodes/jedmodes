@@ -33,6 +33,9 @@
 %  2.6   2006-09-14 New function newline_indent() (fix pasting in x-terminal)
 %  2.6.1 2006-10-04 fix spurious spot in indent_region_or_line()
 %  2.6.2 2006-11-10 indent_region_or_line() did not indent a regions last line
+%  2.6.3 2007-05-14 * documentation update
+%  	 	    * insert_block_markup() inserts newline if region|word
+%  	 	      doesnot start at bol
 
 % _debug_info = 1;
 
@@ -430,7 +433,7 @@ public define autoinsert()
 %#v+
 %   insert_markup("<b>", "</b>");
 %#v-
-%  will highlight the word as bold in html, while
+%  will highlight it as bold in html, while
 %#v+
 %   insert_markup("{\textbf{", "}");
 %#v-
@@ -440,18 +443,43 @@ public define autoinsert()
 define insert_markup(beg_tag, end_tag)
 {
    !if (is_visible_mark)
-     mark_word ();
+     mark_word();
    variable region = bufsubstr_delete();
-   insert(beg_tag + region);
-   push_spot();
-   insert(end_tag);
-   pop_spot();
+   insert(beg_tag + region + end_tag);
+   % put cursor in the markup tags if the region is void
+   if (region == "")
+     go_left(strlen(end_tag));
 }
 
-% Insert markup around region and (re) indent
+%!%+
+%\function{insert_block_markup}
+%\synopsis{Insert markup around region and (re) indent}
+%\usage{insert_block_markup(beg_tag, end_tag)}
+%\description
+%   Insert beg_tag and end_tag around the region or current word.
+%   Insert a newline before the region|word if it is not the first non-white
+%   token of the line.
+%   Indent region or line (according to the mode's syntax rules).
+%\seealso{insert_markup}
+%!%-
 define insert_block_markup(beg_tag, end_tag)
 {
+   !if (is_visible_mark)
+     mark_word();
    () = dupmark();
-   insert_markup(beg_tag, end_tag);
+   variable region = bufsubstr_delete();
+
+   insert(beg_tag + region + end_tag);
+   
+   % insert newline if there is something except whitespace before the start
+   % of the region
+   exchange_point_and_mark();
+   bskip_white();
+   !if (bolp)  
+     newline();
+   exchange_point_and_mark();
    indent_region_or_line();
+   % put cursor inside the markup tags if the region is void
+   if (region == "")
+     go_left(strlen(end_tag));
 }
