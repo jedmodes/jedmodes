@@ -1,21 +1,21 @@
 % rst.sl
 % ======
-%
+% 
 % Mode for reStructured Text (from Python docutils__)
-%
+% 
 % Copyright (c) 2004, 2006 Guenter Milde (milde users.sf.net)
 % Released under the terms of the GNU General Public License (ver. 2 or later)
-%
+% 
 % `ReStructured Text`__ is a revision of Structured Text, a simple markup
 % language that can be translated to Html and LaTeX (and more, if someone
 % writes a converter)
-%
+% 
 % __ http://docutils.sourceforge.net/
 % __ http://docutils.sourceforge.net/docs/rst/quickref.html
-%
+% 
 % Versions
 % ========
-%
+% 
 % ===== ========== ============================================================
 % 1.1   2004-10-18 initial attempt
 % 1.2   2004-12-23 removed dependency on view mode (called by runhooks now)
@@ -54,18 +54,22 @@
 %                    `py.rest --topdf`.
 % 1.8   2007-03-13 Replace set_export_options() with set_export_cmd()
 % 1.8.1 2007-03-30 Unit testing and fixes
+% 1.8.2 2007-05-14 * removed leading \n from Markup_Tags, 
+%                    (handled by insert_block_markup() since textutils 2.6.3)
+%                  * simplified dfa rules using ""R string suffix
+%                  * rst_levels: use String_Type instead of list
 % 
 % ===== ========== ============================================================
-%
-%
+% 
+% 
 % TODO: directives functions (see /docutils/docs/ref/rst/directives.html)
-%
-%
+% 
+% 
 % Requirements
 % ============
-%
+% 
 % standard modes::
-%
+
 require("comments");
 
 % extra modes (from http://jedmodes.sf.net/mode/)::
@@ -86,7 +90,7 @@ autoload("string_repeat", "strutils");
 
 % Recommendations
 % ===============
-
+% 
 % jump to the error locations from output buffer::
 
 #if (expand_jedlib_file("filelist.sl") != "")
@@ -107,7 +111,7 @@ autoload("list_routines", "tokenlist");
 
 % Variables
 % =========
-%
+% 
 % ::
 
 % --- name it
@@ -117,7 +121,7 @@ private variable mode = "rst";
 
 % Custom Variables
 % ----------------
-%
+% 
 % ::
 
 %!%+
@@ -191,13 +195,13 @@ custom_variable("Rst_Documentation_Path",
 
 % Static Variables
 % ----------------
-%
+% 
 % ::
 
 static variable Last_Underline_Char = "-";
-static variable Underline_Chars = "-*=~\"'`^:+#<>_";
-static variable Underline_Regexp = sprintf("^\([%s]\)\1+[ \t]*$"R,
-   str_quote_string(Underline_Chars, "\\^$[]*.+?", '\\'));
+static variable Underline_Chars = "*=-~\"'`^:+#<>_";
+static variable Underline_Regexp = sprintf("^\([%s]\)+[ \t]*$"R, 
+   str_replace_all(Underline_Chars, "-", "\\-"));
 
 private variable helpbuffer = "*rst export help*";
 
@@ -220,7 +224,7 @@ Markup_Tags["subscript"]   = [":sub:`", "`"];
 Markup_Tags["superscript"] = [":sup:`", "`"];
 
 % Layout Pragraph (block)
-Markup_Tags["hrule"]         = ["\n-------------\n", ""];  % alias transition
+Markup_Tags["hrule"]         = ["\n-------------\n", ""];  % transition
 Markup_Tags["preformatted"] = ["::\n    ", "\n"];
 
 % References (outgoing links, occure in the text)
@@ -232,20 +236,20 @@ Markup_Tags["citation_ref"]           = ["[", "]_"];    % also for footnotes
 Markup_Tags["substitution_ref"]       = ["|", "|"];
 
 % Reference Targets
-Markup_Tags["hyperlink"]           = ["\n.. _", ":"];   % URL, crossreference
-Markup_Tags["anonymous_hyperlink"] = ["\n__ ", ""];
-Markup_Tags["numeric_footnote"]   = ["\n.. [#]", ""];   % automatic  numbering
-Markup_Tags["symbolic_footnote"]  = ["\n.. [*]", ""];   % automatic  numbering
-Markup_Tags["citation"]           = ["\n.. [", "]"];
-Markup_Tags["directive"]          = ["\n.. ", "::"];   %
-Markup_Tags["substitution"]       = ["\n.. |", "|"];
+Markup_Tags["hyperlink"]           = [".. _", ":"];   % URL, crossreference
+Markup_Tags["anonymous_hyperlink"] = ["__ ", ""];
+Markup_Tags["numeric_footnote"]   = [".. [#]", ""];   % automatic  numbering
+Markup_Tags["symbolic_footnote"]  = [".. [*]", ""];   % automatic  numbering
+Markup_Tags["citation"]           = [".. [", "]"];
+Markup_Tags["directive"]          = [".. ", "::"];
+Markup_Tags["substitution"]       = [".. |", "|"];
 
 % Functions
 % =========
-%
+% 
 % Export
 % ------
-%
+% 
 % ::
 
 % export the buffer/region to outfile using export_cmds[]
@@ -350,7 +354,7 @@ public  define rst_browse() % (browser=Browse_Url_Browser))
 
 % Markup
 % ------
-%
+% 
 % ::
 
 % insert a markup
@@ -365,11 +369,12 @@ static define block_markup(type)
    insert_block_markup(Markup_Tags[type][0], Markup_Tags[type][1]);
 }
 
-static define insert_directive(directive_type)
+
+static define insert_directive(name)
 {
    !if (bolp())
      newline();
-   vinsert(".. %s:: ", directive_type);
+   vinsert(".. %s:: ", name);
 }
 
 % underline the current line
@@ -403,10 +408,10 @@ static define section_markup() % ([ch])
 
 % Navigation
 % ----------
-%
+% 
 % Use Marko Mahnics tokenlist to create a navigation buffer with all section
-% headings.
-%
+% titles.
+% 
 % ::
 
 #ifexists list_routines
@@ -416,21 +421,19 @@ static define section_markup() % ([ch])
 % array of regular expressions matching routines
 public  variable rst_list_routines_regexp = [Underline_Regexp];
 
-private variable rst_levels = {}; % List_Type (requires SLang 2)
-private define get_rst_level(ch)
+% return section header level of (section title underlined with) `adornment'
+% (starting with level 1 == H1)
+private variable rst_levels = "";
+private define get_rst_level(adornment)
 {
-   variable i;
-   for (i = 0; i < length(rst_levels); i++)
-      if (rst_levels[i] == ch)
-       return i;
-   list_append(rst_levels, ch);
-   return i;
+   variable i = is_substr(rst_levels, adornment);
+   if (i)
+     return i;
+   rst_levels += adornment;
+   return strlen(rst_levels);
 }
-% TODO: use wherefirst (how to convert a list to an array?)
-% the following does not work
-%    show(wherefirst( typecast(rst_levels, Array_Type) == ch));
 
-% rst hook for tkl_list_tokens():
+% rst mode's hook for tkl_list_tokens():
 % 
 %% tkl_list_tokens searches for a set of regular expressions defined
 %% by an array of strings arr_regexp. For every match tkl_list_tokens
@@ -440,70 +443,74 @@ private define get_rst_level(ch)
 %% 
 %% The called function should return a string that it extracts from 
 %% the current line.
+%
+% The returned string is inserted into the tokenlist. We format to get a nice
+% list of section titles:
 public  define rst_list_routines_extract(regexp_index)
 {
-   variable ch, col, sec, fmt;
-   ch = char(what_char());
-   skip_chars(ch);
+   variable adornment, title, level, col;
+   
+   % point is at first matching adornment character
+   % get adornment character (as string) and lenght of underline adornment
+   adornment = char(what_char());
+   skip_chars(adornment);
    col = what_column();
+   % get the section title above the adornment
    !if (up(1))
-     return "";
+     return ""; % first line, no section title
+   % skip to end of section title
    eol(); bskip_white();
-   % no section if nothing to underline or underline too short
-   if (what_column() == 1 or what_column() > col) 
-     return "";
+   if (what_column() == 1     % blank line
+      or what_column() > col) % underline too short
+     return "";  % there is no section title
    push_mark();
    bol_skip_white();
-   sec =  bufsubstr();
+   title =  bufsubstr();
 
+   % Format
+   level = get_rst_level(adornment);
+     
    % Variants of output formatting::
 
-   % show(get_rst_level(ch), fmt);
+   % show(level, adornment);
 
    % do not indent at all (simple, missing information)
-   % return(sprintf(fmt, "", sec));
-
-   % indent by 1 space/level, precede with dot (the dot is unmotivated)
-   % fmt = sprintf(".%%%ds%%s", -get_rst_level(ch));
-   % return(sprintf(fmt, "", sec));
-
-   % indent by 1 space/level, precede with underline char
-   % fmt = sprintf("%s %%%ds%%s", ch, -get_rst_level(ch));
-   % return(sprintf(fmt, "", sec));
+   % return(sprintf("%s %s", adornment, title));
 
    % indent by 1 underline char/level (too noisy)
-   % return sprintf("%s %s", string_repeat(ch, get_rst_level(ch)+1), sec);
+   % return sprintf("%s %s", string_repeat(adornment, level), title);
 
    % indetn by 2 underline chars/level (not better)
-   % return sprintf("%s %s", string_repeat(ch, get_rst_level(ch)*2), sec);
+   % return sprintf("%s %s", string_repeat(adornment, level*2), title);
 
    % indent by 1 dot/level (still ok)
-   % return sprintf("%s %s", string_repeat(".", get_rst_level(ch)+1), sec);
+   % return sprintf("%s %s", string_repeat(".", level), title);
 
    % indent by 2 dots/level (quite nice)
-   % return sprintf("%s %s", string_repeat(".", get_rst_level(ch)*2), sec);
+   % return sprintf("%s %s", string_repeat(".", level*2), title);
 
    % indent by 2 dots/level, precede with underline char (ugly)
-   % return sprintf("%s %s %s", ch, string_repeat(".", get_rst_level(ch)*2), sec);
+   % return sprintf("%s %s %s", adornment, string_repeat(".", level*2), title);
 
    % indent by 2 dots/level, underline char as marker  (quite nice, informative)
-   % return sprintf(".%s %s %s", string_repeat(".", get_rst_level(ch)*2), ch, sec);
+   % return sprintf(".%s %s %s", string_repeat(".", level*2), adornment, title);
 
-   % indent by 1 space/level, underline char as marker (best)
+   % indent by 2 spaces/level, underline char as marker (best)
    % needs modified tokenlist that doesnot strip leading whitespace
-   return sprintf("%s%s %s", string_repeat(" ", get_rst_level(ch)*2), ch, sec);
+   return sprintf("%s%s %s", 
+      string_repeat(" ", (level-1)*2), adornment, title);
 }
 
 public  define rst_list_routines_done()
 {
-   rst_levels = {};    % reset
+   rst_levels = "";    % reset
 }
 
 #endif
 
 % Syntax Highlight
 % ================
-%
+% 
 % ::
 
 create_syntax_table (mode);
@@ -519,22 +526,24 @@ set_syntax_flags (mode, 0);
 %%% DFA_CACHE_BEGIN %%%
 
 % Inline Markup
-%
+% 
 % The rules for inline markup are stated in quickref.html. They cannot be
 % easily and fully translated to DFA syntax, as
-%
+% 
 %  * in JED, DFA patterns do not cross lines
 %  * excluding visible patterns outside the to-be-highlighted region via
 %    e.g. [^a-z] will erroneously color allowed chars.
 %  * also, [-abc] must be written [\\-abc]
-%
+% 
 % Therefore only a subset of inline markup will be highlighted correctly. ::
-%
+
 % Felix Wiemann recommendet in a mail at Docutils-users:
 % 
 %   You can have a look at docutils/parsers/rst/states.py.  It contains all
 %   the regular expressions needed to parse reStructuredText, even though
 %   they may not be in the format in which you need them.
+% 
+% ::
 
 private define inline_rule(s)
 {
@@ -561,12 +570,12 @@ static define setup_dfa_callback(mode)
    variable color_transition = "comment";
 
    % Inline Markup
-   dfa_define_highlight_rule(inline_rule("\\*"), "Q"+color_emphasis, mode);
+   dfa_define_highlight_rule(inline_rule("\*"R), "Q"+color_emphasis, mode);
    dfa_define_highlight_rule(inline_rule("`"), color_interpreted, mode);
    % dfa_define_highlight_rule(":[a-zA-Z]+:"+inline_rule("`"), color_interpreted, mode);
-   dfa_define_highlight_rule(inline_rule("\\|"), "Q"+color_substitution, mode);
+   dfa_define_highlight_rule(inline_rule("\|"R), "Q"+color_substitution, mode);
    dfa_define_highlight_rule(inline_rule(":"), color_directive, mode);
-   dfa_define_highlight_rule(inline_rule("\\*\\*"), "Q"+color_strong, mode);
+   dfa_define_highlight_rule(inline_rule("\*\*"R), "Q"+color_strong, mode);
    dfa_define_highlight_rule(inline_rule("``"), "Q"+color_literal, mode);
 
    % Literal Block marker
@@ -579,42 +588,42 @@ static define setup_dfa_callback(mode)
    dfa_define_highlight_rule("(https?|ftp|file)://[^ \t>]+", color_url, mode);
    % dfa_define_highlight_rule ("[^ \t\n<]*@[^ \t\n>]+", color_email, mode);
    %  crossreferences
-   dfa_define_highlight_rule("[\\-a-zA-Z0-9_]*[a-zA-Z0-9]__?[^a-zA-Z0-9]", color_reference, mode);
-   dfa_define_highlight_rule("[\\-a-zA-Z0-9_]*[a-zA-Z0-9]__?$", color_reference, mode);
+   dfa_define_highlight_rule("[\-a-zA-Z0-9_]*[a-zA-Z0-9]__?[^a-zA-Z0-9]"R, color_reference, mode);
+   dfa_define_highlight_rule("[\-a-zA-Z0-9_]*[a-zA-Z0-9]__?$"R, color_reference, mode);
    %  reference with backticks
    dfa_define_highlight_rule("`[^`]*`__?", color_reference, mode);
    %   footnotes and citations
-   dfa_define_highlight_rule("\\[[a-zA-Z0-9#\\*\\.\\-_]+\\]+_", color_reference, mode);
+   dfa_define_highlight_rule("\[[a-zA-Z0-9#\*\.\-_]+\]+_"R, color_reference, mode);
 
    % Reference Targets
    %  inline target
-   dfa_define_highlight_rule("_`[^`]+`", color_target, mode);
+   dfa_define_highlight_rule("_`[^`]+`"R, color_target, mode);
    %  named crosslinks, footnotes and citations
-   dfa_define_highlight_rule("^\\.\\. [_\\[].*", color_target, mode);
+   dfa_define_highlight_rule("^\.\. [_\[].*"R, color_target, mode);
    % substitution definitions
-   dfa_define_highlight_rule("^\\.\\. [|].*", color_target, mode);
+   dfa_define_highlight_rule("^\.\. [|].*"R, color_target, mode);
    %  anonymous
-   dfa_define_highlight_rule("^__ [^ \t]+.*$", color_target, mode);
+   dfa_define_highlight_rule("^__ [^ \t]+.*$"R, color_target, mode);
    %  footnotes and citations
-   dfa_define_highlight_rule("^\\.\\. \\[[a-zA-Z#\\*]+\\].*", color_target, mode);
+   dfa_define_highlight_rule("^\.\. \[[a-zA-Z#\*]+\].*"R, color_target, mode);
 
    % Comments
-   dfa_define_highlight_rule("^\\.\\.", "Pcomment", mode);
+   dfa_define_highlight_rule("^\.\."R, "Pcomment", mode);
 
    % Directives
-   dfa_define_highlight_rule("^\\.\\. [^ \t]+.*::", color_directive, mode);
+   dfa_define_highlight_rule("^\.\. [^ \t]+.*::"R, color_directive, mode);
 
    % Lists
    %  itemize
-   dfa_define_highlight_rule("^[ \t]*[\\-\\*\\+][ \t]+", "Q"+color_list_marker, mode);
+   dfa_define_highlight_rule("^[ \t]*[\-\*\+][ \t]+"R, "Q"+color_list_marker, mode);
    %  enumerate
-   dfa_define_highlight_rule("^[ \t]*[0-9a-zA-Z][0-9a-zA-Z]?\\.[ \t]+", color_list_marker, mode);
-   dfa_define_highlight_rule("^[ \t]*\\(?[0-9a-zA-Z][0-9]?\\)[ \t]+", color_list_marker, mode);
-   dfa_define_highlight_rule("^[ \t]*#\\.[ \t]+", color_list_marker, mode);
+   dfa_define_highlight_rule("^[ \t]*[0-9a-zA-Z][0-9a-zA-Z]?\.[ \t]+"R, color_list_marker, mode);
+   dfa_define_highlight_rule("^[ \t]*\(?[0-9a-zA-Z][0-9]?\)[ \t]+"R, color_list_marker, mode);
+   dfa_define_highlight_rule("^[ \t]*#\.[ \t]+"R, color_list_marker, mode);
    %  field list
-   dfa_define_highlight_rule("^[ \t]*:.+:[ \t]+", "Q"+color_list_marker, mode);
+   dfa_define_highlight_rule("^[ \t]*:.+:[ \t]+"R, "Q"+color_list_marker, mode);
    %  option list
-   dfa_define_highlight_rule("^[ \t]*--?[a-zA-Z]+  +", color_list_marker, mode);
+   dfa_define_highlight_rule("^[ \t]*--?[a-zA-Z]+  +"R, color_list_marker, mode);
    %  definition list
    % doesnot work as jed's DFA regexps span only one line
 
@@ -625,7 +634,7 @@ static define setup_dfa_callback(mode)
    foreach (Underline_Chars)
        {
         $1 = ();
-          $1 = str_quote_string(char($1), "\\^$[]*.+?", '\\');
+          $1 = str_quote_string(char($1), "\^$[]*.+?"R, '\\');
           $1 = sprintf("^%s%s+[ \t]*$", $1, $1);
         dfa_define_highlight_rule($1, color_transition, mode);
        }
@@ -649,7 +658,7 @@ define_syntax ("0-9a-zA-Z", 'w', mode);        % Words
 
 % Keymap
 % ======
-%
+% 
 % ::
 
 !if (keymap_p(mode))
@@ -698,7 +707,7 @@ definekey_reserved("list_routines",                            "n", mode); % &Na
 
 % Mode Menu
 % =========
-%
+% 
 % ::
 
 % append a new popup to menu and return the handle
@@ -788,7 +797,7 @@ static define rst_menu(menu)
 
 % Rst Mode
 % ========
-%
+% 
 % ::
 
 % set the comment string
