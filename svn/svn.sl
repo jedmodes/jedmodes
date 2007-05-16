@@ -149,7 +149,9 @@
 % 2007-05-04 (GM)
 %   * Support both SVN and CVS (checking for CVS or .svn dir)
 %   * removed otherwindow_if_messagebuffer_active(), its not used
-%   
+% 2007-05-16 (GM)
+%   * require_buffer_dir_in_svn() now also returns "entries" dir
+%     as its path differs between CVS and SVN
 % TODO: 
 %   * syntax highlight (DFA) in directory listing
 %   * fit_window() for popup buffers
@@ -159,7 +161,7 @@
 % _debug_info=1; _traceback=1; _slangtrace=1;
 
 #<INITIALIZATION>
-% the SVN menu 
+% Add a "File>Version Control" popup
 autoload("svn_menu_callback", "svn");
 define svn_load_popup_hook(menubar)
 {
@@ -314,10 +316,6 @@ private define require_buffer_dir_in_svn() { %{{{
     variable file, dir, entries; 
     (file, dir,,) = getbuf_info ( whatbuf() );
     
-    if (file == "") {
-        error("There is no file attached to this buffer.");
-    }
-    
    switch (get_version_control_tool(dir))
      { case "cvs": 
         entries = path_concat(path_concat(dir, "CVS"), "Entries");}
@@ -329,7 +327,7 @@ private define require_buffer_dir_in_svn() { %{{{
         error("Missing stat file " + entries);
     }
     
-    return (file, dir);
+   return (file, dir, entries);
 }
 %}}}
 
@@ -352,25 +350,18 @@ private define entries_contains_filename(entries, filename) { %{{{
 %}}}
 
 private define require_buffer_file_in_svn() { %{{{
-    variable file, dir; 
-    (file, dir) = require_buffer_dir_in_svn();
+    variable file, dir, entries;
+    (file, dir, entries) = require_buffer_dir_in_svn();
+   
+    if (file == "") {
+        error("There is no file attached to this buffer.");
+    }
     
-    variable svn_dir = path_concat(dir, ".svn");
-    variable entries = path_concat(svn_dir, "entries");
-
     !if (entries_contains_filename(entries, file)) {
-        variable res = 0;
-        
-        while (res != 'y' and res != 'n') {
-            res = get_mini_response("File " + file +
-                                    " not found in .svn/entries. Add it [yn]? ");
-        }
-        
-        if (res == 'y') {
-            svn_add_buffer();
-        } else {
-            error("Unable to proceed");
-        }
+       if (get_y_or_n("File " + file + " not found in VC entries. Add it?"))
+         svn_add_buffer();
+       else
+         error("File " + file + "is not under version control");
     }
     
     return (file, dir);
@@ -504,7 +495,7 @@ define toggle_marked_file(file) { %{{{
 
 public define svn_add_buffer() { %{{{
     variable file, dir;
-    (file, dir) = require_buffer_dir_in_svn();
+    (file, dir, entries) = require_buffer_dir_in_svn();
     do_svn([ "add", file ], dir, 1, 1);
 }
 %}}}
