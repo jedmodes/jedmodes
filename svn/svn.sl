@@ -152,13 +152,14 @@
 % 2007-05-16 (GM)
 %   * require_buffer_dir_in_svn() now also returns "entries" dir
 %     as its path differs between CVS and SVN
+% 2007-05-25 
+%   * Use buffer_dirname() instead of getcwd() as default for project directory
+%     
 % TODO: 
 %   * syntax highlight (DFA) in directory listing
 %   * fit_window() for popup buffers
-%   * support svk as well
+%   * support for SVK (http://svk.bestpractical.com/)
    
-% Uncomment these for bug hunting
-% _debug_info=1; _traceback=1; _slangtrace=1;
 
 #<INITIALIZATION>
 % Add a "File>Version Control" popup
@@ -177,6 +178,7 @@ append_to_hook("load_popup_hooks", &svn_load_popup_hook);
 % from  http://jedmodes.sourceforge.net/
 autoload("reload_buffer", "bufutils");
 autoload("popup_buffer", "bufutils");
+autoload("buffer_dirname", "bufutils");
 
 %% Variables %{{{
 implements("svn");
@@ -266,29 +268,6 @@ private define setbuf_ro() { %{{{
 private define save_buffer_if_modified() { %{{{
    if (buffer_modified())
      save_buffer();
-}
-%}}}
-
-
-private define buffer_filename(buf) { %{{{
-    if (bufferp(buf)) {
-        variable file, dir;
-        (file, dir,,) = getbuf_info(buf);
-        return path_concat(dir, file);
-    } else {
-        return "";
-    }
-}
-%}}}
-
-private define buffer_dirname(buf) { %{{{
-    if (bufferp(buf)) {
-        variable file, dir;
-        (, dir,,) = getbuf_info(buf);
-        return dir;
-    } else {
-        return "";
-    }
 }
 %}}}
 
@@ -462,13 +441,13 @@ public define svn_unmark_all() { %{{{
 
 public define svn_mark_buffer() { %{{{
     %% otherwindow_if_messagebuffer_active();  
-    mark_file(buffer_filename(whatbuf()));
+    mark_file(buffer_filename());
 }
 %}}}
 
 public define svn_unmark_buffer() { %{{{
     %% otherwindow_if_messagebuffer_active();    
-    unmark_file(buffer_filename(whatbuf()));
+    unmark_file(buffer_filename());
 }
 %}}}
 
@@ -494,7 +473,7 @@ define toggle_marked_file(file) { %{{{
 %% SVN operations on a single buffer %{{{
 
 public define svn_add_buffer() { %{{{
-    variable file, dir;
+    variable file, dir, entries;
     (file, dir, entries) = require_buffer_dir_in_svn();
     do_svn([ "add", file ], dir, 1, 1);
 }
@@ -522,6 +501,7 @@ public define svn_diff_buffer() { %{{{
     do_svn([ "diff", file ], dir, 0, 0);
     
     postprocess_diff_buffer();
+   
 }
 %}}}
 
@@ -671,7 +651,8 @@ private define postprocess_diff_buffer() { %{{{
         () = down(1);
     }    
     set_readonly(1);
-    
+    % set to diff mode, if diff_mode is globally defined
+    call_function("diff_mode");
     pop_spot();
 }
 %}}}
@@ -855,7 +836,7 @@ private define postprocess_dirlist_buffer() { %{{{
 
 private define get_op_dir() { %{{{
    if (project_root == "") {
-      project_root = getcwd();
+      project_root = buffer_dirname();
    } 
    project_root = read_with_completion("Enter dir for operation: ", 
                                         "", project_root, 'f');
@@ -864,12 +845,12 @@ private define get_op_dir() { %{{{
 %}}}
 
 public define svn_list_dir() { %{{{
-    variable dir = get_op_dir();
+   variable dir = get_op_dir();
     
-    sw2buf(dirlist_buffer);
-    use_keymap("svn-list");
-    set_readonly(0);
-    erase_buffer();
+   sw2buf(dirlist_buffer);
+   use_keymap("svn-list");
+   set_readonly(0);
+   erase_buffer();
    
    % cvs returns a very verbose list with the status command 
    % the info recommends a dry-run of update for a short list
@@ -877,10 +858,10 @@ public define svn_list_dir() { %{{{
      { case "cvs": do_svn(["-n", "-q", "update"], dir, 0, 0); }
      { do_svn(["status"], dir, 0, 0); }
    
-    % return to directory listing and postprocess
-    otherwindow();
-    sw2buf(dirlist_buffer);
-    postprocess_dirlist_buffer();
+   % return to directory listing and postprocess
+   otherwindow();
+   sw2buf(dirlist_buffer);
+   postprocess_dirlist_buffer();
 }
 %}}}
 
