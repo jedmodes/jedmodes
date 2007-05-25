@@ -23,6 +23,7 @@
 %                   for large strings.
 %             1.5.1 bugfix in str_re_replace_all() by M. Johansen
 % 2007-05-09  1.6   new function strsplit()
+% 2007-05-25  1.6.1 optimised str_re_replace() by Paul Boekholt
 %
 % (projects for further functions in projects/str_utils.sl)
 
@@ -100,26 +101,32 @@ define string_get_match() % (str, pattern, pos=1, nth=0)
 %!%-
 define str_re_replace(str, pattern, rep, max_n)
 {
-   variable n, pos, len, outstr="", match, backref, x_rep;
-
+   variable n, pos = 1, next_pos, len, outstr=String_Type[0],
+     match, backref, x_rep;
+   
+   % do replacements one-by-one, caching results in array
    for(n = 0; n < max_n; n++)
      {
-        !if (string_match(str, pattern, 1))
+        % add 100 elements to cache if it is full
+        !if (n mod 100)
+          outstr = [outstr, String_Type[100]];
+        % Match against a regular expression `pattern' later than `pos'
+        !if (string_match(str, pattern, pos))
           break;
         % get the backref, i.e. the part matching pattern in \( \)
         backref = string_nth_match(str, 1);
-        % split the string in 3 parts (outstr, match, str)
-        (pos, len) = string_match_nth(0);
-        outstr += substr(str, 1, pos);
-        pos++;
-        match = substr(str, pos, len);
-        str = substr(str, pos+len, -1);
         % expand replacement pattern
         (x_rep, ) = strreplace(rep, "\\1", backref, 1);
-        % append expanded replacement
-        outstr += x_rep;
+        % get position of next match
+        (next_pos, len) = string_match_nth(0);
+        next_pos++;
+        % cache the string-part with replacement in an array
+        outstr[n] = strcat(substr(str, pos, next_pos - pos), x_rep);
+        % advance position
+        pos = next_pos + len;
      }
-   return (outstr+str, n);
+   outstr[n] = substr(str, pos, -1);
+   return (strjoin(outstr[[:n]], ""), n);
 }
 
 %!%+
@@ -135,7 +142,7 @@ define str_re_replace(str, pattern, rep, max_n)
 %\notes
 %  As the whole string is searched as one piece, \sfun{str_re_replace_all}
 %  will become *very* slow for larger strings. If there is no need to find
-%  a matches across lines, \sfun{str_re_replace_by_line} should be used.
+%  matches across lines, \sfun{str_re_replace_by_line} should be used.
 %\seealso{str_re_replace, str_replace_all, str_re_replace_by_line}
 %!%-
 define str_re_replace_all(str, pattern, rep)
