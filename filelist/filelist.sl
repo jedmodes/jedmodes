@@ -67,6 +67,8 @@
 % 	      	    * locate(): dont't close list if going to a directory
 % 2007-04-23  1.7.2 * filelist_view_file(): never close calling filelist
 % 2007-05-02  1.7.3 * documentation update
+% 2007-05-25  1.7.4 * bugfix in filelist_open_file(): went to wrong buffer if
+% 		      file with same basename already open
 %
 % TODO: * more bindings of actions: filelist_cua_bindings
 %       * copy from filelist to filelist ...
@@ -581,7 +583,7 @@ static define filelist_close_buffer_hook(buf)
 % return success
 private define _open_file(filename, line_no)
 {
-   variable buf = whatbuf(), fit = (get_blocal("is_popup", 0) != 0);
+   variable newbuf, buf = whatbuf(), fit = (get_blocal("is_popup", 0) != 0);
    
    ERROR_BLOCK { return 0; }
    
@@ -594,8 +596,8 @@ private define _open_file(filename, line_no)
    else
      {
 	% open file in second window
-	() = read_file(filename);
-	pop2buf(path_basename(filename));
+	() = find_file(filename);
+	newbuf = whatbuf();
 	% save return data in blocal variables
 	define_blocal_var("close_buffer_hook", &filelist_close_buffer_hook);
 	define_blocal_var("calling_buf", buf);
@@ -608,7 +610,7 @@ private define _open_file(filename, line_no)
 	       {
 		  pop2buf(buf);
 		  fit_window(window_info('r'));
-		  pop2buf(path_basename(filename));
+		  pop2buf(newbuf);
 	       }
 	  }
      }
