@@ -91,6 +91,8 @@
 %       - simplified browse_pydoc_server()
 %       - added info about DFA syntax highlight to pymode_hook doc
 %         (TODO: how about a syntax highlight toggle function?)
+% 2.1.4 2007-05-25
+% 	- add StopIteration keyword, formatting
 
 provide("pymode");
 
@@ -297,7 +299,7 @@ static define is_behind(line, col)
 
 % Test if point is inside string literal
 % 
-% parse_to_point() doesnot work, as Python allows long  (i.e. line
+% parse_to_point() doesnot work, as Python allows long (i.e. line
 % spanning) strings.
 % Complicated, because there are 4 ways to mark literal strings:
 % single and triple quotes or double-quotes, (', ", ''', or """) which might 
@@ -755,7 +757,7 @@ static define py_shift_line_left()
 static define py_shift_region_left()
 {
    variable e, steps = prefix_argument(1);
-   check_region (1);
+   check_region(1);
    narrow();
    do
      {
@@ -1127,13 +1129,13 @@ define py_help_on_word()
 {
    variable tag = "0-9A-Z_a-z";
    
-   push_spot ();
-   skip_white ();
-   bskip_chars (tag);
-   push_mark ();
-   skip_chars (tag);
-   tag = bufsubstr ();		% leave on the stack
-   pop_spot ();
+   push_spot();
+   skip_white();
+   bskip_chars(tag);
+   push_mark();
+   skip_chars(tag);
+   tag = bufsubstr();		% leave on the stack
+   pop_spot();
    message( strcat("Help on ", tag) );
    msw_help( getenv("PYLIBREF"), tag, 0);
 }
@@ -1237,7 +1239,7 @@ public define py_help() %(topic=NULL)
    set_readonly(0);
    erase_buffer();
    
-   set_prefix_argument (1);      % insert output at point
+   set_prefix_argument(1);      % insert output at point
    % show(help_cmd);
    flush("Calling: " + help_cmd);
    do_shell_cmd(help_cmd);
@@ -1248,7 +1250,7 @@ public define py_help() %(topic=NULL)
    set_buffer_hook("newline_indent_hook", "python_context_help_hook");
    define_blocal_var("context_help_hook", "python_context_help_hook");
    if (is_defined("help_2click_hook"))
-     set_buffer_hook ( "mouse_2click", "help_2click_hook");
+     set_buffer_hook( "mouse_2click", "help_2click_hook");
 }
 
 % context help:
@@ -1282,65 +1284,60 @@ public define py_browse_module_doc() % (module=NULL)
 % Syntax highlighting
 % -------------------
 
-create_syntax_table (mode);
-define_syntax ("#", "", '%', mode);		% comments
-define_syntax ("([{", ")]}", '(', mode);		% delimiters
-define_syntax ('\'', '\'', mode);			% quoted strings
-define_syntax ('"', '"', mode);			% quoted strings
-define_syntax ('\'', '\'', mode);			% quoted characters
-define_syntax ('\\', '\\', mode);			% continuations
-define_syntax ("0-9a-zA-Z_", 'w', mode);		% words
-define_syntax ("-+0-9a-fA-FjJlLxX.", '0', mode);	% Numbers
-define_syntax (",;.:", ',', mode);		% punctuation
-define_syntax ("%-+/&*=<>|!~^`", '+', mode);	% operators
-set_syntax_flags (mode, 0);			% keywords ARE case-sensitive
+create_syntax_table(mode);
+define_syntax("#", "", '%', mode);		% comments
+define_syntax("([{", ")]}", '(', mode);		% delimiters
+define_syntax('\'', '\'', mode);			% quoted strings
+define_syntax('"', '"', mode);			% quoted strings
+define_syntax('\'', '\'', mode);			% quoted characters
+define_syntax('\\', '\\', mode);			% continuations
+define_syntax("0-9a-zA-Z_", 'w', mode);		% words
+define_syntax("-+0-9a-fA-FjJlLxX.", '0', mode);	% Numbers
+define_syntax(",;.:", ',', mode);		% punctuation
+define_syntax("%-+/&*=<>|!~^`", '+', mode);	% operators
+set_syntax_flags(mode, 0);			% keywords ARE case-sensitive
 
-() = define_keywords (mode, "asifinisor", 2); % all keywords of length 2
-() = define_keywords (mode, "anddefdelfornottry", 3); % of length 3 ....
-() = define_keywords (mode, "elifelseexecfrompass", 4);
-() = define_keywords (mode, "breakclassprintraisewhileyield", 5);
-() = define_keywords (mode, "assertexceptglobalimportlambdareturn", 6);
-() = define_keywords (mode, "finally", 7);
-() = define_keywords (mode, "continue", 8);
+() = define_keywords(mode, "asifinisor", 2); % all keywords of length 2
+() = define_keywords(mode, "anddefdelfornottry", 3); % of length 3 ....
+() = define_keywords(mode, "elifelseexecfrompass", 4);
+() = define_keywords(mode, "breakclassprintraisewhileyield", 5);
+() = define_keywords(mode, "assertexceptglobalimportlambdareturn", 6);
+() = define_keywords(mode, "finally", 7);
+() = define_keywords(mode, "continue", 8);
 
 % Type 1 keywords (actually these are most of what is in __builtins__)
-() = define_keywords_n (mode, "id", 2, 1);
-() = define_keywords_n (mode, "abschrcmpdirhexintlenmapmaxminoctordpowstrzip",
+() = define_keywords_n(mode, "id", 2, 1);
+() = define_keywords_n(mode, "abschrcmpdirhexintlenmapmaxminoctordpowstrzip",
    3, 1);
-() = define_keywords_n (mode, "NoneTruedictevalfilehashiterlistlongopenreprtypevars",
-   4, 1);
-() = define_keywords_n (mode, "Falseapplyfloatinputrangeroundslicetuple", 5, 1);
-() = define_keywords_n (mode, "buffercoercedivmodfilterinternlocalsreducereload"
-   + "unichrxrange",
-   6, 1);
-() = define_keywords_n (mode, "IOErrorOSError__doc__compilecomplexdelattr"
-   + "getattrglobalshasattrsetattrunicode",
-   7, 1);
-() = define_keywords_n (mode, "EOFErrorKeyErrorTabError__name__callable"
-   + "execfile",
-   8, 1);
-() = define_keywords_n (mode, "ExceptionNameErrorTypeErrorraw_input", 9, 1);
-() = define_keywords_n (mode, "IndexErrorSystemExitValueError__import__"
-   + "isinstanceissubclass",
-   10, 1);
-() = define_keywords_n (mode, "ImportErrorLookupErrorMemoryErrorSyntaxError"
-   + "SystemError",
-   11, 1);
-() = define_keywords_n (mode, "RuntimeErrorUnicodeError", 12, 1);
-() = define_keywords_n (mode, "ConflictErrorOverflowErrorStandardError", 13, 1);
-() = define_keywords_n (mode, "AssertionErrorAttributeErrorReferenceError",
+() = define_keywords_n(mode, "NoneTruedictevalfilehashiterlistlongopenrepr"
+   + "typevars", 4, 1);
+() = define_keywords_n(mode, "Falseapplyfloatinputrangeroundslicetuple", 5, 1);
+() = define_keywords_n(mode, "buffercoercedivmodfilterinternlocalsreducereload"
+   + "unichrxrange", 6, 1);
+() = define_keywords_n(mode, "IOErrorOSError__doc__compilecomplexdelattr"
+   + "getattrglobalshasattrsetattrunicode", 7, 1);
+() = define_keywords_n(mode, "EOFErrorKeyErrorTabError__name__callable"
+   + "execfile", 8, 1);
+() = define_keywords_n(mode, "ExceptionNameErrorTypeErrorraw_input", 9, 1);
+() = define_keywords_n(mode, "IndexErrorSystemExitValueError__import__"
+   + "isinstanceissubclass", 10, 1);
+() = define_keywords_n(mode, "ImportErrorLookupErrorMemoryErrorSyntaxError"
+   + "SystemError", 11, 1);
+() = define_keywords_n(mode, "RuntimeErrorUnicodeError", 12, 1);
+() = define_keywords_n(mode, "ConflictErrorOverflowErrorStandardError" 
+   + "StopIteration", 13, 1);
+() = define_keywords_n(mode, "AssertionErrorAttributeErrorReferenceError",
    14, 1);
-() = define_keywords_n (mode, "ArithmeticError", 15, 1);
-() = define_keywords_n (mode, "EnvironmentError", 16, 1);
-() = define_keywords_n (mode, "KeyboardInterruptUnboundLocalError"
-   + "ZeroDivisionError",
-   17, 1);
-() = define_keywords_n (mode, "FloatingPointError", 18, 1);
-() = define_keywords_n (mode, "NotImplementedError", 19, 1);
+() = define_keywords_n(mode, "ArithmeticError", 15, 1);
+() = define_keywords_n(mode, "EnvironmentError", 16, 1);
+() = define_keywords_n(mode, "KeyboardInterruptUnboundLocalError"
+   + "ZeroDivisionError", 17, 1);
+() = define_keywords_n(mode, "FloatingPointError", 18, 1);
+() = define_keywords_n(mode, "NotImplementedError", 19, 1);
 
 #ifdef HAS_DFA_SYNTAX
 %%% DFA_CACHE_BEGIN %%%
-static define setup_dfa_callback (mode)
+static define setup_dfa_callback(mode)
 {
    dfa_enable_highlight_cache("pymode.dfa", mode);
    dfa_define_highlight_rule("\"\"\".+\"\"\"", "string", mode);	% long string (""")
@@ -1373,7 +1370,7 @@ static define setup_dfa_callback (mode)
    dfa_define_highlight_rule("\\[ \t]$"R, "error", mode);
    dfa_build_highlight_table(mode);
 }
-dfa_set_init_callback (&setup_dfa_callback, mode);
+dfa_set_init_callback(&setup_dfa_callback, mode);
 %%% DFA_CACHE_END %%%
 % enable_dfa_syntax_for_mode(mode);
 #endif
@@ -1382,22 +1379,22 @@ dfa_set_init_callback (&setup_dfa_callback, mode);
 % Keybindings
 % -----------
 
-!if (keymap_p (mode))
-  make_keymap (mode);
+!if (keymap_p(mode))
+  make_keymap(mode);
 
-definekey_reserved ("py_shift_right", ">", mode);
-definekey_reserved ("py_shift_left", "<", mode);
-definekey_reserved ("py_exec", "^C", mode);    % Execute buffer, or region if defined
+definekey_reserved("py_shift_right", ">", mode);
+definekey_reserved("py_shift_left", "<", mode);
+definekey_reserved("py_exec", "^C", mode);    % Execute buffer, or region if defined
 
-definekey ("python->py_backspace_key", Key_BS, mode);
-definekey ("python->electric_colon", ":", mode);
+definekey("python->py_backspace_key", Key_BS, mode);
+definekey("python->electric_colon", ":", mode);
 % These work, but act a bit odd when rebalancing delimiters from the inside.
 % Clues?
-%definekey ("python->electric_delim(')')", ")", mode);
-%definekey ("python->electric_delim(']')", "]", mode);
-%definekey ("python->electric_delim('}')", "}", mode);
+%definekey("python->electric_delim(')')", ")", mode);
+%definekey("python->electric_delim(']')", "]", mode);
+%definekey("python->electric_delim('}')", "}", mode);
 #ifdef MSWINDOWS
-definekey ("py_help_on_word", "^@;", mode);
+definekey("py_help_on_word", "^@;", mode);
 #endif
 
 % --- the mode dependend menu
