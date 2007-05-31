@@ -28,6 +28,7 @@
 %                    optional arg `direction'
 % 2007-05-14 1.6.2 * removed ``add_completion("cua_save_as")``
 % 	     	   * added Joergs Sommers jbol()
+% 2007-05-31 1.6.3 * fix documentation of jbol()	     	   
 
 
 provide ("cuamisc");
@@ -266,7 +267,6 @@ define cua_save_buffer()
 
 }
 
-%!%-
 %!%+
 %\function{jbol}
 %\synopsis{Jumps to the begin of line or the first non-space character}
