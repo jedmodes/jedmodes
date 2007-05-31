@@ -72,6 +72,7 @@
 %		      (Jörg Sommer)
 %   1.9   2007-04-19  edited help_string, removed use of prompt_for_argument()
 %   	  	      fix in help_search(), handle "namespace->object" notation
+%   1.9.1 2007-05-31  bugfix in where_is(), removed spurious line
 % 
 % Usage
 % -----
@@ -543,15 +544,28 @@ public define help_search() % ([str])
 
 % --- showkey and helpers
 
-%  Substitute control-characters by ^@ ... ^_
-define strsub_control_chars(key)
+% convert string into array of 1-char strings
+% in contrast to bstring_to_array(), the array elements are String_Type
+% and in UTF-8 can contain several bytes.
+define string_to_array(str)
 {
-   variable a = bstring_to_array(key);
-   variable control_chars = where(a < 32);
-   a[control_chars] += 64;  % shift to start at '@'
-   a = array_map(String_Type, &char, a);
-   a[control_chars] = "^" + a[control_chars];
-   return strjoin(a, "");
+   variable i, a = String_Type[strlen(str)];
+   for (i = 0; i <strlen(str); i++)
+     a[i] = substr(str, i+1, 1);
+   return a;
+}
+   
+%  Substitute control-characters by ^@ ... ^_
+define strsub_control_chars(keystring)
+{
+   variable ch, outstr = "";
+   foreach ch (string_to_array(keystring))
+     {
+	if (ch[0] < 32)
+	  ch = "^" + char(ch[0]+64);
+	outstr += ch;
+     }
+   return outstr;
 }
 
 %!%+
@@ -653,7 +667,6 @@ public  define where_is()
 {
    !if (_NARGS)
      read_function_from_mini("Where is command:", get_object());
-     read_mini("apropos:", "", ""); 
    variable cmd = ();
    variable n, help_str = cmd + " is on ";
 
