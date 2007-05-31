@@ -16,6 +16,10 @@
 % 2006-01-10  2.3.1 minor code cleanup
 % 2006-06-29  2.3.2 bugfix in ch_table: set_readonly(0) before erase_buffer()
 % 2006-10-05  2.3.3 bugfix in ct_insert_and_close(), return to calling buf
+% 2007-05-31  2.3.4 bugfix in ct_update: did mark too much if at eol,
+%                   disable dfa syntax highlighting in UTF8 mode to make
+%                   ch_table.sl UTF8 safe.
+%                   documentation for public functions
 %
 % Functions and Functionality
 %
@@ -46,8 +50,9 @@ define ct_load_popup_hook(menubar)
    menu_insert_item("&Rectangles", "Global.&Edit",
                        "&Special Chars", "special_chars");
 }
-append_to_hook("load_popup_hooks", &ct_load_popup_hook);
 
+append_to_hook("load_popup_hooks", &ct_load_popup_hook);
+   
 autoload("ch_table", "ch_table.sl");
 autoload("special_chars", "ch_table.sl");
 add_completion("special_chars");
@@ -145,14 +150,14 @@ static define ct_update()
    % update status line
    ct_status_line();
    % write again to minibuffer (as messages don't persist)
-      % if ressources are a topic, we could compute the message in
+      % if resources are a topic, we could compute the message in
       % ch_table and store to a private variable GotoMessage
    vmessage("Goto char (%s ... %s, base: %d): ___",
         int2string(StartChar, NumBase), int2string(255, NumBase),  NumBase);
    % mark character
    pop_mark(0);
    push_visible_mark;
-   skip_chars("^\t");
+   skip_chars("^\t\n");
 }
 
 %move only in the ch_table, skipping the tabs
@@ -320,9 +325,16 @@ static define ct_change_base()
 
 % --- main function  ------------------------------------------------------
 
-% a function that displays all chars of the current font
-% in a table with indizes that give the "ASCII-value"
-% skipping the first ones until optional argument Int "StartChar"
+%!%+
+%\function{ch_table}
+%\synopsis{}
+%\usage{ch_tablech_table(StartChar = ChartableStartChar)}
+%\description
+% Display special characters of the current font 
+% (characters \var{StartChar}...255 in 1-byte encodings) 
+% in a table with indizes indicating the "char-value".
+%\seealso{special_chars, digraph_cmd}
+%!%-
 public define ch_table() % ch_table(StartChar = ChartableStartChar)
 {
    % (re) set options
@@ -345,9 +357,23 @@ public define ch_table() % ch_table(StartChar = ChartableStartChar)
    run_mode_hooks(mode + "_mode_hook");
 }
 
-% a function that displays the special chars of the current font
-% (i.e. the chars with the high bit set)
-% in a table with indizes that give the "ASCII-value"
+%!%+
+%\function{special_chars}
+%\synopsis{Open a table of special characters for insertion}
+%\usage{special_chars()}
+%\description
+% Display special characters of the current font (characters 160...255 in
+% 1-byte encodings) in a table with indizes indicating the "char-value".
+% 
+% Keybindings:
+%
+%  Arrow keys     move by collumn and mark the character
+%  [Enter] 	  copy the character to the calling buffer and close
+%  Mouse click    goto character and mark
+%  Double-click   goto character, copy to calling buffer and close
+%  q   	     	  close
+%\seealso{ch_table, digraph_cmd}
+%!%-
 public define special_chars()
 {
    ch_table(160);
@@ -370,11 +396,12 @@ static define setup_dfa_callback(mode)
 }
 dfa_set_init_callback(&setup_dfa_callback, mode);
 %%% DFA_CACHE_END %%%
-enable_dfa_syntax_for_mode(mode);
+!if (_slang_utf8_ok)
+  enable_dfa_syntax_for_mode(mode);
 #endif
 
 % --- Keybindings
-require("keydefs");
+require("keydefs"); % symbolic constants for many function and arrow keys
 
 !if (keymap_p(mode)) 
   copy_keymap(mode, "view");
