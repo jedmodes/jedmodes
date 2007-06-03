@@ -1,17 +1,17 @@
 % hyperman.sl
 %
-% $Id: hyperman.sl,v 1.27 2006/05/25 14:39:47 paul Exp paul $
+% $Id: hyperman.sl,v 1.28 2007/06/03 09:57:45 paul Exp paul $
 % Keywords: help, hypermedia, unix
 %
-% Copyright (c) 2000-2006 JED, Paul Boekholt, Günter Milde
+% Copyright (c) 2000-2007 JED, Paul Boekholt, Günter Milde
 % Released under the terms of the GNU GPL (version 2 or later).
 % hypertextish man pager
 
 provide ("hyperman");
 provide ("man");
+require("bufutils");
 require("view");
 implements("man");
-
 %{{{ customvariables
 
 %!%+
@@ -52,8 +52,6 @@ custom_variable("Man_Complete_Whatis", 1);
 
 %}}}
 
-require("bufutils");
-require("view");
 
 static variable mode = "man",
 #ifnexists _slang_utf8_ok
@@ -181,6 +179,22 @@ static define man_clean_manpage ()
 	  }
 	bob();
      }
+   variable ch;
+   while(re_fsearch("[^_]\010"))
+     {
+	insert(bold_marker);
+	ch = what_char();
+	right(1);
+	while(looking_at(sprintf("\010%c", ch)))
+	  {
+	     deln(2);
+	     ch = what_char();
+	     right;
+	  }
+	()=left;
+	insert("\e[0]");
+     }
+   bob;
    while(fsearch("_\010"))
      {
 	insert(italic_marker);
@@ -191,19 +205,6 @@ static define man_clean_manpage ()
 	     right;
 	  }
 	pop;
-	insert("\e[0]");
-     }
-   bob;
-   while(re_fsearch(".\010"))
-     {
-	insert(bold_marker);
-	right(1);
-	while(looking_at("\010"))
-	  {
-	     deln(2);
-	     right;
-	  }
-	()=left;
 	insert("\e[0]");
      }
 #endif
