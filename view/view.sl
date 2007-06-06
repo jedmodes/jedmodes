@@ -1,31 +1,46 @@
-% A generic view mode for readonly buffers
+% view.sl: A generic view mode for readonly buffers
 % 
-% Copyright (c) 2003 Günter Milde and Paul Boekholt
+% Copyright (c) 2006 Günter Milde and Paul Boekholt
 % Released under the terms of the GNU General Public License (ver. 2 or later)
 % 
-% Versions: 
+% Versions
+% -------- 
+% 
 %            1.0 first public release
 % 2005-04-05 1.1 merge of GM and PB versions, bugfix in enable edit
 % 2005-04-07 1.2 added require("keydefs") (Rafael Laboissiere)
-% 2005-05-25 1.3 bugfix: view_mode() now tries view_mode_hook() (PB)
+% 2006-03-20 1.3 repeat_search() only defined if not already existent
+% 2006-09-07 1.4 bugfix in enable_edit() if there is no buffer_filename
+% 2007-06-06 1.5 view_mode: folding_mode() -> fold_mode() to respect the 
+% 	     	 setting of `Fold_Mode_Ok' without asking.
+% 	     	 Moved definition of set_view_mode_if_readonly() to
+% 	     	 Customization documentation.
 %
-% CUSTOMIZATION
+% Customization
+% -------------
 % 
 % If you want to change the keybindings for all readonly buffers based
 % on the "view" keymap you either just change this file, or insert in your 
-% .jedrc
+% jed.rc file something like
+% 
 %   require("view");
 %   definekey("close_and_insert_word", "i", "view");
-% After that, in all modes that copy the view keymap, Key-i closes the buffer 
-% and inserts the word into the calling buffer (if the binding 
-% is not overwritten in the mode).
 %   
-% If you want all readonly buffers in view mode, insert
-%   autoload("set_view_mode_if_readonly", "view");
+% After that, in all modes that copy the view keymap, pressing key 'i'
+% closes the buffer and inserts the current word into the calling buffer
+% (if the binding  is not overwritten in the mode).
+%   
+% To use view mode as default for readonly buffers, insert lines similar to
+% 
+%   define set_view_mode_if_readonly()
+%   {
+%      if (is_readonly)
+%        % if ((what_mode(), pop) == "") % no mode
+%          view_mode;
+%   }
 %   append_to_hook("_jed_find_file_after_hooks", &set_view_mode_if_readonly);
-% in your .jedrc
 
-static variable mode = "view";
+private variable mode = "view";
 
 % requirements
 autoload("close_buffer", "bufutils");
@@ -42,32 +57,28 @@ custom_variable("View_Edit_Ask", 1);
 
 % --- helper functions ---
 
-% Make a readonly buffer editable (this is from most.sl)
+% Make a readonly buffer editable (based on the same function in most.sl)
 define enable_edit()
 {
-   if(orelse
-      {not View_Edit_Ask}
-      {get_y_or_n("Edit this buffer") == 1}
-     )
-     {
-	set_readonly(0);
-	set_status_line("", 0);  % reset to global
-	runhooks("mode_hook", file_type(buffer_filename));
-     }
+   if(View_Edit_Ask)
+     !if (get_y_or_n("Edit this buffer") == 1)
+       return;
+   
+   set_readonly(0);
+   set_status_line("", 0);  % reset to global
+   if (strlen(file_type(buffer_filename)))
+     runhooks("mode_hook", file_type(buffer_filename));
 }
 
+#ifnexists repeat_search
 % this one is also in cuamisc.sl (and hopefully one day in site.sl)!
-%!%+
-%\function{repeat_search}
-%\synopsis{continue searching with last searchstring}
-%\usage{define repeat_search ()}
-%\seealso{LAST_SEARCH, search_forward, search_backward}
-%!%-
-define repeat_search ()
+define repeat_search()
 {
    go_right (1);
-   !if (fsearch(LAST_SEARCH)) error ("Not found.");
+   !if (fsearch(LAST_SEARCH)) 
+     error ("Not found.");
 }
+#endif
 
 % --- the mode ---
 
@@ -119,11 +130,12 @@ static define view_menu(menu)
 
 public define view_mode()
 {
-   % If it's folded, this will add the folding keybindings to the view map
+   % If it's folded and Fold_Mode_Ok is True, 
+   % add the folding keybindings to the view map
    if(blocal_var_exists("fold_start"))
      {
 	use_keymap(mode);
-	folding_mode;
+	fold_mode;
      }
    set_readonly(1);
    set_buffer_modified_flag(0);
@@ -133,13 +145,7 @@ public define view_mode()
    mode_set_mode_info(mode, "init_mode_menu", &view_menu);
    set_help_message(
      "SPC:pg_dn BS:pg_up f:search_fw b:search_bw q:quit e:edit ?:this_help");
-   run_mode_hooks(mode + "_mode_hook");
-}
-
-public define set_view_mode_if_readonly()
-{
-   if (is_readonly)
-     view_mode;
+   run_mode_hooks(mode);
 }
 
 provide(mode);
