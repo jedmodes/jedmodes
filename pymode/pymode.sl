@@ -21,8 +21,10 @@
 % Use the python_mode_hook() for customization. 
 % See the online doc for python_mode() and python_mode_hook().
 %
-% Shortcomings: does not highligt triple-quoted strings well. It works
-% OK with """ but NOT with ''' if DFA syntax highlight is off.
+% Shortcomings: Does not highligt triple-quoted strings well: 
+%  
+%  * No hightlight for multi-line string literals with DFA syntax highlight.
+%  * It works OK with """ (but NOT with ''') if DFA syntax highlight is off.
 % 
 % Versions
 % --------
@@ -85,40 +87,52 @@
 % 	- added True and False keywords
 % 	- py_indent_line() keeps point
 % 	- bugfix in reindent_block()
-% 2.1.2 2007-02-06
+% 2.1.2 2007-02-06 
 %       - use sprintf() instead of ""$ for `outbuf` string in py_exec()
 % 2.1.3 2007-05-14 
 %       - simplified browse_pydoc_server()
 %       - added info about DFA syntax highlight to pymode_hook doc
 %         (TODO: how about a syntax highlight toggle function?)
-% 2.1.4 2007-05-25
-% 	- add StopIteration keyword, formatting
+% 2.1.4 2007-05-25 add StopIteration keyword, formatting
+% 2.1.5 2007-06-21 add autoload for fit_window() (report Michael Johnson)
+
+% TODO
+% ----
+% 
+% Allow wrapping of continuation lines and in comments:
+% 
+% "wrapok_hook"
+%     This hook may be used to enable automatic wrapping on a
+%     line-by-line basis.  Jed will call this hook prior to wrapping a
+%     line, and if it returns a non-zero value, the line will be
+%     wrapped.  See lib/slmode.sl for an example of its use.
+
 
 provide("pymode");
 
 % Requirements
 % ------------
 
-% SLang 2 (List_Type, throw keyword, and "foreach" loop with variable)
+% SLang 2 (`List_Type', `throw' keyword, and `foreach' loop with variable)
 require("comments"); % (un-)commenting lines and regions
 require("keydefs");  % symbolic constants for many function and arrow keys
 
 % utilities from http://jedmodes.sf.net/
+autoload("browse_url", "browse_url");
+autoload("fit_window", "bufutils");
 autoload("popup_buffer", "bufutils");
-autoload("get_blocal", "sl_utils");
-autoload("ishell_mode", "ishell");
-autoload("ishell_set_output_placement", "ishell");
-autoload("ishell_send_input", "ishell");
-autoload("shell_cmd_on_region_or_buffer", "ishell");
-autoload("shell_command", "ishell");
-% autoload("string_repeat", "strutils");
-autoload("str_re_replace_all", "strutils");
-autoload("string_get_match", "strutils");
-autoload("get_word", "txtutils");
-autoload("bget_word", "txtutils");
 autoload("untab_buffer", "bufutils");
 autoload("run_local_hook", "bufutils");
-autoload("browse_url", "browse_url");
+autoload("ishell_mode", "ishell");
+autoload("shell_command", "ishell");
+autoload("ishell_send_input", "ishell");
+autoload("ishell_set_output_placement", "ishell");
+autoload("shell_cmd_on_region_or_buffer", "ishell");
+autoload("get_blocal", "sl_utils");
+autoload("string_get_match", "strutils");
+autoload("str_re_replace_all", "strutils");
+autoload("get_word", "txtutils");
+autoload("bget_word", "txtutils");
 
 implements("python");
 private variable mode = "python";
