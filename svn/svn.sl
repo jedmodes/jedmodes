@@ -1,8 +1,11 @@
 % -*- mode: slang -*-
 %
-% (Standard MIT/X11 license follows)
+% Utilities for SVN and CVS access from jed. 
 % 
 % Copyright (c) 2003,2006 Juho Snellman
+%               2007      Guenter Milde
+%
+% (Standard MIT/X11 license follows)
 % 
 % Permission is hereby granted, free of charge, to any person obtaining
 % a copy of this software and associated documentation files (the
@@ -23,154 +26,154 @@
 % OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
 % WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 % 
-% Utilities for SVN access from jed. 
-% 
-%    ** Installation **
+% Installation
+% ============
 % 
 % Add this file into a directory that's in your "Jed library path" (try
 % M-X get_jed_library_path() to see what this is). 
 % 
-% After that, copy
-% the <INITIALIZATION> block into your .jedrc (or run update_ini() from
-% jedmodes.sf.net/mode/make_ini/)
+% After that, copy the <INITIALIZATION> block into your .jedrc (or run
+% update_ini() from jedmodes.sf.net/mode/make_ini/)
 %  
-%    ** Functionality **
+% Functionality
+% =============
 %   
-% Only the most common (for me) SVN operations are supported (add, commit,
-% diff, update). The operations can be targeted at a single buffer,
-% a bunch of files that have been marked, or at whole directories.
+% Only the most common (for me) CVS|SVN operations are supported (add, commit,
+% diff, update). The operations can be targeted at a single buffer, a bunch of
+% files that have been marked, or at whole directories.
 % 
-%    * Operations on buffers *
+% Operations on buffers
+% ---------------------
 %
-%   In general, the buffer operations will save the buffer before
-%   doing the operation.
-%   
-%     C-c a    'svn add'    file
-%     C-c c    'svn commit' file
-%     C-c u    'svn update' file
-%     C-c d    'svn diff'   file
-%     C-c m m  Mark the file for batch operations
-%     
-%     
-%    * Operations on marked files *
-%   
-%   The easiest way to operate on marked files is to use the following
-%   command to open the marked file list buffer, from where you can easily
-%   start the other operations using keybindings specific to that
-%   buffer.
-%   
-%     C-c l  show list of marked files
-%   
-%   The commands for operating on marked files are also available as
-%   general keyboard commands, for those who find them more convenient.
-%   
-%     C-c m a    'svn add'    all marked files
-%     C-c m c    'svn commit' all marked files
-%     C-c m u    'svn update' all marked files
-%     C-c m d    'svn diff'   all marked files
-%     
-%   For convenience, committing all marked files also unmarks the files.
-%   
-%     
-%    * Operation on directories *
-%    
-%   The directory operations ask the user for a directory before
-%   executing. The question defaults to the previous directory given.
-%     
-%     C-c C-a    'svn add'    directory
-%     C-c C-c    'svn commit' directory
-%     C-c C-u    'svn update' directory
-%     
-%     C-c C-l    open directory view (basically a 'svn -qnf update')
-%     
-%   Directory level commit is not supported.
-%     
-%     
-%    * Diff/directory views *
+% In general, the buffer operations will save the buffer before
+% doing the operation.
 % 
-%   Operations on single/marked files can also be applied from inside
-%   a *SVN diff* or *SVN dirlist* buffer, using the same keybindings
-%   as in a *SVN marked files* buffer. These views are probably the 
-%   most convenient methods for committing a large number of files,
-%   or doing only selective updates on a project.
+%   C-c a    'svn add'    file
+%   C-c c    'svn commit' file
+%   C-c u    'svn update' file
+%   C-c d    'svn diff'   file
+%   C-c m m  Mark the file for batch operations
+%   
+%   
+% Operations on marked files
+% --------------------------
 % 
+% The easiest way to operate on marked files is to use the following
+% command to open the marked file list buffer, from where you can easily
+% start the other operations using keybindings specific to that
+% buffer.
 % 
-% Most of the above commands are also accessible from the File/SVN 
-% menu.
-%
-%
-%    ** Customization **
+%   C-c l  show list of marked files
+% 
+% The commands for operating on marked files are also available as
+% general keyboard commands, for those who find them more convenient.
+% 
+%   C-c m a    'svn add'    all marked files
+%   C-c m c    'svn commit' all marked files
+%   C-c m u    'svn update' all marked files
+%   C-c m d    'svn diff'   all marked files
+%   
+% For convenience, committing all marked files also unmarks the files.
+% 
+%   
+% Operation on directories
+% ------------------------
 %  
-% The following variables are available for modifying the behaviour
+% The directory operations ask the user for a directory before
+% executing. The question defaults to the previous directory given.
+%   
+%   C-c C-a    'svn add'    directory
+%   C-c C-c    'svn commit' directory
+%   C-c C-u    'svn update' directory
+%   
+%   C-c C-l    open directory view (basically a 'svn -qnf update')
+%   
+% Directory level commit is not supported.
+%   
+%   
+% Diff/directory views
+% --------------------
+% 
+% Operations on single/marked files can also be applied from inside
+% a *SVN diff* or *SVN dirlist* buffer, using the same keybindings
+% as in a *SVN marked files* buffer. These views are probably the 
+% most convenient methods for committing a large number of files,
+% or doing only selective updates on a project.
+% 
+% 
+% Most of the above commands are also accessible from
+% the  File>Version_Control menu.
+%
+%
+% Customization
+% =============
+%  
+% The following custom variables are available for modifying the behaviour
 % of this module.
 %      
-%   SVN_executable:  [/usr/bin/svn/] 
-%   SVN_set_reserved_keybindings: [1]
-%   SVN_help: [1]
+%   Variable                       Default value
+%   ----------------------------   ---------------   
+%   SVN_executable                 "svn"
+%   CVS_executable                 "cvs"
+%   SVN_set_reserved_keybindings   0
 %
 % See the definition below or 'Help>Describe Variable' for details.
 %    
-% TODO
-% ----
-% 
-%  - Document most public variables/functions
-%  - Add support for 'diff -r HEAD'
-%    
 %
 % Changelog
-% ---------
+% =========
 % 
 % 2003-05-31 / Juho Snellman <jsnell@iki.fi>
-%   * First public release
-%   
-% 2003-05-31 / Juho Snellman <jsnell@iki.fi>
-%   * Run diff with -q
-%   * Protect the Cvs_Mark_Type declaration inside a "!if (reloading)"
-%   
-% 2003-06-02 / Juho Snellman <jsnell@iki.fi>
-%   * Switch the commands affecting selected file to lowercase letters,
-%     since they seem to get used a lot more.
-%   * Add revert (cvs update -C)
-%   
-% 2003-12-09 / Juho Snellman <jsnell@iki.fi>
-%   * Fix find_marked_common_root
-%   
-% 2006-11-21 / Juho Snellman <jsnell@iki.fi>
-%   * Rough SVN port
+%            * First public release
+% 2003-05-31 * Run diff with -q
+%            * Protect the Cvs_Mark_Type declaration inside "!if (reloading)"
+% 2003-06-02 * Switch the commands affecting selected file to lowercase 
+%              letters, since they seem to get used a lot more.
+%            * Add revert (cvs update -C)
+% 2003-12-09 * Fix find_marked_common_root
+% 2006-11-21 * Rough SVN port
 % 2007-04-27 / Guenter Milde <milde users.sf.net>
-%   * <INITIALIZATION> block replacing the evaluation of svn.sl at startup
-%   * bugfix: return to directory listing before postprocessing
-%   * use popup_buffer instead of pop2buf: 
-%     - closing with close_buffer() closes the window as well 
-%       (if it wasn't open before).
-% 2007-04-30 (Joachim Schmitz, Guenter Milde)
-%   * bugfix in dirlist_extract_filename(): strip spurious whitespace
-%   * replace cvs -> svn, CVS -> SVN in names and documentation
-% 2007-05-04 (GM)
-%   * Support both SVN and CVS (checking for CVS or .svn dir)
-%   * removed otherwindow_if_messagebuffer_active(), its not used
-% 2007-05-16 (GM)
-%   * require_buffer_dir_in_svn() now also returns "entries" dir
-%     as its path differs between CVS and SVN
-% 2007-05-25 
-%   * Use buffer_dirname() instead of getcwd() as default for project directory
+%            * <INITIALIZATION> block: no need to evaluate svn.sl at startup
+%            * bugfix: return to directory listing before postprocessing
+%            * use popup_buffer instead of pop2buf: 
+%              - closing with close_buffer() closes the window as well 
+%                (if it wasn't open before).
+% 2007-04-30 * bugfix in dirlist_extract_filename(): strip spurious whitespace
+%              (Joachim Schmitz)
+%            * replace CVS with SVN in names and documentation
+% 2007-05-04 * Support both SVN and CVS (checking for CVS or .svn subdir)
+%            * removed otherwindow_if_messagebuffer_active() -- its not used
+% 2007-05-16 * require_buffer_dir_in_svn() now also returns "entries" dir
+%              as its path differs between CVS and SVN
+% 2007-05-25 * Use buffer_dirname() instead of getcwd() for project directory
+%              default
+% 2007-07-23 * Set default of SVN_set_reserved_keybindings to 0 to prevent 
+%              clashes with mode-specific bindings
+%            * code reorganisation
+%            * Mode menu for listings
+%            * Removed SVN_help: Keybindings are shown in mode menu
 %     
-% TODO: 
-%   * syntax highlight (DFA) in directory listing
-%   * fit_window() for popup buffers
-%   * support for SVK (http://svk.bestpractical.com/)
-   
+% TODO
+% ====
+% 
+% * Document most public variables/functions
+% * Add support for 'diff -r HEAD'
+% * use filelist.sl for the listings
+% * syntax highlight (DFA) in directory listing
+% * fit_window() for popup buffers
+% * support for SVK (http://svk.bestpractical.com/)
 
 #<INITIALIZATION>
 % Add a "File>Version Control" popup
-autoload("svn_menu_callback", "svn");
-define svn_load_popup_hook(menubar)
+autoload("vc_menu_callback", "svn");
+define vc_load_popup_hook(menubar)
 {
    variable menu = "Global.&File";
    menu_insert_popup("Canc&el Operation", menu, "&Version Control");
-   menu_set_select_popup_callback(menu+".&Version Control", &svn_menu_callback);
+   menu_set_select_popup_callback(menu+".&Version Control", 
+                                  &vc_menu_callback);
 }
-append_to_hook("load_popup_hooks", &svn_load_popup_hook);
+append_to_hook("load_popup_hooks", &vc_load_popup_hook);
 #</INITIALIZATION>
 
 
@@ -179,6 +182,8 @@ append_to_hook("load_popup_hooks", &svn_load_popup_hook);
 autoload("reload_buffer", "bufutils");
 autoload("popup_buffer", "bufutils");
 autoload("buffer_dirname", "bufutils");
+autoload("strread_file", "bufutils");
+require("filelist");
 
 %% Variables %{{{
 implements("svn");
@@ -190,7 +195,7 @@ provide("svn");
 %\usage{variable SVN_executable = "/usr/bin/svn"}
 %\description
 %  Name or path to the SVN command line client
-%\seealso{svn_list_dir, svn_diff_buffer}
+%\seealso{vc_list_dir, vc_diff_buffer}
 %!%-
 custom_variable("SVN_executable", "svn");
 
@@ -200,7 +205,7 @@ custom_variable("SVN_executable", "svn");
 %\usage{variable CVS_executable = "/usr/bin/svn"}
 %\description
 %  Name or path to the CVS command line client
-%\seealso{svn_list_dir, svn_diff_buffer}
+%\seealso{vc_list_dir, vc_diff_buffer}
 %!%-
 custom_variable("CVS_executable", "cvs");
 
@@ -216,20 +221,9 @@ custom_variable("CVS_executable", "cvs");
 %\notes
 % If set up as shown in the "Installation" section on top of the svn.sl file,
 % the SVN functions are accessible via the "File>Version Control" menu popup.
-%\seealso{svn_list_dir, svn_diff_dir}
+%\seealso{vc_list_dir, vc_diff_dir}
 %!%-
-custom_variable("SVN_set_reserved_keybindings", 1);
-
-%!%+
-%\variable{SVN_help}
-%\synopsis{Insert keybinding table into SVN listings?}
-%\usage{variable SVN_help = 1}
-%\description
-%     Setting this variable to 0 disables showing the keyboard help
-%     in the marked files, diff, and directory list views.
-%\seealso{svn_list_dir, svn_diff_dir, svn_list_marked}
-%!%-
-custom_variable("SVN_help", 1);
+custom_variable("SVN_set_reserved_keybindings", 0);
 
 private variable message_buffer = " *SVN output*";
 private variable diff_buffer = " *SVN diff*";
@@ -240,7 +234,8 @@ private variable project_root = ""; % cache for get_op_dir()
 
 %% Prototypes %{{{
 
-public define svn_add_buffer();
+public define vc_add_buffer();
+public define vc_list_mode();
 private define update_list_buffer();
 private define update_diff_buffer();
 private define update_dirlist_buffer();
@@ -251,99 +246,50 @@ private define list_extract_filename();
 private define dirlist_extract_filename();
 %}}}
 
-%% Manipulating buffers/windows %{{{
 
-private define killbuf() { %{{{
-    set_buffer_modified_flag(0);
-    delbuf(whatbuf());
-}
-%}}}
+%% Executing version control commands %{{{
 
-private define setbuf_ro() { %{{{
-    set_buffer_modified_flag(0);
-    set_readonly(1);
-}
-%}}}
-
-private define save_buffer_if_modified() { %{{{
-   if (buffer_modified())
-     save_buffer();
-}
-%}}}
-
-
-%}}}
-
-
-%% Executing SVN commands %{{{
-
-% find out how version contro is managed for `dir'
-private define get_version_control_tool(dir)
+% find out how version control is managed for `dir'
+private define get_vc_system(dir)
 {
    if (file_status(path_concat(dir, ".svn")) == 2)
      return "svn";
    if (file_status(path_concat(dir, "CVS")) == 2)
      return "cvs";
    % TODO: check for version control with `svk`
-   
-   return ""; % don't know
+   % if (...)
+   %   return "svk";
+   % <Add other version control systems here>
+   verror("Directory '%s' is not under version control", dir);
 }
 
-private define require_buffer_dir_in_svn() { %{{{
-    %% otherwindow_if_messagebuffer_active();
-    
-    variable file, dir, entries; 
-    (file, dir,,) = getbuf_info ( whatbuf() );
-    
-   switch (get_version_control_tool(dir))
+private define require_buffer_file_in_vc() { %{{{
+   % get buffer file and dir
+   variable file, dir;
+   (file, dir,,) = getbuf_info(whatbuf());
+   if (file == "") 
+     error("No file attached to this buffer. Please save buffer first.");
+   % check if file is under version control
+   variable entries, file_under_vc = 0;
+   switch (get_vc_system(dir))
      { case "cvs": 
-        entries = path_concat(path_concat(dir, "CVS"), "Entries");}
+        entries = strread_file(
+           path_concat(path_concat(dir, "CVS"), "Entries"));
+        file_under_vc = is_substr(entries, sprintf("/%s/", file));
+     }
      { case "svn": 
-        entries = path_concat(path_concat(dir, ".svn"), "entries");}
-     { error(dir + " is not under version control");}
+        entries = strread_file(
+           path_concat(path_concat(dir, ".svn"), "entries"));
+        file_under_vc = is_substr(entries, sprintf("name=\"%s\"", file));
+     }
+   !if (file_under_vc) {
+      if (get_y_or_n("File " + file + " not found in VC entries. Add it?"))
+        vc_add_buffer();
+      else
+        verror("File '%s' is not under version control", file);
+   }
     
-    if (file_status(entries) != 1) {
-        error("Missing stat file " + entries);
-    }
-    
-   return (file, dir, entries);
-}
-%}}}
-
-private define entries_contains_filename(entries, filename) { %{{{
-    variable origbuf = whatbuf();
-    
-    setbuf(" *Entries*");
-    erase_buffer();
-    insert_file(entries);
-    bob();
-    
-    variable found = fsearch("name=\"" + filename + "\"");
-    
-    erase_buffer();
-    killbuf();
-    setbuf(origbuf);
-    
-    return found;
-}
-%}}}
-
-private define require_buffer_file_in_svn() { %{{{
-    variable file, dir, entries;
-    (file, dir, entries) = require_buffer_dir_in_svn();
-   
-    if (file == "") {
-        error("There is no file attached to this buffer.");
-    }
-    
-    !if (entries_contains_filename(entries, file)) {
-       if (get_y_or_n("File " + file + " not found in VC entries. Add it?"))
-         svn_add_buffer();
-       else
-         error("File " + file + "is not under version control");
-    }
-    
-    return (file, dir);
+   return (file, dir);
 }
 %}}}
 
@@ -352,12 +298,11 @@ private define escape_arg(str) { %{{{
 }
 %}}}
 
-define do_svn(args, dir, use_default_buf, signal_error) { %{{{
-   variable executable, cmd;
-   switch (get_version_control_tool(dir))
+define do_vc(args, dir, use_default_buf, signal_error) { %{{{
+   variable executable, cmd, msg, result;
+   switch (get_vc_system(dir)) % Errors if dir not under version control
      { case "cvs": executable = CVS_executable; }
      { case "svn": executable = SVN_executable; }
-     { error(dir + " is not under version control");}
 
    args = array_map(String_Type, &escape_arg, args);
    cmd = strjoin([executable, args], " ");
@@ -375,16 +320,21 @@ define do_svn(args, dir, use_default_buf, signal_error) { %{{{
     if (chdir(dir)) {
         error("Couldn't chdir to '" + dir + "': " + errno_string(errno));
     }
-    
-    insert("Exec: " + cmd + "\nDir: " + dir + "\n\n");
-    variable ret = run_shell_cmd(cmd);
+    msg = "Exec: " + cmd + "\nDir: " + dir;
+    flush(msg);
+    insert(msg + "\n\n");
+   
+    result = run_shell_cmd(cmd);
+   
     bob();
-    setbuf_ro();
+    set_buffer_modified_flag(0);
+    set_readonly(1);
+    fit_window(get_blocal("is_popup", 0)); % resize popup window
     
     otherwindow();
     
-    if (ret and signal_error) {
-        error(sprintf("svn returned error code %d", ret));
+    if (result and signal_error) {
+        error(sprintf("svn returned error code %d", result));
     }
 }
 %}}}
@@ -397,7 +347,10 @@ define do_svn(args, dir, use_default_buf, signal_error) { %{{{
 
 !if (is_defined("Cvs_Mark_Type"))
    typedef struct {
-      filename, diff_line_mark, list_line_mark, dirlist_line_mark
+      filename, 
+        diff_line_mark, 
+        list_line_mark, 
+        dirlist_line_mark
    } Cvs_Mark_Type;
 
 
@@ -434,18 +387,18 @@ private define unmark_file(file) { %{{{
 }
 %}}}
 
-public define svn_unmark_all() { %{{{
+public define vc_unmark_all() { %{{{
     marks = Assoc_Type [];
 }
 %}}}
 
-public define svn_mark_buffer() { %{{{
+public define vc_mark_buffer() { %{{{
     %% otherwindow_if_messagebuffer_active();  
     mark_file(buffer_filename());
 }
 %}}}
 
-public define svn_unmark_buffer() { %{{{
+public define vc_unmark_buffer() { %{{{
     %% otherwindow_if_messagebuffer_active();    
     unmark_file(buffer_filename());
 }
@@ -472,45 +425,45 @@ define toggle_marked_file(file) { %{{{
 
 %% SVN operations on a single buffer %{{{
 
-public define svn_add_buffer() { %{{{
+public define vc_add_buffer() { %{{{
     variable file, dir, entries;
-    (file, dir, entries) = require_buffer_dir_in_svn();
-    do_svn([ "add", file ], dir, 1, 1);
+    (file, dir,,) = getbuf_info(whatbuf());
+    do_vc(["add", file], dir, 1, 1);
 }
 %}}}
 
-public define svn_commit_buffer() { %{{{
+public define vc_commit_buffer() { %{{{
     variable file, dir;
-    (file, dir) = require_buffer_file_in_svn();
-    save_buffer_if_modified();
+    (file, dir) = require_buffer_file_in_vc();
+    save_buffer();
     
     variable message = read_mini("Committing '" + file +"'. Log message: ", "", "");
     
-    do_svn([ "commit", "-m", message, file ], dir, 1, 1);
+    do_vc([ "commit", "-m", message, file ], dir, 1, 1);
     reload_buffer();
 }
 %}}}
 
-public define svn_diff_buffer() { %{{{
+public define vc_diff_buffer() { %{{{
     variable file, dir;
-    (file, dir) = require_buffer_file_in_svn();
-    save_buffer_if_modified();
+    (file, dir) = require_buffer_file_in_vc();
+    save_buffer();
     
-    init_diff_buffer(1);
+    init_diff_buffer(dir, 1);
+   
     
-    do_svn([ "diff", file ], dir, 0, 0);
+    do_vc([ "diff", file ], dir, 0, 0);
     
     postprocess_diff_buffer();
-   
 }
 %}}}
 
-public define svn_update_buffer() { %{{{
+public define vc_update_buffer() { %{{{
     variable file, dir;
-    (file, dir) = require_buffer_file_in_svn();
-    save_buffer_if_modified();
+    (file, dir) = require_buffer_file_in_vc();
+    save_buffer();
     
-    do_svn([ "update", file ], dir, 1, 1);
+    do_vc([ "update", file ], dir, 1, 1);
     
     if (bol_fsearch("retrieving")) {
         message("Updated");
@@ -547,17 +500,6 @@ define toggle_marked() { %{{{
 }
 %}}}
 
-private define insert_help() { %{{{
-    if (SVN_help) {
-        insert("Commands:\n" +
-               "  Affect selected file:    a:Add  c:Commit  d:Diff  u:Update\n" +
-               "                           m:Toggle mark r:revert\n" +
-               "  Affect all marked files: A:Add  C:Commit  D:Diff  U:Update\n" +
-               "  Other:                   M:Unmark all  q:Close this window\n\n");
-    }
-}
-%}}}
-
 %}}}
 
 
@@ -565,16 +507,17 @@ private define insert_help() { %{{{
 
 private variable diff_filenames = Assoc_Type [];
 
-private define init_diff_buffer(new_window) { %{{{
+private define init_diff_buffer(dir, new_window) { %{{{
     if (new_window)
      popup_buffer(diff_buffer);
     else
       sw2buf(diff_buffer);
     
-    use_keymap("svn-list");
     set_readonly(0);
     erase_buffer();
     diff_filenames = Assoc_Type [];
+    % set the buffer directory to dir
+    setbuf_info("", dir, diff_buffer, 0);
 }
 %}}}
 
@@ -634,7 +577,6 @@ private define postprocess_diff_buffer() { %{{{
     () = down(2);
     
     set_readonly(0);
-    insert_help();
     
     while (bol_fsearch("Index: ")) {
         variable filename = line_as_string()[[7:]];
@@ -653,6 +595,7 @@ private define postprocess_diff_buffer() { %{{{
     set_readonly(1);
     % set to diff mode, if diff_mode is globally defined
     call_function("diff_mode");
+    vc_list_mode();
     pop_spot();
 }
 %}}}
@@ -701,8 +644,7 @@ private define list_extract_filename() %{{{
 %}}}
 
 private define init_list_buffer(erase) { %{{{
-    set_mode("svn-list", 0);
-    use_keymap("svn-list");
+    vc_list_mode();
     set_readonly(0);
     
     if (erase)
@@ -713,14 +655,13 @@ private define init_list_buffer(erase) { %{{{
     
     if (eobp()) {
         insert("The following files have been marked by SVN mode. ");
-        insert_help();
     } else {
         pop_spot();
     }
 }
 %}}}
 
-public define svn_list_marked() { %{{{
+public define vc_list_marked() { %{{{
     popup_buffer(list_buffer);
     
     init_list_buffer(1);
@@ -812,7 +753,6 @@ private define postprocess_dirlist_buffer() { %{{{
     () = down(2);
     
     set_readonly(0);
-    insert_help();
     
     while (down(1)) {
         if (dirlist_valid_filename(line_as_string())) {
@@ -834,6 +774,8 @@ private define postprocess_dirlist_buffer() { %{{{
 
 %}}}
 
+% Set dirctory for VC operations.
+% TODO: ¿cache default (current behaviour) or use dir of current buffer?
 private define get_op_dir() { %{{{
    if (project_root == "") {
       project_root = buffer_dirname();
@@ -844,19 +786,20 @@ private define get_op_dir() { %{{{
 }
 %}}}
 
-public define svn_list_dir() { %{{{
+public define vc_list_dir() { %{{{
    variable dir = get_op_dir();
     
    sw2buf(dirlist_buffer);
-   use_keymap("svn-list");
-   set_readonly(0);
+   vc_list_mode();
+   % set buffer directory and unset readonly flag
+   setbuf_info("", dir, dirlist_buffer, 0);
    erase_buffer();
    
    % cvs returns a very verbose list with the status command 
    % the info recommends a dry-run of update for a short list
-   switch (get_version_control_tool(dir))
-     { case "cvs": do_svn(["-n", "-q", "update"], dir, 0, 0); }
-     { do_svn(["status"], dir, 0, 0); }
+   switch (get_vc_system(dir))
+     { case "cvs": do_vc(["-n", "-q", "update"], dir, 0, 0); }
+     { do_vc(["status"], dir, 0, 0); }
    
    % return to directory listing and postprocess
    otherwindow();
@@ -869,25 +812,6 @@ public define svn_list_dir() { %{{{
 
 
 %% Operations on all marked files %{{{
-
-% I refuse to believe there's no easier way merge two arrays...
-private define array_concat(a, b) { %{{{
-    variable lena = length(a);
-    variable lenb = length(b);
-    variable new = String_Type [lena + lenb];
-    variable i;
-    
-    for (i = 0; i < lena; i++) {
-        new[i] = a[i];
-    }
-    
-    for (i = 0; i < lenb; i++) {
-        new[i + lena] = b[i];
-    }
-    
-    return new;
-}
-%}}}
 
 private define find_marked_common_root() { %{{{
     variable afiles = assoc_get_keys(marks);
@@ -935,44 +859,44 @@ private define find_marked_common_root() { %{{{
 }
 %}}}
 
-public define svn_add_marked() { %{{{
+public define vc_add_marked() { %{{{
     variable dir, rfiles;    
     (dir, rfiles) = find_marked_common_root();
     
-    do_svn(array_concat( ["add"], rfiles ), dir, 1, 1);
+    do_vc(["add", rfiles], dir, 1, 1);
 }
 %}}}
 
-public define svn_commit_marked() { %{{{
+public define vc_commit_marked() { %{{{
     variable dir, rfiles;    
     (dir, rfiles) = find_marked_common_root();
     
     variable message = read_mini("Committing all marked files. Log message: ", "", "");
     
-    do_svn(array_concat( ["commit", "-m", message], rfiles ), dir, 1, 1);
+    do_vc(["commit", "-m", message, rfiles], dir, 1, 1);
     
-    svn_unmark_all();
+    vc_unmark_all();
 }
 %}}}
 
-public define svn_diff_marked() { %{{{
+public define vc_diff_marked() { %{{{
     variable dir, rfiles;    
     (dir, rfiles) = find_marked_common_root();
     
-    init_diff_buffer(1);
-    
-    do_svn(array_concat( ["diff"], rfiles ), dir, 0, 0);
+    init_diff_buffer(dir, 1);
+
+    do_vc(["diff", rfiles], dir, 0, 0);
     postprocess_diff_buffer();
 
     sw2buf(diff_buffer);
 }
 %}}}
 
-public define svn_update_marked() { %{{{
+public define vc_update_marked() { %{{{
     variable dir, rfiles;    
     (dir, rfiles) = find_marked_common_root();
     
-    do_svn(array_concat( ["update"], rfiles ), dir, 1, 1);
+    do_vc(["update", rfiles], dir, 1, 1);
 }
 %}}}
 
@@ -982,39 +906,39 @@ public define svn_update_marked() { %{{{
 %% Operations on single files (valid only in marked files, diff, or 
 %% directory list buffers). %{{{
 
-public define svn_add_selected() { %{{{
+public define vc_add_selected() { %{{{
     variable dir, file;
     (dir, file) = extract_filename();    
-    do_svn(["add", file], dir, 1, 1);
+    do_vc(["add", file], dir, 1, 1);
 }
 %}}}
 
-public define svn_commit_selected() { %{{{
+public define vc_commit_selected() { %{{{
     variable dir, file;
     (dir, file) = extract_filename();    
     variable message = read_mini("Committing '" + file + "'. Log message: ", "", "");
     
-    do_svn(["commit", "-m", message, file], dir, 1, 1);
+    do_vc(["commit", "-m", message, file], dir, 1, 1);
 }
 %}}}
 
-public define svn_diff_selected() { %{{{
+public define vc_diff_selected() { %{{{
     variable dir, file;
     (dir, file) = extract_filename();
-    init_diff_buffer(1);
-    do_svn(["diff", file], dir, 0, 0);
+    init_diff_buffer(dir, 1);
+    do_vc(["diff", file], dir, 0, 0);
     postprocess_diff_buffer();
 }
 %}}}
 
-public define svn_update_selected() { %{{{
+public define vc_update_selected() { %{{{
     variable dir, file;
     (dir, file) = extract_filename();
-    do_svn(["update", file], dir, 1, 1);
+    do_vc(["update", file], dir, 1, 1);
 }
 %}}}
 
-public define svn_revert_selected() { %{{{
+public define vc_revert_selected() { %{{{
     variable dir, file;
     (dir, file) = extract_filename();
     
@@ -1025,12 +949,12 @@ public define svn_revert_selected() { %{{{
     } 
     
     if (a == 'y') {    
-        do_svn(["revert", file], dir, 1, 1);
+        do_vc(["revert", file], dir, 1, 1);
     }
 }
 %}}}
 
-public define svn_open_selected() { %{{{
+public define vc_open_selected() { %{{{
     variable dir, file, linenum;
     (dir, file) = extract_filename();
     
@@ -1054,29 +978,29 @@ public define svn_open_selected() { %{{{
 
 %% SVN directory-level operations %{{{
 
-public define svn_add_dir() { %{{{ 
+public define vc_add_dir() { %{{{ 
     %% Kludge to get rid of a possible trailing separator
     variable dir = path_dirname(path_concat(get_op_dir(), ""));
     variable parent = path_dirname(dir);
     variable name = path_basename(dir);
     
-    do_svn(["add", name], parent, 1, 1);
+    do_vc(["add", name], parent, 1, 1);
 }
 %}}}
 
-public define svn_diff_dir() { %{{{
+public define vc_diff_dir() { %{{{
     variable dir = get_op_dir();
     
-    init_diff_buffer(0);
+    init_diff_buffer(dir, 0);
         
-    do_svn(["diff"], dir, 0, 0);    
+    do_vc(["diff"], dir, 0, 0);    
     postprocess_diff_buffer();
 }
 %}}}
 
-public define svn_update_dir() { %{{{
+public define vc_update_dir() { %{{{
     variable dir = get_op_dir();
-    do_svn(["-q", "update"], dir, 1, 1);
+    do_vc(["-q", "update"], dir, 1, 1);
 }
 %}}}
 
@@ -1087,85 +1011,119 @@ public define svn_update_dir() { %{{{
 
 %% Initialization %{{{
 
-public define svn_menu_callback(menu) { %{{{
-    menu_append_item(menu, "&Add buffer", "svn_add_buffer");
-    menu_append_item(menu, "&Commit buffer", "svn_commit_buffer");
-    menu_append_item(menu, "&Diff buffer", "svn_diff_buffer");
-    menu_append_item(menu, "&Mark buffer", "svn_mark_buffer");
-    menu_append_item(menu, "Unmark buffer", "svn_unmark_buffer");
-    menu_append_item(menu, "&Update buffer", "svn_update_buffer");
+public define vc_menu_callback(menu) { %{{{
+    menu_append_item(menu, "&Add buffer", "vc_add_buffer");
+    menu_append_item(menu, "&Commit buffer", "vc_commit_buffer");
+    menu_append_item(menu, "&Diff buffer", "vc_diff_buffer");
+    menu_append_item(menu, "&Mark buffer", "vc_mark_buffer");
+    menu_append_item(menu, "Unmark buffer", "vc_unmark_buffer");
+    menu_append_item(menu, "&Update buffer", "vc_update_buffer");
     menu_append_separator(menu);
-    
-    menu_append_item(menu, "&List marked", "svn_list_marked");
-    menu_append_item(menu, "Add marked", "svn_add_marked");
-    menu_append_item(menu, "Commit marked", "svn_commit_marked");
-    menu_append_item(menu, "Diff marked", "svn_diff_marked");
-    menu_append_item(menu, "Unmark all", "svn_unmark_all");
-    menu_append_item(menu, "Update marked", "svn_update_marked");
+   
+    menu_append_item(menu, "&List marked", "vc_list_marked");
+    menu_append_item(menu, "Add marked", "vc_add_marked");
+    menu_append_item(menu, "Commit marked", "vc_commit_marked");
+    menu_append_item(menu, "Diff marked", "vc_diff_marked");
+    menu_append_item(menu, "Unmark all", "vc_unmark_all");
+    menu_append_item(menu, "Update marked", "vc_update_marked");
     menu_append_separator(menu);
-    
-    menu_append_item(menu, "Add directory", "svn_add_dir");
-    menu_append_item(menu, "Diff directory", "svn_diff_dir");
-    menu_append_item(menu, "Update directory", "svn_update_dir");
-    menu_append_item(menu, "&Open directory list", "svn_list_dir");
+   
+    menu_append_item(menu, "Add directory", "vc_add_dir");
+    menu_append_item(menu, "Diff directory", "vc_diff_dir");
+    menu_append_item(menu, "Update directory", "vc_update_dir");
+    menu_append_item(menu, "&Open directory list", "vc_list_dir");
+}
+%}}}
+
+static define vc_list_menu_callback(menu) { %{{{
+   menu_append_item(menu, "&Add file", "vc_add_selected");
+   menu_append_item(menu, "&Commit file", "vc_commit_selected");
+   menu_append_item(menu, "&Diff file", "vc_diff_selected");
+   menu_append_item(menu, "&Update file", "vc_update_selected");
+   menu_append_item(menu, "&Revert file", "vc_revert_selected");
+   menu_append_separator(menu);
+   
+   menu_append_item(menu, "Add marked", "vc_add_marked");
+   menu_append_item(menu, "Commit marked", "vc_commit_marked");
+   menu_append_item(menu, "Diff marked", "vc_diff_marked");
+   menu_append_item(menu, "Update marked", "vc_update_marked");
+   menu_append_separator(menu);
+   
+   menu_append_item(menu, "Toggle &Mark", "svn->toggle_marked");
+   menu_append_item(menu, "Unmark all", "vc_unmark_all");
+   menu_append_separator(menu);
+   
+   menu_append_item(menu, "Add directory", "vc_add_dir");
+   menu_append_item(menu, "Diff directory", "vc_diff_dir");
+   menu_append_item(menu, "Update directory", "vc_update_dir");
+   menu_append_item(menu, "&Open directory list", "vc_list_dir");
+   menu_append_separator(menu);
+   
+   menu_append_item(menu, "&Quit", "close_buffer");
 }
 %}}}
 
 private define keymap_init() { %{{{
-    if (SVN_set_reserved_keybindings) {
-        setkey_reserved( "svn_add_buffer", "a");
-        setkey_reserved( "svn_add_marked", "ma");
-        setkey_reserved( "svn_add_dir", "^a");
-    
-        setkey_reserved( "svn_commit_buffer", "c");
-        setkey_reserved( "svn_commit_marked", "mc");
-    
-        setkey_reserved( "svn_diff_buffer", "d");
-        setkey_reserved( "svn_diff_marked", "md");
-        setkey_reserved( "svn_diff_dir", "^d");
-        
-        setkey_reserved( "svn_list_marked", "l");
-        setkey_reserved( "svn_list_marked", "ml");
-        setkey_reserved( "svn_list_dir", "^l");
-        
-        setkey_reserved( "svn_mark_buffer", "mm");
-        setkey_reserved( "svn_unmark_buffer", "m^m");
-        setkey_reserved( "svn_unmark_all", "m^u");
-        
-        setkey_reserved( "svn_update_buffer", "u");
-        setkey_reserved( "svn_update_marked", "mu");
-        setkey_reserved( "svn_update_dir", "^u");
-        
-        setkey_reserved( "svn_re_eval", "r");
-    }
-    
-    variable kmap = "svn-list";
-    !if (keymap_p(kmap)) {
-        make_keymap(kmap);
-        definekey("svn_add_marked", "A", kmap);
-        definekey("svn_commit_marked", "C", kmap);
-        definekey("svn_diff_marked", "D", kmap);
-        definekey("svn_update_marked", "U", kmap);
-        
-        definekey("svn_add_selected", "a", kmap);
-        definekey("svn_commit_selected", "c", kmap);
-        definekey("svn_diff_selected", "d", kmap);
-        definekey("svn_update_selected", "u", kmap);
-        definekey("svn_open_selected", "o", kmap);
-        definekey("svn_revert_selected", "r", kmap);
-        
-        definekey("svn->toggle_marked", "m", kmap);
-        definekey("svn->toggle_marked", " ", kmap);
-        definekey("svn->toggle_marked", "\r", kmap);
-        definekey("svn_unmark_all", "M", kmap);
-        definekey("delete_window", "q", kmap);
-        
-    }
-    
+   setkey_reserved("vc_add_buffer",    "a");  
+   setkey_reserved("vc_add_marked",    "ma"); 
+   setkey_reserved("vc_add_dir",       "^a"); 
+   
+   setkey_reserved("vc_commit_buffer", "c");  
+   setkey_reserved("vc_commit_marked", "mc"); 
+   
+   setkey_reserved("vc_diff_buffer",   "d");  
+   setkey_reserved("vc_diff_marked",   "md"); 
+   setkey_reserved("vc_diff_dir",      "^d"); 
+   
+   setkey_reserved("vc_list_marked",   "l");  
+   setkey_reserved("vc_list_marked",   "ml"); 
+   setkey_reserved("vc_list_dir",      "^l"); 
+   
+   setkey_reserved("vc_mark_buffer",   "mm"); 
+   setkey_reserved("vc_unmark_buffer", "m^m");
+   setkey_reserved("vc_unmark_all",    "m^u");
+   
+   setkey_reserved("vc_update_buffer", "u");  
+   setkey_reserved("vc_update_marked", "mu"); 
+   setkey_reserved("vc_update_dir",    "^u"); 
+   
+   setkey_reserved("vc_re_eval",       "r");  
+}
+
+variable kmap = "svn-list";
+!if (keymap_p(kmap)) {
+   make_keymap(kmap);
+   definekey("vc_add_marked", "A", kmap);
+   definekey("vc_commit_marked", "C", kmap);
+   definekey("vc_diff_marked", "D", kmap);
+   definekey("vc_update_marked", "U", kmap);
+   
+   definekey("vc_add_selected", "a", kmap);
+   definekey("vc_commit_selected", "c", kmap);
+   definekey("vc_diff_selected", "d", kmap);
+   definekey("vc_update_selected", "u", kmap);
+   definekey("vc_open_selected", "\r", kmap);
+   definekey("vc_revert_selected", "r", kmap);
+   
+   definekey("svn->toggle_marked", Key_Ins, kmap);
+   definekey("svn->toggle_marked", " ", kmap);
+   definekey("vc_unmark_all", "U", kmap);
+   definekey("close_buffer", "q", kmap);
+   
 }
 %}}}
 
-keymap_init();
-
+if (SVN_set_reserved_keybindings) {
+   keymap_init();
+}
 %}}}
 
+% VC list mode
+
+public define vc_list_mode()
+{
+   set_mode("vc-list", 0);
+   mode_set_mode_info("vc-list", "init_mode_menu", 
+      &svn->vc_list_menu_callback);
+   use_keymap("svn-list");
+}   
