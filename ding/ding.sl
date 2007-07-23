@@ -16,7 +16,8 @@
 %                  auxiliary function ding->add_dictionary
 % 	     	   Documentation update, cleanup, 
 % 	     	   bugfixes: Case sensitivity, Ding_Dictionary
-% 
+% 2007-06-03 1.4   convert iso-latin1 <-> UTF-8 if not in UTF-8 mode.
+%
 % Usage
 % -----
 % 
@@ -26,7 +27,7 @@
 %   from  make_ini.sl)
 %
 % * Add your dictionaries
-%   "de-en" is automatically set, if the file is found in standard location
+%   "de-en" is automatically set, if the file is found in a standard location
 % 
 %   Proposed scheme for keys is lang1-lang2 with abbreviations from 'locale' 
 %   settings, say "de-en" == German::English, e.g.::
@@ -48,10 +49,6 @@
 %   with "ding" http://www.tu-chemnitz.de/~fri/ding/ (German-English)
 %   or the ones from the "magic dic" http://magic-dic.homeunix.net/ )
 %   
-%   Recent versions of the "ding" wordlist are UTF-8 encoded. They work well
-%   with an utf-8 enabled Jed (see Help->Browse_Docs->utf8).
-%   TODO: utf-8 conversion to|from latin1
-%   
 % * the grep command (with support for the -w argument, e.g. GNU grep)
 
 % extensions from http://jedmodes.sf.net/
@@ -63,11 +60,18 @@ autoload("bget_word", "txtutils");
 autoload("array", "datutils");
 autoload("get_table", "csvutils");
 autoload("insert_table", "csvutils");
+autoload("strtrans_lat1_to_utf8", "utf8helper");
+autoload("utf8_to_lat1", "utf8helper");
 % standard mode not loaded by default
 require("keydefs"); % symbolic constants for many function and arrow keys
 
-% Custom Variables
-% ----------------
+% name it
+provide("ding");
+implements("ding");
+private variable mode = "ding";
+
+% Customization
+% -------------
 
 % The default wordlist, given as language pair
 custom_variable("Ding_Dictionary", "de-en");
@@ -131,7 +135,7 @@ private define ding_status_line()
    variable languages, str;
    languages = str_replace_all(Ding_Dictionary, "-", 
 			       Direction_Names[Ding_Direction]);
-   str = sprintf("Lool up[%s] %s  (Case %d, Word_Search %d)",
+   str = sprintf("Look up[%s] %s  (Case %d, Word_Search %d)",
 			  languages,
 			  @get_blocal("generating_function")[1],
 			  CASE_SEARCH,
@@ -158,6 +162,14 @@ static define toggle_word_search()
    Ding_Word_Search = not(Ding_Word_Search);
    ding_status_line();
 }
+
+% % TODO: Interaktive... ask in minibuffer, save where???
+% public define ding_add_dictionary() %(key, file, sep=ding->Default_Sep)
+% {
+%    variable key, file, sep;
+%    (key, file, sep) = push_defaults( , , Default_Sep, _NARGS);
+%    Wordlists[key] = file+\n+sep;
+% }
 
 % Switch focus to side: 0 left, 1 right, 2 toggle 
 static define switch_sides(side)
@@ -199,27 +211,26 @@ public define ding() % ([word], direction=Ding_Direction)
    (word, direction) = push_defaults( , Ding_Direction, _NARGS);
    if (word == NULL)
      word = read_mini("word to translate:", bget_word(), "");
+   % poor mans utf-8 conversion
+   !if (_slang_utf8_ok)
+     word = strtrans_lat1_to_utf8(word);
+
+   variable pattern, lookup_cmd = "grep",
+     file = extract_element(Dictionaries[Ding_Dictionary], 0, '\n'),
+   sep  = extract_element(Dictionaries[Ding_Dictionary],1,'\n');
    
-   variable pattern, lookup_cmd,
-     file = Dictionaries[Ding_Dictionary],
+   if (sep == NULL)
      sep = Default_Sep;
-     % localized separators
-     %sep  = Dictionaries[Ding_Dictionary][1]; 
-
-   % TODO: poor mans utf-8 conversion
-   % !if (_slang_utf8_ok)
-   %   word = lat1_to_utf8(word);
-
-   % Build up the command
-   lookup_cmd = "grep";
+   % Assemble command
    !if (CASE_SEARCH)
      lookup_cmd += " -i ";
    if (Ding_Word_Search) % Whole word search
-     lookup_cmd += " -w ";
+     lookup_cmd += " -w";
    switch (direction) % Translating direction [0:"->", 1:"<-", 2:"<->"]
      {case 0: pattern = word + ".*" + sep;}
      {case 1: pattern = sep + ".*" + word;}
      {case 2: pattern = word;}
+
    lookup_cmd = strjoin([lookup_cmd, "\""+pattern+"\"", file], " ");
 
    % Prepare the output buffer
@@ -230,7 +241,7 @@ public define ding() % ([word], direction=Ding_Direction)
    flush("calling " + lookup_cmd);
    shell_perform_cmd(lookup_cmd, 1);
    delete_comments();
-   % find out which language the word is from (left or right)
+   % find out which language the word is from
    fsearch(word);
    variable source_lang = not(ffind(sep));
    define_blocal_var("delimiter", sep);
@@ -279,6 +290,8 @@ public define ding() % ([word], direction=Ding_Direction)
 	insert_table(a, NULL, " "+sep+" ");
      }
    bob;
+   !if (_slang_utf8_ok)
+     utf8_to_lat1();
    switch_sides(not(source_lang));
    ding_mode();
    fit_window(get_blocal("is_popup", 0));
