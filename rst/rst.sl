@@ -57,7 +57,11 @@
 % 1.8.2 2007-05-14 * removed leading \n from Markup_Tags, 
 %                    (handled by insert_block_markup() since textutils 2.6.3)
 %                  * simplified dfa rules using ""R string suffix
-%                  * rst_levels: use String_Type instead of list
+%                  * rst_levels: use String instead of List
+% 1.9   2007-07-23 * rename section_markup() to section_header(), allow 
+%                    integer arguments (section level)
+%                  * new functions rst_view() and rst_view_html(), 
+%                    rst_view_pdf, rst_view_latex obsoleting rst_browse()
 % 
 % ===== ========== ============================================================
 % 
@@ -109,15 +113,19 @@ autoload("browse_url", "browse_url");
 autoload("list_routines", "tokenlist");
 #endif
 
+% name it
+% =======
+% ::
+
+provide("rst");
+implements("rst");
+private variable mode = "rst";
+
+
 % Variables
 % =========
 % 
 % ::
-
-% --- name it
-provide("rst");
-implements("rst");
-private variable mode = "rst";
 
 % Custom Variables
 % ----------------
@@ -180,8 +188,8 @@ custom_variable("Rst2Pdf_Cmd", "py.rest --topdf");
 
 %!%+
 %\variable{Rst_Documentation_Path}
-%\synopsis{URL of the Docutils Project Documentation base directory}
-%\usage{variable Rst_Documentation_Path = "/usr/share/doc/python-docutils/docs"}
+%\synopsis{Base URL of the Docutils Project Documentation}
+%\usage{variable Rst_Documentation_Path = "file:/usr/share/doc/python-docutils/docs/"}
 %\description
 %  Pointer to the Docutils Project Documentation
 %  which will be opened by the Mode>Help>Doc Overview menu entry.
@@ -191,14 +199,35 @@ custom_variable("Rst2Pdf_Cmd", "py.rest --topdf");
 %\seealso{rst_mode}
 %!%-
 custom_variable("Rst_Documentation_Path",
-   "/usr/share/doc/python-docutils/docs");
+   "file:/usr/share/doc/python-docutils/docs/");
+
+
+%!%+
+%\variable{Rst_Html_Viewer}
+%\synopsis{External program to view HTML rendering of rst documents}
+%\usage{variable Rst_Html_Viewer = "firefox"}
+%\description
+%  The command started by \sfun{rst_view_html}
+%\seealso{Rst_Pdf_Viewer, Rst2Html_Cmd, rst->rst_view, rst_to_html}
+%!%-
+custom_variable("Rst_Html_Viewer", "firefox");
+
+%!%+
+%\variable{Rst_Pdf_Viewer}
+%\synopsis{External program to view PDF rendering of rst documents}
+%\usage{variable Rst_Pdf_Viewer = "xpdf"}
+%  The command started by \sfun{rst_view_pdf}
+%\seealso{Rst_Html_Viewer, Rst2Pdf_Cmd, rst->rst_view, rst_to_pdf}
+%!%-
+custom_variable("Rst_Pdf_Viewer", "xpdf"); 
+
 
 % Static Variables
 % ----------------
 % 
 % ::
 
-static variable Last_Underline_Char = "-";
+static variable Last_Underline_Char = "=";
 static variable Underline_Chars = "*=-~\"'`^:+#<>_";
 static variable Underline_Regexp = sprintf("^\([%s]\)+[ \t]*$"R, 
    str_replace_all(Underline_Chars, "-", "\\-"));
@@ -249,28 +278,40 @@ Markup_Tags["substitution"]       = [".. |", "|"];
 % 
 % Export
 % ------
-% 
 % ::
 
-% export the buffer/region to outfile using export_cmds[]
-static define rst_export() % (to, outfile=path_sans_extname(buffer_filename())+"."+to)
+private define get_outfile(format)
 {
-   variable to, outfile;
-   (to, outfile) = push_defaults( , , _NARGS);
+   variable outfile = path_sans_extname(whatbuf())+ "." + format;
+   outfile = path_concat(buffer_dirname(), outfile);
+   return outfile;
+}
 
-   if (to == NULL)
-     to = read_with_completion(strjoin(assoc_get_keys(export_cmds), ","),
+% export the buffer/region to outfile using export_cmds[]
+static define rst_export() % (format, outfile=get_outfile(format))
+{
+   variable format, outfile;
+   (format, outfile) = push_defaults( , , _NARGS);
+
+   if (format == NULL)
+     format = read_with_completion(strjoin(assoc_get_keys(export_cmds), ","),
       "Export buffer to ", "html", "", 's');
    
-   save_buffer();
    if (outfile == NULL)
-     outfile = path_sans_extname(buffer_filename()) + "." + to;
-   else % complete path if relative path is given
+     outfile = get_outfile(format);
+   else if (outfile != "") % complete path if relative path is given
      outfile = path_concat(buffer_dirname(), outfile);
 
-   variable cmd = strjoin([@export_cmds[to], buffer_filename(), outfile], " ");
+   % Assemble export command line:
+   variable cmd = @export_cmds[format];
+   % do not specify outfile for `py.rest`
+   if (extract_element(cmd, 0, ' ') == "py.rest")
+     outfile = "";
+   cmd = strjoin([cmd, buffer_filename(), outfile], " ");
    % return show(cmd);
-   flush("exporting to " + to);
+   
+   save_buffer();
+   flush("exporting to " + format);
    popup_buffer("*rst export output*");
    set_readonly(0);
    erase_buffer();
@@ -300,18 +341,88 @@ public  define rst_to_html()
 }
 
 % export to LaTeX
-public  define rst_to_latex() % (outfile=path_sans_extname(whatbuf())+".tex")
+public  define rst_to_latex()
 {
    rst_export("tex");
 }
 
 % export to PDF
-public  define rst_to_pdf() % (outfile=path_sans_extname(whatbuf())+".pdf")
+public  define rst_to_pdf()
 {
-   rst_export("pdf");
+     rst_export("pdf");
 }
 
+
+% View output files
+% -----------------
+% ::
+
+% View the rst document in `format'
+static define rst_view() % (format, outfile=get_outfile(format), viewer)
+{
+   variable format, outfile, viewer;
+   (format, outfile, viewer) = push_defaults( , , , _NARGS);
+
+   if (format == NULL)
+     format = read_with_completion(strjoin(assoc_get_keys(export_cmds), ","),
+      "Export buffer to ", "html", "", 's');
+   
+   if (outfile == NULL)
+     outfile = get_outfile(format);
+   else % complete path if relative path is given
+     outfile = path_concat(buffer_dirname(), outfile);
+
+   if (viewer == NULL)
+   variable cmd_var = sprintf("Rst_%s_Viewer", 
+      strup(format[[:0]])+strlow(format[[1:]]));
+   if (is_defined(cmd_var))
+     viewer = @(__get_reference(cmd_var));
+   else
+     viewer = "";
+
+   % recreate outfile, if the buffer is newer
+   save_buffer();
+   if (file_time_compare(buffer_filename(), outfile) > 0)
+     rst_export(format, outfile);
+
+   % open outfile with viewer (or in a new buffer, if viewer is empty string)
+   if (viewer == "")
+     {
+        () = find_file(outfile);
+        return;
+     }
+   
+   % convert `outfile' to URL if `format' is html
+   if (format == "html")
+     outfile = "file:" + outfile;
+   
+   if (getenv("DISPLAY") != NULL) % assume X-Windows running
+       () = system(viewer + " " + outfile + " &");
+   else
+     () = run_program(viewer + " " + outfile);
+}
+
+% View the html conversion of the current buffer in an external browser
+public  define rst_view_html()
+{
+   rst_view("html");
+}
+
+% Find the LaTeX conversion of the current buffer
+public  define rst_view_latex() % (outfile=*.tex, viewer="")
+{
+   rst_view("tex");
+}
+
+% View the pdf conversion of the current buffer with Rst_Pdf_Viewer
+public  define rst_view_pdf() % (outfile=*.pdf, viewer=Rst_Pdf_Viewer)
+{
+   rst_view("pdf");
+}
+
+
 % open popup-buffer with help for cmd
+% TODO: this is of more general interest. where to put it?
 static define command_help(cmd)
 {
    popup_buffer(helpbuffer, 1.0);
@@ -319,6 +430,7 @@ static define command_help(cmd)
    do_shell_cmd(extract_element(cmd, 0, ' ') + " --help");
    fit_window(get_blocal("is_popup", 0));
    set_buffer_modified_flag(0);
+   call_function("view_mode");
    bob();
 }
 
@@ -332,29 +444,8 @@ static define set_export_cmd(export_type)
    @cmd_var = read_mini("export cmd and options:", "", cmd);
 }
 
-#ifexists browse_url
-% Browse the html conversion of the current buffer in an external browser
-public  define rst_browse() % (browser=Browse_Url_Browser))
-{
-   variable browser = push_defaults(, _NARGS);
-   variable outfile = path_sans_extname(whatbuf())+".html";
-   outfile = path_concat(buffer_dirname(), outfile);
-   % recreate the html file, if the buffer is newer
-   save_buffer();
-   if (file_time_compare(buffer_filename(), outfile) > 0)
-     rst_to_html();
-   % browse, pass optional browser argument
-   variable url = "file:" + outfile;
-   if (browser != NULL)
-     browse_url(url, browser);
-   else
-     browse_url(url);
-}
-#endif
-
 % Markup
 % ------
-% 
 % ::
 
 % insert a markup
@@ -378,14 +469,29 @@ static define insert_directive(name)
 }
 
 % underline the current line
+% 
 % if there is already underlining, adapt it to the lenght of the line
-static define section_markup() % ([ch])
+% 
+% If the argument is an integer or a string convertible to an integer, is is
+% considered the section level. 
+% TODO: use existing section level markup 
+static define section_header() % ([adornment])
 {
-   variable len, old_char;
+   variable adornment = push_defaults( , _NARGS);
+   if (adornment == NULL)
+     adornment = read_mini(sprintf("Underline char [%s]:", Underline_Chars),
+        Last_Underline_Char, "");
 
-   Last_Underline_Char =
-     prompt_for_argument(&read_mini, sprintf("Underline char [%s]:",
-        Underline_Chars), Last_Underline_Char, "", _NARGS);
+   variable len, old_char;
+   
+   % Convert integer argument to character:
+   if (andelse{typeof(adornment) == String_Type}
+        {string_match(adornment,"^[0-9]+$" , 1)})
+     adornment = integer(adornment);
+   if (typeof(adornment) == Integer_Type)
+     adornment = char(Underline_Chars[adornment]);
+
+   Last_Underline_Char = adornment;
 
    % go up to the title line, if at the underline
    bol();
@@ -403,16 +509,14 @@ static define section_markup() % ([ch])
    if (re_looking_at(Underline_Regexp))
        delete_line();
 
-   insert(string_repeat(Last_Underline_Char, len-1) + "\n");
+   insert(string_repeat(adornment, len-1) + "\n");
 }
 
 % Navigation
 % ----------
 % 
 % Use Marko Mahnics tokenlist to create a navigation buffer with all section
-% titles.
-% 
-% ::
+% titles. ::
 
 #ifexists list_routines
 
@@ -510,7 +614,6 @@ public  define rst_list_routines_done()
 
 % Syntax Highlight
 % ================
-% 
 % ::
 
 create_syntax_table (mode);
@@ -658,7 +761,6 @@ define_syntax ("0-9a-zA-Z", 'w', mode);        % Words
 
 % Keymap
 % ======
-% 
 % ::
 
 !if (keymap_p(mode))
@@ -666,11 +768,13 @@ define_syntax ("0-9a-zA-Z", 'w', mode);        % Words
 
 % the backtick is is needed too often to be bound to quoted insert
 definekey("self_insert_cmd", "`", mode);
-% I recommend "°" but program only the save bet _Reserved_Key_Prefix+"`":
+% I recommend "°" but this might not be everyones favourite
+% definekey("self_insert_cmd", "°", mode);
+% Fallback: _Reserved_Key_Prefix+"`":
 definekey_reserved("quoted_insert", "`", mode); %
 
 % "&Layout");                                                  "l", mode);
-definekey_reserved("rst->section_markup",                      "ls", mode); % "&Section"
+definekey_reserved("rst->section_header",                      "ls", mode); % "&Section"
 definekey_reserved("rst->block_markup(\"preformatted\")",      "lp", mode); % "P&reformatted"
 definekey_reserved("rst->markup(\"emphasis\")",                "le", mode); % "&Emphasis"
 definekey_reserved("rst->markup(\"strong\")",                  "ls", mode); % "&Strong"
@@ -698,16 +802,18 @@ definekey_reserved("rst->markup(\"substitution\")",            "ts", mode); % "&
 definekey_reserved("rst_to_html",                              "eh", mode); % "&Html"
 definekey_reserved("rst_to_latex",                             "el", mode); % "&Latex"
 definekey_reserved("rst_to_pdf",                               "ep", mode); % "&Latex"
-definekey_reserved("rst_browse",                               "eb", mode); % &Browse Html"
-definekey_reserved("rst->set_export_cmd(\"html\")",              "oh", mode); % "Set H&tml Export Options"
-definekey_reserved("rst->set_export_cmd(\"tex\")",         "ol", mode); % "Set Late&x Export Options"
-definekey_reserved("rst->set_export_cmd(\"pdf\")",         "op", mode); % "Set Late&x Export Options"
+definekey_reserved("rst->set_export_cmd(\"html\")",            "oh", mode); % "Set H&tml Export Options"
+definekey_reserved("rst->set_export_cmd(\"tex\")",             "ol", mode); % "Set Late&x Export Options"
+definekey_reserved("rst->set_export_cmd(\"pdf\")",             "op", mode); % "Set Late&x Export Options"
+% "&View\")",                              %                   "", mode);
+definekey_reserved("rst_view_html",                            "vh", mode); % "&Html"
+definekey_reserved("rst_view_latex",                           "vl", mode); % "&Latex"
+definekey_reserved("rst_view_pdf",                             "vp", mode); % "&Latex"
 %                                                              "", mode);
 definekey_reserved("list_routines",                            "n", mode); % &Navigator"
 
 % Mode Menu
 % =========
-% 
 % ::
 
 % append a new popup to menu and return the handle
@@ -722,7 +828,7 @@ static define rst_menu(menu)
    variable popup;
    popup = new_popup(menu, "Block &Markup");
    % ^CP...  Paragraph styles, etc. (<p>, <br>, <hr>, <address>, etc.)
-   menu_append_item(popup, "&Section", "rst->section_markup");
+   menu_append_item(popup, "&Section", "rst->section_header");
    menu_append_item(popup, "P&reformatted", &block_markup, "preformatted");
    menu_append_item(popup, "&Hrule", &markup, "hrule");
    menu_append_item(popup, "&Directive", &markup, "directive");
@@ -772,6 +878,12 @@ static define rst_menu(menu)
    menu_append_item(popup, "&Html", "rst_to_html");
    menu_append_item(popup, "&Latex", "rst_to_latex");
    menu_append_item(popup, "&Pdf", "rst_to_pdf");
+   % View target file
+   popup = new_popup(menu, "&View");
+   menu_append_item(popup, "&Html", "rst_view_html");
+   menu_append_item(popup, "&Latex", "rst_view_latex");
+   menu_append_item(popup, "&Pdf", "rst_view_pdf");
+   % Set export command
    popup = new_popup(menu, "Set Export &Cmd");
    menu_append_item(popup, "&Html", &set_export_cmd, "html");
    menu_append_item(popup, "&Latex", &set_export_cmd, "tex");
@@ -790,9 +902,6 @@ static define rst_menu(menu)
    menu_append_item(popup, "Rst2&Latex Help", &command_help, Rst2Latex_Cmd);
    % Default conversion and browse
    menu_append_item(menu, "&Run Buffer", "run_buffer");
-#ifexists browse_url
-   menu_append_item(menu, "&Browse Html", "rst_browse");
-#endif
 }
 
 % Rst Mode
@@ -806,7 +915,7 @@ set_comment_info(mode, ".. ", "", 0);
 public define rst_mode()
 {
    set_mode(mode, 1);
-   % indent with structured_text_hook from structured_text.sl
+   % indent|format with structured_text_hook from structured_text.sl
    structured_text_hook();
    use_syntax_table(mode);
    % use_keymap (mode);
@@ -814,8 +923,6 @@ public define rst_mode()
    mode_set_mode_info(mode, "init_mode_menu", &rst_menu);
    mode_set_mode_info("run_buffer_hook", &rst_to_html);
    mode_set_mode_info("dabbrev_word_chars", get_word_chars());
-
-   % define_blocal_var("Word_Chars", foo_word_chars);
 
    % define_blocal_var("help_for_word_hook", &rst_help);
    run_mode_hooks(mode + "_mode_hook");
