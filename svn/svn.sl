@@ -152,7 +152,9 @@
 %            * code reorganisation
 %            * Mode menu for listings
 %            * Removed SVN_help: Keybindings are shown in mode menu
-%     
+% 2007-07-24 * Since svn version 1.4, the .svn/entries file is no longer XML:
+%              adapted require_buffer_file_in_vc() (report J. Schmitz)
+%              
 % TODO
 % ====
 % 
@@ -280,7 +282,9 @@ private define require_buffer_file_in_vc() { %{{{
      { case "svn": 
         entries = strread_file(
            path_concat(path_concat(dir, ".svn"), "entries"));
-        file_under_vc = is_substr(entries, sprintf("name=\"%s\"", file));
+        file_under_vc = orelse{
+           is_substr(entries, sprintf("name=\"%s\"", file)) % svn < 1.4
+        }{ is_substr(entries, sprintf("\n%s\n", file)) };   % svn >= 1.4
      }
    !if (file_under_vc) {
       if (get_y_or_n("File " + file + " not found in VC entries. Add it?"))
@@ -585,7 +589,7 @@ private define postprocess_diff_buffer() { %{{{
         if (dir != NULL) {
             filename = path_concat(dir, filename);        
             diff_filenames[filename] = what_line();
-        
+         
             if (assoc_key_exists(marks, filename)) {
                 update_diff_buffer(marks[filename]);
             }
