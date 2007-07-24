@@ -22,6 +22,7 @@
 % 2007-07-21
 %  * frontend commands: diff(), diff_buffer(), diff_dir_files()
 %  * use of walk.sl now optional
+% 2007-07-24 bugfix in diff_buffer, documentation fix 
 %
 % It does highlighting a bit like mcedit (the midnight commander editor) does.
 % (It uses dfa syntax highlighting).
@@ -66,7 +67,7 @@
 % "diff_deleted", "diff_added", "diff_oldfile", "diff_newfile", "diff_cmd" in
 % jed.rc, e.g.
 % 
-%        set_color(diff_deleted, "blue", "red"); 
+%        set_color("diff_deleted", "blue", "red"); 
 % 
 % Thanks to:
 % - John Davis, for this great editor.
@@ -960,7 +961,7 @@ public define diff_buffer()
    variable prompt = sprintf("Compare (%s) buffer to ", Diff_Cmd);
    variable file1 = read_with_completion(prompt, "", "", 'f');
    variable file2 = bufsubfile();
-   diff_cmd(file1, file2);
+   diff(file1, file2);
 }
 # endif
 
