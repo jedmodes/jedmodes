@@ -6,7 +6,7 @@
 %
 %   * On xjed, call x_set_keysym for "special_keys"
 %
-% Copyright (c) 2006 Günter Milde
+% Copyright (c) 2006 Guenter Milde (milde users.sf.net)
 % Released under the terms of the GNU General Public License (ver. 2 or later)
 %
 % VERSIONS
@@ -28,6 +28,7 @@
 %                   M Mahnic that it works in wjed. (it will not harm in DOS
 %                   or jed in a DOS window).
 % 1.6   2006-03-29  renamed KP_Return to KP_Enter (Thei Wejnen)
+% 1.6.1 2007-07-25  renamed set_keyvar() to _keystr()
 %       
 % USAGE
 %
@@ -51,7 +52,7 @@
 %   
 %   While generally this leads to the expected behaviour with a
 %   simple  require("x-keydefs"), some modes that define keybindings
-%   without use of Key_* variales may break.
+%   without use of Key_* variables may break.
 % 
 % CUSTOMISATION | EXTENSION
 %
@@ -121,7 +122,7 @@ provide("x-keydefs");  % eXtended set of key definitions
 % operating systems. (Extended version of the auxiliary fun in keydefs.sl
 % including the ibmpc string.)
 private variable Is_Xjed = is_defined("x_server_vendor");
-static define set_keyvar(ibmpc, termcap, default)
+static define _keystr(ibmpc, termcap, default)
 {
 #ifdef IBMPC_SYSTEM
    return ibmpc;
@@ -161,26 +162,26 @@ show("Key_Shift_Tab", get_termcap_string("bt"));
 % 
 % * ibmpc strings correspond to VT220 codes
 % 
-% TODO: check IBMPC keystrings, if different use set_keyvar()
+% TODO: check IBMPC keystrings, if different use _keystr()
 
 variable Key_KP_Enter    = "\eOM";
-variable Key_KP_Divide    = set_keyvar("\eOQ", "", "\eOo"); 
-variable Key_KP_Multiply  = set_keyvar("\eOR", "", "\eOj"); 
-variable Key_KP_Add       = set_keyvar("\eOm", "", "\eOk"); 
-variable Key_KP_Subtract  = set_keyvar("\eOS", "", "\eOm"); 
-variable Key_KP_Separator = "\eOl";   % [.|Del] with Num Lock in Xjed
-variable Key_KP_Delete    = "\eOn";   % [.|Del] without Num Lock in Xjed
+variable Key_KP_Divide    = _keystr("\eOQ", "", "\eOo"); 
+variable Key_KP_Multiply  = _keystr("\eOR", "", "\eOj"); 
+variable Key_KP_Add       = _keystr("\eOm", "", "\eOk"); 
+variable Key_KP_Subtract  = _keystr("\eOS", "", "\eOm"); 
+variable Key_KP_Separator = "\eOl";  % Key [./Del] with Num Lock in Xjed
+variable Key_KP_Delete    = "\eOn";  % Key [./Del] without Num Lock in Xjed
 
 variable Key_KP_0         = "\eOp";
-variable Key_KP_1         = set_keyvar("\eOq", "K4", "\eOq");
+variable Key_KP_1         = _keystr("\eOq", "K4", "\eOq");
 variable Key_KP_2         = "\eOr";
-variable Key_KP_3         = set_keyvar("\eOs", "K5", "\eOs");
+variable Key_KP_3         = _keystr("\eOs", "K5", "\eOs");
 variable Key_KP_4         = "\eOt";
-variable Key_KP_5         = set_keyvar("\eOu", "K2", "\eOu");
+variable Key_KP_5         = _keystr("\eOu", "K2", "\eOu");
 variable Key_KP_6         = "\eOv";
-variable Key_KP_7         = set_keyvar("\eOw", "K1", "\eOw");
+variable Key_KP_7         = _keystr("\eOw", "K1", "\eOw");
 variable Key_KP_8         = "\eOx";
-variable Key_KP_9         = set_keyvar("\eOy", "K3", "\eOy");
+variable Key_KP_9         = _keystr("\eOy", "K3", "\eOy");
 
 % Alt and Escape
 % --------------
@@ -188,24 +189,24 @@ variable Key_KP_9         = set_keyvar("\eOy", "K3", "\eOy");
 % (Some jed versions (console) don' set ALT_CHAR)
 custom_variable("ALT_CHAR", 27); % '\e'
 
-variable Key_Alt          = set_keyvar("", "", char(ALT_CHAR));
+variable Key_Alt          = _keystr("", "", char(ALT_CHAR));
 % cua emulation uses triple escape ("\e\e\e") as Esc key string.
-custom_variable("Key_Esc", set_keyvar("", "", "\e"));
+custom_variable("Key_Esc", _keystr("", "", "\e"));
 
 % Tab
 % ---
 
-variable Key_Tab          = set_keyvar("^I", "", "^I");    % alternative "\e[z"
-variable Key_Shift_Tab    = set_keyvar("^@^O", "", "\e[Z");  % reverse_tab
-variable Key_Ctrl_Tab     = set_keyvar("", "", "\e[^Z");
-variable Key_Alt_Tab      = set_keyvar("", "", strcat(Key_Alt, Key_Tab));
+variable Key_Tab          = _keystr("^I", "", "^I");    % alternative "\e[z"
+variable Key_Shift_Tab    = _keystr("^@^O", "", "\e[Z");  % reverse_tab
+variable Key_Ctrl_Tab     = _keystr("", "", "\e[^Z");
+variable Key_Alt_Tab      = _keystr("", "", strcat(Key_Alt, Key_Tab));
 
 % Return
 % ------
 
-variable Key_Return       = set_keyvar("^M", "", "^M");    % alternative "\e[8~"
-variable Key_Shift_Return = set_keyvar("", "", "\e[8$");
-variable Key_Ctrl_Return  = set_keyvar("^J", "", "\e[8^");
+variable Key_Return       = _keystr("^M", "", "^M");    % alternative "\e[8~"
+variable Key_Shift_Return = _keystr("", "", "\e[8$");
+variable Key_Ctrl_Return  = _keystr("^J", "", "\e[8^");
 variable Key_Alt_Return   = strcat(Key_Alt, Key_Return);
 
 
@@ -213,14 +214,14 @@ variable Key_Alt_Return   = strcat(Key_Alt, Key_Return);
 % ---------------------------
 
 % TODO: find keystrings
-% variable Key_Ctrl_Shift_Up      = set_keyvar("", "", "\e[%A");
-% variable Key_Ctrl_Shift_Down    = set_keyvar("", "", "\e[%B");
-% variable Key_Ctrl_Shift_Right   = set_keyvar("", "", "\e[%C");
-% variable Key_Ctrl_Shift_Left    = set_keyvar("", "", "\e[%D");
-variable Key_Ctrl_Shift_Home    = set_keyvar("", "", "\e[1%");
-variable Key_Ctrl_Shift_End     = set_keyvar("", "", "\e[4%");
-variable Key_Ctrl_Shift_PgUp    = set_keyvar("", "", "\e[5%");
-variable Key_Ctrl_Shift_PgDn    = set_keyvar("", "", "\e[6%");
+% variable Key_Ctrl_Shift_Up      = _keystr("", "", "\e[%A");
+% variable Key_Ctrl_Shift_Down    = _keystr("", "", "\e[%B");
+% variable Key_Ctrl_Shift_Right   = _keystr("", "", "\e[%C");
+% variable Key_Ctrl_Shift_Left    = _keystr("", "", "\e[%D");
+variable Key_Ctrl_Shift_Home    = _keystr("", "", "\e[1%");
+variable Key_Ctrl_Shift_End     = _keystr("", "", "\e[4%");
+variable Key_Ctrl_Shift_PgUp    = _keystr("", "", "\e[5%");
+variable Key_Ctrl_Shift_PgDn    = _keystr("", "", "\e[6%");
 
 
 % Customziation by hook
@@ -269,7 +270,7 @@ if (is_defined("x_server_vendor"))
    @x_set_keysym_p(0xFE20, '$',  Key_Shift_Tab);
 #endif
 
-   % numeric keypad (keys whose keysym does not change with Num Lock)
+   % numeric keypad (keys whose keysym do not change with Num Lock)
    @x_set_keysym_p(0xFFAA , 0,   Key_KP_Multiply);
    @x_set_keysym_p(0xFFAB , 0,   Key_KP_Add);
    @x_set_keysym_p(0xFFAF , 0,   Key_KP_Divide);
