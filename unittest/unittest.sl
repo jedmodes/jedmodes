@@ -15,6 +15,7 @@
 %                  Unittest_Function_Pattern
 % 0.3.1 2006-10-05 added requirements
 % 0.4   2007-02-06 removed _lists_equal() and is_equal(), using _eqs() instead
+% 0.4.1 2007-07-25 added test_unequal()
 
 require("sl_utils");  % push_defaults, ...
 require("datutils");  % push_list, pop2list, ...
@@ -24,14 +25,37 @@ autoload("sprint_variable", "sprint_var");
 
 implements("unittest");
 
+% Customization
+% -------------
+
+
 custom_variable("Unittest_Reportfile", "testreport.txt");
 
 % The regexp pattern for test-file detection
 % % Test or test as word in a file with ".sl" extension
 custom_variable("Unittest_File_Pattern", "\C\<test\>.*\.sl$"R);
+
 % The regexp pattern for test-function detection (Test_ or test_ as substring)
 custom_variable("Unittest_Function_Pattern", "\Ctest_"R); 
-  
+
+
+%!%+
+%\variable{Unittest_Skip_Patterns}
+%\synopsis{Skip test considered "long"?}
+%\usage{variable Unittest_Skip_Patterns = ["interactive"]}
+%\description
+%  To save time or ressources, tests matching one of this
+%  array of regexp patterns are skipped, even if they match the
+%  \var{Unittest_Function_Pattern}.
+%  
+%  The default will skip tests that have the string "interactive" somewhere
+%  in their name.
+%\seealso{test_buffer, test_file, test_files, test_files_and_exit}
+%!%-
+custom_variable("Unittest_Skip_Patterns", ["interactive"]);
+
+
+
 static variable reportbuf = "*test report*";
 % number of errors in one file
 static variable Error_Count = 0;
@@ -130,7 +154,14 @@ public  define testmessage() % (fmt, ...)
    vmessage(push_list(args));
 }
 
-% Test if \var{a} is true
+%!%+
+%\function{test_true}
+%\synopsis{Test if \var{a} is true}
+%\usage{test_true(a, comment="")}
+%\description
+%  Test if \var{a} is true, report if not.
+%\seealso{_eqs, test_equal}
+%!%-
 public  define test_true() % (a, comment="")
 {
    variable a, comment;
@@ -138,7 +169,7 @@ public  define test_true() % (a, comment="")
 
    if (a)
      return;
-   testmessage("\n  E: Truth test failed. %s", comment);
+   testmessage("\n  E: '%s' is not true. %s", sprint_variable(a), comment);
    Error_Count++;
 }
 
@@ -149,7 +180,7 @@ public  define test_true() % (a, comment="")
 %\usage{ test_equal(a, b, comment="")}
 %\description
 %  Test if \var{a} equals \var{b}, report if not.
-%\seealso{_eqs, test_true}
+%\seealso{_eqs, test_unequal, test_true}
 %!%-
 public  define test_equal() % (a, b, comment="")
 {
@@ -159,6 +190,27 @@ public  define test_equal() % (a, b, comment="")
    !if (_eqs(a, b))
      {
         testmessage("\n  E: %s==%s failed. %s", 
+           sprint_variable(a), sprint_variable(b), comment);
+        Error_Count++;
+     }
+}
+
+%!%+
+%\function{test_unequal}
+%\synopsis{Test if \var{a} differs from \var{b}}
+%\usage{ test_unequal(a, b, comment="")}
+%\description
+%  Compare \var{a} and \var{b}, fail if they are equal.
+%\seealso{_eqs, test_equal, test_true}
+%!%-
+public  define test_unequal() % (a, b, comment="")
+{
+   variable a, b, comment;
+   (a, b, comment) = push_defaults( , , "", _NARGS);
+   
+   if (_eqs(a, b))
+     {
+        testmessage("\n  E: %s!=%s failed. %s", 
            sprint_variable(a), sprint_variable(b), comment);
         Error_Count++;
      }
@@ -233,7 +285,7 @@ public define test_for_exception() % (fun, [args])
 %\notes
 %  If execution of the function throws an exeption, \var{unittest->Error_Count}
 %  is increased by 1.
-%\seealso{run_function, test_eval, testmessage, test_file, test_files}
+%\seealso{run_function, testmessage, test_file, test_files}
 %!%-
 public define test_function() % (fun, [args])
 {
@@ -289,16 +341,17 @@ public  define test_last_result() % args
 %!%-
 public define test_file(file)
 {
-   variable err, leftovers = pop2list(), testfuns, testfun,
+   variable err, leftovers, testfuns, testfun, skips=0,
      _setup, _teardown, _mode_setup, _mode_teardown, 
      namespace = "_" + path_sans_extname(path_basename(file));
    
-   
    namespace = str_replace_all(namespace, "-", "_");
    % Ensure a clean start
+   leftovers = pop2list();
    if (length(leftovers) > 0)
      testmessage("\n garbage on stack: %s", _sprint_list(leftovers));
-   Error_Count = 0; % reset the error count with every compilation unit
+   % reset the error count with every compilation unit
+   Error_Count = 0; 
 
    % evaluate the file/buffer in its own namespace
    testmessage("\n %s: ", path_basename(file));
@@ -328,9 +381,16 @@ public define test_file(file)
    testfuns = _apropos(namespace, Unittest_Function_Pattern, 2);
    % testmessage("\n\n " + sprint_variable(testfuns));
    testfuns = testfuns[array_sort(testfuns)];
-   foreach (testfuns)
+   foreach testfun (testfuns)
      {
-        testfun = ();
+        if (wherefirst(array_map(Int_Type, 
+                       &string_match, testfun, Unittest_Skip_Patterns, 1))
+            != NULL)
+          {
+             testmessage("\n  %s: skipped", testfun);
+             skips++;
+             continue;
+          }
         testfun = namespace+"->"+testfun;
         if (_setup != NULL)
           @_setup();
@@ -344,6 +404,9 @@ public define test_file(file)
    if (Error_Count)
      testmessage("\n ");
    testmessage("\n %d error%s", Error_Count, plurals[Error_Count!=1] );
+   if (skips)
+     testmessage("\n %d test%s skipped (matching '%s')",
+        skips, plurals[skips!=1], strjoin(Unittest_Skip_Patterns, "' or '"));
 }
 
 % test the current buffer
