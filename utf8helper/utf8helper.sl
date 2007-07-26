@@ -6,6 +6,9 @@
 % Code based on examples in Help>Browse Docs>utf8 by JED and a posting
 % by Joerg Sommer to the jed-users list.
 %
+% The functions in this mode require slang2 to work properly but
+% should also work without UTF-8 support.
+% 
 % Currently, only utf8 and latin1 encodings are supported. 
 % Other encodings need an external recoding tool (e.g. `recode` or `iconv` 
 % (see `recode --list` or `iconv --list` for a list of supported encodings)).
@@ -31,10 +34,9 @@
 % --------
 % 
 % 1.1   2007-06-01 first public version
-% 1.2   2007-07-25 customizable activation of hooks
-
-% The functions in this mode require slang2 to work properly but
-% should also work without UTF-8 support.
+% 1.2   2007-07-25 customizable activation of hooks,
+%       	   renamed *lat1* to *latin1*,
+% 1.2.1 2007-07-26 utf8helper_read_hook(): reset buffer_modified_flag
 
 provide("utf8helper");
 implements("utf8helper");
@@ -316,16 +318,20 @@ private define utf8helper_read_hook()
    !if (do_convert)
      return;
 
-   % mark for re-conversion before writing:
-   if (not(blocal_var_exists("utf8helper_write_autoconvert")))
-     define_blocal_var("utf8helper_write_autoconvert", 
-	UTF8Helper_Write_Autoconvert);
-
    % convert encoding
    if (_slang_utf8_ok)
      latin1_to_utf8();
    else
      utf8_to_latin1();
+   
+   % reset the buffer modified flag as we did not change content
+   % (prevents questions when the buffer is closed without further changes).
+   set_buffer_modified_flag(0);
+
+   % mark for re-conversion before writing:
+   if (not(blocal_var_exists("utf8helper_write_autoconvert")))
+     define_blocal_var("utf8helper_write_autoconvert", 
+	UTF8Helper_Write_Autoconvert);
 }
 
 static define utf8helper_write_hook(file)
