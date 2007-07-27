@@ -23,7 +23,8 @@
 %  * frontend commands: diff(), diff_buffer(), diff_dir_files()
 %  * use of walk.sl now optional
 % 2007-07-24 bugfix in diff_buffer, documentation fix 
-%
+% 2007-07-27 bugfix: diff_jump_to(): pop_spot after computing destination
+% 
 % It does highlighting a bit like mcedit (the midnight commander editor) does.
 % (It uses dfa syntax highlighting).
 %
@@ -79,6 +80,7 @@
 
 % Requirements
 % ------------
+%{{{
 
 % Jed >= 0.99.16     % custom_color()
 % SLang 2	     % "raw string literal"R
@@ -89,9 +91,11 @@ require("treemode"); % bundled with diffmode
 % Alternatively, http://jedmodes.sf.net/mode/navigate can be used for this.
 if (expand_jedlib_file("walk.sl") != "")
   require("walk");
+%}}}
 
 % Customizable settings
 % ---------------------
+%{{{
 
 % Set Diff_Use_Tree to 0 to avoid using a tree view for the diff.
 % Otherwise, set it to the minimun number of files covered by the diff
@@ -112,7 +116,7 @@ custom_color("diff_block",   get_color("preprocess"));  % @@
 custom_color("diff_deleted", get_color("error"));       % -
 custom_color("diff_added",   get_color("keyword"));     % +
 custom_color("diff_junk",    get_color("comment"));     % Only / Binary
-  
+%}}}  
 
 %%%% Diff low level helpers %{{{
 
@@ -591,6 +595,7 @@ define diff_jump_to(new)
      	   pos = newpos;
 	pos += delta;
         name = diff_get_source_file_name(new);
+	pop_spot();   
 	() = read_file(name);
 	goto_line(pos);
 	vmessage("%s:%d", name, pos);	   
@@ -918,7 +923,7 @@ public define diff_mode()
 
 % Frontend commands
 % -----------------
-
+%{{{
 % diff 'wizard': call diff system command and display result in diff_mode
 public define diff() % (old, new)
 {
@@ -981,4 +986,4 @@ define diff_dir_files(dir1, dir2)
      }
    diff_mode;
 }
-
+%}}}
