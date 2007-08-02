@@ -154,7 +154,8 @@
 %            * Removed SVN_help: Keybindings are shown in mode menu
 % 2007-07-24 * Since svn version 1.4, the .svn/entries file is no longer XML:
 %              adapted require_buffer_file_in_vc() (report J. Schmitz)
-%              
+% 2007-08-02 * Revised layout and hotkeys of vc_menu and vc_list_mode menu
+%                           
 % TODO
 % ====
 % 
@@ -166,7 +167,7 @@
 % * support for SVK (http://svk.bestpractical.com/)
 
 #<INITIALIZATION>
-% Add a "File>Version Control" popup
+% Add a "File>Version Control" menu popup
 autoload("vc_menu_callback", "svn");
 define vc_load_popup_hook(menubar)
 {
@@ -1014,53 +1015,47 @@ public define vc_update_dir() { %{{{
 
 
 %% Initialization %{{{
-
-public define vc_menu_callback(menu) { %{{{
-    menu_append_item(menu, "&Add buffer", "vc_add_buffer");
-    menu_append_item(menu, "&Commit buffer", "vc_commit_buffer");
-    menu_append_item(menu, "&Diff buffer", "vc_diff_buffer");
-    menu_append_item(menu, "&Mark buffer", "vc_mark_buffer");
-    menu_append_item(menu, "Unmark buffer", "vc_unmark_buffer");
-    menu_append_item(menu, "&Update buffer", "vc_update_buffer");
-    menu_append_separator(menu);
-   
-    menu_append_item(menu, "&List marked", "vc_list_marked");
-    menu_append_item(menu, "Add marked", "vc_add_marked");
-    menu_append_item(menu, "Commit marked", "vc_commit_marked");
-    menu_append_item(menu, "Diff marked", "vc_diff_marked");
-    menu_append_item(menu, "Unmark all", "vc_unmark_all");
-    menu_append_item(menu, "Update marked", "vc_update_marked");
-    menu_append_separator(menu);
-   
-    menu_append_item(menu, "Add directory", "vc_add_dir");
-    menu_append_item(menu, "Diff directory", "vc_diff_dir");
-    menu_append_item(menu, "Update directory", "vc_update_dir");
-    menu_append_item(menu, "&Open directory list", "vc_list_dir");
-}
-%}}}
-
-static define vc_list_menu_callback(menu) { %{{{
-   menu_append_item(menu, "&Add file", "vc_add_selected");
-   menu_append_item(menu, "&Commit file", "vc_commit_selected");
-   menu_append_item(menu, "&Diff file", "vc_diff_selected");
-   menu_append_item(menu, "&Update file", "vc_update_selected");
-   menu_append_item(menu, "&Revert file", "vc_revert_selected");
-   menu_append_separator(menu);
-   
-   menu_append_item(menu, "Add marked", "vc_add_marked");
-   menu_append_item(menu, "Commit marked", "vc_commit_marked");
-   menu_append_item(menu, "Diff marked", "vc_diff_marked");
-   menu_append_item(menu, "Update marked", "vc_update_marked");
-   menu_append_separator(menu);
-   
-   menu_append_item(menu, "Toggle &Mark", "svn->toggle_marked");
+private define vc_commom_menu_callback(menu) {
+   menu_append_item(menu, "&Add marked", "vc_add_marked");
+   menu_append_item(menu, "&Commit marked", "vc_commit_marked");
+   menu_append_item(menu, "&Diff marked", "vc_diff_marked");
    menu_append_item(menu, "Unmark all", "vc_unmark_all");
+   menu_append_item(menu, "&Update marked", "vc_update_marked");
    menu_append_separator(menu);
    
    menu_append_item(menu, "Add directory", "vc_add_dir");
    menu_append_item(menu, "Diff directory", "vc_diff_dir");
    menu_append_item(menu, "Update directory", "vc_update_dir");
    menu_append_item(menu, "&Open directory list", "vc_list_dir");
+}   
+
+public define vc_menu_callback(menu) { %{{{
+    menu_append_item(menu, "&add buffer", "vc_add_buffer");
+    menu_append_item(menu, "&commit buffer", "vc_commit_buffer");
+    menu_append_item(menu, "&diff buffer", "vc_diff_buffer");
+    menu_append_item(menu, "&mark buffer", "vc_mark_buffer");
+    menu_append_item(menu, "unmark buffer", "vc_unmark_buffer");
+    menu_append_item(menu, "&update buffer", "vc_update_buffer");
+    menu_append_separator(menu);
+   
+    menu_append_item(menu, "&List marked", "vc_list_marked");
+    vc_commom_menu_callback(menu);
+}
+%}}}
+
+static define vc_list_menu_callback(menu) { %{{{
+   menu_append_item(menu, "&add file", "vc_add_selected");
+   menu_append_item(menu, "&commit file", "vc_commit_selected");
+   menu_append_item(menu, "&diff file", "vc_diff_selected");
+   menu_append_item(menu, "&update file", "vc_update_selected");
+   menu_append_item(menu, "&revert file", "vc_revert_selected");
+   menu_append_separator(menu);
+   
+   menu_append_item(menu, "&toggle Mark", "svn->toggle_marked");
+   menu_append_item(menu, "Unmark all", "vc_unmark_all");
+   menu_append_separator(menu);
+
+   vc_commom_menu_callback(menu);
    menu_append_separator(menu);
    
    menu_append_item(menu, "&Quit", "close_buffer");
@@ -1110,7 +1105,8 @@ variable kmap = "svn-list";
    definekey("vc_revert_selected", "r", kmap);
    
    definekey("svn->toggle_marked", Key_Ins, kmap);
-   definekey("svn->toggle_marked", " ", kmap);
+   definekey("svn->toggle_marked", "t", kmap);
+   % definekey("svn->toggle_marked", " ", kmap);
    definekey("vc_unmark_all", "U", kmap);
    definekey("close_buffer", "q", kmap);
    
