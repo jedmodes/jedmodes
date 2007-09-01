@@ -1,6 +1,6 @@
 % newsflash.sl
 % 
-% $Id: newsflash.sl,v 1.2 2007/03/01 17:26:30 paul Exp paul $
+% $Id: newsflash.sl,v 1.3 2007/09/01 11:35:05 paul Exp paul $
 %
 % Copyright (c) 2006, 2007 Paul Boekholt.
 % Released under the terms of the GNU GPL (version 2 or later).
@@ -308,14 +308,14 @@ define store_feed(feed, items)
    variable qfeed = str_quote_string(feed, "'", '\'');
    % We know what items are in the feed now, presumably old items
    % won't come back so we can erase them from the database
-   sqlite_exec(db, sprintf("delete from items where feed = '%s'", qfeed));
+   sqlite_exec(db, "delete from items where feed = ?", feed);
    foreach item (items)
      {
-	sqlite_exec (db, sprintf("insert or ignore into items (feed, title, link, is_read) values ('%s', '%s', '%s', '%d')",
-				 qfeed,
-				 str_quote_string(item.title, "'", '\''),
-				 str_quote_string(item.link, "'", '\''), 
-				 item.is_read));
+	sqlite_exec (db, "insert or ignore into items (feed, title, link, is_read) values (?, ?, ?, ?)",
+				 feed,
+				 item.title,
+				 item.link,
+				 item.is_read);
      }
 }
 
@@ -449,8 +449,7 @@ define get_item()
 	bob();
      }
    set_buffer_modified_flag(0);
-   sqlite_exec(db, sprintf("update items set is_read='1' where link='%s'",
-			   str_quote_string(item.link, "'", '\'')));
+   sqlite_exec(db, "update items set is_read='1' where link= ?", item.link);
    pop2buf(buf);
    set_line_color(color_number("normal"));
    variable next_line = wherefirst(u.lines > item.line);
@@ -591,15 +590,13 @@ public define newsflash()
    if (url == NULL)
      {
 	url = read_mini("New feed! URL", "", "");
-	sqlite_exec(db, sprintf("insert into feeds (name, url) values ('%s', '%s')",
-				str_quote_string(feed, "'", '\''),
-				str_quote_string(url, "'", '\'')));
+	sqlite_exec(db, "insert into feeds (name, url) values (?, ?)", feed, url);
      }
    else url = urls[url];
    variable p = rss_new(url);
    p.userdata.is_read = get_is_read(feed);
-   p.userdata.cleanlevel = sqlite_get_row(db, sprintf("select cleanlevel from feeds where name='%s'",
-					  str_quote_string(feed, "'", '\'')));
+   p.userdata.cleanlevel = sqlite_get_row(db, "select cleanlevel from feeds where name=?",
+					  feed);
    p.userdata.itemhandler = &item_handler;
    p.userdata.buffer = feed;
    pop2buf(feed);
@@ -630,14 +627,11 @@ public define read_rss_data(url, data)
    else
      {
 	feed = read_mini("name for this feed", "", "");
-	sqlite_exec(db, sprintf("insert into feeds (name, url) values ('%s', '%s')",
-				str_quote_string(feed, "'", '\''),
-				str_quote_string(url, "'", '\'')));
+	sqlite_exec(db, "insert into feeds (name, url) values (?, ?)", feed, url);
      }
    variable p = rss_new(url);
    p.userdata.is_read = get_is_read(feed);
-   p.userdata.cleanlevel = sqlite_get_row(db, sprintf("select cleanlevel from feeds where name='%s'",
-					  str_quote_string(feed, "'", '\'')));
+   p.userdata.cleanlevel = sqlite_get_row(db, "select cleanlevel from feeds where name=?", feed);
    p.userdata.itemhandler = &item_handler;
    p.userdata.buffer = feed;
    pop2buf(feed);
