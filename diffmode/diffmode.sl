@@ -1,29 +1,10 @@
-% diff_mode.sl -*- mode: Slang; mode: fold -*-
+% diff_mode.sl -*- mode: Slang; mode: fold -*-  
 %
 %%exts:%% diff, patch
 
 % Unified diff mode viewer and editor for Jed %{{{
-% version 1.0.0pre2
-% Written by Dino Leonardo Sangoi <dino@trieste.linux.it>
-% on a shiny day.
 % 
-% $Revision: 44 $
-% $Author: sangoid $
-% $Date: 2005-10-10 10:55:32 +0200 (Mon, 10 Oct 2005) $
-% 
-% 2007-04-27 <milde users.sf.net>
-%  * set default colors re-using existing color definitions
-%    (better defaults for non-black color schemes but still customisable)
-%  * removed pre Jed 0.99.16 compatibility hack
-%  * diff_top_of_file(), diff_top_of_block(): try below if there is no top 
-%    above -> lets diff_jump_to() also work from the top of the diff buffer
-%  * diff_jump_to(): ask for path if file not found
-%  * new: diff_jump() (after a patch by Lechee Lai)
-% 2007-07-21
-%  * frontend commands: diff(), diff_buffer(), diff_dir_files()
-%  * use of walk.sl now optional
-% 2007-07-24 bugfix in diff_buffer, documentation fix 
-% 2007-07-27 bugfix: diff_jump_to(): pop_spot after computing destination
+% Written by Dino Leonardo Sangoi <dino@trieste.linux.it> on a shiny day.
 % 
 % It does highlighting a bit like mcedit (the midnight commander editor) does.
 % (It uses dfa syntax highlighting).
@@ -31,11 +12,36 @@
 % It also helps editing diffs, usually an unsafe operation. Not that you
 % can do it blindly now, but at least this script can rebuild diff markers
 % after editing. You can also remove a whole block, adjusting the offsets
-% accordingly.
+% accordingly. Since version 2.1 you can also apply just one block.
 %
-% This works only on unified diffs right now, and probably forever (mostly
+% Editing works only on unified diffs right now, and probably forever (mostly
 % because I always use unified diffs).
 %
+% Versions
+% --------
+%
+% 1.0.0pre2 2005-10-10 by sangoid
+% 2.0       2007-04-27 "Jedmodes" branch by GM <milde users.sf.net>
+%    * set default colors re-using existing color definitions
+%      (better defaults for non-black color schemes but still customisable)
+%    * removed pre Jed 0.99.16 compatibility hack
+%    * diff_top_of_file(), diff_top_of_block(): try below if there is no top 
+%      above -> lets diff_jump_to() also work from the top of the diff buffer
+%    * diff_jump_to(): ask for path if file not found
+%    * new: diff_jump() (after a patch by Lechee Lai)
+% 2.1   2007-07-21
+%    * frontend commands: diff(), diff_buffer(), diff_dir_files()
+%    * use of walk.sl now optional
+% 2.1.1 2007-07-24 bugfix in diff_buffer, documentation fix 
+% 2.1.2 2007-07-27 bugfix: diff_jump_to(): pop_spot after computing destination
+% 2.2   2007-09-03
+%    * highlight trailing whitespace (too often this makes all of the difference)
+%    * bugfixes after report by P. Boekholt:
+%       - use of diff() before declaration
+%       - hidden dependency on shell_command()
+%       - spurious arg to pop2puf() in diff()
+%       - test for files in both dirs in diff_dir_files()
+% 
 % Usage
 % -----
 % 
@@ -116,6 +122,7 @@ custom_color("diff_block",   get_color("preprocess"));  % @@
 custom_color("diff_deleted", get_color("error"));       % -
 custom_color("diff_added",   get_color("keyword"));     % +
 custom_color("diff_junk",    get_color("comment"));     % Only / Binary
+custom_color("diff_white",   get_color("region"));	% (trailing) whitespace
 %}}}  
 
 %%%% Diff low level helpers %{{{
@@ -486,6 +493,7 @@ define diff_get_source_file_name(new)
 
 
 % apply just one block
+#ifexists bufsubfile
 define diff_apply_block()
 {
    variable patchfile, oldfile = diff_get_source_file_name(0);
@@ -497,21 +505,13 @@ define diff_apply_block()
    push_spot();
    diff_mark_block(0);
    () = append_region_to_file(patchfile);
-   shell_command(sprintf("patch %s %s", oldfile, patchfile));
+   do_shell_cmd(sprintf("patch %s %s", oldfile, patchfile));
    pop2buf(buf);
    pop_spot();
    diff_remove_block(1);
 }
+#endif
 
-%%%%}}}
-
-%%%% Re-run the diff command %{{{
-define diff_rerun()
-{
-   variable oldfile = diff_get_source_file_name(0);
-   variable newfile = diff_get_source_file_name(1);
-   diff(oldfile, newfile);
-}
 %%%%}}}
 
 %%%% Standard mode things: keymap, syntax, highlighting %{{{
@@ -545,26 +545,29 @@ create_syntax_table(Diff);
 
 #ifdef HAS_DFA_SYNTAX
 
+%%% DFA_CACHE_BEGIN %%%
 static define setup_dfa_callback (name)
 {
-	%%% DFA_CACHE_BEGIN %%%
-	dfa_enable_highlight_cache("diffmode.dfa", name);
-	dfa_define_highlight_rule("^diff .*$",      "diff_cmd",     name);
-	dfa_define_highlight_rule("^\+\+\+ .*$"R,   "diff_newfile", name);
-	dfa_define_highlight_rule("^--- .*$", 	    "diff_oldfile", name);
-	dfa_define_highlight_rule("^\+.*$"R,        "diff_added",   name);
-	dfa_define_highlight_rule("^\-.*$"R,        "diff_deleted", name);
-	dfa_define_highlight_rule("^Only .*$",      "diff_junk",    name);
-	dfa_define_highlight_rule("^Binary .*$",    "diff_junk",    name);
-	dfa_define_highlight_rule("^@@ .*$",        "diff_block",   name);
-	dfa_build_highlight_table(name);
-	% non-unified diffs:
-	dfa_define_highlight_rule("^> .*",          "diff_added",   name);
-	dfa_define_highlight_rule("^< .*",          "diff_deleted", name);
-	%%% DFA_CACHE_END %%%
+   % dfa_enable_highlight_cache("diffmode.dfa", name);
+   
+   dfa_define_highlight_rule("^diff .*",      "diff_cmd",     name);
+   dfa_define_highlight_rule("^\+\+\+ .*"R,   "diff_newfile", name);
+   dfa_define_highlight_rule("^--- .*",       "diff_oldfile", name);
+   dfa_define_highlight_rule("^\\+.*[^ \t]",    "diff_added",   name);
+   dfa_define_highlight_rule("^-.*[^ \t]",    "diff_deleted", name);
+   dfa_define_highlight_rule("^Only .*",      "diff_junk",    name);
+   dfa_define_highlight_rule("^Binary .*",    "diff_junk",    name);
+   dfa_define_highlight_rule("^@@ .*",        "diff_block",   name);
+   % non-unified diffs:
+   dfa_define_highlight_rule("^> .*",         "diff_added",   name);
+   dfa_define_highlight_rule("^< .*",         "diff_deleted", name);
+   % trailing whitespace
+   dfa_define_highlight_rule("[ \t]+$",       "Qdiff_white",   name);
+   
+   dfa_build_highlight_table(name);
 }
-
 dfa_set_init_callback(&setup_dfa_callback, Diff);
+%%% DFA_CACHE_END %%%
 
 % Highlighting NEEDS dfa for this mode to work.
 enable_dfa_syntax_for_mode(Diff);
@@ -937,9 +940,9 @@ public define diff() % (old, new)
 
    % Prepare the output buffer
 #ifexists popup_buffer
-   popup_buffer("*diff*");
+   popup_buffer("*diff*", 1.);  % use up to 100% of screen size
 #else
-   pop2buf("*diff*", 1.); % use up to 100% of screen size
+   pop2buf("*diff*");
 #endif
    set_readonly(0);
    erase_buffer();
@@ -974,16 +977,38 @@ public define diff_buffer()
 define diff_dir_files(dir1, dir2)
 {
    variable file, cmd;
+   dir1 = expand_filename(dir1);
+   dir2 = expand_filename(dir2);
    sw2buf("*diff*");
-   foreach (listdir(dir1))
+   erase_buffer();
+   vinsert("Comparing equally named files in '%s'\n", dir1);
+   vinsert("and '%s'\n", dir2);
+   foreach file (listdir(dir1))
      {  
-	newline();
-	file = ();
+	if(file_status(path_concat(dir2, file)) != 1)
+	  continue; % file does not exist in dir2
 	cmd = sprintf("diff -u %s %s", 
 	   path_concat(dir1, file), path_concat(dir2, file));
-	shell_perform_cmd(cmd, 1);
-	newline();
+	% Insert a separating header for every file pair
+	% TODO: Add a syntax highlight rule???
+	vinsert("*** diff '%s'\n", file);
+	insert("===============================================================\n");
+	set_prefix_argument(1);
+	do_shell_cmd(cmd);
+	eob();
+	newline;
      }
    diff_mode;
 }
 %}}}
+
+%%%% Re-run the diff command %{{{
+define diff_rerun()
+{
+   variable oldfile = diff_get_source_file_name(0);
+   variable newfile = diff_get_source_file_name(1);
+   diff(oldfile, newfile);
+}
+%%%%}}}
+
+
