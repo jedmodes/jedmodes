@@ -1,12 +1,10 @@
 %%  CUA (Windows/Mac/CDE/KDE-like) bindings for Jed.
 %% 
-%%  Copyright (c) 2003 Günter Milde
+%%  Copyright (c) 2006 Reuben Thomas, Guenter Milde (milde users.sf.net)
 %%  Released under the terms of the GNU General Public License (ver. 2 or later)
 %% 
-%%  based on the original cua.sl by Reuben Thomas
-%% 
 %%  Versions:
-%%  1   first version by Guenter Milde <milde users.sf.net>
+%%  1   first version by Günter Milde <milde users.sf.net>
 %%  1.1 05-2003    * triple (optional single) ESC-keypress aborts functions
 %%                 * fixed missing definition of Key_Ins
 %%                 * Key_Ctrl_Del calls cua_delete_word (was delete_word)
@@ -22,7 +20,14 @@
 %%  		     and compat16-15.sl (if needed)
 %%  1.5.1 2005-11-02 bugfix: bind ESC to "back_menu" in menu map
 %%  1.5.2 2006-01-17 more adaptions to the version of jed 0.99-17
-%% 
+%%  1.6   2006-06-16 remove the (optional) File>Print menu entry, so that
+%%  	  	     the user can decide whether to use apsmode.sl (with its 
+%%  	  	     Print menu popup or print.sl)
+%%  1.6.1 2007-09-03 bind eol() instead of eol_cmd() to Key_End, as eol_cmd
+%%  	  	     deletes trailing white which confuses moving and editing
+%%  	  	     and might not be desired.
+%%  	  	     
+%%                   
 %%  USAGE:
 %% 
 %%  put somewhere in your path and uncomment the line
@@ -30,14 +35,23 @@
 %%  in your .jedrc/jed.rc file
 %% 
 %%  ESC-Key: unfortunately, some function keys return "\e\e<something>"
-%%  as keystring. To have a single ESC-press aborting, insert
-%%     autoload("cua_one_press_escape", "cuamisc");
+%%  as keystring. To have a single ESC-press aborting, add in jed.rc 
+%%  either
+%%  
+%%     #ifdef XWINDOWS
+%%     x_set_keysym(0xFF1B, 0, Key_Esc);   % one-press-escape
+%%     #endif
+%%  
+%%  to get the one-press escape for xjed, or the experimental
+%%     
 %%     cua_one_press_escape();
-%%  into your .jedrc. **Attention**, except for xjed, this is an experimental
+%%     
+%%  **Attention**, except for xjed, this is an experimental
 %%  feature that can cause problems with functions that use getkey(),
-%%  (e.g. showkey(), wmark.sl (before jed 99.16), ...)
+%%  (e.g. isearch(), showkey(), wmark.sl (before jed 99.16), ...)
 %% 
 %%  Enhancements (optional helper modes from http://jedmodes.sf.net/):
+%%   x-keydefs.sl: even more symbolic constants for function and arrow keys
 %%   cuamouse.sl: cua-like mouse bindings
 %%   cuamark.sl:  cua-like marking/copy/paste using yp_yank.sl (a ring of
 %%                kill-buffers)
@@ -47,14 +61,14 @@
 
 % --- Requirements ------------------------------------------------------
 
-% load backwards compatibility code (if needed)
+% backwards compatibility code (for older Jed versions)
 if (_jed_version < 9915)
   require("compat16-15");
 if (_jed_version < 9916)
   require("compat17-16");
 
 require("cuamisc");   % "Outsourced" helper functions
-require("keydefs");   % Key definitions for Unix and DOS/Windos
+require("keydefs");   % symbolic constants for many function and arrow keys
 if(strlen(expand_jedlib_file("cuamark.sl")) and _jed_version >= 9916)
   require("cuamark");
 else
@@ -73,16 +87,19 @@ Help_File = "cua.hlp";
 % additional functions to
 _Reserved_Key_Prefix = "^E";  % Extended functionality :-)
 
-% ESC (unfortunately, some special keys return "\e\e<something>")
-% see USAGE at top for workaround
-setkey ("cua_escape_cmd", "\e\e\e");              % Triple-Esc -> abort
-definekey("back_menu", "\e\e\e", "menu"); % close menus
+% ESC key
+% unfortunately, some keys return strings starting with "\e\e", 
+% see USAGE above for workaround
+variable Key_Esc = "\e\e\e";
+setkey ("cua_escape_cmd", Key_Esc);              % Triple-Esc -> abort
+definekey("back_menu", Key_Esc, "menu"); % close (sub-)menus
 
 % Function keys
 setkey("menu_select_menu(\"Global.&Help\")",   Key_F1);
-%setkey("context_help",                        Key_Shift_F1); % with hyperhelp mode
+if (is_defined("context_help")) % from jedmodes.sf.net/mode/hyperhelp/
+  setkey("context_help",                       Key_Shift_F1); 
 setkey("cua_save_buffer",                      Key_F2);
-setkey("write_buffer",                         Key_Shift_F2); % save as
+setkey("save_buffer_as",                       Key_Shift_F2);
 setkey("cua_repeat_search",                    Key_F3);
 % setkey("menu_select_menu(\"Global.&Search\")", Key_F3); % open Search menu
 
@@ -91,7 +108,7 @@ setkey("cua_bdelete_char",                 Key_BS);
 setkey("cua_delete_char",                  Key_Del);
 setkey("toggle_overwrite",                 Key_Ins);
 setkey("beg_of_line",                      Key_Home);
-setkey("eol_cmd",                          Key_End);
+setkey("eol",                              Key_End);
 setkey("page_up",                          Key_PgUp);
 setkey("page_down",                        Key_PgDn);
 setkey("cua_bdelete_word",                 Key_Ctrl_BS);
@@ -145,15 +162,12 @@ setkey("describe_variable", 	"^HV");
 setkey("where_is", 		"^HW");
 setkey("menu_select_menu(\"Global.&Help\")", "^H?");
 
-if (is_defined("indent_region_or_line"))
-  setkey("indent_region_or_line", "^I");   % Key_Tab
-else
-  setkey("indent_line", "^I");   % Key_Tab: indent_line
+setkey("indent_line",           "^I");   % Key_Tab
 % setkey("self_insert_cmd", 	"^I");
 % setkey("",		   	"^J");   % Free!
 setkey("del_eol",		"^K");   % Kill line
 setkey("cua_repeat_search",	"^L");
-%  ^M = Key_Return
+%  ^M = Key_Enter
 setkey("next_buffer",      	"^N");   % Next buffer
 setkey("find_file",		"^O");   % Open file (cua default)
 %setkey ("print_buffer", 	"^P");   % Print (with print.sl)
@@ -182,12 +196,6 @@ private define cua_load_popup_hook (menubar)
 {
    menu_delete_item ("Global.&File.&Close");
    menu_insert_item("&Save", "Global.&File", "&Close Buffer", "delbuf(whatbuf)");
-   if (is_defined("print_buffer")) % print.sl or apsmode.sl from Jedmodes
-     {
-     menu_insert_item("Canc&el Operation", "Global.&File", "&Print", 
-		      "print_buffer");
-     menu_insert_separator("Canc&el Operation", "Global.&File");
-     }
    menu_insert_item (2, "Global.&Search", "Repeat &Search", "cua_repeat_search");
    menu_insert_item (3, "Global.&Search",
 		     "&Incremental Search Forward", "isearch_forward");
@@ -195,7 +203,6 @@ private define cua_load_popup_hook (menubar)
 		     "I&ncremental Search Backward", "isearch_backward");
    menu_insert_item ("&Replace", "Global.&Search",
 		     "Toggle &Case Search", "toggle_case_search");
-   menu_insert_separator ("&Replace", "Global.&Search");
 }
 append_to_hook ("load_popup_hooks", &cua_load_popup_hook);
 
