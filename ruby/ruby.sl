@@ -1,34 +1,21 @@
-% -*- SLang -*-         ruby.sl
-
-% Author:	MAEDA Shugo (shugo@po.aianet.ne.jp)
-
-% Modification by Wild Karl-Heinz ( kh dot wild aet wicom point li )
-% working with Jed Version 0.99.16 
-% can be found at http://wicom.at/wild_karlheinz/downlaods/ruby.sl
-
-% Version:	0.05
-
-% `Ruby mode for Jed' is FREE SOFTWARE, released under the terms of the 
-% GNU General Public License (version 2 or later)
-% Please use AT YOUR OWN RISK.
-
-% [What's ruby?]
-%
-%  Ruby is the interpreted scripting language for quick and
-%  easy object-oriented programming.  It has many features to
-%  process text files and to do system management tasks (as in
-%  perl).  It is simple, straight-forward, and extensible.
-%
-%  The ruby distribution can be found on
+% ruby.sl
 % 
-%    http://www.ruby-lang.org/
-
+% $Id$
+% 
+% Copyright (c) ca.
+%  2000 Shugo Maeda
+%  2002 Johann Gerell
+%  2003 Karl-Heinz Wild
+%  2007 Guenter Milde
+%  2007 Paul Boekholt
+% Released under the terms of the GNU GPL (version 2 or later).
+% 
 % [Install]
 %
 % Please add these lines to your `jed.rc' file 
 % (e.g. ~/.jedrc or ~/.jed/jed.rc).
 %
-%     % Load ruby mode when openning `.rb' files.   
+%     % Load ruby mode when opening `.rb' files.   
 %     autoload("ruby_mode", "ruby");
 %     add_mode_for_extension ("ruby", "rb");
 %
@@ -37,199 +24,211 @@
 %     % amount of space to indent within block.
 %     variable ruby_indent_level = 2;
 
+require("comments");
 
-custom_variable("ruby_indent_level", 3);
+custom_variable("ruby_indent_level", 2);
 
-define ruby_indent_to(n)
+private define ruby_indent_to(n)
 {
-   variable step;
-   
-   step = what_column();
-   bol_skip_white();
-   step -= what_column();
-   if (what_column != n) {
-      bol_trim ();
-      n--;
-      whitespace (n);
-   }
-   if (step > 0) go_right(step);
-}
-
-define ruby_looking_keyword_at(keyword)
-{
-   push_spot;
-   EXIT_BLOCK {
-      pop_spot;
-   }
-   
-   if (looking_at(keyword)) 
+   push_spot();
+   try
      {
-	go_right(strlen(keyword));
-	return( orelse
-	   { looking_at(" ") }
-	     { looking_at("\t") }
-	     { looking_at(";") }
-	     { eolp() }
-	   );
-     } else {
-	return 0;
+	bol_skip_white();
+	if (what_column() != n)
+	  {
+	     bol_trim ();
+	     whitespace (n - 1);
+	  }
+     }
+   finally
+     {
+	pop_spot();
+	if (bolp())
+	  goto_column(n);
      }
 }
 
-define ruby_calculate_indent()
+private define looking_at_keyword(keyword)
+{
+   push_spot();
+   try
+     {
+	if (looking_at(keyword)) 
+	  {
+	     go_right(strlen(keyword));
+	     return orelse
+	       { looking_at(" ") }
+	       { looking_at("\t") }
+	       { looking_at(";") }
+	       { eolp() };
+	  }
+	else
+	  {
+	     return 0;
+	  }
+     }
+   finally
+     {
+	pop_spot();
+     }
+}
+
+private define ruby_calculate_indent()
 {
    variable indent = 0;
    variable extra_indent = 0;
    variable ch;
    variable par_level;
+   variable case_search = CASE_SEARCH;
+   CASE_SEARCH = 1;
    
-   CASE_SEARCH = 0;
    push_spot();
-   EXIT_BLOCK {
-      pop_spot();
-   }
-   
-   bol_skip_white();
-   indent = what_column();
-   if (orelse
-      { ruby_looking_keyword_at("end") }
-	{ ruby_looking_keyword_at("else") }
-	{ ruby_looking_keyword_at("elsif") }
-	{ ruby_looking_keyword_at("rescue") }
-	{ ruby_looking_keyword_at("ensure") }
-	{ ruby_looking_keyword_at("when") }
-	{ looking_at("}") }
-      ) {
-      extra_indent -= ruby_indent_level;
-   }
-   !if (up_1()) return indent;
-   
-   eol();
-   par_level = 0;
-   forever {
-      if (eolp()) {
-	 forever {
-	    bol();
-	    if (looking_at("#")) {
-	       !if (up_1()) return indent;
-	       eol();
-	    } else {
-	       eol();
-	       break;
-	    }
-	 }
-      }
-      go_left_1();
-      ch = what_char();
-      if (ch == ')') {
-	 par_level--;
-      } else if (ch == '(') {
-	 par_level++;
-	 if (par_level == 1) return what_column() + 1;
-      }
-      
-      if (bolp() and (par_level == 0)) {
-	 skip_white();
-	 indent = what_column();
-	 break;
-      }
-   }
-   
-   if (looking_at("#")) return what_column();
-   
-   if (orelse
-      { ruby_looking_keyword_at("class") }
-	{ ruby_looking_keyword_at("module") }
-	{ ruby_looking_keyword_at("def") }
-	{ ruby_looking_keyword_at("if") }
-	{ ruby_looking_keyword_at("else") }
-	{ ruby_looking_keyword_at("elsif") }
-	{ ruby_looking_keyword_at("unless") }
-	{ ruby_looking_keyword_at("case") }
-	{ ruby_looking_keyword_at("when") }
-	{ ruby_looking_keyword_at("while") }
-	{ ruby_looking_keyword_at("until") }
-	{ ruby_looking_keyword_at("for") }
-	{ ruby_looking_keyword_at("begin") }
-	{ ruby_looking_keyword_at("rescue") }
-	{ ruby_looking_keyword_at("ensure") }
-      ) {
-      eol();
-      bskip_white();
-      !if (orelse
-	 { blooking_at(" end") }
-	   { blooking_at("\tend") }
-	 ) {
-	 extra_indent += ruby_indent_level;
-      }
-   } else {
-      eol();
-      bskip_white();
-      if (blooking_at("{"))
-	extra_indent += ruby_indent_level;
-      else if (blooking_at("|"))
-	extra_indent += ruby_indent_level;
-      else if (blooking_at(" do"))
-	extra_indent += ruby_indent_level;
-   }
-   
-   return indent + extra_indent;
+   try
+     {
+	bol_skip_white();
+	indent = what_column();
+	if (orelse
+	    { looking_at_keyword("end") }
+	      { looking_at_keyword("else") }
+	      { looking_at_keyword("elsif") }
+	      { looking_at_keyword("rescue") }
+	      { looking_at_keyword("ensure") }
+	      { looking_at_keyword("when") }
+	      { looking_at("}") })
+	  {
+	     extra_indent -= ruby_indent_level;
+	  }
+	!if (up_1()) return indent;
+	
+	eol();
+	par_level = 0;
+	forever
+	  {
+	     if (eolp())
+	       {
+		  forever
+		    {
+		       bol();
+		       if (looking_at("#"))
+			 {
+			    !if (up_1()) return indent;
+			    eol();
+			 }
+		       else
+			 {
+			    eol();
+			    break;
+			 }
+		    }
+	       }
+	     go_left_1();
+	     ch = what_char();
+	     if (ch == ')')
+	       {
+		  par_level--;
+	       }
+	     else if (ch == '(')
+	       {
+		  par_level++;
+		  if (par_level == 1) return what_column() + 1;
+	       }
+	     
+	     if (bolp() and (par_level == 0))
+	       {
+		  skip_white();
+		  indent = what_column();
+		  break;
+	       }
+	  }
+	
+	if (looking_at("#")) return what_column();
+	
+	if (orelse
+	    { looking_at_keyword("class") }
+	      { looking_at_keyword("module") }
+	      { looking_at_keyword("def") }
+	      { looking_at_keyword("if") }
+	      { looking_at_keyword("else") }
+	      { looking_at_keyword("elsif") }
+	      { looking_at_keyword("unless") }
+	      { looking_at_keyword("case") }
+	      { looking_at_keyword("when") }
+	      { looking_at_keyword("while") }
+	      { looking_at_keyword("until") }
+	      { looking_at_keyword("for") }
+	      { looking_at_keyword("begin") }
+	      { looking_at_keyword("rescue") }
+	      { looking_at_keyword("ensure") })
+	  {
+	     eol();
+	     bskip_white();
+	     !if (orelse
+		  { blooking_at(" end") }
+		    { blooking_at("\tend") })
+	       {
+		  extra_indent += ruby_indent_level;
+	       }
+	  }
+	else
+	  {
+	     eol();
+	     bskip_white();
+	     if (orelse { blooking_at("{") }
+		   { blooking_at("|") }
+		   { blooking_at(" do") })
+	       extra_indent += ruby_indent_level;
+	  }
+	
+	return indent + extra_indent;
+     }
+   finally
+     {
+	pop_spot();
+	CASE_SEARCH = case_search;
+     }
 }
 
-define ruby_indent_line()
+private define ruby_indent_line()
 {
    ruby_indent_to(ruby_calculate_indent());
 }
 
-define ruby_newline_and_indent()
+private define check_endblock()
 {
    variable step;
    step = what_column();
    bol_skip_white();
    step -= what_column();
    if (orelse
-      { looking_at("end") }
-	{ looking_at("else") }
-	{ looking_at("elsif") }
-	{ looking_at("rescue") }
-	{ looking_at("ensure") }
-	{ looking_at("when") }
-	{ looking_at("}") }
-      ) {
-      ruby_indent_line();
-   }
+       { looking_at("end") }
+	 { looking_at("else") }
+	 { looking_at("elsif") }
+	 { looking_at("rescue") }
+	 { looking_at("ensure") }
+	 { looking_at("when") }
+	 { looking_at("}") })
+     {
+	ruby_indent_line();
+     }
    go_right(step);
+}
+
+define ruby_newline_and_indent()
+{
+   check_endblock();
    newline();
    ruby_indent_line();
 }
 
 define ruby_self_insert_cmd()
 {
-   variable step;
-   
    insert_char(LAST_CHAR);
-   step = what_column();
-   bol_skip_white();
-   step -= what_column();
-   if( orelse
-      { looking_at("end") }
-	{ looking_at("else") }
-	{ looking_at("elsif") }
-	{ looking_at("rescue") }
-	{ looking_at("ensure") }
-	{ looking_at("when") }
-	{ looking_at("}") }
-      ) 
-     {
-	ruby_indent_line();
-     }
-   go_right( step );
+   check_endblock();
 }
 
 % Define keymap.
 private variable mode = "ruby";
 !if (keymap_p (mode)) make_keymap (mode);
-definekey ("ruby_show_version", "^Cv", mode);
 definekey ("ruby_self_insert_cmd", "0", mode);
 definekey ("ruby_self_insert_cmd", "1", mode);
 definekey ("ruby_self_insert_cmd", "2", mode);
@@ -300,9 +299,9 @@ definekey ("ruby_self_insert_cmd", ";", mode);
 % Create syntax table.
 create_syntax_table (mode);
 define_syntax ("#", Null_String, '%', mode);
-define_syntax ("([{<", ")]}>", '(', mode);
+define_syntax ("([{", ")]}", '(', mode);
 define_syntax ('"', '"', mode);
-define_syntax ('\'', '\'', mode);
+define_syntax ('\'', '"', mode);
 define_syntax ('\\', '\\', mode);
 define_syntax ("$0-9a-zA-Z_", 'w', mode);
 define_syntax ("-+0-9a-fA-F.xXL", '0', mode);
@@ -315,10 +314,10 @@ dfa_enable_highlight_cache("ruby.dfa", mode);
 dfa_define_highlight_rule("#.*$", "comment", mode);
 dfa_define_highlight_rule("([\\$%&@\\*]|\\$#)[A-Za-z_0-9]+", "normal", mode);
 dfa_define_highlight_rule(strcat("\\$([_\\./,\"\\\\#\\*\\?\\]\\[;!@:\\$<>\\(\\)",
-   "%=\\-~\\^\\|&`'\\+]|\\^[A-Z])"), "normal", mode);
+				 "%=\\-~\\^\\|&`'\\+]|\\^[A-Z])"), "normal", mode);
 dfa_define_highlight_rule("[A-Za-z_][A-Za-z_0-9]*", "Knormal", mode);
 dfa_define_highlight_rule("[0-9]+(\\.[0-9]+)?([Ee][\\+\\-]?[0-9]*)?", "number",
-   mode);
+			  mode);
 dfa_define_highlight_rule("0[xX][0-9A-Fa-f]*", "number", mode);
 dfa_define_highlight_rule("[\\(\\[\\{\\<\\>\\}\\]\\),;\\.\\?:]", "delimiter", mode);
 dfa_define_highlight_rule("[%\\-\\+/&\\*=<>\\|!~\\^]", "operator", mode);
@@ -330,13 +329,13 @@ dfa_define_highlight_rule("\"([^\"\\\\]|\\\\.)*\\\\?$", "string", mode);
 dfa_define_highlight_rule("m?/([^/\\\\]|\\\\.)*/[gio]*", "string", mode);
 dfa_define_highlight_rule("m/([^/\\\\]|\\\\.)*\\\\?$", "string", mode);
 dfa_define_highlight_rule("s/([^/\\\\]|\\\\.)*(/([^/\\\\]|\\\\.)*)?/[geio]*",
-   "string", mode);
+			  "string", mode);
 dfa_define_highlight_rule("s/([^/\\\\]|\\\\.)*(/([^/\\\\]|\\\\.)*)?\\\\?$",
-   "string", mode);
+			  "string", mode);
 dfa_define_highlight_rule("(tr|y)/([^/\\\\]|\\\\.)*(/([^/\\\\]|\\\\.)*)?/[cds]*",
-   "string", mode);
+			  "string", mode);
 dfa_define_highlight_rule("(tr|y)/([^/\\\\]|\\\\.)*(/([^/\\\\]|\\\\.)*)?\\\\?$",
-   "string", mode);
+			  "string", mode);
 dfa_define_highlight_rule(".", "normal", mode);
 dfa_build_highlight_table (mode);
 #endif
@@ -349,16 +348,20 @@ dfa_build_highlight_table (mode);
 () = define_keywords_n(mode, "ensuremodulerescuereturnunless", 6, 0);
 () = define_keywords_n(mode, "includerequire", 7, 0);
 () = define_keywords_n(mode, "autoload", 8, 0);
-% Type 1 keywords (commonly used libc functions)
+% Type 1 keywords
 () = define_keywords_n(mode, "TRUE", 4, 1);
 () = define_keywords_n(mode, "FALSE", 5, 1);
+
+set_comment_info(mode, "# ", "", 4);
 
 public define ruby_mode()
 {
    set_mode(mode, 2);
    use_keymap(mode);
    use_syntax_table(mode);
-   set_buffer_hook("indent_hook", "ruby_indent_line");
+   set_buffer_hook("indent_hook", &ruby_indent_line);
    set_buffer_hook("newline_indent_hook", "ruby_newline_and_indent"); 
    runhooks("ruby_mode_hook");
 }
+
+provide("ruby");
