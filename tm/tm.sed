@@ -1,20 +1,18 @@
-# tm.sed  -*- mode: sed -*-
+#!/bin/sed -f
 #
 # $Id$
-# Keywords: doc, slang
 # 
-# copyright (c) 2004 Paul Boekholt
+# copyright (c) 2004, 2007 Paul Boekholt
 # Released under the terms of the GNU GPL (version 2 or later).
 # 
-# This is a 'my first sed script' to extract tm documentation from
-# S-Lang sources and render it as ASCII text.
+# This is a sed script to extract tm documentation from S-Lang sources and
+# render it as ASCII text.
 
 # This matches beginning and end of a tm entry. The entire script
 # is in this block.
-#/^%!%\+/,/^%!%-/{
 /^%!%[+]/,/^%!%-/{
 s/%!%[+]//
-s/%!%[-]/--------------------------------------------------------------------/
+s/%!%[-]/--------------------------------------------------------------/
 s/^%/  /
 # verbatim
 /^  #v+/,/  #v-/{
@@ -25,9 +23,19 @@ p
 d
 }
 
-# \var, \em
-s/\\var{\([^}]*\)}/`\1'/g
-s/\\em{\([^}]*\)}/_\1_/g
+# \var, \ivar, \svar, \ifun, \sfun, \exmp
+# { and } characters inside parameter lists are escaped
+# this scripts supports at most one such character
+s/\\\(var\|ivar\|svar\|ifun\|sfun\|exmp\){\([^}]*\)\\}\([^}]*\)}/`\2}\3'/g
+s/\\\(var\|ivar\|svar\|ifun\|sfun\|exmp\){\([^}]*\)\\{\([^}]*\)}/`\2{\3'/g
+s/\\\(var\|ivar\|svar\|ifun\|sfun\|exmp\){\(\(\\}\|[^}]\)*\)}/`\2'/g
+
+# \em
+s/\\em{\(\(\\}\|[^}]\)*\)}/_\1_/g
+
+# \NULL, \slang
+s/\\NULL/NULL/g
+s/\\slang/S-Lang/g
 
 # \function, \variable
 s/  \\function{\([^}]*\)}/\1/
@@ -45,14 +53,12 @@ s/\\usage{\([^}]*\)}/\
     \1/
 
 s/\\description/\
- DESCRIPTION\
-/
+ DESCRIPTION/
 s/\\example/\
- EXAMPLE\
-/
+ EXAMPLE/
 s/\\notes/\
- NOTES\
-/
+ NOTES/
+
 
 # undouble \-es
 s/\\\\/\\/g
