@@ -1,11 +1,11 @@
 % sqlited.sl
 % 
-% $Id: sqlited.sl,v 1.1 2006/08/22 06:23:26 paul Exp paul $
+% $Id: sqlited.sl,v 1.3 2007/09/15 06:20:53 paul Exp paul $
 %
-% Copyright (c) 2006 Paul Boekholt.
+% Copyright (c) 2006,2007 Paul Boekholt.
 % Released under the terms of the GNU GPL (version 2 or later).
 % 
-% SQLite administration utility.  Sqlited rompts for a database to open.  The
+% SQLite administration utility.  Sqlited prompts for a database to open.  The
 % tables and views in the database are shown in an index buffer.  From there
 % you can open open tables, views, SQL commands and SQL query results in other
 % buffers.  The database handle is passed to the table and sql buffers in a
@@ -15,10 +15,15 @@
 
 provide("sqlited");
 require("sqlite");
+require("bufutils");
 require("csvutils");
 require("listing");
 autoload("add_keyword_n", "syntax");
 private variable mode = "sqlited";
+
+%{{{ prototypes
+define sqlited();
+%}}}
 
 %{{{ table viewer
 
@@ -47,7 +52,7 @@ private define delete_tagged()
    pop_spot();
    variable db = get_blocal_var("db"),
    tablename = get_blocal_var("tablename");
-   sqlite_exec(db, sprintf("delete from '%s' where _ROWID_ in (%s)",
+   sqlite_exec(db, sprintf("delete from '%s' where _ROWID_  in (%s)",
 			   tablename, list_tagged_records()));
    listing_map(2, &delete_tagged_line);
 }
@@ -62,16 +67,27 @@ private define edit()
 						   column, tablename, rowid));
    default = default[1,0];
    variable new_value = read_mini("new value", "", default);
-   sqlite_exec(db, sprintf("update '%s' set '%s'='%s' where _ROWID_ = '%s'", tablename, column,
-			   str_quote_string(new_value, ",", '\''), rowid));
+   sqlite_exec(db, sprintf("update '%s' set '%s'= ? where _ROWID_ = ?",
+			   tablename, column),
+	       new_value, rowid);
    % Todo: update the line in the buffer.
 }
 
+private define index()
+{
+   variable db = get_blocal_var("db"),
+   filename = get_blocal_var("filename");
+   variable indexbuf = sprintf("*sqlited:%s*", filename);
+   if (bufferp(indexbuf)) sw2buf (indexbuf);
+   else sqlited(filename, db);
+}
+   
 !if (keymap_p(mode))
   copy_keymap(mode, "listing");
 
 definekey(&delete_tagged, "x", mode);
 definekey(&edit, "e", mode);
+definekey(&index, "i", mode);
 
 %!%+
 %\function{sqlite_table_mode}
@@ -84,39 +100,24 @@ definekey(&edit, "e", mode);
 %  \var{x}  Delete marked records
 %  \var{e}  Edit the record at point.  Prompts for a field to change and a
 %       value to change it to.  The change is not reflected in the buffer.
-%\notes
-%   Don't call this function directly.  You should open a database file with
-%   \sfun{sqlited} and then select a table in the index buffer.
-%\seealso{sqlited}
+%  \var{i}  Return to the index buffer
+%\seealso{sqlited, sqlite_table}
 %!%-
-define sqlite_table_mode()
+private define sqlite_table_mode()
 {
    listing_mode();
    use_keymap(mode);
    set_mode("sqlite_table", 0);
 }
 
-private define view_table()
-{
-   variable db = get_blocal_var("db");
-   variable tabletype, tablename, align = "", table;
-   (tabletype, tablename) = str_split(line_as_string(), 8);
-   variable filename=get_blocal_var("filename");
-   if (tabletype == "table: ")
-     {
-	table = sqlite_get_table(db, sprintf("select _ROWID_, * from '%s'", tablename));
-	align = "l";
-     }
-   else if (tabletype == "view:  ")
-     table = sqlite_get_table(db, sprintf("select * from '%s'", tablename));
-   else throw RunTimeError, "not looking at a view or table";
-   !if (length(table)) return message("table is empty");
+private define popup_view_or_table(db, filename, table, tablename, align)
+{  
    table[where(_isnull(table))] = "";
    % trim multiline fields - maybe csvutils should do this
    table = array_map(String_Type, &extract_element, table, 0, '\n');
    % truncate to 50 chars
    table = array_map(String_Type, &substr, table, 1, 50);
-   pop2buf(sprintf("*sqlited:%s/%s*", path_basename(filename), tablename));
+   popup_buffer(sprintf("*sqlited:%s/%s*", path_basename(filename), tablename));
    set_readonly(0);
    erase_buffer();
    variable columns="", column, type;
@@ -136,11 +137,63 @@ private define view_table()
    define_blocal_var("db", db);
    define_blocal_var("columns", columns);
    define_blocal_var("tablename", tablename);
-   if (tabletype == "table: ")
-     sqlite_table_mode();
-   else
-     view_mode();
+   define_blocal_var("filename", filename);
 }
+
+%!%+
+%\function{sqlited_table}
+%\synopsis{edit a SQLite database table}
+%\usage{sqlited_table(db, filename, tablename)}
+%\description
+%  This opens a table of an open SQLite database in the \var{sqlited} table
+%  editing mode.
+%\notes
+%  
+%\seealso{sqlited, sqlite_mode, sqlited_view}
+%!%-
+public define sqlited_table(db, filename, tablename)
+{
+   variable table;
+   table = sqlite_get_table(db, sprintf("select _ROWID_, * from '%s'", tablename));
+   !if (length(table)) return message("table is empty");
+   popup_view_or_table(db, filename, table, tablename, "l");
+   sqlite_table_mode();
+}
+
+%!%+
+%\function{sqlited_view}
+%\synopsis{open a SQLite database view}
+%\usage{sqlited_view(db, filename, tablename)}
+%\description
+%  This  a view of an open SQLite database in view_mode.
+%\seealso{sqlited, sqlite_mode, sqlited_table}
+%!%-
+public define sqlited_view(db, filename, tablename)
+{
+   variable table;
+   table = sqlite_get_table(db, sprintf("select * from '%s'", tablename));
+   !if (length(table)) return message("view is empty");
+   popup_view_or_table(db, filename, table, tablename, "");
+   view_mode();
+}
+
+private define view_table()
+{
+   variable db = get_blocal_var("db");
+   variable indexbuf=whatbuf();
+   variable tabletype, tablename, align = "", table;
+   (tabletype, tablename) = str_split(line_as_string(), 9);
+   variable filename=get_blocal_var("filename");
+   if (tabletype == "table:  ")
+     {
+	sqlited_table(db, filename, tablename);
+     }
+   else if (tabletype == "view:   ")
+     {
+	sqlited_view(db, filename, tablename);
+     }
+}
+
 
 %}}}
 
@@ -226,7 +279,7 @@ private define sqlite_query()
    variable query = read_mini("query", "", "");
    variable table = sqlite_get_table(db, query);
    !if(length(table)) return message("no matching records");
-   pop2buf("*sqlite result*");
+   popup_buffer("*sqlite result*");
    set_readonly(0);
    erase_buffer();
    vinsert ("results of \"%s\"\n", query);
@@ -249,13 +302,16 @@ private define sqlite_command()
 private define edit_view()
 {
    variable db = get_blocal_var("db"), type, table;
-   (type, table) = str_split(line_as_string(), 8);
-   if (type != "view:  ")
-     throw RunTimeError, "not looking at a view";
+   (type, table) = str_split(line_as_string(), 9);
+   if (type != "view:   " and type != "trigger:")
+     throw RunTimeError, "not looking at a view or trigger";
    pop2buf(sprintf("*sqlite:%s/%s*", path_basename(get_blocal_var("filename"), table)));
    erase_buffer();
+   if (type == "view:  ")
    vinsert("drop view '%s';\n", table);
-   insert(sqlite_get_row(db, sprintf("select sql from sqlite_master where name='%s'", table)));
+   else
+     vinsert("drop trigger '%s';\n", table);
+   insert(sqlite_get_row(db, "select sql from sqlite_master where name = ?", table));
    set_buffer_modified_flag(0);
    sqlite_mode();
    define_blocal_var("db", db);
@@ -267,16 +323,21 @@ private define drop_table()
 {
    variable db = get_blocal_var("db"),
    table, type;
-   (type, table)= str_split(line_as_string(), 8);
-   if (type == "table: ")
+   (type, table)= str_split(line_as_string(), 9);
+   if (type == "table:  ")
      {
 	!if (get_y_or_n(sprintf("really drop table %s", table))) return;
 	sqlite_exec(db, sprintf("drop table '%s'", table));
      }
-   else if (type == "view:  ")
+   else if (type == "view:   ")
      {
 	!if (get_y_or_n(sprintf("really drop view %s", table))) return;
 	sqlite_exec(db, sprintf("drop view '%s'", table));
+     }
+   else if (type == "trigger:")
+     {
+	!if (get_y_or_n(sprintf("really drop trigger %s", table))) return;
+	sqlite_exec(db, sprintf("drop trigger '%s'", table));
      }
    else throw RunTimeError, "not looking at a view or table";
    set_readonly(0);
@@ -289,7 +350,7 @@ private define rename_table()
 {
    variable db = get_blocal_var("db"),
    table, type;
-   (type, table) = str_split(line_as_string(), 8);
+   (type, table) = str_split(line_as_string(), 9);
    if (type != "table:  ")
      throw RunTimeError, "not looking at a table";
    variable name = read_mini("rename to ", "", "");
@@ -302,7 +363,36 @@ private define rename_table()
    set_buffer_modified_flag(0);
    set_readonly(1);
 }
-  
+
+private define read_index()
+{
+   variable db = get_blocal_var("db");
+   create_syntax_table("sqlite");
+   set_readonly(0);
+   erase_buffer();
+   variable name, type, column;
+   foreach name, type (db) using ("SELECT name, type FROM sqlite_master WHERE type in ('table', 'view', 'trigger')"
+		       +" AND name NOT LIKE 'sqlite_%' ORDER BY 1")
+     {
+	add_keyword_n("sqlite", name, 2);
+	if (type == "table")
+	  {
+	     foreach (db) using (sprintf("PRAGMA table_info('%s')", name))
+	       {
+		  (,column,,,,) = ();
+		  add_keyword_n("sqlite", column, 2);
+	       }
+	     vinsert("table:  %s\n", name);
+	  }
+	else if (type == "trigger")
+	  vinsert("trigger:%s\n", name);
+	else
+	  vinsert("view:   %s\n", name);
+     }
+   set_buffer_modified_flag(0);
+   set_readonly(1);
+}
+
 !if (keymap_p("sqlite_index"))
     copy_keymap("sqlite_index", "view");
 definekey(&sqlite_command, "c", "sqlite_index");
@@ -310,6 +400,7 @@ definekey(&edit_view, "e", "sqlite_index");
 definekey(&sqlite_query, "?", "sqlite_index");
 definekey(&drop_table, Key_Del, "sqlite_index");
 definekey(&rename_table, "r", "sqlite_index");
+definekey(&read_index, "^r", "sqlite_index");
 definekey(&view_table, "^M", "sqlite_index");
 
 %!%+
@@ -327,39 +418,28 @@ definekey(&view_table, "^M", "sqlite_index");
 %          statement for you, to update the view just call \sfun{run_buffer}.
 % \var{?}      prompts for a query in the minibuffer, and shows the result of the
 %          query in its own buffer.
+% \var{C-r}    reread the index
 % \var{enter}  open the table at point in \var{sqlite_table_mode}.
 %\seealso{sqlite_table_mode, sqlite_mode}
 %!%-
 define sqlited()
 {
-   variable filename = read_file_from_mini("sqlite file");
-   variable db = sqlite_open(filename);
+   variable filename, db;
+   if (_NARGS == 2)
+     {
+	(filename, db) = ();
+     }
+   else
+   {
+      filename = read_file_from_mini("sqlite file");
+      db = sqlite_open(filename);
+   }
    variable bufname = sprintf("*sqlited:%s*", path_basename(filename));
    pop2buf(bufname);
    setbuf_info(path_basename(filename), path_dirname(filename), bufname, 0);
-   set_readonly(0);
-   erase_buffer();
-   variable name, type, column;
-   foreach name, type (db) using ("SELECT name, type FROM sqlite_master WHERE type in ('table', 'view')"
-		       +" AND name NOT LIKE 'sqlite_%' ORDER BY 1")
-     {
-	add_keyword_n("sqlite", name, 2);
-	if (type == "table")
-	  {
-	     foreach (db) using (sprintf("PRAGMA table_info('%s')", name))
-	       {
-		  (,column,,,,) = ();
-		  add_keyword_n("sqlite", column, 2);
-	       }
-	     vinsert("table: %s\n", name);
-	  }
-	else
-	  vinsert("view:  %s\n", name);
-     }
-   set_buffer_modified_flag(0);
-   set_readonly(1);
    define_blocal_var("db", db);
    define_blocal_var("filename", filename);
+   read_index();
    use_keymap("sqlite_index");
    set_mode("sqlited", 0);
    set_buffer_hook("newline_indent_hook", &view_table);
