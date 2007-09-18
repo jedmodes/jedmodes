@@ -1,6 +1,6 @@
 % gdbmrecent.sl
 % 
-% $Id: gdbmrecent.sl,v 1.6 2007/02/07 17:58:32 paul Exp paul $
+% $Id: gdbmrecent.sl,v 1.7 2007/09/18 19:07:59 paul Exp paul $
 % Keywords: convenience
 %
 % Copyright (c) 2004-2007 Paul Boekholt.
@@ -97,7 +97,7 @@ private define open_hook ()
    if (db != NULL)
      val = db[filename];
    if (val != NULL)
-     if (4 == sscanf(val, "%d:%d:%d%s", &date, &line, &column, &pvars))
+     if (3 <= sscanf(val, "%d:%d:%d%s", &date, &line, &column, &pvars))
      {
 	% goto saved position
 	goto_line(line);
