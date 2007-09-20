@@ -10,6 +10,7 @@
 % 2005-09-11 0.3   added delete_hidden_lines() and copy_visible_lines()
 % 2006-06-09 0.3.1 INITIALIZATION: moved the menu entries to a popup
 % 2007-08-31 0.3.2 bugfix in delete_hidden_lines() (J. Sommer, GM)
+% 2007-09-20 0.3.3 copy_visible_lines() now works also for readonly buffers
 %
 % Usage
 % -----
@@ -190,10 +191,14 @@ public define copy_visible_lines()
    while (down_1);
    widen();
    pop_spot();
-   % move string to kill-ring
+   % move string to kill-ring 
+   % (use tmp buffer as the current one might be read-only)
+   sw2buf(make_tmp_buffer_name("visible_lines")); 
    push_mark();
    insert(str);
    yp_kill_region();
+   set_buffer_modified_flag(0);
+   delbuf(whatbuf);
 }
 
 %!%+
