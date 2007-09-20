@@ -17,6 +17,9 @@
 % 	     	   Documentation update, cleanup, 
 % 	     	   bugfixes: Case sensitivity, Ding_Dictionary
 % 2007-06-03 1.4   convert iso-latin1 <-> UTF-8 if not in UTF-8 mode.
+% 2007-09-20 1.4.1 reset blocal var "encoding" with buffer re-use,
+% 	     	   use List for blocal var "generating_function"
+% 	     	   
 %
 % Usage
 % -----
@@ -57,11 +60,10 @@ require("sl_utils"); % basic stuff
 require("bufutils");
 autoload("get_word", "txtutils");
 autoload("bget_word", "txtutils");
-autoload("array", "datutils");
 autoload("get_table", "csvutils");
 autoload("insert_table", "csvutils");
-autoload("strtrans_lat1_to_utf8", "utf8helper");
-autoload("utf8_to_lat1", "utf8helper");
+autoload("strtrans_latin1_to_utf8", "utf8helper");
+autoload("utf8_to_latin1", "utf8helper");
 % standard mode not loaded by default
 require("keydefs"); % symbolic constants for many function and arrow keys
 
@@ -137,7 +139,7 @@ private define ding_status_line()
 			       Direction_Names[Ding_Direction]);
    str = sprintf("Look up[%s] %s  (Case %d, Word_Search %d)",
 			  languages,
-			  @get_blocal("generating_function")[1],
+			  get_blocal("generating_function")[1],
 			  CASE_SEARCH,
 			  Ding_Word_Search);
    set_status_line(str + " (%p)", 0);
@@ -201,9 +203,7 @@ private define string_wc(str)
    return length(strtok(str));
 }
 
-% forward definitions for recursive use
-public  define ding();      
-public  define ding_mode();
+public  define ding_mode(); % forward definition
 
 public define ding() % ([word], direction=Ding_Direction)
 {
@@ -213,7 +213,7 @@ public define ding() % ([word], direction=Ding_Direction)
      word = read_mini("word to translate:", bget_word(), "");
    % poor mans utf-8 conversion
    !if (_slang_utf8_ok)
-     word = strtrans_lat1_to_utf8(word);
+     word = strtrans_latin1_to_utf8(word);
 
    variable pattern, lookup_cmd = "grep",
      file = extract_element(Dictionaries[Ding_Dictionary], 0, '\n'),
@@ -237,17 +237,21 @@ public define ding() % ([word], direction=Ding_Direction)
    popup_buffer(Dingbuf);
    set_readonly(0);
    erase_buffer();
+   
    % call the grep command
    flush("calling " + lookup_cmd);
    shell_perform_cmd(lookup_cmd, 1);
+
    delete_comments();
    % find out which language the word is from
    fsearch(word);
    variable source_lang = not(ffind(sep));
-   define_blocal_var("delimiter", sep);
-   define_blocal_var("generating_function", array(&ding, word, direction));
    
-   % sort results
+   define_blocal_var("encoding", "utf8");
+   define_blocal_var("delimiter", sep);
+   define_blocal_var("generating_function", {_function_name, word, direction});
+   
+   % Sort results
    eob;
    if (bobp and eobp)
      {
@@ -290,8 +294,10 @@ public define ding() % ([word], direction=Ding_Direction)
 	insert_table(a, NULL, " "+sep+" ");
      }
    bob;
+   trim_buffer();
+   
    !if (_slang_utf8_ok)
-     utf8_to_lat1();
+     utf8_to_latin1();
    switch_sides(not(source_lang));
    ding_mode();
    fit_window(get_blocal("is_popup", 0));
