@@ -5,7 +5,6 @@
 % 
 % Versions
 % -------- 
-% 
 %            1.0 first public release
 % 2005-04-05 1.1 merge of GM and PB versions, bugfix in enable edit
 % 2005-04-07 1.2 added require("keydefs") (Rafael Laboissiere)
@@ -15,7 +14,8 @@
 % 	     	 setting of `Fold_Mode_Ok' without asking.
 % 	     	 Moved definition of set_view_mode_if_readonly() to
 % 	     	 Customization documentation.
-%
+% 2007-09-21 1.5.1 bugfix in enable_edit(): fall back to no_mode().
+% 
 % Customization
 % -------------
 % 
@@ -68,6 +68,8 @@ define enable_edit()
    set_status_line("", 0);  % reset to global
    if (strlen(file_type(buffer_filename)))
      runhooks("mode_hook", file_type(buffer_filename));
+   else
+     no_mode();
 }
 
 #ifnexists repeat_search
@@ -114,7 +116,7 @@ define repeat_search()
 }
 
 % view menu (appended to an possibly existing mode menu)
-static define view_menu(){}
+static define view_menu();
 static define view_menu(menu)
 {
    
