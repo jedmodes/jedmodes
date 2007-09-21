@@ -1,29 +1,31 @@
-% structured_text: formatting hooks for "ASCII markup"
+% structured_text.sl: formatting hooks for "ASCII markup"
+% =======================================================
 %
-%  Copyright (c) 2006 Guenter Milde (milde users.sf.net)
-%  Released under the terms of the GNU General Public License (ver. 2 or later)
+% Copyright (c) 2006 Guenter Milde (milde users.sf.net)
+% Released under the terms of the GNU General Public License (ver. 2 or later)
 %
-%  Versions
-%  --------
-%  
+% Versions
+% --------
+% 
 %             0.1   first version published together with rst.sl
-%  2006-01-20 0.2   including the regular expressions from JED
+% 2006-01-20  0.2   including the regular expressions from JED
 %                   documentation
-%  2006-01-23 0.3   added st_backward_paragraph() and st_mark_paragraph()
+% 2006-01-23  0.3   added st_backward_paragraph() and st_mark_paragraph()
 %                   set "mark_paragraph_hook" to format first line of list item
-%  2006-02-03 0.4   bugfix in the Text_List_Patterns (* needs to be escaped)
-%  2006-05-17 0.4.1 code cleanup
-%  2006-08-14 0.5   * bugfix: rename text_mode_hook() to structured_text_hook()
+% 2006-02-03  0.4   bugfix in the Text_List_Patterns (* needs to be escaped)
+% 2006-05-17  0.4.1 code cleanup
+% 2006-08-14  0.5   * bugfix: rename text_mode_hook() to structured_text_hook()
 %                     to avoid name clashes. To activate the st formatting in
 %                     text mode, define an  alias as described in the function
 %                     doc. (report J. Sommmer)
-%  2007-07-02 0.6   * rename line_is_empty() -> line_is_blank, as it may
+% 2007-07-02  0.6   * rename line_is_empty() -> line_is_blank, as it may
 %                     contain whitespace
 %                   * new function st_format_paragraph() with correct
 %                     formatting of multi-line list-items
 %                   * relax match-requirement in line_is_list to allow
 %                     UTF-8 multi-byte chars in Text_List_Patterns.
-%                     (request Joerg Sommer)
+%                     (jed-extra bug #431418, Joerg Sommer)
+% 2007-09-21  0.6.1 * fix Text_List_Patterns
 
 % Usage
 % -----
@@ -49,13 +51,16 @@ provide("structured_text");
 
 % Customization
 % -------------
-% 
+ 
 % the set of regular expressions matching a list mark
+% (leading whitespace is stripped from the line before matching)
 custom_variable("Text_List_Patterns",
-   ["[0-9]+\\.[ \t]+",       %  enumeration
-    % "[a-z]+\\)[ \t]+",     %  alpha enumeration
-    "[-*+][ \t]+"            %  itemize (bullet list)
-    ]);
+   {"^[0-9]+\\.[ \t]+",  %  enumeration
+    %"^[a-z]+\\)[ \t]+", %  alpha enumeration (many false positives)
+    "^[a-z]\\)[ \t]+",   %  alpha enumeration (just one small letter)
+    "^[-*+][ \t]+",      %  itemize (bullet list)
+    "^:[a-zA-Z]+:[ \t]+" %  field list (ReST syntax)
+    });
 
 % Functions
 % ---------
@@ -81,9 +86,8 @@ define line_is_list()
    variable line = strtrim_beg(line_as_string());
    bol_skip_white();
 
-   foreach (Text_List_Patterns)
+   foreach re (Text_List_Patterns)
      {
-        re = ();
         if (string_match(line, re, 1) < 1)
           continue;
         (,len) = string_match_nth(0);
