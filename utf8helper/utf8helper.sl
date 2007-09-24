@@ -25,7 +25,7 @@
 % To activate the auto-conversion, set the custom variables (see  online
 % help for UTF8Helper_Read_Autoconvert and UTF8Helper_Write_Autoconvert)
 % and require the mode in your jed.rc file.
-% 
+%
 % A nontrivial customization would be::
 %
 %    % convert all files to active encoding
@@ -44,7 +44,10 @@
 % 1.2   2007-07-25 customizable activation of hooks,
 %       	   renamed *lat1* to *latin1*,
 % 1.2.1 2007-07-26 utf8helper_read_hook(): reset buffer_modified_flag
-% 1.2.2 2007-09-20 vert region instead of buffer if visible region is defined
+% 1.2.2 2007-09-20 convert region instead of buffer if visible region is
+% 		   defined
+% 1.2.3 2007-09-24 bugfix in utf8_to_latin1(), did not convert two (or more)
+% 		   high-bit chars in a row (report P. Boekholt). 
 
 implements("utf8helper");
 
@@ -93,7 +96,7 @@ custom_variable("UTF8Helper_Write_Autoconvert", 0);
 % modes from http://jedmodes.sf.net
 autoload("get_blocal", "sl_utils");
 autoload("list2array", "datutils");
-	   
+
 % Functions
 % ---------
 
@@ -198,6 +201,7 @@ public define utf8_to_latin1 ()
 	       {
 		  del();
 		  insert_byte(ch);
+		  go_left_1();
 	       }
 	  } while ( right(1) );
      }
@@ -265,8 +269,6 @@ public define strtrans_utf8_to_latin1(str)
      }
    return array_to_bstring(list2array(charlist, UChar_Type));
 }
-
-
 
 % Hooks for automatic conversion
 % ------------------------------
