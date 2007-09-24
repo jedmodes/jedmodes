@@ -46,8 +46,10 @@
 % 1.2.1 2007-07-26 utf8helper_read_hook(): reset buffer_modified_flag
 % 1.2.2 2007-09-20 convert region instead of buffer if visible region is
 % 		   defined
-% 1.2.3 2007-09-24 bugfix in utf8_to_latin1(), did not convert two (or more)
-% 		   high-bit chars in a row (report P. Boekholt). 
+% 1.2.3 2007-09-24 bugfix in utf8_to_latin1(): did not convert two (or more)
+% 		   high-bit chars in a row  in UTF8 mode (report P. Boekholt)
+% 		   and latin1_to_utf8(): similar problem in non-UTF8 mode.
+% 		   
 
 implements("utf8helper");
 
@@ -138,25 +140,29 @@ public define latin1_to_utf8()
 	       {
 		  del();
 		  insert_char(-ch);
+		  go_left_1();
 	       }
-	  } while (not eobp());
+	  } while (right(1));
      }
    else
      {
 	do
 	  {
+	     skip_chars("\d001-\d127");
 	     ch = what_char();
 	     if (andelse{ch >= 128}{ch < 192})
 	       {
 		  del();
 		  insert_char(194);
 		  insert_char(ch);
+		  go_left_1();
 	       }
 	     else if (andelse{ch >= 192}{ch < 256})
 	       {
 		  del();
 		  insert_char(195);
 		  insert_char(ch-64);
+		  go_left_1();
 	       }
 	  } while (right(1));
      }
