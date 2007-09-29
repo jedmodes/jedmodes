@@ -1,18 +1,16 @@
 % ispell_init.sl	-*- mode: SLang; mode: fold -*-
 %
-% $Id: ispell_init.sl,v 1.13 2007/04/21 10:14:47 paul Exp paul $
+% $Id: ispell_init.sl,v 1.14 2007/09/29 18:50:46 paul Exp paul $
 %
 % Copyright (c) 2003-2007 Paul Boekholt.
 % Released under the terms of the GNU GPL (version 2 or later).
 %
 % This defines global variables and functions for the ispell package. 
 % You may evaluate this on starting JED. 
-% Version numbering for this package follows the RCS numbering of
-% ispell.sl
 require("sl_utils");
 provide ("ispell_init");
 
-variable ispell_version = "ispell.sl 1.22";
+variable ispell_version = "ispell.sl 2.0";
 
 %{{{ autoloads
 
@@ -35,7 +33,16 @@ _add_completion("ispell_change_dictionary",
 %{{{ custom variables
 
 % Your spell program.  This could be ispell or aspell.
-custom_variable("Ispell_Program_Name", "ispell");
+!if (is_defined("Ispell_Program_Name"))
+{
+   variable Ispell_Program_Name;
+   if (orelse {1 == file_status("/usr/bin/aspell")}
+       {1 == file_status("/usr/local/bin/aspell")})
+     Ispell_Program_Name = "aspell";
+   else
+     Ispell_Program_Name = "ispell";
+}
+
 % your default dictionary. "default" means use system default
 custom_variable("Ispell_Dictionary", "default");
 
@@ -43,12 +50,12 @@ custom_variable("Ispell_Dictionary", "default");
 %{{{ public variables
 
 
-public variable Ispell_Hash_Name = Assoc_Type [String_Type, "default"];
-public variable Ispell_Letters = Assoc_Type[String_Type, "A-Za-z"];
-public variable Ispell_OtherChars = Assoc_Type [String_Type, "'"];
-public variable Ispell_Extchar = Assoc_Type [String_Type, ""];
-public variable Ispell_Options = Assoc_Type [String_Type, ""];
-public variable Ispell_Wordlist = Assoc_Type [String_Type,"/usr/share/dict/words"];
+variable Ispell_Hash_Name = Assoc_Type [String_Type, "default"];
+variable Ispell_Letters = Assoc_Type[String_Type, "A-Za-z"];
+variable Ispell_OtherChars = Assoc_Type [String_Type, "'"];
+variable Ispell_Extchar = Assoc_Type [String_Type, ""];
+variable Ispell_Options = Assoc_Type [String_Type, ""];
+variable Ispell_Wordlist = Assoc_Type [String_Type,"/usr/share/dict/words"];
 
 public define ispell_add_dictionary() % (name, hash=name, letters = a-z etc.,
   % otherchars = "'", extchr = "", opts = "")
@@ -72,6 +79,32 @@ public define ispell_add_dictionary() % (name, hash=name, letters = a-z etc.,
 }
 
 ispell_add_dictionary ("default");
+
+variable Aspell_Hash_Name = Assoc_Type [String_Type, "default"];
+variable Aspell_Letters = Assoc_Type[String_Type, "A-Za-z"];
+variable Aspell_OtherChars = Assoc_Type [String_Type, "'"];
+variable Aspell_Options = Assoc_Type [String_Type, ""];
+variable Aspell_Wordlist = Assoc_Type [String_Type,"/usr/share/dict/words"];
+
+public define aspell_add_dictionary() % (name, hash=name, letters = a-z etc.,
+  % otherchars = "'", opts = "")
+{
+   variable name, hash, letters, otherchars, opts;
+   (name, hash, letters, otherchars, opts)
+     = push_defaults ( , , , , , _NARGS);
+   if (hash != NULL)
+     Aspell_Hash_Name [name] = hash;
+   else
+     Aspell_Hash_Name [name] = name;
+   if (letters != NULL)
+     Aspell_Letters [name] = strcat ("a-zA-Z", letters);
+   if (otherchars != NULL)
+     Aspell_OtherChars [name] = otherchars;
+   if (opts != NULL)
+     Aspell_Options [name] = opts;
+}
+
+aspell_add_dictionary ("default");
 
 % This will set up the dictionaries on your system, if you are a Debian Unstable user.
 custom_variable("Ispell_Cache_File", "/var/cache/dictionaries-common/jed-ispell-dicts.sl");

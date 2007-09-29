@@ -1,8 +1,8 @@
 % ispell_common.sl
 %
-% $Id: ispell_common.sl,v 1.17 2007/04/21 10:14:47 paul Exp paul $
+% $Id: ispell_common.sl,v 1.18 2007/09/29 18:50:46 paul Exp paul $
 % 
-% Copyright (c) 2003-2006 Paul Boekholt.
+% Copyright (c) 2003-2007 Paul Boekholt.
 % Released under the terms of the GNU GPL (version 2 or later).
 % 
 % This file provides some definitions common to ispell, flyspell and
@@ -36,27 +36,43 @@ define kill_flyspell();
 % and set the ispell_language settings
 private define make_ispell_command()
 {
-   variable options, ispell_options = "";
-   % this was added after a discussion on the JED mailing list about a
-   % security hole in modehook.sl
-   if (Ispell_Program_Name != "ispell" and Ispell_Program_Name != "aspell")
-     error ("spell program should be ispell or aspell");
-
-   ispell_letters = Ispell_Letters [ispell_current_dictionary];
-   ispell_otherchars =  Ispell_OtherChars [ispell_current_dictionary];
-   ispell_wordlist =  Ispell_Wordlist [ispell_current_dictionary];
-
-   if (ispell_current_dictionary != "default")
-     ispell_options += " -d " + Ispell_Hash_Name[ispell_current_dictionary];
-
-   if (Ispell_Extchar [ispell_current_dictionary] != "")
-     ispell_options += " -T " + Ispell_Extchar [ispell_current_dictionary];
-
-   % extra options come last
-   ispell_options += " " + Ispell_Options [ispell_current_dictionary];
-
-   ispell_wordchars = ispell_otherchars+ispell_letters;
-   ispell_non_letters = "^" + ispell_letters;
+   variable ispell_options = "";
+   if (Ispell_Program_Name == "ispell")
+     {
+	ispell_letters = Ispell_Letters [ispell_current_dictionary];
+	ispell_otherchars =  Ispell_OtherChars [ispell_current_dictionary];
+	ispell_wordlist =  Ispell_Wordlist [ispell_current_dictionary];
+	
+	if (ispell_current_dictionary != "default")
+	  ispell_options += " -d " + Ispell_Hash_Name[ispell_current_dictionary];
+	
+	if (Ispell_Extchar [ispell_current_dictionary] != "")
+	  ispell_options += " -T " + Ispell_Extchar [ispell_current_dictionary];
+	
+	% extra options come last
+	ispell_options += " " + Ispell_Options [ispell_current_dictionary];
+	
+	ispell_wordchars = ispell_otherchars+ispell_letters;
+	ispell_non_letters = "^" + ispell_letters;
+     }
+   else if (Ispell_Program_Name == "aspell")
+     {
+	ispell_letters = Aspell_Letters [ispell_current_dictionary];
+	ispell_otherchars =  Aspell_OtherChars [ispell_current_dictionary];
+	ispell_wordlist =  Aspell_Wordlist [ispell_current_dictionary];
+	
+	if (ispell_current_dictionary != "default")
+	  ispell_options += " -d " + Aspell_Hash_Name[ispell_current_dictionary];
+	
+	% extra options come last
+	ispell_options += " " + Aspell_Options [ispell_current_dictionary];
+	
+	ispell_wordchars = ispell_otherchars+ispell_letters;
+	ispell_non_letters = "^" + ispell_letters;
+	
+     }
+   else
+     throw RunTimeError, "spell program should be ispell or aspell";
    
    % we don't set a '-[thn]' option here because an ispell/flyspell
    % process may work on different buffers, and probably doesn't need it
@@ -85,6 +101,17 @@ private define ispell_change_current_dictionary(new_language)
      }
 }
 %}}}
+%{{{ get dictionaries
+private define dictionaries()
+{
+   if (Ispell_Program_Name == "aspell")
+     return assoc_get_keys(Aspell_Hash_Name);
+   else
+     return assoc_get_keys(Ispell_Hash_Name);
+}
+
+%}}}
+
 %{{{ change the global language
 
 %!%+
@@ -110,8 +137,8 @@ public define ispell_change_dictionary() % ([new_language])
    else
      {
 	new_language = read_with_completion
-	  (strjoin(assoc_get_keys(Ispell_Hash_Name), ","),
-	   "new language", Ispell_Dictionary, "", 's');
+	  (strjoin(dictionaries(), ","),
+	      "new language", Ispell_Dictionary, "", 's');
      }
    Ispell_Dictionary = new_language;
    ispell_change_current_dictionary(new_language);
@@ -151,8 +178,8 @@ public define ispell_change_local_dictionary() % ([new_language])
    else
      {
 	new_language = read_with_completion
-	  (strjoin(assoc_get_keys(Ispell_Hash_Name), ","),
-	   "new language", get_blocal_var("ispell_dictionary", Ispell_Dictionary), "", 's');
+	  (strjoin(dictionaries(), ","),
+	      "new language", get_blocal_var("ispell_dictionary", Ispell_Dictionary), "", 's');
      }
    define_blocal_var("ispell_dictionary", new_language);
    ispell_change_current_dictionary(new_language);
@@ -188,11 +215,11 @@ public define ispell_change_dictionary_callback (popup)
    menu_append_item (popup, "&Region", "ispell_region");
    menu_append_item (popup, "&Flyspell", "flyspell_mode");
    menu_append_separator(popup);
-   variable lang, languages = assoc_get_keys(Ispell_Hash_Name);
+   variable lang, languages = dictionaries();
    languages = languages[array_sort(languages)];
    menu_radio (popup, "dictionary", &Ispell_Dictionary, languages, ,
 	       &ispell_change_dictionary); 
-
+   
    menu_local_dummy= get_blocal_var("ispell_dictionary", Ispell_Dictionary);
    menu_radio (popup, "&buffer dictionary", &menu_local_dummy, languages, , 
 	       &ispell_change_local_dictionary);
