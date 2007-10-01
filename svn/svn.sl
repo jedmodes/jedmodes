@@ -154,7 +154,8 @@
 %            * Removed SVN_help: Keybindings are shown in mode menu
 % 2007-07-24 * Since svn version 1.4, the .svn/entries file is no longer XML:
 %              adapted require_buffer_file_in_vc() (report J. Schmitz)
-% 2007-08-02 * Revised layout and hotkeys of vc_menu and vc_list_mode menu
+% 2007-08-02 * Revised layout and hotkeys of vc and vc_list_mode menu
+% 2007-10-01   Bugfix (missing variable declaration)
 %                           
 % TODO
 % ====
@@ -667,21 +668,19 @@ private define init_list_buffer(erase) { %{{{
 %}}}
 
 public define vc_list_marked() { %{{{
-    popup_buffer(list_buffer);
-    
-    init_list_buffer(1);
-    
-    insert("  ----- \n");
-
-    push_spot();
-    foreach (marks) using ("keys") {
-        variable file = ();
-        marks[file].list_line_mark = make_line_mark();
-        insert(file + "\n");            
-    }
-    pop_spot();
-    
-    set_readonly(1);
+   variable file;
+   popup_buffer(list_buffer);
+   
+   init_list_buffer(1);
+   insert("  ----- \n");
+   
+   push_spot();
+   foreach file (marks) using ("keys") {
+      marks[file].list_line_mark = make_line_mark();
+      insert(file + "\n");            
+   }
+   pop_spot();
+   set_readonly(1);
 }
 %}}}
 
@@ -824,14 +823,12 @@ private define find_marked_common_root() { %{{{
         error("No files marked");
     }
     
-    variable dirs = array_map(String_Type, &path_dirname, afiles);
+    variable dir, dirs = array_map(String_Type, &path_dirname, afiles);
     variable rfiles = String_Type [length(afiles)];
     
     variable prefix = "";
     
-    foreach (dirs) {
-        variable dir = ();
-        
+    foreach dir (dirs) {
         if (strcmp(dir, "") != 0) {
             if (strcmp(prefix, "") == 0) {
                 prefix = dir;
