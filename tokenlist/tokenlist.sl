@@ -150,6 +150,8 @@
 %%     - renamed list_regex -> list_regexp
 %%     - removed the old list_routines interface. Use _list_routines_setup.
 %%     - added "construcotr" New_Tokenlist_Operation_Type
+%%   2007-10-01 . Milde
+%%     - autoload bufutils.sl if present
 
 #<INITIALIZATION>
 
@@ -170,11 +172,18 @@ append_to_hook("load_popup_hooks", &tokenlist_load_popup_hook);
 % default hook to add prepared mode definitions for list_routines:
 define tokenlist_hook()
 {
-   if (expand_jedlib_file("tkl-modes"))
+   if (expand_jedlib_file("tkl-modes") != "")
      require("tkl-modes");
 }
 
 #</INITIALIZATION>
+
+% Requirements
+% ------------
+
+#if (expand_jedlib_file("bufutils.sl") != "")
+autoload("popup_buffer", "bufutils");
+#endif
 
 
 %!%+
