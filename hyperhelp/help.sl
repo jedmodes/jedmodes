@@ -73,13 +73,14 @@
 %   1.9   2007-04-19  edited help_string, removed use of prompt_for_argument()
 %   	  	      fix in help_search(), handle "namespace->object" notation
 %   1.9.1 2007-05-31  bugfix in where_is(), removed spurious line
+%   1.9.2 2007-10-01  optional extensions with #if ( )
 % 
 % Usage
 % -----
 %
-% Place help.sl, txtutils.sl, bufutils.sl in the "jed library path"
-% (use get_jed_library_path() to see what your "jed library path" is)
-% Optionally, place grep.sl, filelist.sl, and circle.sl in the path too.
+% Place help.sl, txtutils.sl, bufutils.sl (and optional grep.sl, filelist.sl,
+% and  circle.sl) in the "jed library path" (use get_jed_library_path() to see
+% what your "jed library path" is)
 %
 % (I recommend a separate directory for the local extensions --
 % so they won't be overwritten by upgrading to a new jed version.
@@ -146,6 +147,7 @@ require("view"); %  readonly-keymap
 autoload("run_function",        "sl_utils");
 autoload("get_blocal",          "sl_utils");
 autoload("push_array",          "sl_utils");
+autoload("push_defaults",       "sl_utils");
 autoload("bget_word",           "txtutils");
 autoload("popup_buffer",        "bufutils");
 autoload("close_buffer",        "bufutils");
@@ -157,23 +159,28 @@ autoload("strsplit", 		"strutils"); % >= 1.6
 
 % Optional modes from http://jedmodes.sourceforge.net/
 % (not really needed but nice to have)
+%
+% Detection of files fails with preparse for SLang1 (leaves '^A' on stack) !
 
 % formatting of apropos list
-if (strlen(expand_jedlib_file("csvutils.sl")))
-{
-   autoload("list2table", "csvutils.sl");
-   autoload("strjoin2d", "csvutils.sl");
-}
+#if (expand_jedlib_file("csvutils.sl") != "")
+autoload("list2table", "csvutils.sl");
+autoload("strjoin2d", "csvutils.sl");
+#endif
 
 % Help History: walk for and backwards in the history of help items
-if (strlen(expand_jedlib_file("circle.sl")))
-{
-   autoload("create_circ", "circle");
-   autoload("circ_previous", "circle");
-   autoload("circ_next", "circle");
-   autoload("circ_get", "circle");
-   autoload("circ_append", "circle");
-}
+#if (expand_jedlib_file("circle.sl") != "")
+autoload("create_circ", "circle");
+autoload("circ_previous", "circle");
+autoload("circ_next", "circle");
+autoload("circ_get", "circle");
+autoload("circ_append", "circle");
+#endif
+
+% Grep interface
+#if  (expand_jedlib_file("grep.sl") != "")
+autoload("grep", "grep");
+#endif
 
 % This help browser (with "hyperlinks") is a drop-in replacement for the
 % standard help. Modes depending on extensions in this file should 
@@ -264,8 +271,8 @@ foreach (strchop(Jed_Doc_Files, ',', 0))
 % --- auxiliary functions --------------------------------
 
 % forward declarations
-public  define help_mode() {}
-static define help_for_object() {}
+public  define help_mode();
+static define help_for_object();
 
 static define read_object_from_mini(prompt, default, flags)
 {
@@ -586,9 +593,8 @@ public  define expand_keystring(key)
    !if (__is_initialized (&Keydef_Keys))
      {
 	Keydef_Keys = Assoc_Type[String_Type, ""];
-	foreach (_apropos("Global", "^Key_", 0xC))
+	foreach keyname (_apropos("Global", "^Key_", 0xC))
 	  {
-	     keyname = ();
 	     keystring = strsub_control_chars(@__get_reference(keyname));
 	     Keydef_Keys[keystring] = keyname;
 	  }
@@ -746,9 +752,8 @@ static define help_for_object(obj)
    			% [s|g]et_doc_files in jed 0.99.17
    doc_str = get_doc_string_from_file(obj);
 #else   
-   foreach (strchop(Jed_Doc_Files, ',', 0))
+   foreach file (strchop(Jed_Doc_Files, ',', 0))
      {
-	file = ();
 	doc_str = get_doc_string_from_file (file, obj);
 	if (doc_str != NULL)
 	  break;
@@ -914,9 +919,6 @@ public  define describe_bindings() % (keymap=what_keymap())
 }
 
 % grep commands (need grep.sl)
-
-% #ifeval expand_jedlib_file("grep.sl") != ""
-% % fails with preparse for SLang1 (leaves '^A' on stack) !
 #ifexists grep
 
 %!%+
@@ -1383,9 +1385,8 @@ static define help_mark_keywords()
 		 " [_a-zA-Z0-9]+$"
 		 ];
    push_spot_bob();
-   foreach (patterns)
+   foreach pattern (patterns)
      {
-	pattern = ();
 	while (re_fsearch(pattern))
 	  {
 	     keyword = regexp_nth_match(0);

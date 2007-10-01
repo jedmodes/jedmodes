@@ -41,7 +41,8 @@
 %       - hidden dependency on shell_command()
 %       - spurious arg to pop2puf() in diff()
 %       - test for files in both dirs in diff_dir_files()
-% 
+% 2.2,1 2007-10-01 optional extensions with #if ( )
+%  
 % Usage
 % -----
 % 
@@ -89,14 +90,15 @@
 %{{{
 
 % Jed >= 0.99.16     % custom_color()
-% SLang 2	     % "raw string literal"R
+% S-Lang 2	     % "raw string literal"R
 require("keydefs");  % standard mode, not loaded by default
 require("treemode"); % bundled with diffmode
 
 % Use walk.sl (for returning to buffers) if it is found in the library path
 % Alternatively, http://jedmodes.sf.net/mode/navigate can be used for this.
-if (expand_jedlib_file("walk.sl") != "")
-  require("walk");
+#if (expand_jedlib_file("walk.sl") != "")
+require("walk");
+#endif
 %}}}
 
 % Customizable settings
@@ -692,7 +694,7 @@ static define get_files_markers(names)
 
 static define files_popup_callback(popup)
 {
-	variable names = Assoc_Type[Int_Type];
+	variable key, line, names = Assoc_Type[Int_Type];
 	
 	push_spot();
 	get_files_names(names);
@@ -700,10 +702,9 @@ static define files_popup_callback(popup)
 	
 	variable keys = assoc_get_keys(names);
 	keys = keys[array_sort(keys)];
-	foreach (keys)
+	foreach key (keys)
 	{
-		variable key = ();
-		variable line = names[key];
+		line = names[key];
 		menu_append_item(popup, key, &goto_line, line);
 	}
 }

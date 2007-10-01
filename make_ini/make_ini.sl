@@ -3,7 +3,7 @@
 % Creates a file ini.sl that declares all (public) functions
 % in the current directory. Also bytecompiles the files, if set to do so.
 %
-% Copyright (c) 2003, 2006 Günter Milde
+% Copyright (c) 2003, 2006 Guenter Milde (milde users.sf.net)
 % Released under the terms of the GNU General Public License (ver. 2 or later)
 %
 % USAGE:
@@ -18,7 +18,7 @@
 %
 % TODO:  * Consider preprocessor options (How?)
 %
-% Versions:  0.9 initial release     Günter Milde <g.milde web.de>
+% Versions:  0.9 initial release     Günter Milde <milde users.sf.net>
 %            1.0 non-interactive functions and support for batch use
 %            1.1 08/07/03 made compatible to txtutils 2.2 (change in get_word)
 %            1.2 only write _autoload statements, do not add_completion
@@ -74,17 +74,16 @@
 % 2006-05-31 2.11  * added missing break in make_ini_look_for_functions()
 %                  * missing end tag of INITIALIZATION block triggers error
 %                  * update_ini(): evaluate new ini.sl (test, add autoloads)
-
+% 2007-10-01 2.11.1 * optional extensions with #if ( )
 
 % _debug_info=1;
 
 autoload("get_word", "txtutils");
 autoload("push_array", "sl_utils");
 autoload("buffer_dirname", "bufutils");
-if (strlen(expand_jedlib_file("tm.sl")))
-{
-   autoload("tm_parse", "tm");
-}
+# if (expand_jedlib_file("tm.sl") != "")
+autoload("tm_parse", "tm");
+#endif
 
 provide("make_ini");
 
@@ -251,9 +250,8 @@ define make_ini_look_for_functions(file)
    % if `file' is in the jed library path, remove the library-path from it:
    variable dir, libdirs = strchop(get_jed_library_path, ',' , 0);
    libdirs = libdirs[where(libdirs != ".")]; % filter the current dir
-   foreach (libdirs)
+   foreach dir (libdirs)
      {
-	dir = ();
 	dir = path_concat(dir, "");  % ensure trailing path-separator
 	if (is_substr(file, dir) == 1)
           {
@@ -385,12 +383,10 @@ static define list_slang_files(dir)
 %!%-
 public define make_ini() % ([dir])
 {
-   % get optional argument
-   variable dir;
-   if (_NARGS)
-     dir = ();
-   else 
-     dir = read_file_from_mini("Make ini.sl for:");
+   % optional argument
+   !if (_NARGS)
+     read_file_from_mini("Make ini.sl for:");
+   variable dir = ();
 
    variable files = list_slang_files(dir), file;
    
@@ -410,9 +406,8 @@ public define make_ini() % ([dir])
    push_mark_eob();
    del_region();
    
-   foreach (files)
+   foreach file (files)
      {
-	file = ();
 	% show(file, file_type(file), file_status(file));
         % Skip files from the exclusion list
         if (length(where(path_basename(file) == Make_ini_Exclusion_List)))
@@ -434,9 +429,8 @@ public define make_ini() % ([dir])
 define byte_compile_libdir(dir)
 {
    variable exclusion_file, file, files = list_slang_files(dir);
-   foreach (files)
+   foreach file (files)
      {
-        file = ();
         % Skip files from the exclusion list
         if (length(where(path_basename(file) 
            == Make_ini_Bytecompile_Exclusion_List)))
@@ -460,12 +454,9 @@ define byte_compile_libdir(dir)
 %!%-
 public define make_libfun_doc() % ([dir])
 {
-   % get optional argument
-   variable dir;
-   if (_NARGS)
-     dir = ();
-   else
-     dir = read_file_from_mini("Extract tm Documentation from dir:");
+   !if (_NARGS)
+     read_file_from_mini("Extract tm Documentation from dir:");
+   variable dir = ();
    
    % extract tm documentation blocks
    variable docstrings, str, files=list_slang_files(dir);

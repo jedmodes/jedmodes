@@ -69,6 +69,7 @@
 % 2007-05-02  1.7.3 * documentation update
 % 2007-05-25  1.7.4 * bugfix in filelist_open_file(): went to wrong buffer if
 % 		      file with same basename already open
+% 2007-10-01  1.7.5 * optional extensions with #if ( )
 %
 % TODO: * more bindings of actions: filelist_cua_bindings
 %       * copy from filelist to filelist ...
@@ -119,15 +120,18 @@ append_to_hook("_jed_find_file_before_hooks", &filelist_find_file_hook);
 % Requirements
 % ------------
 
+% S-Lang 2
+
 % extensions from http://jedmodes.sf.net/
 require("listing");  % the listing widget, depends on datutils, view, bufutils
 require("bufutils");
 require("sl_utils");
 autoload("string_get_match", "strutils");
 % optional extensions
-if(strlen(expand_jedlib_file("filelistmsc")))
-  _autoload("filelist_do_rename_regexp", "filelistmsc",
-	    "filelist_do_tar", "filelistmsc", 2);
+#if (expand_jedlib_file("filelistmsc") != "")
+_autoload("filelist_do_rename_regexp", "filelistmsc",
+   "filelist_do_tar", "filelistmsc", 2);
+#endif
 
 % name and namespace
 provide("filelist");
@@ -214,28 +218,31 @@ if (FileList_Trash_Bin != "")
 % The command is called via system(command + file + "&")
 static variable FileList_Default_Commands = Assoc_Type[String_Type, ""];
 
+% TODO: use MIME/mailcap entries
 % under xjed and jed in xterm use X programs
 if (getenv("DISPLAY") != NULL) % assume X-Windows running
 {
-   FileList_Default_Commands[".eps"]     = "gv";
-   FileList_Default_Commands[".ps"]      = "gv";
-   FileList_Default_Commands[".ps.gz"]   = "gv";
-   FileList_Default_Commands[".pdf"]     = "xpdf";
-   FileList_Default_Commands[".pdf.gz"]  = "gv";
+   FileList_Default_Commands[".dia"]     = "dia";
+   FileList_Default_Commands[".doc"]     = "abiword";
    FileList_Default_Commands[".dvi"]     = "xdvi";
    FileList_Default_Commands[".dvi.gz"]  = "xdvi";
-   FileList_Default_Commands[".lyx"]     = "lyx-remote";
-   FileList_Default_Commands[".html"]    = "dillo";   % fast and light browser
-   FileList_Default_Commands[".htm"]     = "dillo";   % fast and light browser
+   FileList_Default_Commands[".eps"]     = "gv";
+   FileList_Default_Commands[".gif"]     = "display";
    FileList_Default_Commands[".gnuplot"] = "gnuplot -persist";
+   FileList_Default_Commands[".html"]    = "dillo";   % fast and light browser
+   FileList_Default_Commands[".htm"]     = "dillo";
    FileList_Default_Commands[".jpg"]     = "display";
    FileList_Default_Commands[".jpeg"]    = "display";
-   FileList_Default_Commands[".gif"]     = "display";
+   FileList_Default_Commands[".lyx"]     = "lyx-remote";
+   FileList_Default_Commands[".odt"]     = "ooffice";
    FileList_Default_Commands[".png"]     = "display";
-   FileList_Default_Commands[".xpm"]     = "display";
+   FileList_Default_Commands[".pdf"]     = "xpdf";
+   FileList_Default_Commands[".pdf.gz"]  = "gv";
+   FileList_Default_Commands[".ps"]      = "gv";
+   FileList_Default_Commands[".ps.gz"]   = "gv";
    FileList_Default_Commands[".sk"]      = "sketch";
-   FileList_Default_Commands[".dia"]     = "dia";
-}
+   FileList_Default_Commands[".xpm"]     = "display";
+} 
 
 static variable listing = "listing";
 static variable FileListBuffer = "*file-listing*";
@@ -892,11 +899,8 @@ public define filelist_mode()
 %!%-
 public define locate() % (what=<Ask>)
 {
-   variable what = "";
-   if (_NARGS)
-     what = ();
-
    % read pattern from minibuffer if not given as optional argument
+   variable what = push_defaults("", _NARGS);
    if (what == "")
      {
 	what = read_mini("Locate: ", "", LAST_LOCATE);
