@@ -88,7 +88,7 @@
 % 		   is no file associated to the buffer (and no visible region)
 % 1.9.1 2006-11-23 bugfix in shell_cmd_on_region_or_buffer()
 % 		   (`output_handling' can be string or integer)
-% 1.9.2 2007-05-14 eanup in ishell()
+% 1.9.2 2007-05-14 cleanup in ishell()
 %
 % CUSTOMIZATION
 % -------------
@@ -510,8 +510,9 @@ public define terminal() % (cmd = Ishell_Default_Shell)
 %       3   return output as string
 %       4   message output
 %  "<name>" name of a new buffer for the output
-% Default is prefix_argument(0), i.e. you can set the output handling
-% tag via \sfun{set_prefix_argument}.
+%\notes
+% The default is set using prefix_argument(0), i.e. you can set the output 
+% handling tag via \sfun{set_prefix_argument}, too.
 %\seealso{run_shell_cmd, shell_cmd, filter_region, shell_cmd_on_region}
 %!%-
 public define shell_command() % (cmd="", output_handling=0)
