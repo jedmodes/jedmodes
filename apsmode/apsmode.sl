@@ -56,6 +56,7 @@
 %                  - change Apsmode_Printers[].setup --> Apsmode_Printers[].setupname
 %                  - change aps_pid --> setup
 %                  - more QuickPrint menu entries added
+% 2.2.1 2007-10-02 <INITIALIZATION> bugfix (GM)
 %                  
 % Description
 % -----------
@@ -188,24 +189,31 @@
 %   Or adding the a2ps directory to the path will also help.
 %
 
-% --- requirements ---
-
-% from jed's standard library
-% none required
-
-% non-standard extensions
-% none required
-
-% --- requirements ---
+#<INITIALIZATION>
+% Add the Print menu popup. 
+% apsmode.sl will only be evaluated when the popup is opened
+autoload("apsmode_menu_callback", "apsmode");
+custom_variable("Apsmode_menu", "Global.&File.&Print");
+define apsmode_load_popup_hook(menubar)
+{
+   if (Apsmode_menu == "")
+     return;
+   $2 = strtok(Apsmode_menu, ".");
+   menu_insert_popup(7, strjoin($2[[:-2]], "."), $2[-1]);
+   menu_set_select_popup_callback(Apsmode_menu, &apsmode_menu_callback);
+}
+append_to_hook("load_popup_hooks", &apsmode_load_popup_hook);
+#</INITIALIZATION>
 
 % Helper functions for Postscript printing %{{{
 
 % global variables, settings
 
 % printer properties definition
-typedef struct
-{
-   setupname,
+!if (is_defined("Printer_Type"))
+  typedef struct 
+  {
+     setupname,
      name,
      description,
      columns,
@@ -233,8 +241,7 @@ typedef struct
      print_cmd,
      view_cmd,
      copy_of
-}
-Printer_Type;
+  } Printer_Type;
 
 %%%%%%%%%%%%%%% private variables begin %%%%%%%%%%%%%
 %
@@ -448,6 +455,15 @@ static define jed_date_time() %{{{
 %}}}
 
 %%%%%%%%%%%%%%%%%%%%% Menu Entries Begin %%%%%%%%%%%%%%%%%%%%%%% %{{{
+
+% append a new popup to menu and return the handle
+static define new_popup(menu, popup)
+{
+   menu_append_popup(menu, popup);
+   return strcat(menu, ".", popup);
+}
+
+% pad a string to get nice collum line up in the menus
 static define create_menu_string (menu_string, value)
 {
    variable menu_entry;
@@ -482,36 +498,8 @@ static define default_printer_callback (popup)
 
 define show_default_printer_menu(setting, menu)
 {
-   variable menu_entry ="";
-
-   if (Apsmode_default_printer == 0)
-     {
-        menu_entry = strcat("Show &Default Printer  (QuickPrint)");
-     }
-   else
-     {
-        menu_entry = strcat("Show &Default Printer  (setup ", string(Apsmode_default_printer), ")");
-     }
-
-   menu_delete_item(strcat (Apsmode_menu, ".", menu_entry));
-
    eval(setting);
-   if (Apsmode_default_printer == 0)
-     {
-        menu_entry = strcat("Show &Default Printer  (QuickPrint)");
-     }
-   else
-     {
-        menu_entry = strcat("Show &Default Printer  (setup ", string(Apsmode_default_printer), ")");
-     }
-   menu_insert_popup (6, Apsmode_menu, menu_entry);
-
-   menu_set_select_popup_callback (strcat (Apsmode_menu, ".", menu_entry), &default_printer_callback);
-
    menu_select_menu(strcat(Apsmode_menu, menu));
-
-   return;
-
 }
 
 static define set_default_printer_callback (popup)
@@ -1252,63 +1240,52 @@ static define set_qp_context_callback (popup)
    return;
 }
 
-if ( Apsmode_menu != "")
+% populate the Print menu popup when opened
+public define apsmode_menu_callback(menu)  
 {
-   % remove existing Print menu entry
-   % (this might fail with older cua emulations)
-   % if (_Jed_Emulation == "cua" and is_defined("print_buffer"))
-   %   menu_delete_item("Global.&File.&Print");
+   variable popup; % name of sub popups
+   menu_append_item(menu, "Print &Buffer", "print_buffer");
+   menu_append_item(menu, "Print &Region", "print_region");
 
-   $1 = Apsmode_menu;
-   $2 = strtok(Apsmode_menu, ".");
-   menu_insert_popup(7, strjoin($2[[:-2]], "."), $2[-1]);
+   menu_append_separator(menu);
+   menu_append_item(menu, "Print B&uffer Preview", "print_buffer_preview");
+   menu_append_item(menu, "Print R&egion Preview", "print_region_preview");
 
-   menu_append_item ($1, "Print &Buffer", "print_buffer");
-   menu_append_item ($1, "Print &Region", "print_region");
+   menu_append_separator(menu);
 
-   menu_append_separator ($1);
-   menu_append_item ($1, "Print B&uffer Preview", "print_buffer_preview");
-   menu_append_item ($1, "Print R&egion Preview", "print_region_preview");
-
-   menu_append_separator ($1);
    if (Apsmode_default_printer == 0)
-     {
-        menu_entry = strcat("Show &Default Printer  (QuickPrint)");
-     }
+     popup = new_popup(menu, "Show &Default Printer  (QuickPrint)");
    else
-     {
-        menu_entry = strcat("Show &Default Printer  (setup ", string(Apsmode_default_printer), ")");
-     }
+     popup = new_popup(menu, sprintf("Show &Default Printer  (setup %d)",
+                                     Apsmode_default_printer));
+   menu_set_select_popup_callback(popup, &default_printer_callback);
 
-   menu_append_popup ($1, menu_entry);
-   menu_set_select_popup_callback (strcat ($1, ".", menu_entry), &default_printer_callback);
+   popup = new_popup(menu, "Set Default &Printer");
+   menu_set_select_popup_callback(popup, &set_default_printer_callback);
 
-   menu_append_popup ($1, "Set Default &Printer");
-   menu_set_select_popup_callback (strcat ($1, ".Set Default &Printer"), &set_default_printer_callback);
-
-   menu_append_separator ($1);
+   menu_append_separator(menu);
    % add the context sensitive QuickPrint entries
-   menu_append_popup ($1, "&QuickPrint");
-   menu_set_select_popup_callback (strcat ($1, ".&QuickPrint"), &set_qp_context_callback);
+   popup = new_popup(menu, "&QuickPrint");
+   menu_set_select_popup_callback(popup, &set_qp_context_callback);
 
-   menu_append_separator ($1);
-   menu_append_popup ($1, "Show Printer &Settings");
-   menu_set_select_popup_callback (strcat ($1, ".Show Printer &Settings"), &show_default_printer_callback);
-   menu_append_item ($1, "Show Print &Logfile", "show_print_log()");
+   menu_append_separator(menu);
+   popup = new_popup(menu, "Show Printer &Settings");
+   menu_set_select_popup_callback(popup, &show_default_printer_callback);
+   menu_append_item(menu, "Show Print &Logfile", "show_print_log()");
 
-   menu_append_separator ($1);
-   menu_append_item ($1, "Current Settings in apsconf format", strcat("show_printer_settings(\"default\",2)"));
-   menu_append_item ($1, "&Create Style Sheet", "create_a2ps_style_sheet(\"\")");
+   menu_append_separator(menu);
+   menu_append_item(menu, "Current Settings in apsconf format", strcat("show_printer_settings(\"default\",2)"));
+   menu_append_item(menu, "&Create Style Sheet", "create_a2ps_style_sheet(\"\")");
 
-   menu_append_separator ($1);
-   menu_append_item ($1, "Show apsmode Settings", "show_apsmode_settings()");
-   menu_append_item ($1, "&Help apsmode", "aps_help");
-   menu_append_popup ($1, "&About apsmode");
-   menu_append_item (strcat($1, ".&About apsmode"), "apsmode", "menu_select_menu(Apsmode_menu)");
-   menu_append_item (strcat($1, ".&About apsmode"), strcat("Version ", aps_version), "menu_select_menu(Apsmode_menu)");
-   menu_append_item (strcat($1, ".&About apsmode"), strcat("created ", aps_creation_date), "menu_select_menu(Apsmode_menu)");
-   %menu_append_item (strcat($1, ".&About apsmode"), strcat("by ", aps_creator), "menu_select_menu(Apsmode_menu)");
-   menu_append_item (strcat($1, ".&About apsmode"), strcat("tested with JED ", aps_jed_tested), "menu_select_menu(Apsmode_menu)");
+   menu_append_separator(menu);
+   menu_append_item(menu, "Show apsmode Settings", "show_apsmode_settings()");
+   menu_append_item(menu, "&Help apsmode", "aps_help");
+   popup = new_popup(menu, "&About apsmode");
+   menu_append_item(popup, "apsmode", "menu_select_menu(Apsmode_menu)");
+   menu_append_item(popup, strcat("Version ", aps_version), "menu_select_menu(Apsmode_menu)");
+   menu_append_item(popup, strcat("created ", aps_creation_date), "menu_select_menu(Apsmode_menu)");
+   %menu_append_item(popup, strcat("by ", aps_creator), "menu_select_menu(Apsmode_menu)");
+   menu_append_item(popup, strcat("tested with JED ", aps_jed_tested), "menu_select_menu(Apsmode_menu)");
 }
 
 %%%%%%%%%%%%%%%%%%%%% Menu Entries End %%%%%%%%%%%%%%%%%%%%%%%
