@@ -1,17 +1,14 @@
 % dict.sl
 % A dict client.
 %
-% $Id: dict.sl,v 1.6 2006/06/14 13:41:57 paul Exp paul $
+% $Id: dict.sl,v 1.7 2007/10/04 16:19:49 paul Exp paul $
 %
-% Copyright (c) 2005, 2006 Paul Boekholt.
+% Copyright (c) 2005-2007 Paul Boekholt.
 % Released under the terms of the GNU GPL (version 2 or later).
-% 
-% A dict client.  This version works with both the socket module in slang
-% 2.0.7 and the one in http://www.cheesit.com/downloads/slang/slsocket/
 
-import("socket");
-import("select");
-import("pcre");
+require("socket");
+require("select");
+require("pcre");
 provide("dict");
 require("bufutils");
 require("view");
@@ -21,10 +18,6 @@ custom_variable("Dict_Server", "localhost");
 custom_variable("Dict_DB", "*");
 custom_variable("Dict_Strat", ".");
 
-#ifnexists _slang_utf8_ok
-create_syntax_table("dict");
-define_syntax("{}", '<', "dict");
-#endif
 !if (keymap_p("dict"))
   copy_keymap("dict", "view");
 
@@ -45,7 +38,6 @@ loop((_stkdepth() - $0)/2)
 
 variable s, connected=0, status, line="", buf="";
 variable history = NULL;
-
 %{{{ socket
 
 define dict_close();
@@ -54,7 +46,7 @@ define dict_connect();
 % into line.
 define get_line()
 {  
-   !if (connected) error ("I'm not connected to a dict server");
+   !if (connected) throw RunTimeError, "I'm not connected to a dict server";
    variable more, nl = is_substr(buf, "\n"), buf2;
      while  (not nl)
        {
@@ -62,14 +54,14 @@ define get_line()
 	  !if (more.nready) 
 	    {
 	       dict_close();
-	       error("Dict server is not talking.");
+	       throw RunTimeError, "Dict server is not talking.";
 	    }
 	  % Dictd will hang up after 10 minutes of inactivity.  How do I check
 	  % if a connection is still open?
 	  !if(read(s, &buf2, 8192))
 	    {
 	       dict_close();
-	       error("Dict server hung up. Try again");
+	       throw RunTimeError, "Dict server hung up. Try again";
 	    }
 	  buf += buf2;
 	  nl = is_substr(buf, "\n");
@@ -92,7 +84,7 @@ define dict_write(str)
 	buf += buf2;
      }
    if (-1 == write(s, str))
-     error("error writing to socket");
+     throw RunTimeError, "error writing to socket";
 }
 
 %}}}
@@ -101,9 +93,11 @@ define dict_write(str)
 
 define get_status()
 {
+   variable p = pcre_compile("^[0-9]+");
    status = "";
    get_line();
-   status = string_get_match(line, "^[0-9]+");
+   if (pcre_exec(p, line))
+     status = pcre_nth_substr(p, line,  0);
 }
 
 define dict_close()
@@ -116,9 +110,9 @@ define dict_close()
 
 define dict_error()
 {
-   line;
+   variable msg = line;
    dict_close();
-   error();
+   throw RunTimeError, msg;
 }
 
 define dict_connect()
@@ -126,26 +120,15 @@ define dict_connect()
    if (connected) return;
    variable server, port, colon = is_substr(Dict_Server, ":");
    if (colon)
-     (server, port) = substr(Dict_Server, 1, colon - 1), integer(substr(Dict_Server, colon + 1, -1));
+     (server, port) = substr(Dict_Server, 1, colon - 1), atoi(substr(Dict_Server, colon + 1, -1));
    else
      (server, port) = Dict_Server, 2628;
-   if (1 == is_defined("bind"))
-     {
-	s = socket (PF_INET, SOCK_STREAM, 0);
-	connect(s, server, port);
-     }
-   else
-     {
-	s = socket("mysocket", PF_INET, SOCK_STREAM, 0);
-	if(connect(s, AF_INET, server, port))
-	  verror("could not connect to dict server %s", Dict_Server);
-     }
+   s = socket (PF_INET, SOCK_STREAM, 0);
+   connect(s, server, port);
    connected=1;
    get_status();
    if(status != "220") 
      return dict_error();
-   () = write(s, sprintf("CLIENT JED %s\r\n", _jed_version_string));  
-   get_status();
 }
 
 % read and insert an answer delimited by a . on a single line
@@ -159,7 +142,7 @@ define read_answer()
 	     if (strncmp(line, "..", 2))
 	       return;
 	     else
-	       line = line[[1:]];
+	       line = substr(line, 2, -1);
 	  }
 	insert(line);
 	newline();
@@ -182,10 +165,10 @@ variable Def_Type= struct
 define back()
 {
    if (orelse {history == NULL}{history.prev == NULL})
-     error ("can't go back");
+     throw RunTimeError, "can't go back";
    history = history.prev;
    set_readonly(0);
-   erase_buffer; 
+   erase_buffer(); 
    insert(history.def);
    fit_window();
    goto_line(history.line);
@@ -218,8 +201,7 @@ define store_position()
 %{{{ accented keys
 
 % According to RFC 2229 the dict output is in UTF-8, but, at least in gcide,
-% words with accented characters look like Zo["o]logy.  I'm using Latin1, so
-% I'll make some replacements.
+% words with accented characters look like Zo["o]logy.
 define dict_insert_accent (ch, ok_chars, maps_to)
 {
    variable pos = is_substr (ok_chars, char (ch));
@@ -292,8 +274,8 @@ define database_popup(menu)
    dict_connect();
    dict_write("show db\r\n");
    get_status();
-   !if(string_match(line, "^110 \\([0-9]+\\)", 1))
-     verror ("dict error: %s", line);
+   if(strncmp(line, "110", 3))
+     throw RunTimeError, sprintf("dict error: %s", line);
    variable item;
    foreach(["*   All dictionaries", "!   First matching dictionary\n"])
      {
@@ -327,8 +309,8 @@ define strategy_popup(menu)
    dict_connect();
    dict_write("show strat\r\n");
    get_status();
-   !if(string_match(line, "^111 \\([0-9]+\\)", 1))
-     verror ("dict error: %s", line);
+   if(strncmp(line, "111", 3))
+     throw RunTimeError, sprintf("dict error: %s", line);
    menu_append_item(menu, ".  Server default", &set_strategy_callback, ".");
    
    forever
@@ -361,12 +343,8 @@ define dict_menu(menu)
 %}}}
 
 %{{{ dict mode
-#ifnexists _slang_utf8_ok
-variable begin_marker = "{", end_marker = "}";
-#else
 variable begin_marker = sprintf("\e[%d]", color_number("keyword")),
 end_marker = "\e[0]";
-#endif
 
 define next()
 {
@@ -387,7 +365,8 @@ define select_database()
    variable database = bufsubstr();
    !if (strlen(database)) return;
    Dict_DB = database;
-   if (andelse{history != NULL}{history.prev != NULL})
+   if (history != NULL)
+     if (history.prev != NULL)
      back();
 }
 
@@ -404,9 +383,6 @@ define follow_link()
      db = regexp_nth_match(1);
    goto_spot();
    !if (bsearch(begin_marker)) return;
-#ifnexists _slang_utf8_ok
-   go_right_1();
-#else
    push_mark;
    while(re_bsearch("\e\\[[0-9]+\\]"))
      {
@@ -422,19 +398,16 @@ define follow_link()
 	  }
      }
    go_right(5);
-#endif
    push_mark();
    pop_spot();
    !if (fsearch(end_marker)) return pop_mark_0();
    variable word = bufsubstr();
-#ifexists _slang_utf8_ok
    variable pos, re=pcre_compile("\e\\[[0-9]+\\]");
    while (pcre_exec(re, word))
      {
 	pos = pcre_nth_match(re, 0);
 	word = substr(word, 1, pos[0]) + substr(word, pos[1] + 1, -1);
      }
-#endif
    search(db, strcompress(word, " \r\n"));
 }
 
@@ -467,11 +440,7 @@ define dict_mode()
 {
    view_mode();
    use_keymap("dict");
-#ifnexists _slang_utf8_ok
-   use_syntax_table("dict");
-#else
    _set_buffer_flag(0x1000);
-#endif
    define_blocal_var("close_buffer_hook", &dict_close_buffer);
    mode_set_mode_info ("dict", "init_mode_menu", &dict_menu);
    run_mode_hooks("dict_mode_hook");
@@ -484,6 +453,7 @@ define dict_buffer()
    popup_buffer("*dict*");
    dict_mode();
 }
+variable re_152 = pcre_compile("^152 (\\d+)");
 
 define match(word)
 {
@@ -493,13 +463,10 @@ define match(word)
    get_status();
    set_readonly(0);
    erase_buffer();
-#ifexists set_line_color
    set_line_color(0);
-#endif
-   if(string_match(line, "^152 \\([0-9]+\\)", 1))
+   if(pcre_exec(re_152, line))
      {
-	variable n_matches = string_nth_match(line, 1);
-	vinsert("%s matches for %s\n", n_matches, word);
+	vinsert("%s matches for %s\n", pcre_nth_substr(re_152, line, 1), word);
 	read_answer();
 	get_status();
 	if(status != "250") dict_error();
@@ -512,6 +479,9 @@ define match(word)
    set_buffer_modified_flag(0);
 }
 
+variable re_150 = pcre_compile("^150 (\\d+)"),
+  re_151 = pcre_compile("151 \".*\" (.*) \"(.*)\"$");
+
 define query(q)
 {
    dict_connect();
@@ -521,26 +491,22 @@ define query(q)
    if(status=="552") return message ("no match");
    set_readonly(0);
    erase_buffer();
-#ifexists set_line_color
    set_line_color(0);
-#endif
-   if(string_match(line, "^150 \\([0-9]+\\)", 1))
+   if(pcre_exec(re_150, line))
      {
-	variable n_matches = string_nth_match(line, 1);
-	loop(integer(n_matches))
+	loop(atoi(pcre_nth_substr(re_150, line, 1)))
 	  {
 	     get_status();
-	     if (string_match(line, "151 \\\".*\\\" \\([a-zA-Z]*\\) \\\"\\(.*\\)\\\"$", 1))
+	     if (pcre_exec(re_151, line))
 	       {
-#ifexists set_line_color
 		  set_line_color(color_number("keyword1"));
-#endif
-		  vinsert("From %s [%s]", string_nth_match(line, 2), string_nth_match(line, 1));
+		  vinsert("From %s [%s]", pcre_nth_substr(re_151, line, 2), 
+			  pcre_nth_substr(re_151, line, 1));
 		  newline();
-#ifexists set_line_color
 		  set_line_color(0);
-#endif
 	       }
+	     else
+	       insert(line);
 	     read_answer();
 	  }
 	
@@ -550,17 +516,15 @@ define query(q)
    else 
      insert(line);
    replace_accents();
-#ifexists _slang_utf8_ok
-   bob;
+   bob();
    while(re_fsearch("^[^{]+}")) % escape-sequence coloring does not span lines
      {
 	insert(begin_marker);
 	!if(down_1) break;
      }
-   bob;
+   bob();
    replace("{", begin_marker);
    replace("}", end_marker);
-#endif
    fit_window();
    history_add(0);
    bob();
@@ -579,7 +543,8 @@ define search(word) % [db]
 
 public define dict_lookup()
 {
-   get_word();
+   !if (_NARGS)
+     get_word();
    dict_buffer();
    search();
 }
