@@ -74,6 +74,7 @@
 %   	  	      fix in help_search(), handle "namespace->object" notation
 %   1.9.1 2007-05-31  bugfix in where_is(), removed spurious line
 %   1.9.2 2007-10-01  optional extensions with #if ( )
+%   1.9.3 2007-10-04  no DFA highlight in UTF-8 mode (it's broken)
 % 
 % Usage
 % -----
@@ -1347,7 +1348,8 @@ static define help_dfa_callback(mode)
 dfa_set_init_callback(&help_dfa_callback, mode);
 %%% DFA_CACHE_END %%%
 
-enable_dfa_syntax_for_mode(mode);
+!if (_slang_utf8_ok)  % DFA is broken in UTF-8 mode
+  enable_dfa_syntax_for_mode(mode);
 % keywords will be added by the function help_mark_keywords()
 
 % special syntax table for listings (highlight all words in keyword colour)
@@ -1363,7 +1365,8 @@ static define helplist_dfa_callback(helplist)
 dfa_set_init_callback(&helplist_dfa_callback, helplist);
 %%% DFA_CACHE_END %%%
 
-enable_dfa_syntax_for_mode(helplist);
+!if (_slang_utf8_ok)  % DFA is broken in UTF-8 mode
+  enable_dfa_syntax_for_mode(helplist);
 #endif
 
 private define _add_keyword(keyword)
