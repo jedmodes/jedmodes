@@ -75,6 +75,10 @@
 %   1.9.1 2007-05-31  bugfix in where_is(), removed spurious line
 %   1.9.2 2007-10-01  optional extensions with #if ( )
 %   1.9.3 2007-10-04  no DFA highlight in UTF-8 mode (it's broken)
+%   1.9.4 2007-10-15  re-enabnle DFA highlight, as it is rather unlikely that
+%   	  	      help text contains multibyte chars (hint P. Boekholt) 
+%   	  	      Otherwise, disable it in the help_mode_hook() with 
+%   	  	      disable_dfa_syntax_for_mode("help");
 % 
 % Usage
 % -----
@@ -183,17 +187,19 @@ autoload("circ_append", "circle");
 autoload("grep", "grep");
 #endif
 
+% Announcement and namespace
+% --------------------------
 % This help browser (with "hyperlinks") is a drop-in replacement for the
 % standard help. Modes depending on extensions in this file should 
 %   require("hyperhelp", "help.sl").
 provide("help");
 provide("hyperhelp");
 
-% --- name it
 implements("help");
 private variable mode = "help";
 
-% --- variables for user customization ----------------------
+% Custom variables 
+% ----------------
 
 % How big shall the help window be maximal
 % (set this to 0 if you don't want it to be fitted)
@@ -205,7 +211,8 @@ custom_variable("Help_mini_help_for_word_at_point", 0);
 % The standard help file to display with help().
 custom_variable("Help_File", "generic.hlp");
 
-% ---  variables  ----------------------------------------------
+% Variables  
+% ---------
 
 % valid chars in function and variable definitions
 static variable Slang_word_chars = "A-Za-z0-9_";
@@ -269,7 +276,8 @@ foreach (strchop(Jed_Doc_Files, ',', 0))
 #endif
 
 
-% --- auxiliary functions --------------------------------
+% Auxiliary Functions 
+% -------------------
 
 % forward declarations
 public  define help_mode();
@@ -378,7 +386,8 @@ static define help_display_list(a)
    set_readonly(1);
 }
 
-% --- basic help -----------------------------------------------------
+% Basic Help 
+% ----------
 
 %!%+
 %\function{help}
@@ -550,7 +559,8 @@ public define help_search() % ([str])
    help_display_list(list[array_sort(list)]);
 }
 
-% --- showkey and helpers
+% Show Key
+% --------
 
 % convert string into array of 1-char strings
 % in contrast to bstring_to_array(), the array elements are String_Type
@@ -688,7 +698,8 @@ public  define where_is()
    help_display(help_str);
 }
 
-% --- describe function/variable and helpers
+% Describe Function/Variable
+% --------------------------
 
 public  define is_keyword(name)
 {
@@ -1235,7 +1246,8 @@ public  define help_2click_hook (line, col, but, shift)
    return(0);
 }
 
-% --- fast moving in the help buffer (link to link skipping)
+% fast moving in the help buffer (link to link skipping)
+% ------------------------------------------------------
 
 % skip forward to beg of next word  (move this to txtutils.sl?)
 define skip_word() % ([word_chars])
@@ -1329,7 +1341,8 @@ define goto_prev_object ()
      }
 }
 
-% --- "syntax" highlighting of "links" (defined objects)
+% Highlighting of "Links" (defined objects)
+% -----------------------------------------
 
 #ifdef HAS_DFA_SYNTAX
 create_syntax_table(mode);
@@ -1348,8 +1361,8 @@ static define help_dfa_callback(mode)
 dfa_set_init_callback(&help_dfa_callback, mode);
 %%% DFA_CACHE_END %%%
 
-!if (_slang_utf8_ok)  % DFA is broken in UTF-8 mode
-  enable_dfa_syntax_for_mode(mode);
+% !if (_slang_utf8_ok)  % DFA is broken in UTF-8 mode
+enable_dfa_syntax_for_mode(mode);
 % keywords will be added by the function help_mark_keywords()
 
 % special syntax table for listings (highlight all words in keyword colour)
@@ -1404,7 +1417,8 @@ static define help_mark_keywords()
    pop_spot();
 }
 
-% --- A dedicated mode for the help buffer -------------------------------
+% Help Mode
+% ---------
 
 % Keybindings (customize with help_mode_hook)
 !if (keymap_p (mode))
