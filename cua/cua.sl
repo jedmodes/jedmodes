@@ -26,6 +26,7 @@
 %%  1.6.1 2007-09-03 bind eol() instead of eol_cmd() to Key_End, as eol_cmd
 %%  	  	     deletes trailing white which confuses moving and editing
 %%  	  	     and might not be desired.
+%%  1.6.2 2007-10-18 ptional extensions with #if ( )
 %%  	  	     
 %%                   
 %%  USAGE:
@@ -61,6 +62,7 @@
 
 % --- Requirements ------------------------------------------------------
 
+% S-Lang >= 2.0
 % backwards compatibility code (for older Jed versions)
 if (_jed_version < 9915)
   require("compat16-15");
@@ -69,10 +71,11 @@ if (_jed_version < 9916)
 
 require("cuamisc");   % "Outsourced" helper functions
 require("keydefs");   % symbolic constants for many function and arrow keys
-if(strlen(expand_jedlib_file("cuamark.sl")) and _jed_version >= 9916)
-  require("cuamark");
-else
-  require("wmark");   % cua-like marking, standard version
+#if (expand_jedlib_file("cuamark.sl") != "")
+require("cuamark");   % mark regions with Shift-Arrow
+#else
+require("wmark");     % cua-like marking, standard version
+#endif
 require("recent");    % save a list of recent files
 
 % --- Variables --------------------------------------------------------
