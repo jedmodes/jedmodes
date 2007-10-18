@@ -143,15 +143,17 @@
 %%   2006-12-19  Marko Mahnic
 %%     - changed the interface to use _list_routines_setup 
 %%       (the old interface still works)
-%%   2007-04-18 G Milde
+%%   2007-04-18 G. Milde
 %%     - bugfix in tkl_list_tokens() preventing an infinite loop if there is a
 %%       match on the last line of a buffer
 %%   2007-05-09  Marko Mahnic
 %%     - renamed list_regex -> list_regexp
 %%     - removed the old list_routines interface. Use _list_routines_setup.
 %%     - added "construcotr" New_Tokenlist_Operation_Type
-%%   2007-10-01 . Milde
+%%   2007-10-01 G. Milde
 %%     - autoload bufutils.sl if present
+%%   2007-10-18 G. M.
+%%     - help text for public functions
 
 #<INITIALIZATION>
 
@@ -670,17 +672,24 @@ public define occur ()
    tkl_display_results();
 }
 
-%% Function: moccur
-%% \usage{Void moccur ([regexp])}
-%% Search for a regexp in all loaded buffers.
-%% Does not search in internal and temporary buffers.
-%% 
-%% If the parameter regexp is not supplied the value can
-%% be entered interactively.
-%% 
-%% tokenlist_occur_setup_hook(tkopt) is called before the search
-%% is started so the user has a chance to modify the search
-%% parameters and display. tkopt.mode is set to "@moccur".
+%!%+
+%\function{moccur}
+%\synopsis{Search for a regexp in all loaded buffers.}
+%\usage{Void moccur ([regexp])}
+%\description
+%  Search for \var{regexp} in all loaded buffers and display all hits
+%  in a *Tokenlist* buffer.
+%  
+%  Does not search in internal and temporary buffers.
+%  
+%  If the parameter regexp is not supplied the value can
+%  be entered interactively.
+%\notes  
+%  tokenlist_occur_setup_hook(tkopt) is called before the search
+%  is started so the user has a chance to modify the search
+%  parameters and display. tkopt.mode is set to "@moccur".
+%\seealso{occur, list_routines, TokenList_Startup_Mode}
+%!%-
 public define moccur ()
 {
    variable buf;
@@ -710,7 +719,30 @@ public define moccur ()
 %% #####################  LIST ROUTINES ##################################
 %% #######################################################################
 
-% \usage{Void list_routines()}
+%!%+
+%\function{list_routines}
+%\synopsis{List routines defined in the current buffer}
+%\usage{Void list_routines()}
+%\description
+%  Perform a regexp search depending on the current mode and list
+%  'tokens' or 'routine definitions' in a *TokenList* buffer.
+%  
+%  A typical use is to list function, variable, and class definitions in
+%  a  source code file. But, e.g.,  section headers in reStructuredText 
+%  or another markup language can be found too.
+%  
+%  Keybindings in the tokenlist buffer:
+% 
+%       d, SPACE:   display selected line in other buffer
+%       g, RETURN:  goto selected line, close token list
+%       /, s:       isearch_forward
+%       :, f:       filter the displayed results (hides nonmatching lines)
+%       q:          hide results
+%       w:          other window
+%\notes
+%  For configuration, see the documentation in tokenlist.sl
+%\seealso{occur, moccur, TokenList_Startup_Mode}
+%!%-
 public define list_routines()
 {
    variable buf, mode, fn;
