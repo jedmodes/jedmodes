@@ -21,9 +21,11 @@
 % 2.1   2006-10-04 added list_concat()
 % 2.2   2006-11-27 removed array_reverse(): it is not used anywhere and 
 % 		   conflicts with the internal SLang function of the same 
-% 		   name (not activated by default in Jed)
+% 		   name (activated by default in Jed >= 0.99.19-51)
 % 2.2.1 2007-02-06 new function list_inject(),
 % 		   new versions of assoc_get_key() and array_sum() (JED)
+% 2.2.2 2007-10-18 fix array_value_exists() for Any_Type arrays		   
+% 		   documentation update 
 
 _autoload(
    "push_defaults", "sl_utils",
@@ -213,9 +215,8 @@ define array_max(a)
    return max(a);
 #else
    variable maximum = a[0], element;
-   foreach(a)
+   foreach element (a)
      {
-	element = ();
 	if (element > maximum)
 	  maximum = element;
      }
@@ -287,14 +288,18 @@ define array_value_exists(a, value)
      return length(where(a == value));
 
    variable element, i=0;
-   foreach (a)
+   foreach element (a)
      {
-	element = ();
-	if (andelse {element != NULL}
-	      	    {typeof(@element) == typeof(value)}
-	       	    {@element == value}
-	    )
-	  i++;
+	if (element == NULL)
+	  {
+	     if (value == NULL)
+	       i++;
+	  }
+	else 
+	  {
+	     if (_eqs(@element, value))
+	       i++;
+	  }
      }
    return (i);
 }
@@ -360,29 +365,18 @@ define assoc_value_exists(ass, value)
 %\synopsis{Return the key of a value of an Associative Array}
 %\usage{String_Type key = assoc_get_key(ass, value)}
 %\description
-%  Reverse the usual lookup of an hash table (associative array). Return the
-%  first key whose value is equal to \var{value}.
+%  Reverse the usual lookup of an hash table (associative array). 
+%  Return the first key whose value is equal to \var{value}.
 %\notes
 %  Of course, this function is far slower than the corresponding ass[key].
 %\seealso{assoc_value_exists}
 %!%-
 define assoc_get_key(ass, value)
 {
-#ifexists wherefirst
-   variable i = wherefirst (assoc_get_values (ass) == value);
-   if (i == NULL)
+   variable matches = where(assoc_get_values (ass) == value);
+   !if (length(matches))
      return NULL;
-   return assoc_get_keys (ass)[i];
-#else
-   variable key;
-   foreach (ass) using ("keys")
-     {
-        key = ();
-        if (ass[key] == value)
-          return key;
-     }
-   return NULL;  % added by JED
-#endif
+   return assoc_get_keys(ass)[matches[0]];
 }
 
 % --- List functions -------------------------------------------
