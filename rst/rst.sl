@@ -553,7 +553,7 @@ private define get_rst_level(adornment)
 %
 % The returned string is inserted into the tokenlist. We format to get a nice
 % list of section titles:
-private define rst_list_routines_extract(regexp_index)
+static define rst_list_routines_extract(regexp_index)
 {
    variable adornment, title, level, col;
    
