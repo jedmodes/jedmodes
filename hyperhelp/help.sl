@@ -75,10 +75,11 @@
 %   1.9.1 2007-05-31  bugfix in where_is(), removed spurious line
 %   1.9.2 2007-10-01  optional extensions with #if ( )
 %   1.9.3 2007-10-04  no DFA highlight in UTF-8 mode (it's broken)
-%   1.9.4 2007-10-15  re-enabnle DFA highlight, as it is rather unlikely that
+%   1.9.4 2007-10-15  re-enable DFA highlight, as it is rather unlikely that
 %   	  	      help text contains multibyte chars (hint P. Boekholt) 
 %   	  	      Otherwise, disable it in the help_mode_hook() with 
 %   	  	      disable_dfa_syntax_for_mode("help");
+%   1.9.5 2007-10-18  re-introduce the sprint_variable() autoload
 % 
 % Usage
 % -----
@@ -171,27 +172,31 @@ autoload("strsplit", 		"strutils"); % >= 1.6
 #if (expand_jedlib_file("csvutils.sl") != "")
 autoload("list2table", "csvutils.sl");
 autoload("strjoin2d", "csvutils.sl");
+% dummy autoload for byte-compiling
+#if (autoload("list2table", "csvutils.sl"), 1)
+#endif
 #endif
 
 % Help History: walk for and backwards in the history of help items
 #if (expand_jedlib_file("circle.sl") != "")
-autoload("create_circ", "circle");
-autoload("circ_previous", "circle");
-autoload("circ_next", "circle");
-autoload("circ_get", "circle");
-autoload("circ_append", "circle");
+require("circle");
+% dummy autoload for byte-compiling
+#if (autoload("create_circ", "circle"), 1)
+#endif
 #endif
 
-% Grep interface
-#if  (expand_jedlib_file("grep.sl") != "")
-autoload("grep", "grep");
+% sprint_variable(): nice formatting of compound data types
+#if (expand_jedlib_file("sprint_var.sl") != "")
+autoload("sprint_variable", "sprint_var");
 #endif
 
 % Announcement and namespace
 % --------------------------
 % This help browser (with "hyperlinks") is a drop-in replacement for the
 % standard help. Modes depending on extensions in this file should 
-%   require("hyperhelp", "help.sl").
+% ``require("hyperhelp", "help.sl")``. 
+% ::
+
 provide("help");
 provide("hyperhelp");
 
