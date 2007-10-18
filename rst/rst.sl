@@ -62,11 +62,15 @@
 %                    integer arguments (section level)
 %                  * new functions rst_view() and rst_view_html(), 
 %                    rst_view_pdf, rst_view_latex obsoleting rst_browse()
+% 1.9.1 2007-10-18 * update to work with tokenlist.sl newer than 2007-05-09
 % 
 % ===== ========== ============================================================
 % 
 % 
-% TODO: directives functions (see /docutils/docs/ref/rst/directives.html)
+% TODO: * directives functions (see /docutils/docs/ref/rst/directives.html)
+%         (partially done)
+%       * jump from reference to target and back again
+%       * "link creation wizard"
 % 
 % 
 % Requirements
@@ -95,22 +99,24 @@ autoload("string_repeat", "strutils");
 % Recommendations
 % ===============
 % 
-% jump to the error locations from output buffer::
+% Jump to the error locations from output buffer::
 
 #if (expand_jedlib_file("filelist.sl") != "")
 autoload("filelist_mode", "filelist");
 #endif
 
-% browse the html rendering in a separate browser, browse documentation::
+% Browse documentation::
 
 #if (expand_jedlib_file("browse_url.sl") != "")
 autoload("browse_url", "browse_url");
 #endif
 
-% navigation buffer (navigable table of contents)::
+% Navigation buffer (navigable table of contents) with
+% http://jedmodes.sf.net/mode/tokenlist
+% ::
 
 #if (expand_jedlib_file("tokenlist.sl") != "")
-autoload("list_routines", "tokenlist");
+autoload("list_routines", "tokenlist"); % >= 2006-12-19
 #endif
 
 % name it
@@ -522,9 +528,6 @@ static define section_header() % ([adornment])
 
 %% message("tokenlist present");
 
-% array of regular expressions matching routines
-public  variable rst_list_routines_regexp = [Underline_Regexp];
-
 % return section header level of (section title underlined with) `adornment'
 % (starting with level 1 == H1)
 private variable rst_levels = "";
@@ -550,7 +553,7 @@ private define get_rst_level(adornment)
 %
 % The returned string is inserted into the tokenlist. We format to get a nice
 % list of section titles:
-public  define rst_list_routines_extract(regexp_index)
+private define rst_list_routines_extract(regexp_index)
 {
    variable adornment, title, level, col;
    
@@ -581,33 +584,17 @@ public  define rst_list_routines_extract(regexp_index)
    % do not indent at all (simple, missing information)
    % return(sprintf("%s %s", adornment, title));
 
-   % indent by 1 underline char/level (too noisy)
-   % return sprintf("%s %s", string_repeat(adornment, level), title);
-
-   % indetn by 2 underline chars/level (not better)
-   % return sprintf("%s %s", string_repeat(adornment, level*2), title);
-
-   % indent by 1 dot/level (still ok)
-   % return sprintf("%s %s", string_repeat(".", level), title);
-
-   % indent by 2 dots/level (quite nice)
-   % return sprintf("%s %s", string_repeat(".", level*2), title);
-
-   % indent by 2 dots/level, precede with underline char (ugly)
-   % return sprintf("%s %s %s", adornment, string_repeat(".", level*2), title);
-
-   % indent by 2 dots/level, underline char as marker  (quite nice, informative)
-   % return sprintf(".%s %s %s", string_repeat(".", level*2), adornment, title);
-
    % indent by 2 spaces/level, underline char as marker (best)
-   % needs modified tokenlist that doesnot strip leading whitespace
    return sprintf("%s%s %s", 
       string_repeat(" ", (level-1)*2), adornment, title);
 }
 
-public  define rst_list_routines_done()
+% Set up list_routines for rst mode
+public  define rst_list_routines_setup(opt)
 {
    rst_levels = "";    % reset
+   opt.list_regexp = [Underline_Regexp];
+   opt.fn_extract = &rst_list_routines_extract;
 }
 
 #endif
@@ -734,19 +721,20 @@ static define setup_dfa_callback(mode)
    % dfa_define_highlight_rule(Underline_Regexp, color_transition, mode);
    % doesnot work, as DFA regexps do not support "\( \) \1"-syntax.
    % So we have to resort to separate rules
-   foreach (Underline_Chars)
+   foreach $1 (Underline_Chars)
        {
-        $1 = ();
           $1 = str_quote_string(char($1), "\^$[]*.+?"R, '\\');
           $1 = sprintf("^%s%s+[ \t]*$", $1, $1);
-        dfa_define_highlight_rule($1, color_transition, mode);
+          dfa_define_highlight_rule($1, color_transition, mode);
        }
 
    dfa_build_highlight_table(mode);
 }
 dfa_set_init_callback(&setup_dfa_callback, mode);
 %%% DFA_CACHE_END %%%
-enable_dfa_syntax_for_mode(mode);
+
+!if (_slang_utf8_ok)  % DFA is broken in UTF-8 mode
+  enable_dfa_syntax_for_mode(mode);
 
 #else
 % define_syntax( '`', '"', mode);              % strings
@@ -810,7 +798,9 @@ definekey_reserved("rst_view_html",                            "vh", mode); % "&
 definekey_reserved("rst_view_latex",                           "vl", mode); % "&Latex"
 definekey_reserved("rst_view_pdf",                             "vp", mode); % "&Latex"
 %                                                              "", mode);
+#ifexists list_routines
 definekey_reserved("list_routines",                            "n", mode); % &Navigator"
+#endif
 
 % Mode Menu
 % =========
@@ -891,6 +881,7 @@ static define rst_menu(menu)
    % Help commands
    menu_append_separator(menu);
    popup = new_popup(menu, "&Help");
+#ifexists browse_url   
    menu_append_item(popup, "Doc &Index", "browse_url",
       path_concat(Rst_Documentation_Path, "index.html"));
    menu_append_item(popup, "&Quick Reference", "browse_url",
@@ -898,6 +889,7 @@ static define rst_menu(menu)
    menu_append_item(popup, "&Directives", "browse_url",
       path_concat(Rst_Documentation_Path, "ref/rst/directives.html"));
    menu_append_separator(popup);
+#endif   
    menu_append_item(popup, "Rst2&Html Help", &command_help, Rst2Html_Cmd);
    menu_append_item(popup, "Rst2&Latex Help", &command_help, Rst2Latex_Cmd);
    % Default conversion and browse
