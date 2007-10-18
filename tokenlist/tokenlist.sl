@@ -151,9 +151,9 @@
 %%     - removed the old list_routines interface. Use _list_routines_setup.
 %%     - added "construcotr" New_Tokenlist_Operation_Type
 %%   2007-10-01 G. Milde
-%%     - autoload bufutils.sl if present
+%%     - autoload popup_buffer() if bufutils.sl present
 %%   2007-10-18 G. M.
-%%     - help text for public functions
+%%     - help text for public functions, fix optional use of popup_buffer()
 
 #<INITIALIZATION>
 
@@ -192,6 +192,17 @@ define tokenlist_hook()
 %\seealso{occur, moccur, list_routines}
 %!%-
 custom_variable ("TokenList_Startup_Mode", 0);
+
+% Recommendations
+% ---------------
+
+#if (expand_jedlib_file("bufutils.sl") != "")
+autoload("popup_buffer", "bufutils");
+% dummy autoload for byte-compiling
+#if (autoload("popup_buffer", "bufutils"), 1)
+#endif
+#endif
+
 
 private variable tkl_TokenBuffer  = "*TokenList*";
 private variable tkl_ExtractMacro = "_list_routines_extract";
@@ -518,8 +529,7 @@ define tkl_display_token()
    pop2buf (buf);
    goto_line (line);
    tkl_make_line_visible();
-#if (expand_jedlib_file("bufutils.sl") != "")
-   autoload("popup_buffer", "bufutils");
+#ifexists popup_buffer   
    popup_buffer(tkl_TokenBuffer);
 #else   
    pop2buf (tkl_TokenBuffer);
