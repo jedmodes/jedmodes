@@ -20,6 +20,7 @@
 %                   disable dfa syntax highlighting in UTF8 mode to make
 %                   ch_table.sl UTF8 safe.
 %                   documentation for public functions
+% 2007-10-18  2.3.5 cosmetics (require() instead of autoloads, push_default())
 %
 % Functions and Functionality
 %
@@ -61,13 +62,13 @@ add_completion("special_chars");
 % debug information, uncomment to locate errors
 % _debug_info = 1;
 
-% --- requirements
-require("view"); %  readonly-keymap
-autoload("fit_window", "bufutils");
-autoload("popup_buffer", "bufutils");
-autoload("close_buffer", "bufutils");
-autoload("set_help_message", "bufutils");
-autoload("get_blocal", "sl_utils");
+% Requirements
+% ------------
+
+% modes from http://jedmodes.sf.net
+require("view");      % readonly-keymap
+require("bufutils");  % pop up buffer 
+require("sl_utils");  % small helpers
 
 % --- name it
 provide("ch_table");
@@ -207,18 +208,22 @@ static define ct_eob()   { eob; ct_update;}
 
 static define ct_insert_and_close()
 {
-   variable str = bufsubstr(),
-   calling_buf = get_blocal("calling_buf", "");
-   close_buffer();
-   if (bufferp(calling_buf))
-     sw2buf(calling_buf);
-   else
-     verror("calling buffer \"%s\" does not exist", calling_buf);
-   switch(str)
-     { case "TAB": insert("\t"); }
-     { case "NL" : insert("\n"); }
-     { case "ESC": insert("\e"); }
-     { insert(str); }
+   close_and_insert_word();
+   if (blooking_at("TAB"))
+     {
+	push_mark(); go_left(3); del_region();
+	insert("\t"); 
+     }
+   else if (blooking_at("NL"))
+     {
+	push_mark(); go_left(2); del_region();
+	insert("\n"); 
+     }
+   else if (blooking_at("ESC"))
+     {
+	push_mark(); go_left(3); del_region();
+	insert("\e"); 
+     }
 }
 
 static define ct_mouse_up_hook(line, col, but, shift)
@@ -311,10 +316,8 @@ static define use_base(numbase)
 % change the number base
 static define ct_change_base()
 {
-   variable Base;
-   if (_NARGS)                  % optional argument present
-     Base = ();
-   else
+   variable Base = push_defaults(NULL ,_NARGS); % optional argument
+   if (Base == NULL)
      Base = integer(read_mini("New number base (2..16):", "", ""));
    use_base(Base);
    set_readonly(0);
@@ -338,10 +341,7 @@ static define ct_change_base()
 public define ch_table() % ch_table(StartChar = ChartableStartChar)
 {
    % (re) set options
-   if (_NARGS)                  % optional argument present
-     StartChar = ();
-   else
-     StartChar    = ChartableStartChar;
+   StartChar = push_defaults(ChartableStartChar, _NARGS);
    use_base(NumBase);
    CharsPerLine = ChartableCharsPerLine;
    popup_buffer("*ch_table*");
@@ -396,7 +396,7 @@ static define setup_dfa_callback(mode)
 }
 dfa_set_init_callback(&setup_dfa_callback, mode);
 %%% DFA_CACHE_END %%%
-!if (_slang_utf8_ok)
+!if (_slang_utf8_ok)  % DFA is broken in UTF-8 mode
   enable_dfa_syntax_for_mode(mode);
 #endif
 
