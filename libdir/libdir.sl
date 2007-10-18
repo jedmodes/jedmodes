@@ -13,6 +13,7 @@
 % 0.9.6 2006-04-13  replaced continue with return 
 %                   and binary string ops with strcat
 % 0.9.7 2006-05-17  added remove_libdir()                  
+% 0.9.8 2007-10-18  add|append doc-file to doc_files list (report J. Sommer)
 % 
 % FEATURES
 % 
@@ -46,7 +47,7 @@ provide("libdir");
 % Perform the following actions if the relevant paths are valid:
 %  * Prepend \var{lib} to the library path and the \var{Jed_Highlight_Cache_Path}
 %  * Add \var{lib}/colors to \var{Color_Scheme_Path} and
-%    \var{lib}/libfuns.txt to \var{Jed_Doc_Files}.
+%    \var{lib}/libfuns.txt to \var{Jed_Doc_Files} or using \sfun{add_doc_file}.
 %  * If \var{initialize} is TRUE, evaluate the file \var{lib}/ini.sl 
 %    to enable initialization (autoloads etc)
 %\example
@@ -60,7 +61,7 @@ provide("libdir");
 %\notes
 %  The function \sfun{make_ini} (from jedmodes.sf.net/mode/make_ini/) 
 %  can be used to auto-create an ini.sl file for a library dir.
-%\seealso{append_libdir, set_jed_library_path, add_doc_file}
+%\seealso{append_libdir, set_jed_library_path}
 %!%-
 define add_libdir()
 {
@@ -85,7 +86,15 @@ define add_libdir()
    % documentation
    path = path_concat(lib, "libfuns.txt");
    if (1 == file_status(path))
-     Jed_Doc_Files = strcat(path, ",", Jed_Doc_Files);
+     {
+#ifexists Jed_Doc_Files     
+	Jed_Doc_Files = strcat(path, ",", Jed_Doc_Files);
+#endif
+#ifexists set_doc_files
+	set_doc_files ([path, get_doc_files ()]);	
+	% add_doc_file(path);  % actually appends!!
+#endif
+     }
    % dfa cache
 #ifdef HAS_DFA_SYNTAX
    % Jed_Highlight_Cache_Dir = lib;
@@ -103,8 +112,8 @@ define add_libdir()
 %\synopsis{Register a library dir for use by jed}
 %\usage{append_libdir(lib, initialize=1)}
 %\description
-%  This is similar to \sfun{add_libdir} but appends the library to the path
-%  lists.
+%  This function is similar to \sfun{add_libdir} but appends the library 
+%  dir to the paths.
 %\seealso{add_libdir, set_jed_library_path}
 %!%-
 define append_libdir()
@@ -130,7 +139,14 @@ define append_libdir()
    % documentation
    path = path_concat(lib, "libfuns.txt");
    if (1 == file_status(path))
-     Jed_Doc_Files = strcat(Jed_Doc_Files, ",", path);
+     {
+#ifexists Jed_Doc_Files     
+	Jed_Doc_Files = strcat(Jed_Doc_Files, ",", path);
+#endif
+#ifexists add_doc_file
+	add_doc_file(path); % actually appends
+#endif
+     }
    % dfa cache
 #ifdef HAS_DFA_SYNTAX
    % Jed_Highlight_Cache_Dir = lib;
