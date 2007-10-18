@@ -178,14 +178,6 @@ define tokenlist_hook()
 
 #</INITIALIZATION>
 
-% Requirements
-% ------------
-
-#if (expand_jedlib_file("bufutils.sl") != "")
-autoload("popup_buffer", "bufutils");
-#endif
-
-
 %!%+
 %\variable{TokenList_Startup_Mode}
 %\synopsis{Initial mode of the tokenlist}
@@ -524,7 +516,8 @@ define tkl_display_token()
    pop2buf (buf);
    goto_line (line);
    tkl_make_line_visible();
-#ifexists popup_buffer   
+#if (expand_jedlib_file("bufutils.sl") != "")
+   autoload("popup_buffer", "bufutils");
    popup_buffer(tkl_TokenBuffer);
 #else   
    pop2buf (tkl_TokenBuffer);
