@@ -156,6 +156,7 @@
 %              adapted require_buffer_file_in_vc() (report J. Schmitz)
 % 2007-08-02 * Revised layout and hotkeys of vc and vc_list_mode menu
 % 2007-10-01   Bugfix (missing variable declaration)
+% 2007-10-18 * vc_add_dir(): Non-recursive also under SVN
 %                           
 % TODO
 % ====
@@ -331,7 +332,8 @@ define do_vc(args, dir, use_default_buf, signal_error) { %{{{
     insert(msg + "\n\n");
    
     result = run_shell_cmd(cmd);
-   
+    
+    flush("done");
     bob();
     set_buffer_modified_flag(0);
     set_readonly(1);
@@ -981,12 +983,14 @@ public define vc_open_selected() { %{{{
 %% SVN directory-level operations %{{{
 
 public define vc_add_dir() { %{{{ 
-    %% Kludge to get rid of a possible trailing separator
-    variable dir = path_dirname(path_concat(get_op_dir(), ""));
-    variable parent = path_dirname(dir);
-    variable name = path_basename(dir);
-    
-    do_vc(["add", name], parent, 1, 1);
+   %% Kludge to get rid of a possible trailing separator
+   variable dir = path_dirname(path_concat(get_op_dir(), ""));
+   variable parent = path_dirname(dir);
+   variable name = path_basename(dir);
+   
+   switch (get_vc_system(parent))
+     { case "cvs": do_vc(["add", name], parent, 1, 1); }
+     { case "svn": do_vc(["add", "--non-recursive", name], parent, 1, 1); }
 }
 %}}}
 
