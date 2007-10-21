@@ -1,6 +1,6 @@
 % ruby.sl
 % 
-% $Id$
+% $Id: ruby.sl,v 1.1 2007/10/21 18:53:55 paul Exp paul $
 % 
 % Copyright (c) ca.
 %  2000 Shugo Maeda
@@ -122,17 +122,20 @@ private define ruby_calculate_indent()
 		    }
 	       }
 	     go_left_1();
-	     ch = what_char();
-	     if (ch == ')')
-	       {
-		  par_level--;
-	       }
-	     else if (ch == '(')
-	       {
-		  par_level++;
-		  if (par_level == 1) return what_column() + 1;
-	       }
 	     
+	     if (0 == parse_to_point())
+	       {
+		  ch = what_char();
+		  if (ch == ')')
+		    {
+		       par_level--;
+		    }
+		  else if (ch == '(')
+		    {
+		       par_level++;
+		       if (par_level == 1) return what_column() + 1;
+		    }
+	       }
 	     if (bolp() and (par_level == 0))
 	       {
 		  skip_white();
@@ -141,7 +144,7 @@ private define ruby_calculate_indent()
 	       }
 	  }
 	
-	if (looking_at("#")) return what_column();
+	if (looking_at("#")) return what_column() + extra_indent;
 	
 	if (orelse
 	    { looking_at_keyword("class") }
