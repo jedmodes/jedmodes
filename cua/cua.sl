@@ -26,7 +26,8 @@
 %%  1.6.1 2007-09-03 bind eol() instead of eol_cmd() to Key_End, as eol_cmd
 %%  	  	     deletes trailing white which confuses moving and editing
 %%  	  	     and might not be desired.
-%%  1.6.2 2007-10-18 ptional extensions with #if ( )
+%%  1.6.2 2007-10-18 optional extensions with #if ( )
+%%  1.6.3 2007-10-23 use cua_replace_cmd() (needs cuamisc.sl >= 1.6.3)
 %%  	  	     
 %%                   
 %%  USAGE:
@@ -69,7 +70,7 @@ if (_jed_version < 9915)
 if (_jed_version < 9916)
   require("compat17-16");
 
-require("cuamisc");   % "Outsourced" helper functions
+require("cuamisc");   % >= 1.6.3 "Outsourced" helper functions
 require("keydefs");   % symbolic constants for many function and arrow keys
 #if (expand_jedlib_file("cuamark.sl") != "")
 require("cuamark");   % mark regions with Shift-Arrow
@@ -149,7 +150,7 @@ setkey("re_search_backward",	"^FG");
 setkey("isearch_forward",	"^FI");  % Incremental search
 setkey("occur", 		"^FO");  % find all Occurences
 setkey("query_replace_match", 	"^FP");  % regexp rePlace
-setkey("replace_cmd", 		"^FR");
+setkey("cua_replace_cmd",	"^FR");
 
 setkey("goto_line_cmd", 	"^G");   % Goto line
 % set_abort_char('');                  % Jed Default, now on ^D
