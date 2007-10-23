@@ -27,13 +27,10 @@
 % 2006-03-23 1.6.1 * cua_repeat_search() now searches across lines and has
 %                    optional arg `direction'
 % 2007-05-14 1.6.2 * removed ``add_completion("cua_save_as")``
-% 	     	   * added Joergs Sommers jbol()
-% 2007-05-31 1.6.3 * fix documentation of jbol()	     	   
-
+% 	     	   * new fun jbol() (by Joerg Sommer)
+% 2007-10-23 1.6.3 * new fun cua_replace_cmd()
 
 provide ("cuamisc");
-
-autoload("search_across_lines", "search");
 
 %!%+
 %\function{cua_delete_char}
@@ -123,6 +120,14 @@ define cua_bdelete_word ()              % Key_Ctrl_BS
    del_region ();
 }
 
+% Seach extensions
+% ----------------
+
+autoload("search_across_lines", "search");
+autoload("search_search_function", "search");
+autoload("replace_do_replace", "search");
+autoload("replace_with_query", "search");
+
 %!%+
 %\function{cua_repeat_search}
 %\synopsis{continue searching with last searchstring}
@@ -150,6 +155,57 @@ public define cua_repeat_search() % (direction=1)
         error ("Not found.");
      }
 }
+
+%!%+
+%\function{cua_replace_cmd}
+%\synopsis{Search and Replace}
+%\usage{cua_replace_cmd()}
+%\description
+%  A version of the standard replace_cmd() that sets the
+%  default search pattern from the region or word under cursor.
+%\notes
+%  Defining this as a wrapper around replace_cmd() fails, as
+%  buffer_keystring() will not work as expected if the region contains
+%  newlines.  
+%\seealso{replace_cmd, cua_repeat_search, search_forward, isearch_forward}
+%!%-
+public define cua_replace_cmd()
+{
+   variable pat, prompt, rep;
+   % find default value: region or word under cursor
+   if(is_visible_mark)  % region marked: set point to beg of region
+     {
+	check_region(0);
+	exchange_point_and_mark();
+     }
+   else
+     {
+	skip_word_chars();
+	push_mark;
+	bskip_word_chars();
+     }
+   variable default = bufsubstr();
+   pat = read_mini("Replace:", "", default);
+   !if (strlen (pat)) return;
+   
+   prompt = strcat (strcat ("Replace '", pat), "' with:");
+   rep = read_mini(prompt, "", "");
+   
+   variable cs = CASE_SEARCH;
+   if (strlow (pat) != pat)
+     CASE_SEARCH = 1;
+   ERROR_BLOCK
+     {
+	CASE_SEARCH = cs;
+     }
+
+   replace_with_query (&search_search_function, pat, rep, 1, &replace_do_replace);
+   
+   EXECUTE_ERROR_BLOCK;
+
+   message ("done.");   
+}
+
 
 % --- Use the ESC key as abort character (still experimental)
 
