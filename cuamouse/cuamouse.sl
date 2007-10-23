@@ -7,14 +7,15 @@
 %            1.1   mark_word does no longer skip back to next word
 %                  implemented mark_by_lines for right drag
 % 2005-03-18 1.2   added some tm documentation
-% 2005-07-05 1.3   added `xclip` workaround for interaction with QT 
+% 2005-07-05 1.3   added `xclip` workaround for interaction with QT
 % 	     	   applications (tip by Jaakko Saaristo)
 % 2006-02-15 1.4   made auxiliary variables static
 % 2006-05-26 1.4.1 added missing autoload (J. Sommer)
 % 2006-10-05 1.5   bugfixes after testing, switch arguments in click_region()
 %                  and cuamouse_drag() to get (col, line) as in the status bar
 %                  use mark_word() from txtutils.sl (new dependency!)
-% 		   use private variables instead of static ones                
+% 		   use private variables instead of static ones
+% 2007-10-23 1.5.1 provide("mouse") as mouse.sl does not do so
 %
 % What does it do:
 %
@@ -53,6 +54,22 @@
 %
 %----------------------------------------------------------------------------
 
+% Requirements
+% ------------
+
+() = evalfile("mouse");  % does not have a provide("mouse") line
+provide("mouse");
+
+autoload("run_function", "sl_utils");
+autoload("cua_mark", "cuamark");
+autoload("cua_insert_clipboard", "cuamark");
+autoload("mark_word", "txtutils");
+
+provide("cuamouse");
+
+% Customisation
+% -------------
+
 %!%+
 %\variable{CuaMouse_Use_Xclip}
 %\synopsis{Use `xclip` instead of x_copy_region_to_selection()}
@@ -68,11 +85,8 @@
 %!%-
 custom_variable("CuaMouse_Use_Xclip", 0);
 
-require("mouse");
-autoload("run_function", "sl_utils");
-autoload("cua_mark", "cuamark");
-autoload("cua_insert_clipboard", "cuamark");
-autoload("mark_word", "txtutils");
+% Private Variables
+% -----------------
 
 private variable CuaMouse_Drag_Mode = 0;     % 0 no previous drag, 1 drag
 private variable CuaMouse_Return_Value = 1;  % return value for the mouse_hooks
@@ -80,6 +94,9 @@ private variable CuaMouse_Return_Value = 1;  % return value for the mouse_hooks
   %  0 Event handled, return active window prior to event
   %  1 Event handled, stay in current window.
 private variable CuaMouse_Clipboard = "";    % string where a mouse-drag is stored
+
+% Functions
+% ---------
 
 %!%+
 %\function{click_in_region}
@@ -148,7 +165,7 @@ public define copy_region_to_clipboard()
 {
    % no copy if the region is void
    () = dupmark();
-   if (bufsubstr() == "")           
+   if (bufsubstr() == "")
      return;
    () = dupmark();
    if (CuaMouse_Use_Xclip)
