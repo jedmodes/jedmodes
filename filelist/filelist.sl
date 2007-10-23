@@ -70,6 +70,9 @@
 % 2007-05-25  1.7.4 * bugfix in filelist_open_file(): went to wrong buffer if
 % 		      file with same basename already open
 % 2007-10-01  1.7.5 * optional extensions with #if ( )
+% 2007-10-04  1.7.6 * no DFA highlight in UTF-8 mode (it's broken)
+% 2007-10-23  1.7.7 * no DFA highlight caching
+
 %
 % TODO: * more bindings of actions: filelist_cua_bindings
 %       * copy from filelist to filelist ...
@@ -129,8 +132,7 @@ require("sl_utils");
 autoload("string_get_match", "strutils");
 % optional extensions
 #if (expand_jedlib_file("filelistmsc") != "")
-_autoload("filelist_do_rename_regexp", "filelistmsc",
-   "filelist_do_tar", "filelistmsc", 2);
+autoload("filelist_do_rename_regexp", "filelistmsc");
 #endif
 
 % name and namespace
@@ -475,6 +477,29 @@ public  define filelist_delete_tagged()
    help_message();
 }
 
+
+%!%+
+%\function{filelist_do_tar}
+%\synopsis{Make a tgz of the tagged files}
+%\usage{filelist_do_tar()}
+%\description
+%  Pack the tagged files in a gzipped tar archive.
+%\notes
+%  Needs the `tar` system command.
+%\seealso{filelist_mode}
+%!%-
+public define filelist_do_tar()
+{
+   variable tar = read_with_completion("Name of tgz to create", "", "", 'f');
+   switch (file_status(tar))
+     {case 2: error ("this is a directory");}
+     {case 1: !if (get_y_or_n("file exists, overwrite")) return;}
+     {case 0: ;}
+     {error("can't stat this");}
+   shell_perform_cmd(strcat("tar -czvf ", tar, " ", list_tagged_files()), 0);
+}
+
+
 %!%+
 %\function{filelist_reread}
 %\synopsis{Re-read the current file listing}
@@ -751,7 +776,7 @@ public  define filelist_open_file_with() % (ask = 1)
 %  Grep for a string in the tagged files.
 %  Prompts for the pattern in the minibuffer.
 %\notes
-%  This function is only available, when the \sfun{grep} function is defined at
+%  This function is only available, when \sfun{grep} is defined at
 %  the time of evaluation or preparsing of filelist.sl
 %\seealso{grep, filelist_mode}
 %!%-
@@ -768,18 +793,16 @@ create_syntax_table(mode);
 % set_syntax_flags (mode, 0);
 % define_syntax ("-+0-9.", '0', mode);            % Numbers
 
-%%% DFA_CACHE_BEGIN %%%
-static define setup_dfa_callback(mode)
+private define setup_dfa_callback(mode)
 {
-   dfa_enable_highlight_cache(mode + ".dfa", mode);
    dfa_define_highlight_rule(".*" + Dir_Sep + "$", "keyword", mode); % dir
    dfa_define_highlight_rule("^d[\\-r][\\-w]x.*$", "keyword", mode); % dir with "ls -l"
    dfa_define_highlight_rule(".*~$", "comment", mode); % backup copies
    dfa_build_highlight_table(mode);
 }
 dfa_set_init_callback(&setup_dfa_callback, mode);
-%%% DFA_CACHE_END %%%
-enable_dfa_syntax_for_mode(mode);
+!if (_slang_utf8_ok)  % DFA is broken in UTF-8 mode
+  enable_dfa_syntax_for_mode(mode);
 #endif
 
 static define mc_bindings()
