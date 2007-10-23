@@ -42,6 +42,8 @@
 % 1.1.4 2007-02-23  bugfix: grep() did recursive grep for empty basename
 % 		    in grep pattern
 % 1.1.5 2007-04-19  added mode menu and more Customisation hints
+% 1.1.6 2007-10-04  no DFA highlight in UTF-8 mode (it's broken)
+%       2007-10-23  no DFA highlight cache (it's just one rule)
 %
 % Usage
 % -----
@@ -51,7 +53,7 @@
 % * from the command line: `grep -nH "sometext" * | jed --grep_mode`
 % 
 %   - You should have grep_mode in your autoload list for this to work.
-%   - Doesnot work for xjed, use e.g. `xjed -f "grep(\"sometext\", \"*\")"`
+%   - Does not work for xjed, use e.g. `xjed -f "grep(\"sometext\", \"*\")"`
 %     or the X selection.
 %
 % * To open a file on a result line, go to the line press ENTER or double click
@@ -280,22 +282,16 @@ create_syntax_table(mode);
 
 #ifdef HAS_DFA_SYNTAX
 %%% DFA_CACHE_BEGIN %%%
-static define setup_dfa_callback(mode)
+private define setup_dfa_callback(mode)
 {
-   dfa_enable_highlight_cache("grep.dfa", mode);
-   dfa_define_highlight_rule("^[^:]*", "keyword", mode);
-   dfa_define_highlight_rule(":[0-9]+:", "number", mode);
-   % Uhm, this matches numbers enclosed by ':' anywhere. If this really
-   % annoys you, either:
-   % 1 - disable dfa highlighting
-   % 2 - comment the two dfa_define_highlight_rule above and use instead:
-   %       dfa_define_highlight_rule("^[^:]*:[0-9]+:", "keyword", mode);
-
+   % dfa_enable_highlight_cache("grep.dfa", mode);
+   dfa_define_highlight_rule("^[^:]*:[0-9]+:", "keyword", mode);
    dfa_build_highlight_table(mode);
 }
-dfa_set_init_callback (&setup_dfa_callback, mode);
+dfa_set_init_callback (&setup_dfa_callback, "grep");
 %%% DFA_CACHE_END %%%
-enable_dfa_syntax_for_mode(mode);
+!if (_slang_utf8_ok)  % DFA is broken in UTF-8 mode
+  enable_dfa_syntax_for_mode(mode);
 #endif
 
 !if(keymap_p(mode))
@@ -423,11 +419,11 @@ public define grep() % ([what], [path])
    flush("calling " + cmd);
    status = run_shell_cmd(cmd);
 
-   variable msg = ["OK", "No results for ", "Error (or file not found) in "];
-   if (status)
-     {
-        insert(msg[status] + cmd);
-     }
+   switch (status)
+     { case 0: message("matches found"); }
+     { case 1: vinsert("No results for `%s`", cmd); }
+     { case 2: vinsert("Error (or file not found) in `%s`", cmd); }
+     { vinsert("`%s` returned %d", cmd, status); }
    if (bolp() and eolp())
      delete_line();
    fit_window(get_blocal("is_popup", 0));
