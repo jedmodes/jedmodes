@@ -1,11 +1,11 @@
-% diff_mode.sl -*- mode: Slang; mode: fold -*-  
+% diff_mode.sl -*- mode: Slang; mode: fold -*-
 %
 %%exts:%% diff, patch
 
 % Unified diff mode viewer and editor for Jed %{{{
-% 
+%
 % Written by Dino Leonardo Sangoi <dino@trieste.linux.it> on a shiny day.
-% 
+%
 % It does highlighting a bit like mcedit (the midnight commander editor) does.
 % (It uses dfa syntax highlighting).
 %
@@ -25,14 +25,14 @@
 %    * set default colors re-using existing color definitions
 %      (better defaults for non-black color schemes but still customisable)
 %    * removed pre Jed 0.99.16 compatibility hack
-%    * diff_top_of_file(), diff_top_of_block(): try below if there is no top 
+%    * diff_top_of_file(), diff_top_of_block(): try below if there is no top
 %      above -> lets diff_jump_to() also work from the top of the diff buffer
 %    * diff_jump_to(): ask for path if file not found
 %    * new: diff_jump() (after a patch by Lechee Lai)
 % 2.1   2007-07-21
 %    * frontend commands: diff(), diff_buffer(), diff_dir_files()
 %    * use of walk.sl now optional
-% 2.1.1 2007-07-24 bugfix in diff_buffer, documentation fix 
+% 2.1.1 2007-07-24 bugfix in diff_buffer, documentation fix
 % 2.1.2 2007-07-27 bugfix: diff_jump_to(): pop_spot after computing destination
 % 2.2   2007-09-03
 %    * highlight trailing whitespace (too often this makes all of the difference)
@@ -41,16 +41,19 @@
 %       - hidden dependency on shell_command()
 %       - spurious arg to pop2puf() in diff()
 %       - test for files in both dirs in diff_dir_files()
-% 2.2,1 2007-10-01 optional extensions with #if ( )
-%  
+% 2.2.1 2007-10-01 optional extensions with #if ( )
+% 2.2.2 2007-10-04 no DFA highlight in UTF-8 mode (broken for multi-byte chars)
+% 		   enable it with enable_dfa_syntax_for_mode("Diff");
+% 2.2.3 2007-10-23 switch on highlight caching
+%
 % Usage
 % -----
-% 
-% Put diffmode.sl, treemode.sl, (and optionally walk.sl) in your 
+%
+% Put diffmode.sl, treemode.sl, (and optionally walk.sl) in your
 % Jed library path (cf. get_jed_library_path()).
 %
 % Add to your .jedrc or jed.rc file something like
-%  
+%
 %        autoload("diff_mode", "diffmode");
 %        add_mode_for_extension("diff", "diff");
 %        add_mode_for_extension("diff", "patch");
@@ -60,23 +63,23 @@
 %
 % Customization
 % -------------
-% 
+%
 % Optionally you can set these variables:
-% 
+%
 % Diff_Use_Tree   -> whether to use the (experimental) tree mode viewer for
 %                    patches containing more than one file. If zero, tree mode
 %                    is not used, else the value is the minimum number of files
 %                    needed inside a patch to trigger the tree mode viewer.
 %                    (default = 4, just a randomly choosen number)
-% 
+%
 % DiffTree_Indent -> how much to indent lines in tree mode viewer. Default = 8
 %
 % You can customize the syntax highlight colors for "diff_block", "diff_junk",
 % "diff_deleted", "diff_added", "diff_oldfile", "diff_newfile", "diff_cmd" in
 % jed.rc, e.g.
-% 
-%        set_color("diff_deleted", "blue", "red"); 
-% 
+%
+%        set_color("diff_deleted", "blue", "red");
+%
 % Thanks to:
 % - John Davis, for this great editor.
 % - Abraham van der Merwe, I took some ideas (and maybe also some code...)
@@ -125,7 +128,7 @@ custom_color("diff_deleted", get_color("error"));       % -
 custom_color("diff_added",   get_color("keyword"));     % +
 custom_color("diff_junk",    get_color("comment"));     % Only / Binary
 custom_color("diff_white",   get_color("region"));	% (trailing) whitespace
-%}}}  
+%}}}
 
 %%%% Diff low level helpers %{{{
 
@@ -146,11 +149,11 @@ static define _diff_is_marker()
 static define _diff_parse_block_info(l)
 {
 	variable pos, len;
-	
+
 	% Uhmm, there's a better way to do this?
 	if (string_match(l, "@@ \-\(\d+\),\(\d+\) \+\(\d+\),\(\d+\) @@"R, 1) == 0)
 		error("malformed block header <"+l+">");
-	
+
 	(pos, len) = string_match_nth(1);
 	integer(l[[pos:pos+len-1]]);
 	(pos, len) = string_match_nth(2);
@@ -170,7 +173,7 @@ static define _diff_count_block()
 	variable countplus = 0;
 	variable countminus = 0;
 	variable countspace = 0;
-	
+
 	while (down_1) {
 		bol();
 		if (eobp)
@@ -187,10 +190,10 @@ static define _diff_count_block()
 static define _diff_skip_header(dir)
 {
 	variable f = &up_1;
-	
+
 	if (dir > 0)
 		f = &down_1;
-	
+
 	while (bol(), _diff_is_marker())
 		!if (@f())
 			break;
@@ -203,7 +206,7 @@ static define _diff_skip_header(dir)
 define diff_top_of_file()
 {
    % push mark instead of spot to be able to pop it without going there
-	push_mark(); 
+	push_mark();
 	% search the diff marker.
 	if (andelse{bol_bsearch("--- ") == 0}{bol_fsearch("--- ") == 0}) {
 		pop_mark(1);
@@ -224,7 +227,7 @@ define diff_end_of_file()
 	% Skip Junk AND first marker
 	go_down_1();
 	_diff_skip_header(1);
-	
+
 	if (bol_fsearch("--- ") == 0) {
 		% I can only assume this is the last file-block.
 		eob();
@@ -254,7 +257,7 @@ define diff_end_of_block()
 	% Skip Junk
 	_diff_skip_header(1);
 	go_down_1();
-	
+
 	if (bol_fsearch("@@ ") != 0) {
 		go_up_1;
 		_diff_skip_header(-1);
@@ -272,11 +275,11 @@ define diff_mark_file(skipheader)
 {
 	% if the point is in a header, mark the *next* file, not the previous.
 	_diff_skip_header(1);
-	
+
 	diff_top_of_file();
 	if (skipheader)
 		_diff_skip_header(1);
-	
+
 	push_visible_mark();
 	diff_end_of_file();
 }
@@ -287,12 +290,12 @@ define diff_mark_block(skipheader)
 	% if the point is in a header, mark the *next* block, not the previous.
 	!if (looking_at("@@ "))
 		diff_top_of_block();
-	
+
 	if (skipheader) {
 		go_down_1();
 		bol();
 	}
-	
+
 	push_visible_mark();
 	diff_end_of_block();
 }
@@ -304,7 +307,7 @@ static define mark_file_header()
    push_visible_mark();
    _diff_skip_header(1);
 }
-  
+
 % narrows the current file.
 define diff_narrow_to_file(skipheader)
 {
@@ -328,7 +331,7 @@ define diff_narrow_to_block(skipheader)
 
 %%%% Redo diff markers after editing %{{{
 
-% Rewrite a block header after editing it. 'old_off' is the offset to apply 
+% Rewrite a block header after editing it. 'old_off' is the offset to apply
 % to line numbers for 'old' side. 'new_off' is the offset to apply to line
 % numbers on the 'new' side.
 % returns two values: old_off and new_off modified accordinly to changes on
@@ -342,19 +345,19 @@ define diff_redo_block(old_off, new_off)
 	variable oldpos, oldsize, newpos, newsize;
 	variable c;
 	variable oldheader, newheader;
-	
+
 	push_spot();
 	diff_narrow_to_block(0);
 	bob();
 	oldheader = line_as_string();
 	(oldpos, oldsize, newpos, newsize) = _diff_parse_block_info(oldheader);
-	
+
 	(countplus, countminus, countspace) = _diff_count_block();
 	countplus += countspace;
 	countminus += countspace;
 	newheader = sprintf("@@ -%d,%d +%d,%d @@", oldpos+old_off, countminus, newpos+new_off, countplus);
 	flush(sprintf("@@ -%d,%d +%d,%d @@   -->   %s", oldpos, oldsize, newpos, newsize, newheader));
-	
+
 	if (strcmp(oldheader, newheader) != 0) {
 		bob();
 		delete_line();
@@ -369,10 +372,10 @@ define diff_redo_block(old_off, new_off)
 static define _diff_redo_from_here(oldoff, newoff)
 {
 	variable done;
-	
+
 	diff_end_of_block();
 	diff_top_of_block();
-	
+
 	do {
 		(oldoff, newoff) = diff_redo_block(oldoff, newoff);
 		diff_end_of_block();
@@ -384,7 +387,7 @@ define diff_redo_file()
 {
 	push_spot();
 	diff_narrow_to_file(0);
-	
+
 	bob();
 	_diff_redo_from_here(0, 0);
 	widen();
@@ -410,7 +413,7 @@ define diff_remove_binary_lines()
 	push_spot();
 	bob();
 	while (bol_fsearch("Binary files "))
-		delete_line();		
+		delete_line();
 	pop_spot();
 }
 
@@ -426,7 +429,7 @@ define diff_remove_junk_lines()
 define diff_remove_block(redo)
 {
 	variable countplus, countminus;
-	
+
 	push_spot();
 	% Ensure that we don't cross a file-block boundary
 	diff_narrow_to_file(0);
@@ -439,7 +442,7 @@ define diff_remove_block(redo)
 	mark_buffer();
 	del_region();
 	widen(); % block
-	
+
 	if (eobp()) {
 		if (what_line <= 4) {
 			% This is the last block in this file, delete also the file header
@@ -454,7 +457,7 @@ define diff_remove_block(redo)
 			pop_spot();
 		}
 	}
-	
+
 	widen(); % file
 	% All this leaves an extra void line, kill it
 	!if (eobp())
@@ -477,7 +480,7 @@ define diff_remove_file()
 define diff_get_source_file_name(new)
 {
    variable marker, endcol, name;
-   if (new) 
+   if (new)
      marker = "+++ ";
    else
      marker = "--- ";
@@ -492,7 +495,6 @@ define diff_get_source_file_name(new)
      name = read_with_completion("Please adjust path:", "", name, 'f');
    return name;
 }
-
 
 % apply just one block
 #ifexists bufsubfile
@@ -517,7 +519,7 @@ define diff_apply_block()
 %%%%}}}
 
 %%%% Standard mode things: keymap, syntax, highlighting %{{{
-static variable Diff = "Diff";
+private variable Diff = "Diff";
 
 define diff_add_saurus_bindings()
 {
@@ -546,12 +548,11 @@ define diff_add_saurus_bindings()
 create_syntax_table(Diff);
 
 #ifdef HAS_DFA_SYNTAX
-
 %%% DFA_CACHE_BEGIN %%%
-static define setup_dfa_callback (name)
+private define setup_dfa_callback (name)
 {
-   % dfa_enable_highlight_cache("diffmode.dfa", name);
-   
+   dfa_enable_highlight_cache("diffmode.dfa", name);
+
    dfa_define_highlight_rule("^diff .*",      "diff_cmd",     name);
    dfa_define_highlight_rule("^\+\+\+ .*"R,   "diff_newfile", name);
    dfa_define_highlight_rule("^--- .*",       "diff_oldfile", name);
@@ -565,14 +566,15 @@ static define setup_dfa_callback (name)
    dfa_define_highlight_rule("^< .*",         "diff_deleted", name);
    % trailing whitespace
    dfa_define_highlight_rule("[ \t]+$",       "Qdiff_white",   name);
-   
+
    dfa_build_highlight_table(name);
 }
-dfa_set_init_callback(&setup_dfa_callback, Diff);
+dfa_set_init_callback(&setup_dfa_callback, "Diff");
 %%% DFA_CACHE_END %%%
 
 % Highlighting NEEDS dfa for this mode to work.
-enable_dfa_syntax_for_mode(Diff);
+!if (_slang_utf8_ok)  % DFA is broken in UTF-8 mode
+  enable_dfa_syntax_for_mode(Diff);
 
 #endif
 %%%%}}}
@@ -590,20 +592,20 @@ define diff_jump_to(new)
         % delta (or manually call diff_redo_file() befor jumping).
 #ifexists walk_forward
 	walk_mark_current_position();
-#endif   
+#endif
 	push_spot(); % save current position
 	diff_top_of_block();
 	delta -= what_line();
 	line_as_string(); % on stack
 	(pos, , newpos, ) = _diff_parse_block_info();
-	if (new) 
+	if (new)
      	   pos = newpos;
 	pos += delta;
         name = diff_get_source_file_name(new);
-	pop_spot();   
+	pop_spot();
 	() = read_file(name);
 	goto_line(pos);
-	vmessage("%s:%d", name, pos);	   
+	vmessage("%s:%d", name, pos);
 #ifexists walk_forward
 	walk_goto_current_position();
 	walk_store_marked_position();
@@ -631,7 +633,6 @@ define diff_jump()
 }
 %%%%}}}
 
-
 %%%% Menu %{{{
 %%%%
 
@@ -641,7 +642,7 @@ define diff_jump()
 static define _get_files_names(names, func)
 {
 	variable s;
-	
+
 	bob;
 	while (bol_fsearch("+++ ")) {
 		% grab the name
@@ -674,13 +675,13 @@ static define get_files_names_as_marks(names)
 % "Only in " and "Binary files " lines.
 % (taking the 'new' versions, i.e. those with '+++').
 % key is the name, value is -1 (we don't care where these are)
-% TODO: Add those as 'real' files to tree, do some parsing to get the full 
-%       name from 'Only in', and pick  only the first (or last?) name in 
+% TODO: Add those as 'real' files to tree, do some parsing to get the full
+%       name from 'Only in', and pick  only the first (or last?) name in
 %       'Binary files'.
 static define get_files_markers(names)
 {
 	variable s;
-	
+
 	bob;
 	while (re_fsearch("^[OB][ni][ln][ya][ r][iy][n ][ f]")) {
 		if (looking_at("Only in ") or looking_at("Binary files ")) {
@@ -695,11 +696,11 @@ static define get_files_markers(names)
 static define files_popup_callback(popup)
 {
 	variable key, line, names = Assoc_Type[Int_Type];
-	
+
 	push_spot();
 	get_files_names(names);
 	pop_spot();
-	
+
 	variable keys = assoc_get_keys(names);
 	keys = keys[array_sort(keys)];
 	foreach key (keys)
@@ -713,7 +714,7 @@ public define diff_init_menu(menu)
 {
 	menu_append_popup(menu, "&File Blocks");
 	menu_set_select_popup_callback(strcat(menu, ".&File Blocks"), &files_popup_callback);
-	
+
 	menu_append_separator(menu);
 	menu_append_item(menu, "&top of block",      "diff_top_of_block");
 	menu_append_item(menu, "&end of block",      "diff_end_of_block");
@@ -728,7 +729,7 @@ public define diff_init_menu(menu)
 	menu_append_item(menu, "Goto &old file", "diff_jump_to", 0);
 	menu_append_item(menu, "Goto &new file", "diff_jump_to", 1);
 	menu_append_separator(menu);
-	menu_append_item(menu, "Re&write block &header", 
+	menu_append_item(menu, "Re&write block &header",
 	                       "(,) = diff_redo_block(0,0)");
 	menu_append_item(menu, "Re&Write all headers",  "diff_redo_file");
 	menu_append_item(menu, "Delete &junk lines",  "diff_remove_junk_lines");
@@ -746,28 +747,28 @@ define difftree_goto_pos()
 {
 	variable l = what_line, mode;
 	variable li;
-	
+
 	li = tree_elem_get_data();
-	
+
 	if (li == NULL)
 		error("diffmode: cannot show this item.");
-	
+
 	if (li == InvMark)
 		error("diffmode: mark");
 
 #ifexists walk_forward
 	walk_mark_current_position();
-#endif	
+#endif
 	setbuf(user_mark_buffer(li));
 	widen();  % just in case...
 	goto_user_mark(li);
 	diff_narrow_to_file(0);
 	bob;
-	
+
 #ifexists walk_forward
    	walk_goto_current_position();
 	walk_store_marked_position();
-#endif   
+#endif
 }
 
 define difftree_goto_pos_event(event)
@@ -784,13 +785,13 @@ static define _build_section(base, aa, start, end, depth, km)
 {
 	variable child = "    ";
 	variable i, firststart = start;
-	
+
 	flush("depth " +string(depth)+", range ["+string(start)+":"+string(end)+"]");
 	for (i = start; i < end; i++) {
 		if (aa[start][depth] != aa[i][depth]) {
 			% this element is different
 			% insert base
-			if (base != "") 
+			if (base != "")
 				tree_add_element(child, base, InvMark);
 			base = aa[start][depth];
 			if (depth == length(aa[start])-1)
@@ -833,20 +834,19 @@ static define insert_lines(names, marks)
 	variable count = 0;
 	variable oldnode, node;
 	variable aa;
-	variable depth = 0;   % 'depth' is the element for every line that 
+	variable depth = 0;   % 'depth' is the element for every line that
 	% _build_section() should handle.
-	
+
 	variable I;           % array sort index.
 	variable ks = assoc_get_keys(names); % only the names.
 	variable km = assoc_get_values(names);
-	
-	
+
 	% sort the names,keeping ks and km in synch
 	I = array_sort(ks);
 	ks = ks[I];
 	km = km[I];
-	
-	% SLang powerfulness: build an array of arrays containing each 
+
+	% SLang powerfulness: build an array of arrays containing each
 	% a path element. e.g. if:
 	% ks[0] == "/home/sauro/.jedrc"
 	% ks[1] == "/home/sauro/.jed/home-lib.sl"
@@ -863,7 +863,7 @@ static define insert_lines(names, marks)
 	%%%   tree_set_user_datatype(Integer_Type);
 	InvMark = create_user_mark();
 	_build_section("", aa, 0, length(aa), depth, km);
-	
+
 	% that's all folks.
 }
 
@@ -872,10 +872,10 @@ public define difftree()
 	variable names = Assoc_Type[Mark_Type];
 	variable marks = Assoc_Type[Int_Type];
 	variable diffbuf, difftreebuf;
-	
+
 	get_files_names_as_marks(names);
 	get_files_markers(marks);
-	
+
 	diffbuf = whatbuf();
 	difftreebuf = "*tree of "+diffbuf+"*";
 	if (bufferp(difftreebuf))
@@ -890,9 +890,9 @@ public define difftree()
 		definekey("difftree_goto_pos", "^M", "TreeDiff");
 	}
 	insert_lines(names, marks);
-	
+
 	sw2buf(difftreebuf);
-	
+
 	tree_set_user_func(&difftree_goto_pos_event, TREE_TOGGLE);
 	use_keymap("TreeDiff");
 	run_mode_hooks("difftree_mode_hook");
@@ -985,10 +985,10 @@ define diff_dir_files(dir1, dir2)
    vinsert("Comparing equally named files in '%s'\n", dir1);
    vinsert("and '%s'\n", dir2);
    foreach file (listdir(dir1))
-     {  
+     {
 	if(file_status(path_concat(dir2, file)) != 1)
 	  continue; % file does not exist in dir2
-	cmd = sprintf("diff -u %s %s", 
+	cmd = sprintf("diff -u %s %s",
 	   path_concat(dir1, file), path_concat(dir2, file));
 	% Insert a separating header for every file pair
 	% TODO: Add a syntax highlight rule???
@@ -1011,5 +1011,4 @@ define diff_rerun()
    diff(oldfile, newfile);
 }
 %%%%}}}
-
 
