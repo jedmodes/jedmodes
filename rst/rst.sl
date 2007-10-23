@@ -1,17 +1,17 @@
-% rst.sl
-% ======
-% 
-% Mode for reStructured Text (from Python docutils__)
+% rst.sl: Mode for reStructured Text
+% ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 % 
 % Copyright (c) 2004, 2006 Guenter Milde (milde users.sf.net)
 % Released under the terms of the GNU General Public License (ver. 2 or later)
 % 
-% `ReStructured Text`__ is a revision of Structured Text, a simple markup
-% language that can be translated to Html and LaTeX (and more, if someone
-% writes a converter)
+% ReStructuredText_ (from Python docutils_) is a revision of Structured
+% Text, a simple markup language that can be translated to Html and LaTeX (and
+% more, if someone writes a converter).
+% This mode turns Jed into an IDE for reStructured Text.
 % 
-% __ http://docutils.sourceforge.net/
-% __ http://docutils.sourceforge.net/docs/rst/quickref.html
+% .. _ReStructuredText: http://docutils.sourceforge.net/docs/rst/quickref.html
+% .. _docutils:         http://docutils.sourceforge.net/
+% 
 % 
 % Versions
 % ========
@@ -63,14 +63,17 @@
 %                  * new functions rst_view() and rst_view_html(), 
 %                    rst_view_pdf, rst_view_latex obsoleting rst_browse()
 % 1.9.1 2007-10-18 * update to work with tokenlist.sl newer than 2007-05-09
+% 1.9.2 2007-10-23 * Add admonitions popup to the Directives menu
+%                  * use hard-coded TAB in non-expanded (""R) syntax rules
+%                  * add '.' to chars allowed in crossreference marks
 % 
 % ===== ========== ============================================================
 % 
-% 
-% TODO: * directives functions (see /docutils/docs/ref/rst/directives.html)
-%         (partially done)
-%       * jump from reference to target and back again
-%       * "link creation wizard"
+% TODO
+%   
+% * jump from reference to target and back again
+% * "link creation wizard"
+% * Function to re-organize the section adornment char use
 % 
 % 
 % Requirements
@@ -641,9 +644,9 @@ private define inline_rule(s)
    return sprintf(re, s, s, s, s, s, s);
 }
 
-static define setup_dfa_callback(mode)
+private define setup_dfa_callback(mode)
 {
-   dfa_enable_highlight_cache(mode +".dfa", mode);
+   dfa_enable_highlight_cache("rst.dfa", mode);
 
    variable color_strong = "error";
    variable color_emphasis = "string";
@@ -678,8 +681,8 @@ static define setup_dfa_callback(mode)
    dfa_define_highlight_rule("(https?|ftp|file)://[^ \t>]+", color_url, mode);
    % dfa_define_highlight_rule ("[^ \t\n<]*@[^ \t\n>]+", color_email, mode);
    %  crossreferences
-   dfa_define_highlight_rule("[\-a-zA-Z0-9_]*[a-zA-Z0-9]__?[^a-zA-Z0-9]"R, color_reference, mode);
-   dfa_define_highlight_rule("[\-a-zA-Z0-9_]*[a-zA-Z0-9]__?$"R, color_reference, mode);
+   dfa_define_highlight_rule("[\-a-zA-Z0-9_\.]+_[^a-zA-Z0-9]"R, color_reference, mode);
+   dfa_define_highlight_rule("[\-a-zA-Z0-9_\.]+_$"R, color_reference, mode);
    %  reference with backticks
    dfa_define_highlight_rule("`[^`]*`__?", color_reference, mode);
    %   footnotes and citations
@@ -693,7 +696,7 @@ static define setup_dfa_callback(mode)
    % substitution definitions
    dfa_define_highlight_rule("^\.\. [|].*"R, color_target, mode);
    %  anonymous
-   dfa_define_highlight_rule("^__ [^ \t]+.*$"R, color_target, mode);
+   dfa_define_highlight_rule("^__ [^ 	]+.*$"R, color_target, mode);
    %  footnotes and citations
    dfa_define_highlight_rule("^\.\. \[[a-zA-Z#\*]+\].*"R, color_target, mode);
 
@@ -701,19 +704,19 @@ static define setup_dfa_callback(mode)
    dfa_define_highlight_rule("^\.\."R, "Pcomment", mode);
 
    % Directives
-   dfa_define_highlight_rule("^\.\. [^ \t]+.*::"R, color_directive, mode);
+   dfa_define_highlight_rule("^\.\. [^ 	]+.*::"R, color_directive, mode);
 
    % Lists
    %  itemize
-   dfa_define_highlight_rule("^[ \t]*[\-\*\+][ \t]+"R, "Q"+color_list_marker, mode);
+   dfa_define_highlight_rule("^[ 	]*[\-\*\+][ 	]+"R, "Q"+color_list_marker, mode);
    %  enumerate
-   dfa_define_highlight_rule("^[ \t]*[0-9a-zA-Z][0-9a-zA-Z]?\.[ \t]+"R, color_list_marker, mode);
-   dfa_define_highlight_rule("^[ \t]*\(?[0-9a-zA-Z][0-9]?\)[ \t]+"R, color_list_marker, mode);
-   dfa_define_highlight_rule("^[ \t]*#\.[ \t]+"R, color_list_marker, mode);
+   dfa_define_highlight_rule("^[ 	]*[0-9a-zA-Z][0-9a-zA-Z]?\.[ 	]+"R, color_list_marker, mode);
+   dfa_define_highlight_rule("^[ 	]*\(?[0-9a-zA-Z][0-9]?\)[ 	]+"R, color_list_marker, mode);
+   dfa_define_highlight_rule("^[ 	]*#\.[ 	]+"R, color_list_marker, mode);
    %  field list
-   dfa_define_highlight_rule("^[ \t]*:.+:[ \t]+"R, "Q"+color_list_marker, mode);
+   dfa_define_highlight_rule("^[ 	]*:.+:[ 	]+"R, "Q"+color_list_marker, mode);
    %  option list
-   dfa_define_highlight_rule("^[ \t]*--?[a-zA-Z]+  +"R, color_list_marker, mode);
+   dfa_define_highlight_rule("^[ 	]*--?[a-zA-Z]+  +"R, color_list_marker, mode);
    %  definition list
    % doesnot work as jed's DFA regexps span only one line
 
@@ -721,7 +724,7 @@ static define setup_dfa_callback(mode)
    % dfa_define_highlight_rule(Underline_Regexp, color_transition, mode);
    % doesnot work, as DFA regexps do not support "\( \) \1"-syntax.
    % So we have to resort to separate rules
-   foreach $1 (Underline_Chars)
+   foreach $1 ("*=-~\"'`^:+#<>_") % Underline_Chars
        {
           $1 = str_quote_string(char($1), "\^$[]*.+?"R, '\\');
           $1 = sprintf("^%s%s+[ \t]*$", $1, $1);
@@ -730,7 +733,7 @@ static define setup_dfa_callback(mode)
 
    dfa_build_highlight_table(mode);
 }
-dfa_set_init_callback(&setup_dfa_callback, mode);
+dfa_set_init_callback(&setup_dfa_callback, "rst");
 %%% DFA_CACHE_END %%%
 
 !if (_slang_utf8_ok)  % DFA is broken in UTF-8 mode
@@ -849,8 +852,8 @@ static define rst_menu(menu)
    menu_append_item(popup, "&Substitution", &markup, "substitution");
    % Directives
    popup = new_popup(menu, "&Directives");
-   menu_append_item(popup, "&Number Sections", &insert_directive, "sectnum");
    menu_append_item(popup, "Table of &Contents", &insert_directive, "contents");
+   menu_append_item(popup, "&Number Sections", &insert_directive, "sectnum");
    menu_append_item(popup, "Ima&ge",  &insert_directive, "image");
    menu_append_item(popup, "&Figure", &insert_directive, "figure");
    menu_append_item(popup, "T&able",  &insert_directive, "table");
@@ -858,7 +861,19 @@ static define rst_menu(menu)
    menu_append_item(popup, "&Title",  &insert_directive, "title");
    menu_append_item(popup, "&Include", &insert_directive, "include");
    menu_append_item(popup, "&Raw", &insert_directive, "raw");
+   popup = new_popup(popup, "&Admonitions");
+   menu_append_item(popup, "&Admonition",  &insert_directive, "admonition");
+   menu_append_item(popup, "&attention",  &insert_directive, "attention");
+   menu_append_item(popup, "&caution",  &insert_directive, "caution");
+   menu_append_item(popup, "&danger",  &insert_directive, "danger");
+   menu_append_item(popup, "&error",  &insert_directive, "error");
+   menu_append_item(popup, "&hint",  &insert_directive, "hint");
+   menu_append_item(popup, "&important",  &insert_directive, "important");
+   menu_append_item(popup, "&note",  &insert_directive, "note");
+   menu_append_item(popup, "&tip",  &insert_directive, "tip");
+   menu_append_item(popup, "&warning",  &insert_directive, "warning");
    menu_append_separator(menu);
+   % Navigation
 #ifexists list_routines
    menu_append_item(menu, "&Navigator", "list_routines");
    menu_append_separator(menu);
