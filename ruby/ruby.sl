@@ -1,6 +1,6 @@
 % ruby.sl
 % 
-% $Id: ruby.sl,v 1.1 2007/10/21 18:53:55 paul Exp paul $
+% $Id: ruby.sl,v 1.2 2007/10/27 16:09:28 paul Exp paul $
 % 
 % Copyright (c) ca.
 %  2000 Shugo Maeda
@@ -316,28 +316,33 @@ set_syntax_flags (mode, 4);
 dfa_enable_highlight_cache("ruby.dfa", mode);
 dfa_define_highlight_rule("#.*$", "comment", mode);
 dfa_define_highlight_rule("([\\$%&@\\*]|\\$#)[A-Za-z_0-9]+", "normal", mode);
-dfa_define_highlight_rule(strcat("\\$([_\\./,\"\\\\#\\*\\?\\]\\[;!@:\\$<>\\(\\)",
-				 "%=\\-~\\^\\|&`'\\+]|\\^[A-Z])"), "normal", mode);
-dfa_define_highlight_rule("[A-Za-z_][A-Za-z_0-9]*", "Knormal", mode);
-dfa_define_highlight_rule("[0-9]+(\\.[0-9]+)?([Ee][\\+\\-]?[0-9]*)?", "number",
+dfa_define_highlight_rule(strcat("\\$([_\\./,\"", "\\#\*\?\]\[;!@:\$<>\(\)"R,
+				 "%=\-~\^\|&`'\+]|\^[A-Z])"R), "normal", mode);
+dfa_define_highlight_rule("[A-Za-z_][A-Za-z_0-9]*[\?!]?"R, "Knormal", mode);
+dfa_define_highlight_rule("[0-9]+(\.[0-9]+)?([Ee][\+\-]?[0-9]*)?"R, "number",
 			  mode);
 dfa_define_highlight_rule("0[xX][0-9A-Fa-f]*", "number", mode);
-dfa_define_highlight_rule("[\\(\\[\\{\\<\\>\\}\\]\\),;\\.\\?:]", "delimiter", mode);
-dfa_define_highlight_rule("[%\\-\\+/&\\*=<>\\|!~\\^]", "operator", mode);
+dfa_define_highlight_rule("\?[^ ]"R, "number", mode);
+dfa_define_highlight_rule("[\(\[\{\<\>\}\]\),;\.\?:]"R, "delimiter", mode);
+dfa_define_highlight_rule("[%\-\+/&\*=<>\|!~\^]"R, "operator", mode);
 dfa_define_highlight_rule("-[A-Za-z]", "keyword0", mode);
-dfa_define_highlight_rule("'[^']*'", "string", mode);
-dfa_define_highlight_rule("'[^']*$", "string", mode);
+
+dfa_define_highlight_rule("'([^'\\]|\\.)*'"R, "string", mode);
+dfa_define_highlight_rule("`([^`\\]|\\.)*`"R, "string", mode);
 dfa_define_highlight_rule("\"([^\"\\\\]|\\\\.)*\"", "string", mode);
-dfa_define_highlight_rule("\"([^\"\\\\]|\\\\.)*\\\\?$", "string", mode);
-dfa_define_highlight_rule("m?/([^/\\\\]|\\\\.)*/[gio]*", "string", mode);
-dfa_define_highlight_rule("m/([^/\\\\]|\\\\.)*\\\\?$", "string", mode);
-dfa_define_highlight_rule("s/([^/\\\\]|\\\\.)*(/([^/\\\\]|\\\\.)*)?/[geio]*",
+
+dfa_define_highlight_rule("%[rwWqQ]?({.*}|<.*>|\(.*\)|\[.*\]|\$.*\$|\|.*\||!.*!|/.*/|#.*#)"R,
+			  "Qstring", mode);
+
+dfa_define_highlight_rule("m?/([^/\\]|\\.)*/[gio]*"R, "string", mode);
+dfa_define_highlight_rule("m/([^/\\]|\\.)*\\?$"R, "string", mode);
+dfa_define_highlight_rule("s/([^/\\]|\\.)*(/([^/\\]|\\.)*)?/[geio]*"R,
 			  "string", mode);
-dfa_define_highlight_rule("s/([^/\\\\]|\\\\.)*(/([^/\\\\]|\\\\.)*)?\\\\?$",
+dfa_define_highlight_rule("s/([^/\\]|\\.)*(/([^/\\]|\\.)*)?\\?$"R,
 			  "string", mode);
-dfa_define_highlight_rule("(tr|y)/([^/\\\\]|\\\\.)*(/([^/\\\\]|\\\\.)*)?/[cds]*",
+dfa_define_highlight_rule("(tr|y)/([^/\\]|\\.)*(/([^/\\]|\\.)*)?/[cds]*"R,
 			  "string", mode);
-dfa_define_highlight_rule("(tr|y)/([^/\\\\]|\\\\.)*(/([^/\\\\]|\\\\.)*)?\\\\?$",
+dfa_define_highlight_rule("(tr|y)/([^/\\]|\\.)*(/([^/\\]|\\.)*)?\\?$"R,
 			  "string", mode);
 dfa_define_highlight_rule(".", "normal", mode);
 dfa_build_highlight_table (mode);
