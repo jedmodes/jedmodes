@@ -1,6 +1,6 @@
 % ruby.sl
 % 
-% $Id: ruby.sl,v 1.2 2007/10/27 16:09:28 paul Exp paul $
+% $Id: ruby.sl,v 1.3 2007/11/02 17:16:33 paul Exp paul $
 % 
 % Copyright (c) ca.
 %  2000 Shugo Maeda
@@ -25,6 +25,7 @@
 %     variable ruby_indent_level = 2;
 
 require("comments");
+require("pcre");
 
 custom_variable("ruby_indent_level", 2);
 
@@ -48,36 +49,31 @@ private define ruby_indent_to(n)
      }
 }
 
-private define looking_at_keyword(keyword)
+
+private define looking_at_block_end ()
 {
-   push_spot();
-   try
-     {
-	if (looking_at(keyword)) 
-	  {
-	     go_right(strlen(keyword));
-	     return orelse
-	       { looking_at(" ") }
-	       { looking_at("\t") }
-	       { looking_at(";") }
-	       { eolp() };
-	  }
-	else
-	  {
-	     return 0;
-	  }
-     }
-   finally
-     {
-	pop_spot();
-     }
+   return orelse
+     { andelse
+	  { looking_at_char('e') }
+	  { orelse 
+	       { looking_at("end") }
+	       { looking_at("else") }
+	       { looking_at("elsif") }
+	       { looking_at("ensure") }}}
+     { looking_at("}") }
+     { looking_at("rescue") }
+     { looking_at("when") };
 }
+
+private variable block_start_re=
+  pcre_compile("^((begin|case|class|def|else|elsif|ensure|for|if|module|rescue"
+	       + "|unless|until|when|while)\b(?!.*\bend$))|((\bdo|{|\|) *$)"R);
+
 
 private define ruby_calculate_indent()
 {
    variable indent = 0;
    variable extra_indent = 0;
-   variable ch;
    variable par_level;
    variable case_search = CASE_SEARCH;
    CASE_SEARCH = 1;
@@ -87,14 +83,7 @@ private define ruby_calculate_indent()
      {
 	bol_skip_white();
 	indent = what_column();
-	if (orelse
-	    { looking_at_keyword("end") }
-	      { looking_at_keyword("else") }
-	      { looking_at_keyword("elsif") }
-	      { looking_at_keyword("rescue") }
-	      { looking_at_keyword("ensure") }
-	      { looking_at_keyword("when") }
-	      { looking_at("}") })
+	if (looking_at_block_end())
 	  {
 	     extra_indent -= ruby_indent_level;
 	  }
@@ -125,12 +114,11 @@ private define ruby_calculate_indent()
 	     
 	     if (0 == parse_to_point())
 	       {
-		  ch = what_char();
-		  if (ch == ')')
+		  if (looking_at_char(')'))
 		    {
 		       par_level--;
 		    }
-		  else if (ch == '(')
+		  else if (looking_at_char('('))
 		    {
 		       par_level++;
 		       if (par_level == 1) return what_column() + 1;
@@ -146,42 +134,13 @@ private define ruby_calculate_indent()
 	
 	if (looking_at("#")) return what_column() + extra_indent;
 	
-	if (orelse
-	    { looking_at_keyword("class") }
-	      { looking_at_keyword("module") }
-	      { looking_at_keyword("def") }
-	      { looking_at_keyword("if") }
-	      { looking_at_keyword("else") }
-	      { looking_at_keyword("elsif") }
-	      { looking_at_keyword("unless") }
-	      { looking_at_keyword("case") }
-	      { looking_at_keyword("when") }
-	      { looking_at_keyword("while") }
-	      { looking_at_keyword("until") }
-	      { looking_at_keyword("for") }
-	      { looking_at_keyword("begin") }
-	      { looking_at_keyword("rescue") }
-	      { looking_at_keyword("ensure") })
+	push_mark_eol();
+	exchange_point_and_mark();
+
+	if (pcre_exec(block_start_re, bufsubstr()))
 	  {
-	     eol();
-	     bskip_white();
-	     !if (orelse
-		  { blooking_at(" end") }
-		    { blooking_at("\tend") })
-	       {
-		  extra_indent += ruby_indent_level;
-	       }
+	     extra_indent += ruby_indent_level;
 	  }
-	else
-	  {
-	     eol();
-	     bskip_white();
-	     if (orelse { blooking_at("{") }
-		   { blooking_at("|") }
-		   { blooking_at(" do") })
-	       extra_indent += ruby_indent_level;
-	  }
-	
 	return indent + extra_indent;
      }
    finally
@@ -196,24 +155,33 @@ private define ruby_indent_line()
    ruby_indent_to(ruby_calculate_indent());
 }
 
+private define check_endblock();
+
 private define check_endblock()
 {
-   variable step;
-   step = what_column();
-   bol_skip_white();
-   step -= what_column();
-   if (orelse
-       { looking_at("end") }
-	 { looking_at("else") }
-	 { looking_at("elsif") }
-	 { looking_at("rescue") }
-	 { looking_at("ensure") }
-	 { looking_at("when") }
-	 { looking_at("}") })
+   remove_from_hook("_jed_after_key_hooks", &check_endblock);
+   push_spot();
+   try
      {
-	ruby_indent_line();
+	bskip_white();
+	if (bolp()) return; % you may be trying to fix the indentation manually
+	bol_skip_white();
+	if (looking_at_block_end())
+	  {
+	     ruby_indent_line();
+	     add_to_hook("_jed_after_key_hooks", &check_endblock);
+	  }
      }
-   go_right(step);
+   finally
+     {
+	pop_spot();
+     }
+}
+
+private define insert_ket()
+{
+   insert_char('}');
+   ruby_indent_line();
 }
 
 define ruby_newline_and_indent()
@@ -232,72 +200,11 @@ define ruby_self_insert_cmd()
 % Define keymap.
 private variable mode = "ruby";
 !if (keymap_p (mode)) make_keymap (mode);
-definekey ("ruby_self_insert_cmd", "0", mode);
-definekey ("ruby_self_insert_cmd", "1", mode);
-definekey ("ruby_self_insert_cmd", "2", mode);
-definekey ("ruby_self_insert_cmd", "3", mode);
-definekey ("ruby_self_insert_cmd", "4", mode);
-definekey ("ruby_self_insert_cmd", "5", mode);
-definekey ("ruby_self_insert_cmd", "6", mode);
-definekey ("ruby_self_insert_cmd", "7", mode);
-definekey ("ruby_self_insert_cmd", "8", mode);
-definekey ("ruby_self_insert_cmd", "9", mode);
-definekey ("ruby_self_insert_cmd", "a", mode);
-definekey ("ruby_self_insert_cmd", "b", mode);
-definekey ("ruby_self_insert_cmd", "c", mode);
 definekey ("ruby_self_insert_cmd", "d", mode);
 definekey ("ruby_self_insert_cmd", "e", mode);
 definekey ("ruby_self_insert_cmd", "f", mode);
-definekey ("ruby_self_insert_cmd", "g", mode);
-definekey ("ruby_self_insert_cmd", "h", mode);
-definekey ("ruby_self_insert_cmd", "i", mode);
-definekey ("ruby_self_insert_cmd", "j", mode);
-definekey ("ruby_self_insert_cmd", "k", mode);
-definekey ("ruby_self_insert_cmd", "l", mode);
-definekey ("ruby_self_insert_cmd", "m", mode);
 definekey ("ruby_self_insert_cmd", "n", mode);
-definekey ("ruby_self_insert_cmd", "o", mode);
-definekey ("ruby_self_insert_cmd", "p", mode);
-definekey ("ruby_self_insert_cmd", "q", mode);
-definekey ("ruby_self_insert_cmd", "r", mode);
-definekey ("ruby_self_insert_cmd", "s", mode);
-definekey ("ruby_self_insert_cmd", "t", mode);
-definekey ("ruby_self_insert_cmd", "u", mode);
-definekey ("ruby_self_insert_cmd", "v", mode);
-definekey ("ruby_self_insert_cmd", "w", mode);
-definekey ("ruby_self_insert_cmd", "x", mode);
-definekey ("ruby_self_insert_cmd", "y", mode);
-definekey ("ruby_self_insert_cmd", "z", mode);
-definekey ("ruby_self_insert_cmd", "A", mode);
-definekey ("ruby_self_insert_cmd", "B", mode);
-definekey ("ruby_self_insert_cmd", "C", mode);
-definekey ("ruby_self_insert_cmd", "D", mode);
-definekey ("ruby_self_insert_cmd", "E", mode);
-definekey ("ruby_self_insert_cmd", "F", mode);
-definekey ("ruby_self_insert_cmd", "G", mode);
-definekey ("ruby_self_insert_cmd", "H", mode);
-definekey ("ruby_self_insert_cmd", "I", mode);
-definekey ("ruby_self_insert_cmd", "J", mode);
-definekey ("ruby_self_insert_cmd", "K", mode);
-definekey ("ruby_self_insert_cmd", "L", mode);
-definekey ("ruby_self_insert_cmd", "M", mode);
-definekey ("ruby_self_insert_cmd", "N", mode);
-definekey ("ruby_self_insert_cmd", "O", mode);
-definekey ("ruby_self_insert_cmd", "P", mode);
-definekey ("ruby_self_insert_cmd", "Q", mode);
-definekey ("ruby_self_insert_cmd", "R", mode);
-definekey ("ruby_self_insert_cmd", "S", mode);
-definekey ("ruby_self_insert_cmd", "T", mode);
-definekey ("ruby_self_insert_cmd", "U", mode);
-definekey ("ruby_self_insert_cmd", "V", mode);
-definekey ("ruby_self_insert_cmd", "W", mode);
-definekey ("ruby_self_insert_cmd", "X", mode);
-definekey ("ruby_self_insert_cmd", "Y", mode);
-definekey ("ruby_self_insert_cmd", "Z", mode);
-definekey ("ruby_self_insert_cmd", "_", mode);
-definekey ("ruby_self_insert_cmd", "{", mode);
-definekey ("ruby_self_insert_cmd", "}", mode);
-definekey ("ruby_self_insert_cmd", ";", mode);
+definekey (&insert_ket, "}", mode);
 
 % Create syntax table.
 create_syntax_table (mode);
