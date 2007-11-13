@@ -1,22 +1,22 @@
 % rst.sl: Mode for reStructured Text
 % ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-%
+% 
 % Copyright (c) 2004, 2006 Guenter Milde (milde users.sf.net)
 % Released under the terms of the GNU General Public License (ver. 2 or later)
-%
+% 
 % ReStructuredText_ (from Python docutils_) is a revision of Structured
 % Text, a simple markup language that can be translated to Html and LaTeX (and
 % more, if someone writes a converter).
 % This mode turns Jed into an IDE for reStructured Text.
-%
+% 
 % .. _ReStructuredText: http://docutils.sourceforge.net/docs/rst/quickref.html
 % .. _docutils:         http://docutils.sourceforge.net/
-%
+% 
 % .. contents::
-%
+% 
 % Versions
 % ========
-%
+% 
 % ===== ========== ============================================================
 % 1.1   2004-10-18 initial attempt
 % 1.2   2004-12-23 removed dependency on view mode (called by runhooks now)
@@ -70,19 +70,27 @@
 % 2.0   2007-11-06 * highlight simple table rules
 %                  * fix fold info
 %                  * outline functionality (fold sections, fast moving)
-%
+% 2.1   2007-11-13 * rewrite syntax highlight rules with ""$ string
+% 		     replacement (Attention! can lead to segfaults with older,
+% 		     buggy S-Lang versions: update S-Lang or downgrade rst.sl)
+% 		   * more work on "rst-fold"  
 % ===== ========== ============================================================
-%
+% 
 % TODO
 % ====
-%
+% 
 % * jump from reference to target and back again
 % * "link creation wizard"
 % * Function to "normalise" section adornment chars to given order
-%
+% * line-block: if no visible region, mark paragraph, prefix all lines with "| "
+%               (with prefix argument: remove the "| ")
+% * Look at demo.txt and refine the syntax highlight
+% * Customisable syntax colours a-la diffmode.sl
+% 
+% 
 % Requirements
 % ============
-%
+% 
 % standard modes::
 
 require("comments");
@@ -106,7 +114,7 @@ autoload("string_repeat", "strutils");
 
 % Recommendations
 % ===============
-%
+% 
 % Jump to the error locations from output buffer::
 
 #if (expand_jedlib_file("filelist.sl") != "")
@@ -137,10 +145,10 @@ private variable mode = "rst";
 
 % Variables
 % =========
-%
+% 
 % Custom Variables
 % ----------------
-%
+% 
 % ::
 
 %!%+
@@ -244,14 +252,16 @@ custom_variable("Rst_Pdf_Viewer", "xpdf");
 %!%-
 custom_variable("Rst_Underline_Chars", "*=-~\"'`^:+#<>_");
 
-% Static Variables
-% ----------------
-%
+% Internal Variables
+% ------------------
 % ::
 
-static variable Last_Underline_Char = "=";
-static variable Underline_Regexp = sprintf("^\([%s]\)+[ \t]*$"R,
+private variable Last_Underline_Char = "=";
+private variable ws = "[ \t]"; % white space
+static variable Underline_Regexp = sprintf("^\([%s]\)\1+$ws*$"R$,
    str_replace_all(Rst_Underline_Chars, "-", "\\-"));
+% static variable Underline_PcRegexp = sprintf("^([%s])\1+$ws*$"R$,
+%    str_replace_all(Rst_Underline_Chars, "-", "\\-"));
 
 private variable helpbuffer = "*rst export help*";
 
@@ -296,7 +306,7 @@ Markup_Tags["substitution"]       = [".. |", "|"];
 
 % Functions
 % =========
-%
+% 
 % Export
 % ------
 % ::
@@ -491,10 +501,12 @@ static define insert_directive(name)
 % ::
 
 % string of sorted adornment (underline) characters.
+% used and amended with get_rst_level()
 % (re)set from existing section titles with update_adornments()
-% used and amended with get_rst_level(ch)
 private variable adornments = "";
 
+
+% auxiliary fun for is_heading_underline: 
 % get the column number of the last non-white char
 private define get_line_len()
 {
@@ -504,30 +516,27 @@ private define get_line_len()
    bol();
 }
 
-% Assuming the point is at bol of a section title underline or transition
-% (e.g. by `re_fsearch(Underline_Regexp)`), check whether the point is in a
-% section title (underline is longer than previous line and previous line is
+% Check whether the point is in a line underlining a section title.
+% (underline is equal or longer than previous line and previous line is
 % non-blank).
-%
-% Return adornment char or 0. Leave point at bol of section title
-define is_section_underline()
+% Leave point at bol of underline.
+define is_heading_underline()
 {
-   variable ch, underline_len, title_len;
-   % Point is at first matching adornment character.
-   % get underline (adornment) character
-   ch = what_char();
-   underline_len = get_line_len();
+   % Get length of heading
    !if (up(1)) % already on first line
      return 0;
-   title_len = get_line_len();
-   % mshow(ch, title_len, underline_len);
-   if (title_len == 1 or underline_len < title_len)
+   variable title_len = get_line_len();
+   go_down_1();
+   if (title_len == 1) % no heading
      return 0;
-   return ch;
+   % Compare to length of underline adornment
+   return get_line_len() >= title_len;
 }
 
-% return section title level of (section title underlined with) `adornment'
+% Return level of section title underlined with `ch'
 % (starting with level 1 == H1)
+% Return 0 (if ch == 0)
+% Add ch to list of adornments if not found there.
 static define get_section_level(ch)
 {
    ch = char(ch);
@@ -538,17 +547,19 @@ static define get_section_level(ch)
    return strlen(adornments);
 }
 
-% search next section title, return adornment char or 0
-static define fsearch_heading()
+% search next section title, return section level or 0
+% skip sections titles with a level higher than max_level
+% TODO: Skip hidden headings?
+static define fsearch_heading() % (max_level=10)
 {
-   variable ch;
+   variable level, max_level = push_defaults(10, _NARGS);
    while (eol(), re_fsearch(Underline_Regexp))
      {
-	ch = is_section_underline();
-	if (ch)
-	  return get_section_level(ch);
-	!if (down(1))
-	  break;
+        !if (is_heading_underline)
+          continue;
+        level = get_section_level(what_char());
+        if (level <= max_level)
+          return level;
      }
    return 0;
 }
@@ -556,18 +567,14 @@ static define fsearch_heading()
 % search previous section title, return adornment char or 0
 static define bsearch_heading()
 {
-   variable ch;
-   go_left_1();
-   go_down_1();
-   eol();
+   variable level, max_level = push_defaults(10, _NARGS);
    while (re_bsearch(Underline_Regexp))
      {
-	ch = is_section_underline();
-	if (ch)
-	  return get_section_level(ch);
-	if (bobp())
-	  break;
-	eol();
+        !if (is_heading_underline)
+          continue;
+        level = get_section_level(what_char());
+        if (level <= max_level)
+          return level;
      }
    return 0;
 }
@@ -591,114 +598,144 @@ define update_adornments()
    return l_max;
 }
 
-% Mark up current line as section title
-%
+%!%+
+%\function{rst->heading}
+%\synopsis{Mark up current line as section title}
+%\usage{heading([adornment])}
+%\description
 % Mark up current line as section title by underlining it.
-% If there is already underlining, adapt it to the lenght of the line and
-% eventually change the level|adornment character
+% Replace eventually existing underline.
 %
-% If the argument is an integer or a string convertible to an integer, is is
-% considered the section level.
+% If \var{adornment} is an integer (or a string convertible to an
+% integer),  use the adornment for this section level.
 %
 % Read argument if not given
 %   * "canonical" adornments are listed starting with already used ones
 %      sorted by level
-%   * integer argument level can range from 0 to `no of already defined levels`
+%   * integer argument level can range from 1 to `no of already defined levels`
+%\notes
+%\seealso{rst_mode, Rst_Underline_Chars}
+%!%-
 static define heading() % ([adornment_char])
 {
-   % Get and convert optional argument
+   % Get optional argument
    variable ch = push_defaults( , _NARGS);
    % update the listing of adornment characters used in the document
    if (typeof(ch) == Integer_Type or ch == NULL)
-     variable l_max = update_adornments();
+     variable max_level = update_adornments();
    % read from minibuffer
    if (ch == NULL)
      {
-	flush(sprintf("Underline char [%s] or level [0-%d] (default: %s):",
-	   adornments, l_max, Last_Underline_Char));
-	ch = getkey();
-	flush("");
-	switch (ch)
-	  { case 13: ch = Last_Underline_Char; }
-	  { ch = char(ch); }
+        flush(sprintf("Underline char [%s] or level [1-%d] (default: %s):",
+           adornments, max_level+1, Last_Underline_Char));
+        ch = getkey();
+        switch (ch)
+          { case 13: ch = Last_Underline_Char; } % Key_Return
+          { ch = char(ch); }
+        flush("");
      }
-   % Convert integer argument to character:
+   % Convert numeral to Integer
    if (andelse{typeof(ch) == String_Type}
         {string_match(ch,"^[0-9]+$" , 1)})
      ch = integer(ch);
+   % Convert Integer (level) to character:
    if (typeof(ch) == Integer_Type)
-     ch = char(adornments[ch]);
-
+     ch = char(adornments[ch-1]);
+   % Store as default
    Last_Underline_Char = ch;
 
-   % go up to the title line, if at the underline
+   % Go up to the title line, if at the underline
    bol();
    if (re_looking_at(Underline_Regexp))
-     go_up_1();
-
-   % get the title length (trim by the way)
+        go_up_1();
+   % Get the title length (trim by the way)
    eol_trim();
    variable len = what_column();
-   if (len == 0) % transition
+   if (len == 1) % transition
      len = WRAP;
-
+   
+   % Underline the heading (replacing an existing underline)
    !if (right(1))
      newline();
    if (re_looking_at(Underline_Regexp))
      delete_line();
-
    insert(string_repeat(ch, len-1) + "\n");
 }
 
-% Go to the next section title (any level)
-static define next_heading()
+% Go to the next section title.
+% Skip (sub)sections with level above max_level
+static define next_heading()  % (max_level=100)
 {
+   variable max_level = push_defaults(100, _NARGS);
    go_down_1();
-   !if (fsearch_heading())
+   if (fsearch_heading(max_level))
+     {
+        go_up_1();
+        bol();
+     }
+   else
      eob;
 }
 
-% Skip the rest of the section
-% 
-% Go to the next section title of same level or above,  skip content and
-% sub-sections.
+static define next_visible_heading()
+{  
+   do 
+     next_heading(); 
+   while (is_line_hidden() and not(eobp));
+}
+  
+%!%+
+%\function{rst->skip_section}
+%\synopsis{Go to the next heading of same level or above}
+%\usage{skip_section()}
+%\description
+% Skip content and sub-sections.
+%\notes
+% Point is placed at bol of next heading or eob
+%\seealso{rst_mode; rst->heading}
+%!%-
 static define skip_section()
 {
    () = update_adornments();
-   go_down_1();
-   variable level, start_level = bsearch_heading();
-   while (down_1())
-     {
-	level = fsearch_heading();
-	!if (level)
-	  break;
-	if (start_level >= level)
-	  return;
-     }
-   eob();
+   go_down(2);
+   next_heading(bsearch_heading());
 }
 
-% Go to the previous section title (any level)
-static define previous_heading()
+% Go to the previous section title (with level below or equal to max_level)
+static define previous_heading() % (max_level=100)
 {
-   !if (bsearch_heading())
+   variable max_level = push_defaults(100, _NARGS);
+   if (bsearch_heading(max_level))
+     {
+        go_up_1();
+        bol();
+     }
+   else
      bob;
+}
+
+static define previous_visible_heading()
+{  
+   do 
+     previous_heading(); 
+   while (is_line_hidden() and not(bobp));
+}
+
+% Go to the previous section title of same level or above,  
+% skip content and sub-sections.
+static define bskip_section()
+{
+   () = update_adornments();
+   go_down(2);
+   previous_heading(bsearch_heading());
 }
 
 % Go to section title of containing section (one level up)
 static define up_section()
 {
    () = update_adornments();
-   go_right_1();
-   variable level, start_level = bsearch_heading();
-   do
-     {
-	level = bsearch_heading();
-	if (start_level > level)
-	  return;
-     }
-   while (level > 0);
-   bob();
+   go_down(2);
+   previous_heading(bsearch_heading()-1);
 }
 
 % Use Marko Mahnics tokenlist to create a navigation buffer with all section
@@ -709,34 +746,32 @@ static define up_section()
 %% message("tokenlist present");
 
 % rst mode's hook for tkl_list_tokens():
-%
+% 
+% tkl_list_tokens searches for a set of regular expressions defined
+% by an array of strings arr_regexp. For every match tkl_list_tokens
+% calls the function defined in the string fn_extract with an integer
+% parameter that is the index of the matched regexp. At the time of the
+% call, the point is at the beginning of the match.
+% 
+% The called function should return a string that it extracts from
+% the current line.
+% 
 % ::
-
-%% tkl_list_tokens searches for a set of regular expressions defined
-%% by an array of strings arr_regexp. For every match tkl_list_tokens
-%% calls the function defined in the string fn_extract with an integer
-%% parameter that is the index of the matched regexp. At the time of the
-%% call, the point is at the beginning of the match.
-%%
-%% The called function should return a string that it extracts from
-%% the current line.
 
 % extract section title and format for tokenlist
 static define extract_heading(regexp_index)
 {
    variable ch, title;
-   % point is at first matching adornment character
-   % test for section title, skip transitions, return adornment char
-   go_down_1(); bol;
-   ch = is_section_underline();
-
-   % get section title
-   push_mark_eol();
+   % point is, where fsearch_heading leaves it
+   % (at first matching adornment character)
+   % Get adornment char
+   ch = what_char();
+   % Get section title
+   go_up_1();
+   push_mark(); bol();
    title =  bufsubstr();
+   go_down_1();
    % show(what_line, char(ch), title);
-   % skip section title so the next search will not find it again...
-   % go_down_1();
-   eol();
    % Format
    % do not indent at all (simple, missing information)
    % return(sprintf("%c %s", ch, title));
@@ -756,167 +791,164 @@ public  define rst_list_routines_setup(opt)
 
 #endif
 
-public define set_block_hidden(hide)
+% Folding
+% -------
+% ::
+
+% hide section content and section titles above max_level
+% 
+% * use with narrow() to fold a sub-tree
+% * use with max_level=0 to unfold (show all lines)
+% 
+static define fold_buffer(max_level)
 {
    push_spot();
-   skip_hidden_lines_forward(not(hide));
-   push_mark();
-   skip_hidden_lines_backward(not(hide));
-   set_region_hidden(hide);
-   pop_spot();
-}
-
-static define in_fold()
-{
-   push_spot();
-   EXIT_BLOCK { pop_spot(); }
-   if (is_line_hidden())
-     return 1;
-   !if (right(1))
-     return 0;
-   return is_line_hidden();
-}
-
-% Unhide the next block of hidden lines, if inside or at start of it
-% call newline_and_indent() otherwise.
-public define newline_or_unfold()
-{
-   if (in_fold())
-     set_block_hidden(0);
+   % Undo previous hiding
+   mark_buffer();
+   set_region_hidden(0);
+   bob();
+   update_adornments();
+   % Start below first heading
+   if (fsearch_heading(max_level))
+     go_down_1();                
    else
-     call("newline_and_indent");
-}
-
-
-% Assuming point is in section title line, hide|show section content.
-% Toggle, if argument `hide' is not given.
-static define set_section_hidden() % ([hide])
-{
-   go_down(2);
-   variable hide;
-   if (_NARGS)
-     hide = ();
-   else
-     hide = not(is_line_hidden());
+     eob;
+   % alternative next_heading(max_level); skips heading in line 1 :-(
    
-   push_mark();
-   if (fsearch_heading())
-     go_up_1();
-   else
-     eob();
-   set_region_hidden(hide);
-   go_down_1();
-}
-
-static define fold_buffer()
-{
-   push_spot_bob();
-   !if (fsearch_heading())
-     eob();
+   % Set section content hidden but skip headings and underlines
    while (not(eobp()))
-      set_section_hidden(1);
+     {
+        push_mark();
+        next_heading(max_level);
+        !if (eobp())
+          go_up_1();                % leave the next heading line visible
+        set_region_hidden(1);
+        go_down(3);                 % skip heading line and underline
+     }
    pop_spot();
 }
 
-% toggle fold-status of current section
-static define fold_section()
+% Fold current section
+% (Un)Hide section content. Toggle, if \var{max_level} is negative.
+% Point must be in section heading or underline. 
+% (Un)hide also sub-headings below max_level.
+% max_level is relative to section level: 
+%    0: unfold (show content)
+%    1: hide all sub-headings
+%    n: show n-1 levels of sub-headings 
+static define fold_section(max_level)
 {
    push_spot();
-   go_right_1();
-   if (bsearch_heading())
-     set_section_hidden();
+   % goto top of section
+   go_down(2);
+   previous_heading();
+   if (max_level < 0)
+     {
+        $1 = down(2);
+        max_level *= -not(is_line_hidden());
+        go_up($1);
+     }
+   % Narrow to section and fold
+   push_mark();
+   skip_section();
+   go_up_1();
+   narrow();
+   fold_buffer(max_level);
+   widen();
    pop_spot();
 }
 
 % Emacs outline mode bindings
 % ---------------------------
-%
-% Outline Motion Commands
-% """""""""""""""""""""""
-%
-% Outline mode provides special motion commands that move backward and forward
-% to heading lines.
-%
-% :^C^n: (outline-next-visible-heading) moves down to the next heading line.
-% :^C^p: (outline-previous-visible-heading) moves similarly backward.
-% :^C^u: (outline-up-heading) Move point up to a lower-level (more inclusive)
-%        visible heading line.
-%
-% :^C^f: (outline-forward-same-level) and
-% :^C^b: (outline-backward-same-level) move from one heading line to another
-%        visible heading at the same depth in the outline.
-%
-% -> Use the keypad ::
-% 
-%           previous section
-%                  ^
-%   up section  <- + ->  next (sub) section title
-%                  v
-%             next section (skip sub-sections)
-% 
-% Outline Visibility Commands
-% """""""""""""""""""""""""""
-%
-% Global commands working on the whole buffer.
-%
-% :^C^t: (hide-body) makes all body lines invisible, you see just the outline.
-% :^C^a: (show-all) makes all lines visible.
-% :^C^q: (hide-sublevels) hides all but the top level headings. With a numeric
-%        argument n, it hides everything except the top n levels of heading lines.
-%
-% -> show_outline(level=n): hides everything except the top n levels of heading lines.
-%
-% :^C^o: (hide-other) hides everything except the heading or body text that
-%        point is in, plus its parents (the headers leading up from there to top
-%        level in the outline).
-%
-% Subtree commands that apply to all the lines of that heading's subtree: its body,
-% all its subheadings, both direct and indirect, and all of their bodies. In
-% other words, the subtree contains everything following this heading line, up
-% to and not including the next heading of the same or higher rank.
-%
-% :^C^d: (hide-subtree) Make everything under this heading invisible.
-% :^C^s: (show-subtree). Make everything under this heading visible.
-%
-% Intermediate between a visible subtree and an invisible one is having all
-% the subheadings visible but none of the body.
-%
-% :^C^l: (hide-leaves) Hide the body of this heading line, including subheadings.
-% :^C^k: (show-branches) Make all subheadings of this heading line visible.
-% :^C^i: (show-children) Show immediate subheadings (one level down) of this heading.
-%
-%
-% :^C^c: Make this heading line's body invisible (hide-entry).
-% :^C^e: Make this heading line's body visible (show-entry).
-% :^C^q: Hide everything except the top n levels of heading lines (hide-sublevels).
-% :^C^o: Hide everything except for the heading or body that point is in, plus the headings leading up from there to the top level of the outline (hide-other).
-%
-% Local commands: They are used with point on a heading line, and apply only
-% to the body lines of that heading. Subheadings and their bodies are not
-% affected.
-%
-% :^C^c: (hide-entry) and
-% :^C^e: (show-entry).
-%
-% When incremental search finds text that is hidden by Outline mode, it makes
-% that part of the buffer visible. If you exit the search at that position,
-% the text remains visible.
-%
-% Structure editing.
-% """"""""""""""""""
-%
-% Using M-up, M-down, M-left, and M-right, you can easily move entries
-% % around:
-% 
-%                             move up
-%                                ^
-%       (level up)   promote  <- + ->  demote (level down)
-%                                v
-%                            move down
-%
+% ::
+
+% emulate emacs outline bindings
+static define emacs_outline_bindings() % (pre = _Reserved_Key_Prefix)
+{
+   variable pre = push_defaults(_Reserved_Key_Prefix, _NARGS);
+   local_unsetkey(pre);
+  
+   % Outline Motion Commands
+   % """""""""""""""""""""""
+   % :^C^n: (outline-next-visible-heading) moves down to the next heading line.
+   % :^C^p: (outline-previous-visible-heading) moves similarly backward.
+   % TODO
+   % :^C^u: (outline-up-heading) Move point up to a lower-level (more 
+   %        inclusive) visible heading line.
+   local_setkey("rst->up_section", pre+"^U");
+   % :^C^f: (outline-forward-same-level) and
+   % :^C^b: (outline-backward-same-level) move from one heading line to another
+   %        visible heading at the same depth in the outline.
+   local_setkey("rst->skip_section", pre+"^F");
+   local_setkey("rst->bskip_section", pre+"^B");
+
+   % Outline Visibility Commands
+   % """""""""""""""""""""""""""
+   % Global commands working on the whole buffer.
+   % 
+   % :^C^t: (hide-body) you see just the outline.
+   local_setkey("rst->fold_buffer(100)", pre+"^T");
+   % :^C^a: (show-all) makes all lines visible.
+   local_setkey("rst->fold_buffer(0)", pre+"^A");
+   % :^C^q: (hide-sublevels) hides all but the top level headings. 
+   local_setkey("rst->fold_buffer(1)", pre+"^Q");
+   %        TODO: With a numeric argument n, it hides everything except the
+   %        top n levels of heading lines.
+   % :^C^o: (hide-other) hides everything except the heading or body text that
+   %        point is in, plus its parents (the headers leading up from there to top
+   %        level in the outline).
+   % TODO
+   
+   % Subtree commands that apply to all the lines of that heading's subtree:
+   % its body, all its subheadings, both direct and indirect, and all of their
+   % bodies. In other words, the subtree contains everything following this
+   % heading line, up to and not including the next heading of the same or
+   % higher rank.
+   % 
+   % :^C^d: (hide-subtree) Make everything under this heading invisible.
+   local_setkey("rst->fold_section(1)", pre+"^D");
+   % :^C^s: (show-subtree). Make everything under this heading visible.
+   local_setkey("rst->fold_section(0)", pre+"^C");
+   
+   % Intermediate between a visible subtree and an invisible one is having all
+   % the subheadings visible but none of the body.
+   % :^C^l: (hide-leaves) Hide the body of this section, including subheadings.
+   local_setkey("rst->fold_section(1)", pre+"^L");  
+   % TODO: what is the difference to (hide-subtree)?
+   % :^C^k: (show-branches) Make all subheadings of this heading line visible.
+   local_setkey("rst->fold_section(100)", pre+"^K");
+   % :^C^i: (show-children) Show immediate subheadings of this heading.
+   local_setkey("rst->fold_section(2)", pre+"^I");  
+   % 
+   % Local commands: They are used with point on a heading line, and apply only
+   % to the body lines of that heading. Subheadings and their bodies are not
+   % affected.
+   % :^C^c: (hide-entry) and
+   % :^C^e: (show-entry).
+   % :^C^q: Hide everything except the top n levels of heading lines (hide-sublevels).
+   % :^C^o: Hide everything except for the heading or body that point is in, plus the headings leading up from there to the top level of the outline (hide-other).
+   % 
+   % When incremental search finds text that is hidden by Outline mode, it makes
+   % that part of the buffer visible. If you exit the search at that position,
+   % the text remains visible.
+   % 
+   % Structure editing.
+   % """"""""""""""""""
+   % 
+   % Using M-up, M-down, M-left, and M-right, you can easily move entries
+   % around:
+   % 
+   % |                            move up
+   % |                               ^
+   % |      (level up)   promote  <- + ->  demote (level down)
+   % |                               v
+   % |                           move down
+   % 
+}
+   
 % bindings from outline.sl
 % """"""""""""""""""""""""
-%
+% 
 % :^C^d: hide subtree
 % :^C^s: show subtree
 % :^C^c: hide body under this heading
@@ -927,12 +959,7 @@ static define fold_section()
 % :^C^l: hide everything under this heading except headings
 % :^C^o: hide other stuff except toplevel headings
 % :^C^a: show everything in this buffer
-% :^C^n: next heading
-% :^C^p: previous heading
-% :^C^f: next heading this level
-% :^C^b: previous heading this level
-% :^C^u: up level
-%
+% 
 % and from fold.txt (consistent with the Emacs bindings) ::
 
 % :^C^W: fold_whole_buffer
@@ -944,8 +971,24 @@ static define fold_section()
 % :^C^X: fold_close_fold
 % :^Cf:  fold_search_forward
 % :^Cb:  fold_search_backward
-%
-%
+% 
+% Numerical Keypad bindings
+% -------------------------
+% ::
+
+static define rst_fold_bindings() 
+{
+   local_setkey("rst->bskip_section",    Key_KP_9);   % Bild ^
+   local_setkey("rst->previous_heading", Key_KP_8);   % ^ 
+   local_setkey("rst->next_heading",     Key_KP_2);   % v
+   local_setkey("rst->skip_section",     Key_KP_3);   % Bild v
+   % local_setkey("newline_or_unfold",     Key_Return); 
+   local_setkey("rst->fold_section(-1)", Key_KP_5);   % ·     no subheadings
+   % local_setkey("rst->fold_section(-2)", Key_KP_5);   % ·   prime subheadings
+   % local_setkey("rst->fold_section(-10)", Key_KP_5);   % ·  all subheadings
+}
+
+  
 % Syntax Highlight
 % ================
 % ::
@@ -963,34 +1006,35 @@ set_syntax_flags (mode, 0);
 %%% DFA_CACHE_BEGIN %%%
 
 % Inline Markup
-%
+% 
 % The rules for inline markup are stated in quickref.html. They cannot be
 % easily and fully translated to DFA syntax, as
-%
+% 
 %  * in JED, DFA patterns do not cross lines
 %  * excluding visible patterns outside the to-be-highlighted region via
 %    e.g. [^a-z] will erroneously color allowed chars.
 %  * also, [-abc] must be written [\\-abc]
-%
+% 
 % Therefore only a subset of inline markup will be highlighted correctly.
-%
+% 
 % Felix Wiemann recommendet in a mail at Docutils-users:
-%
+% 
 %   You can have a look at docutils/parsers/rst/states.py.  It contains all
 %   the regular expressions needed to parse reStructuredText, even though
 %   they may not be in the format in which you need them.
-%
+% 
 % ::
 
-private define inline_rule(s)
+private define inline_rule(s, color, mode)
 {
-   variable re = "%s([^ \t%s]|[^ \t%s]+[^%s]*[^ \t%s\\\\])%s";
-   return sprintf(re, s, s, s, s, s, s);
+   variable t = "\t";
+   variable re = "$s([^ $t$s]|[^ $t$s]+[^$s]*[^ $t$s\\])$s"R$;
+   dfa_define_highlight_rule(re, color, mode);
 }
 
 private define setup_dfa_callback(mode)
 {
-   dfa_enable_highlight_cache("rst.dfa", mode);
+   % dfa_enable_highlight_cache("rst.dfa", mode);
 
    variable color_strong = "error";
    variable color_emphasis = "string";
@@ -1007,18 +1051,17 @@ private define setup_dfa_callback(mode)
    variable color_transition = "comment";
 
    % Inline Markup
-   dfa_define_highlight_rule(inline_rule("\*"R), "Q"+color_emphasis, mode);
-   dfa_define_highlight_rule(inline_rule("`"), color_interpreted, mode);
-   % dfa_define_highlight_rule(":[a-zA-Z]+:"+inline_rule("`"), color_interpreted, mode);
-   dfa_define_highlight_rule(inline_rule("\|"R), "Q"+color_substitution, mode);
-   dfa_define_highlight_rule(inline_rule(":"), color_directive, mode);
-   dfa_define_highlight_rule(inline_rule("\*\*"R), "Q"+color_strong, mode);
-   dfa_define_highlight_rule(inline_rule("``"), "Q"+color_literal, mode);
+   inline_rule("\*"R, "Q"+color_emphasis, mode);
+   inline_rule("`", color_interpreted, mode);
+   inline_rule("\|"R, "Q"+color_substitution, mode);
+   inline_rule(":", color_directive, mode);
+   inline_rule("\*\*"R, "Q"+color_strong, mode);
+   inline_rule("``", "Q"+color_literal, mode);
 
    % Literal Block marker
-   dfa_define_highlight_rule("::[ \t]*$", color_literal, mode);
+   dfa_define_highlight_rule("::$ws*$"$, color_literal, mode);
    % Doctest Block marker
-   dfa_define_highlight_rule("^[ \t]*>>>.*", color_literal, mode);
+   dfa_define_highlight_rule("^$ws*>>>.*"$, color_literal, mode);
 
    % Reference Marks
    %  URLs and Emails
@@ -1048,25 +1091,25 @@ private define setup_dfa_callback(mode)
    dfa_define_highlight_rule("^\.\."R, "Pcomment", mode);
 
    % Directives
-   dfa_define_highlight_rule("^\.\. [^ 	]+.*::"R, color_directive, mode);
+   dfa_define_highlight_rule("^\.\.$ws[^ ]+$ws?::"R$, color_directive, mode);
 
    % Lists
    %  itemize
-   dfa_define_highlight_rule("^[ 	]*[\-\*\+][ 	]+"R, "Q"+color_list_marker, mode);
+   dfa_define_highlight_rule("^$ws*[\-\*\+]$ws+"R$, "Q"+color_list_marker, mode);
    %  enumerate
-   dfa_define_highlight_rule("^[ 	]*[0-9a-zA-Z][0-9a-zA-Z]?\.[ 	]+"R, color_list_marker, mode);
-   dfa_define_highlight_rule("^[ 	]*\(?[0-9a-zA-Z][0-9]?\)[ 	]+"R, color_list_marker, mode);
-   dfa_define_highlight_rule("^[ 	]*#\.[ 	]+"R, color_list_marker, mode);
+   dfa_define_highlight_rule("^$ws*[0-9a-zA-Z][0-9a-zA-Z]?\.$ws+"R$, color_list_marker, mode);
+   dfa_define_highlight_rule("^$ws*\(?[0-9a-zA-Z][0-9]?\)$ws+"R$, color_list_marker, mode);
+   dfa_define_highlight_rule("^$ws*#\.$ws+"R$, color_list_marker, mode);
    %  field list
-   dfa_define_highlight_rule("^[ 	]*:.+:[ 	]+"R, "Q"+color_list_marker, mode);
+   dfa_define_highlight_rule("^$ws*:[^ ].*[^ ]:"R$, "Q"+color_list_marker, mode);
    %  option list
-   dfa_define_highlight_rule("^[ 	]*--?[a-zA-Z]+  +"R, color_list_marker, mode);
+   dfa_define_highlight_rule("^$ws*--?[a-zA-Z]+  +"R$, color_list_marker, mode);
    %  definition list
    % doesnot work as jed's DFA regexps span only one line
 
    % Tables
    %  simple tables
-   dfa_define_highlight_rule("^[ \t]*=+ +=+[ =]*[ \t]*$", color_transition, mode);
+   dfa_define_highlight_rule("^$ws*(=+ +)+=+$ws*$"$, color_transition, mode);
 
    % Hrules and Sections
    % dfa_define_highlight_rule(Underline_Regexp, color_transition, mode);
@@ -1074,8 +1117,8 @@ private define setup_dfa_callback(mode)
    % So we have to resort to separate rules
    foreach $1 ("*=-~\"'`^:+#<>_") % Rst_Underline_Chars (verbatim, to enable cache generation)
        {
-          $1 = str_quote_string(char($1), "\^$[]*.+?"R, '\\');
-          $1 = sprintf("^%s%s+[ \t]*$", $1, $1);
+          $1 = str_quote_string(char($1), "^$[]*.+?", '\\');
+          $1 = sprintf("^%s%s+$ws*$"$, $1, $1);
           dfa_define_highlight_rule($1, color_transition, mode);
        }
 
@@ -1152,50 +1195,6 @@ definekey_reserved("rst_view_pdf",                             "vp", mode); % "&
 #ifexists list_routines
 definekey_reserved("list_routines",                            "n", mode); % &Navigator"
 #endif
-
-% TODO
-% ----
-%
-% incorporate bindings from outline.sl ::
-%
-% ^c ^d hide subtree
-% ^c ^s show subtree
-% ^c ^c hide body under this heading   -> hide_section_content
-% ^c ^e show body of this heading      -> show_section_content
-% ^c ^k show all headings under this heading -> show_sub_headings
-% ^c ^t hide everything in buffer except headings -> show_only headings
-%       With prefix, hide headings with level > arg
-% ^c ^l hide everything under this heading except headings -> show_only_sub_headings
-% ^c ^o hide other stuff except toplevel headings
-% ^c ^a show everything in this buffer -> show_all_lines
-% ^c ^n next heading
-% ^c ^p previous heading
-% ^c ^f next heading this level
-% ^c ^b previous heading this level
-% ^c ^u up level
-%
-% and from fold.txt (consistent with the Emacs bindings) ::
-%
-% fold_whole_buffer         "^C^W"
-% fold_open_buffer          "^C^O"  % unfold-buffer
-% fold_enter_fold           "^C>"
-% fold_exit_fold            "^C<"
-% fold_fold_region          "^C^F"  % add fold marks and narrow
-% fold_open_fold            "^C^S"
-% fold_close_fold           "^C^X"
-% fold_search_forward       "^Cf"
-% fold_search_backward      "^Cb"
-
-  
-static define rst_fold_bindings() 
-{
-   local_setkey("rst->up_section",       Key_KP_8);   %   ^
-   local_setkey("rst->previous_heading", Key_KP_4);   %  <-
-   local_setkey("rst->fold_section", 	 Key_KP_5);   %   ·
-   local_setkey("rst->next_heading", 	 Key_KP_6);   %   ->
-   local_setkey("rst->skip_section", 	 Key_KP_2);   %   v
-   local_setkey("newline_or_unfold", 	 Key_Return); 
-}
 
 % Mode Menu
 % =========
@@ -1305,7 +1304,7 @@ static define rst_menu(menu)
 
 % Rst Mode
 % ========
-%
+% 
 % ::
 
 % set the comment string
