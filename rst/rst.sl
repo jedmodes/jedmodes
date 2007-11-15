@@ -1,22 +1,22 @@
 % rst.sl: Mode for reStructured Text
 % ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-% 
+%
 % Copyright (c) 2004, 2006 Guenter Milde (milde users.sf.net)
 % Released under the terms of the GNU General Public License (ver. 2 or later)
-% 
+%
 % ReStructuredText_ (from Python docutils_) is a revision of Structured
 % Text, a simple markup language that can be translated to Html and LaTeX (and
 % more, if someone writes a converter).
 % This mode turns Jed into an IDE for reStructured Text.
-% 
+%
 % .. _ReStructuredText: http://docutils.sourceforge.net/docs/rst/quickref.html
 % .. _docutils:         http://docutils.sourceforge.net/
-% 
+%
 % .. contents::
-% 
+%
 % Versions
 % ========
-% 
+%
 % ===== ========== ============================================================
 % 1.1   2004-10-18 initial attempt
 % 1.2   2004-12-23 removed dependency on view mode (called by runhooks now)
@@ -73,12 +73,13 @@
 % 2.1   2007-11-13 * rewrite syntax highlight rules with ""$ string
 % 		     replacement (Attention! can lead to segfaults with older,
 % 		     buggy S-Lang versions: update S-Lang or downgrade rst.sl)
-% 		   * more work on "rst-fold"  
+% 		   * more work on "rst-fold"
+% 2.2   2007-11-15 * custom colors		   
 % ===== ========== ============================================================
-% 
+%
 % TODO
 % ====
-% 
+%
 % * jump from reference to target and back again
 % * "link creation wizard"
 % * Function to "normalise" section adornment chars to given order
@@ -86,11 +87,11 @@
 %               (with prefix argument: remove the "| ")
 % * Look at demo.txt and refine the syntax highlight
 % * Customisable syntax colours a-la diffmode.sl
-% 
-% 
+%
+%
 % Requirements
 % ============
-% 
+%
 % standard modes::
 
 require("comments");
@@ -114,7 +115,7 @@ autoload("string_repeat", "strutils");
 
 % Recommendations
 % ===============
-% 
+%
 % Jump to the error locations from output buffer::
 
 #if (expand_jedlib_file("filelist.sl") != "")
@@ -143,12 +144,8 @@ provide("rst");
 implements("rst");
 private variable mode = "rst";
 
-% Variables
-% =========
-% 
-% Custom Variables
-% ----------------
-% 
+% Customizable Defaults
+% =====================
 % ::
 
 %!%+
@@ -252,6 +249,24 @@ custom_variable("Rst_Pdf_Viewer", "xpdf");
 %!%-
 custom_variable("Rst_Underline_Chars", "*=-~\"'`^:+#<>_");
 
+% Color Definitions
+% -----------------
+
+% new since Jed 0-99.18
+custom_color("bold",             get_color("error"));     
+custom_color("italic",           get_color("operator"));    
+custom_color("url",              get_color("keyword"));
+custom_color("underline",	 get_color("delimiter"));
+% local extensions
+custom_color("rst_literal",      get_color("preprocess"));
+custom_color("rst_interpreted",  get_color("string"));    
+custom_color("rst_substitution", get_color("operator"));  
+custom_color("rst_list_marker",  get_color("number")); 
+custom_color("rst_line",         get_color("underline"));   
+custom_color("rst_reference",    get_color("keyword"));   
+custom_color("rst_target",       get_color("keyword1"));   
+custom_color("rst_directive",    get_color("keyword2"));  
+
 % Internal Variables
 % ------------------
 % ::
@@ -306,7 +321,7 @@ Markup_Tags["substitution"]       = [".. |", "|"];
 
 % Functions
 % =========
-% 
+%
 % Export
 % ------
 % ::
@@ -505,8 +520,7 @@ static define insert_directive(name)
 % (re)set from existing section titles with update_adornments()
 private variable adornments = "";
 
-
-% auxiliary fun for is_heading_underline: 
+% auxiliary fun for is_heading_underline:
 % get the column number of the last non-white char
 private define get_line_len()
 {
@@ -653,7 +667,7 @@ static define heading() % ([adornment_char])
    variable len = what_column();
    if (len == 1) % transition
      len = WRAP;
-   
+
    % Underline the heading (replacing an existing underline)
    !if (right(1))
      newline();
@@ -678,12 +692,12 @@ static define next_heading()  % (max_level=100)
 }
 
 static define next_visible_heading()
-{  
-   do 
-     next_heading(); 
+{
+   do
+     next_heading();
    while (is_line_hidden() and not(eobp));
 }
-  
+
 %!%+
 %\function{rst->skip_section}
 %\synopsis{Go to the next heading of same level or above}
@@ -715,13 +729,13 @@ static define previous_heading() % (max_level=100)
 }
 
 static define previous_visible_heading()
-{  
-   do 
-     previous_heading(); 
+{
+   do
+     previous_heading();
    while (is_line_hidden() and not(bobp));
 }
 
-% Go to the previous section title of same level or above,  
+% Go to the previous section title of same level or above,
 % skip content and sub-sections.
 static define bskip_section()
 {
@@ -746,16 +760,16 @@ static define up_section()
 %% message("tokenlist present");
 
 % rst mode's hook for tkl_list_tokens():
-% 
+%
 % tkl_list_tokens searches for a set of regular expressions defined
 % by an array of strings arr_regexp. For every match tkl_list_tokens
 % calls the function defined in the string fn_extract with an integer
 % parameter that is the index of the matched regexp. At the time of the
 % call, the point is at the beginning of the match.
-% 
+%
 % The called function should return a string that it extracts from
 % the current line.
-% 
+%
 % ::
 
 % extract section title and format for tokenlist
@@ -796,10 +810,10 @@ public  define rst_list_routines_setup(opt)
 % ::
 
 % hide section content and section titles above max_level
-% 
+%
 % * use with narrow() to fold a sub-tree
 % * use with max_level=0 to unfold (show all lines)
-% 
+%
 static define fold_buffer(max_level)
 {
    push_spot();
@@ -810,11 +824,11 @@ static define fold_buffer(max_level)
    update_adornments();
    % Start below first heading
    if (fsearch_heading(max_level))
-     go_down_1();                
+     go_down_1();
    else
      eob;
    % alternative next_heading(max_level); skips heading in line 1 :-(
-   
+
    % Set section content hidden but skip headings and underlines
    while (not(eobp()))
      {
@@ -830,12 +844,12 @@ static define fold_buffer(max_level)
 
 % Fold current section
 % (Un)Hide section content. Toggle, if \var{max_level} is negative.
-% Point must be in section heading or underline. 
+% Point must be in section heading or underline.
 % (Un)hide also sub-headings below max_level.
-% max_level is relative to section level: 
+% max_level is relative to section level:
 %    0: unfold (show content)
 %    1: hide all sub-headings
-%    n: show n-1 levels of sub-headings 
+%    n: show n-1 levels of sub-headings
 static define fold_section(max_level)
 {
    push_spot();
@@ -867,13 +881,13 @@ static define emacs_outline_bindings() % (pre = _Reserved_Key_Prefix)
 {
    variable pre = push_defaults(_Reserved_Key_Prefix, _NARGS);
    local_unsetkey(pre);
-  
+
    % Outline Motion Commands
    % """""""""""""""""""""""
    % :^C^n: (outline-next-visible-heading) moves down to the next heading line.
    % :^C^p: (outline-previous-visible-heading) moves similarly backward.
    % TODO
-   % :^C^u: (outline-up-heading) Move point up to a lower-level (more 
+   % :^C^u: (outline-up-heading) Move point up to a lower-level (more
    %        inclusive) visible heading line.
    local_setkey("rst->up_section", pre+"^U");
    % :^C^f: (outline-forward-same-level) and
@@ -885,12 +899,12 @@ static define emacs_outline_bindings() % (pre = _Reserved_Key_Prefix)
    % Outline Visibility Commands
    % """""""""""""""""""""""""""
    % Global commands working on the whole buffer.
-   % 
+   %
    % :^C^t: (hide-body) you see just the outline.
    local_setkey("rst->fold_buffer(100)", pre+"^T");
    % :^C^a: (show-all) makes all lines visible.
    local_setkey("rst->fold_buffer(0)", pre+"^A");
-   % :^C^q: (hide-sublevels) hides all but the top level headings. 
+   % :^C^q: (hide-sublevels) hides all but the top level headings.
    local_setkey("rst->fold_buffer(1)", pre+"^Q");
    %        TODO: With a numeric argument n, it hides everything except the
    %        top n levels of heading lines.
@@ -898,28 +912,28 @@ static define emacs_outline_bindings() % (pre = _Reserved_Key_Prefix)
    %        point is in, plus its parents (the headers leading up from there to top
    %        level in the outline).
    % TODO
-   
+
    % Subtree commands that apply to all the lines of that heading's subtree:
    % its body, all its subheadings, both direct and indirect, and all of their
    % bodies. In other words, the subtree contains everything following this
    % heading line, up to and not including the next heading of the same or
    % higher rank.
-   % 
+   %
    % :^C^d: (hide-subtree) Make everything under this heading invisible.
    local_setkey("rst->fold_section(1)", pre+"^D");
    % :^C^s: (show-subtree). Make everything under this heading visible.
    local_setkey("rst->fold_section(0)", pre+"^C");
-   
+
    % Intermediate between a visible subtree and an invisible one is having all
    % the subheadings visible but none of the body.
    % :^C^l: (hide-leaves) Hide the body of this section, including subheadings.
-   local_setkey("rst->fold_section(1)", pre+"^L");  
+   local_setkey("rst->fold_section(1)", pre+"^L");
    % TODO: what is the difference to (hide-subtree)?
    % :^C^k: (show-branches) Make all subheadings of this heading line visible.
    local_setkey("rst->fold_section(100)", pre+"^K");
    % :^C^i: (show-children) Show immediate subheadings of this heading.
-   local_setkey("rst->fold_section(2)", pre+"^I");  
-   % 
+   local_setkey("rst->fold_section(2)", pre+"^I");
+   %
    % Local commands: They are used with point on a heading line, and apply only
    % to the body lines of that heading. Subheadings and their bodies are not
    % affected.
@@ -927,28 +941,28 @@ static define emacs_outline_bindings() % (pre = _Reserved_Key_Prefix)
    % :^C^e: (show-entry).
    % :^C^q: Hide everything except the top n levels of heading lines (hide-sublevels).
    % :^C^o: Hide everything except for the heading or body that point is in, plus the headings leading up from there to the top level of the outline (hide-other).
-   % 
+   %
    % When incremental search finds text that is hidden by Outline mode, it makes
    % that part of the buffer visible. If you exit the search at that position,
    % the text remains visible.
-   % 
+   %
    % Structure editing.
    % """"""""""""""""""
-   % 
+   %
    % Using M-up, M-down, M-left, and M-right, you can easily move entries
    % around:
-   % 
+   %
    % |                            move up
    % |                               ^
    % |      (level up)   promote  <- + ->  demote (level down)
    % |                               v
    % |                           move down
-   % 
+   %
 }
-   
+
 % bindings from outline.sl
 % """"""""""""""""""""""""
-% 
+%
 % :^C^d: hide subtree
 % :^C^s: show subtree
 % :^C^c: hide body under this heading
@@ -959,7 +973,7 @@ static define emacs_outline_bindings() % (pre = _Reserved_Key_Prefix)
 % :^C^l: hide everything under this heading except headings
 % :^C^o: hide other stuff except toplevel headings
 % :^C^a: show everything in this buffer
-% 
+%
 % and from fold.txt (consistent with the Emacs bindings) ::
 
 % :^C^W: fold_whole_buffer
@@ -971,24 +985,23 @@ static define emacs_outline_bindings() % (pre = _Reserved_Key_Prefix)
 % :^C^X: fold_close_fold
 % :^Cf:  fold_search_forward
 % :^Cb:  fold_search_backward
-% 
+%
 % Numerical Keypad bindings
 % -------------------------
 % ::
 
-static define rst_fold_bindings() 
+static define rst_fold_bindings()
 {
    local_setkey("rst->bskip_section",    Key_KP_9);   % Bild ^
-   local_setkey("rst->previous_heading", Key_KP_8);   % ^ 
+   local_setkey("rst->previous_heading", Key_KP_8);   % ^
    local_setkey("rst->next_heading",     Key_KP_2);   % v
    local_setkey("rst->skip_section",     Key_KP_3);   % Bild v
-   % local_setkey("newline_or_unfold",     Key_Return); 
+   % local_setkey("newline_or_unfold",     Key_Return);
    local_setkey("rst->fold_section(-1)", Key_KP_5);   % ·     no subheadings
    % local_setkey("rst->fold_section(-2)", Key_KP_5);   % ·   prime subheadings
    % local_setkey("rst->fold_section(-10)", Key_KP_5);   % ·  all subheadings
 }
 
-  
 % Syntax Highlight
 % ================
 % ::
@@ -1006,120 +1019,179 @@ set_syntax_flags (mode, 0);
 %%% DFA_CACHE_BEGIN %%%
 
 % Inline Markup
-% 
+%
 % The rules for inline markup are stated in quickref.html. They cannot be
 % easily and fully translated to DFA syntax, as
-% 
+%
 %  * in JED, DFA patterns do not cross lines
 %  * excluding visible patterns outside the to-be-highlighted region via
 %    e.g. [^a-z] will erroneously color allowed chars.
-%  * also, [-abc] must be written [\\-abc]
-% 
+%  * also, [-abc.] must be written [\\-abc\\.]
+%
 % Therefore only a subset of inline markup will be highlighted correctly.
-% 
+%
 % Felix Wiemann recommendet in a mail at Docutils-users:
-% 
+%
 %   You can have a look at docutils/parsers/rst/states.py.  It contains all
 %   the regular expressions needed to parse reStructuredText, even though
 %   they may not be in the format in which you need them.
-% 
+%
 % ::
 
-private define inline_rule(s, color, mode)
+private define dfa_rule(rule, color)
 {
-   variable t = "\t";
-   variable re = "$s([^ $t$s]|[^ $t$s]+[^$s]*[^ $t$s\\])$s"R$;
-   dfa_define_highlight_rule(re, color, mode);
+   dfa_define_highlight_rule(rule, color, $1);
+}
+
+% Inline markup start-string and end-string recognition rules
+% -----------------------------------------------------------
+% 
+% If any of the conditions are not met, the start-string or end-string
+% will not be recognized or processed.
+% 
+% 1. start-strings must start a text block or be immediately
+%    preceded by whitespace or one of: ' " ( [ { < - / :
+% 2. start-strings must be immediately followed by non-whitespace.
+% 3. end-strings must be immediately preceded by non-whitespace.
+% 4. end-strings must end a text block or be immediately followed
+%    by whitespace or one of: ' " ) ] } > - / : . , ; ! ? \
+% 5. If a start-string is immediately preceded by a single or
+%    double quote, "(", "[", "{", or "<", it must not be immediately followed
+%    by the corresponding single or double quote, ")", "]", "}", or ">".
+% 6. An end-string must be separated by at least one character
+%    from the start-string.
+% 7. An unescaped backslash preceding a start-string or end-string will
+%    disable markup recognition, except for the end-string of inline literals.
+%    See Escaping Mechanism above for details.
+%    
+% Return a regexp pattern for inline markup with string `s'.
+% Due to limitations in Jed's DFA syntax, only a part of the algorithm can
+% be reproduced:
+%    
+% * 1 and 5 not implemented: 
+%    
+%   * matching char would be high-lit
+%   * start|end of line or white (^|[ \t]) and ($|[ \t]) seems not to work
+%    
+% * 2 and 3 extended: must not be followed by char of the start- end string
+%   so **strong emphasis** is not highlit as *emphasis*
+% * 6 OK
+% * 7 only implemented for end-string (cf. 1, 4, and 5).
+% 
+% Multi-line inline-markup will not be high-lit!
+private define inline_rule(pat)
+{
+   variable ws = " \t";
+   variable del = "$ws"$; % "$ws'\")\]}>\-/:\.,;!\\?"R$;
+   return "$pat[^$ws$pat][^$pat]+($pat[^$del][^$pat]+)*[^$ws$pat]$pat"R$;
 }
 
 private define setup_dfa_callback(mode)
 {
-   % dfa_enable_highlight_cache("rst.dfa", mode);
-
-   variable color_strong = "error";
-   variable color_emphasis = "string";
-   variable color_literal = "preprocess";
-   variable color_interpreted = "number";
-   variable color_substitution = "keyword1";
-   variable color_directive = "keyword1";
-   %
-   variable color_url = "keyword";
-   variable color_email = "keyword";
-   variable color_reference = "keyword";
-   variable color_target = "keyword";
-   variable color_list_marker = "delimiter";
-   variable color_transition = "comment";
-
+   dfa_enable_highlight_cache("rst.dfa", mode);
+   $1 = mode; % used by dfa_rule()
+   
+   % Repeatedly used patterns:
+   variable ws = "[ \t]";      % white space
+   variable a  = "a-zA-Z";     % alphabetic characters
+   variable an = "a-zA-Z0-9"$;     % alphanumeric characters
+   %  simple reference names (alphanumeric + internal [.-_])
+   variable label = "[$an]+([\.\-_][$an]+)*"R$; 
+   
    % Inline Markup
-   inline_rule("\*"R, "Q"+color_emphasis, mode);
-   inline_rule("`", color_interpreted, mode);
-   inline_rule("\|"R, "Q"+color_substitution, mode);
-   inline_rule(":", color_directive, mode);
-   inline_rule("\*\*"R, "Q"+color_strong, mode);
-   inline_rule("``", "Q"+color_literal, mode);
-
+   dfa_rule(inline_rule("\*"R), "italic");
+   dfa_rule(inline_rule("\|"R), "rst_substitution");
+   % dfa_rule(inline_rule(":", "rst_list_marker");
+   dfa_rule(inline_rule("\*\*"R), "bold");
+   dfa_rule(inline_rule("``"), "rst_literal");
+   % interpreted text, maybe with a role
+   variable role_re = ":$label:"$;
+   dfa_rule(inline_rule("`")+role_re, "Qrst_interpreted");
+   dfa_rule(role_re+inline_rule("`"), "Qrst_interpreted");
+   dfa_rule(        inline_rule("`"),     "rst_interpreted");
+   
    % Literal Block marker
-   dfa_define_highlight_rule("::$ws*$"$, color_literal, mode);
+   dfa_rule("::$ws*$"$, "rst_literal");
    % Doctest Block marker
-   dfa_define_highlight_rule("^$ws*>>>.*"$, color_literal, mode);
+   dfa_rule("^$ws*>>>"$, "rst_literal");
 
    % Reference Marks
-   %  URLs and Emails
-   dfa_define_highlight_rule("(https?|ftp|file)://[^ \t>]+", color_url, mode);
-   % dfa_define_highlight_rule ("[^ \t\n<]*@[^ \t\n>]+", color_email, mode);
-   %  crossreferences
-   dfa_define_highlight_rule("[\-a-zA-Z0-9_\.]+_[^a-zA-Z0-9]"R, color_reference, mode);
-   dfa_define_highlight_rule("[\-a-zA-Z0-9_\.]+_$"R, color_reference, mode);
+   %  URLs and Email
+   dfa_rule("(https?|ftp|file)://[^ \t>]+", "url");
+   dfa_rule("(mailto:)?$label@$label"$, "url");
+   %  simple crossreferences
+   dfa_rule("${label}__?"R$, "rst_reference");
+   %   revert false positives
+   dfa_rule("${label}_${label}"R$, "normal");
    %  reference with backticks
-   dfa_define_highlight_rule("`[^`]*`__?", color_reference, mode);
-   %   footnotes and citations
-   dfa_define_highlight_rule("\[[a-zA-Z0-9#\*\.\-_]+\]+_"R, color_reference, mode);
+   dfa_rule("`(\\`|[^`])*`__?", "rst_reference");
+   %  footnotes and citations
+   dfa_rule("\[([#\*]|#?$label)\]_"R$, "rst_reference");
 
    % Reference Targets
    %  inline target
-   dfa_define_highlight_rule("_`[^`]+`"R, color_target, mode);
-   %  named crosslinks, footnotes and citations
-   dfa_define_highlight_rule("^\.\. [_\[].*"R, color_target, mode);
-   % substitution definitions
-   dfa_define_highlight_rule("^\.\. [|].*"R, color_target, mode);
+   dfa_rule("_`[^`]+`"R, "rst_target");
+   dfa_rule("_${label}"R$, "rst_target");
+   %  named crosslinks
+   dfa_rule("^\.\.$ws+_[^:]+:$ws"R$, "rst_target");
+   dfa_rule("^\.\.$ws+_[^:]+:$"R$, "rst_target");
    %  anonymous
-   dfa_define_highlight_rule("^__ [^ \t]+.*$", color_target, mode);
+   dfa_rule("^__$ws"$, "rst_target");
    %  footnotes and citations
-   dfa_define_highlight_rule("^\.\. \[[a-zA-Z#\*]+\].*"R, color_target, mode);
+   dfa_rule("^\.\.$ws+\[([#\*]|#?$label)\]"R$, "rst_target");
+   % substitution definitions
+   dfa_rule("^\.\.$ws+\|.*\|$ws+$label::"R$, "rst_directive");
 
    % Comments
-   dfa_define_highlight_rule("^\.\."R, "Pcomment", mode);
+   dfa_rule("^\.\.$ws"R$, "Pcomment");
+   dfa_rule("^\.\.$"R, "comment");
 
    % Directives
-   dfa_define_highlight_rule("^\.\.$ws[^ ]+$ws?::"R$, color_directive, mode);
+   dfa_rule("^\.\.$ws[^ ]+$ws?::"R$, "rst_directive");
 
    % Lists
    %  itemize
-   dfa_define_highlight_rule("^$ws*[\-\*\+]$ws+"R$, "Q"+color_list_marker, mode);
-   %  enumerate
-   dfa_define_highlight_rule("^$ws*[0-9a-zA-Z][0-9a-zA-Z]?\.$ws+"R$, color_list_marker, mode);
-   dfa_define_highlight_rule("^$ws*\(?[0-9a-zA-Z][0-9]?\)$ws+"R$, color_list_marker, mode);
-   dfa_define_highlight_rule("^$ws*#\.$ws+"R$, color_list_marker, mode);
+   dfa_rule("^$ws*[\-\*\+]$ws+"R$, "Qrst_list_marker");
+   %  enumerate: number, single letter, roman or #; formatting: #. #) (#)
+   variable enumerator = "([0-9]+|[a-zA-Z]|[ivxlcdmIVXLCDM]+|#)";
+   dfa_rule("^$ws*$enumerator[\)\.]$ws+"R$, "rst_list_marker");
+   dfa_rule("^$ws*\($enumerator\)$ws+"R$, "rst_list_marker");
    %  field list
-   dfa_define_highlight_rule("^$ws*:[^ ].*[^ ]:"R$, "Q"+color_list_marker, mode);
+   dfa_rule("^$ws*:[^ ].*[^ ]:$ws"R$, "Qrst_list_marker");
+   dfa_rule("^$ws*:[^ ].*[^ ]:$$"R$, "Qrst_list_marker");
    %  option list
-   dfa_define_highlight_rule("^$ws*--?[a-zA-Z]+  +"R$, color_list_marker, mode);
+   variable option = "([\-/][a-zA-Z0-9]|--[a-zA-Z=]+)([\-= ][a-zA-Z0-9]+)*"R$;
+   dfa_rule("^$ws*$option(, $option)*  "R$, "rst_list_marker");
+   dfa_rule("^$ws*$option(, $option)* ?$$"R$, "rst_list_marker");
+   % dfa_rule("^$ws*$option(, $option)*(  +|$$)"R$, "rst_list_marker");
    %  definition list
    % doesnot work as jed's DFA regexps span only one line
+   
+   % Line Block and Table VLines
+   %  false positives (any `` | ``), as otherwise table vlines would not work
+   dfa_rule("$ws\|$ws"R$, "rst_line");
+   dfa_rule("^\|$ws"R$, "rst_line");
+   dfa_rule("$ws\|$"R$, "rst_line");
+   dfa_rule("^\|$"R$, "rst_line");
 
    % Tables
    %  simple tables
-   dfa_define_highlight_rule("^$ws*(=+ +)+=+$ws*$"$, color_transition, mode);
+   dfa_rule("^$ws*=+( +=+)*$ws*$"$, "rst_line");
+   dfa_rule("^$ws*-+( +-+)*$ws*$"$, "rst_line");
+   %  grid tables
+   dfa_rule("^$ws*\+-+\+"R$, "rst_line");
+   dfa_rule("^$ws*\+-+\+(-+\+)*"R$, "rst_line");
+   dfa_rule("^$ws*\+=+\+(=+\+)*"R$, "rst_line");
 
    % Hrules and Sections
-   % dfa_define_highlight_rule(Underline_Regexp, color_transition, mode);
+   % dfa_rule(Underline_Regexp, "rst_transition");
    % doesnot work, as DFA regexps do not support "\( \) \1"-syntax.
    % So we have to resort to separate rules
-   foreach $1 ("*=-~\"'`^:+#<>_") % Rst_Underline_Chars (verbatim, to enable cache generation)
+   foreach $2 ("*=-~\"'`^:+#<>_") % Rst_Underline_Chars (verbatim, to enable cache generation)
        {
-          $1 = str_quote_string(char($1), "^$[]*.+?", '\\');
-          $1 = sprintf("^%s%s+$ws*$"$, $1, $1);
-          dfa_define_highlight_rule($1, color_transition, mode);
+          $2 = str_quote_string(char($2), "^$[]*.+?", '\\');
+          $2 = sprintf("^%s%s+$ws*$"$, $2, $2);
+          dfa_rule($2, "rst_line");
        }
 
    dfa_build_highlight_table(mode);
@@ -1304,7 +1376,7 @@ static define rst_menu(menu)
 
 % Rst Mode
 % ========
-% 
+%
 % ::
 
 % set the comment string
