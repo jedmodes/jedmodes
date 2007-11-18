@@ -1,6 +1,6 @@
 % flyspell.sl
 %
-% $Id: flyspell.sl,v 1.20 2007/04/21 10:14:47 paul Exp paul $
+% $Id: flyspell.sl,v 1.21 2007/11/18 15:26:23 paul Exp paul $
 % 
 % Copyright (c) 2003-2007 Paul Boekholt.
 % Released under the terms of the GNU GPL (version 2 or later).
@@ -123,8 +123,16 @@ private define flyspell_init_process ()
      {
 	pop2buf(whatbuf);
 	flyspell_process = -1;
-	pop2buf(buf);
-	throw RunTimeError, "Flyspell crashed!";
+	if (looking_at("execvp"))
+	  {
+	     pop2buf(buf);
+	     throw RunTimeError, "Could not start ispell!";
+	  }
+	else
+	  {
+	     pop2buf(buf);
+	     throw RunTimeError, "Flyspell crashed!";
+	  }
      }
    send_process(flyspell_process, "!\n");
    set_process (flyspell_process, "signal", &flyspell_is_dead);

@@ -1,6 +1,6 @@
 % ispell.sl	-*- mode: SLang; mode: fold -*-
 % 
-% $Id: ispell.sl,v 1.22 2007/04/21 10:14:47 paul Exp paul $
+% $Id: ispell.sl,v 1.23 2007/11/18 15:26:23 paul Exp paul $
 % 
 % Copyright (c) 2001-2006 Guido Gonzato, John Davis, Paul Boekholt.
 % Released under the terms of the GNU GPL (version 2 or later).
@@ -80,8 +80,16 @@ static define start_ispell_process ()
      {
 	pop2buf(whatbuf);
 	ispell_process = -1;
-	pop2buf(buf);
-	throw RunTimeError, "Ispell crashed!";
+	if (looking_at("execvp"))
+	  {
+	     pop2buf(buf);
+	     throw RunTimeError, "Could not start ispell!";
+	  }
+	else
+	  {
+	     pop2buf(buf);
+	     throw RunTimeError, "Ispell crashed!";
+	  }
      }
    send_process(ispell_process, "!\n");
    process_query_at_exit (ispell_process, 0);
