@@ -1,6 +1,6 @@
 % cuamark.sl: CUA/Windows style of marking "volatile" regions
 %
-% Copyright (c) 2003, 2006 Günter Milde
+% Copyright (c) 2003, 2006 Guenter Milde (milde users.sf.net)
 % Released under the terms of the GNU General Public License (ver. 2 or later)
 %
 % Version    0.9
@@ -14,9 +14,8 @@
 %		  * removed CuaCopyToClipboard: bind yp_copy_region() and
 %		    yp_kill_region() if you do not like to copy to the X 
 %		    selection
+% 2007-11-23 1.2.1  cua_insert_clipboard(): make insertion visible by updating
 %		  
-%
-% Author: Günter Milde (g.milde web.de)
 %
 % Mark regions the CUA style
 % --------------------------
@@ -84,7 +83,7 @@
 % functions -> Start the region using Shift-Left/Right and then extend it with
 % Ctrl-Left/Right.
 
-require ("keydefs");
+require ("keydefs"); % symbolic constants for many function and arrow keys
 
 % --- Custom Variables ---------------------------------------------------
 
@@ -203,10 +202,13 @@ static define copy_to_clipboard()
 %!%-
 define cua_insert_clipboard()
 {
-   if (is_defined("x_insert_selection"))
-     () = eval("x_insert_selection");
-   else if (is_defined("x_insert_cutbuffer"))
-     () = eval("x_insert_cutbuffer");
+   variable insert_fun = __get_reference("x_insert_selection");
+   if (insert_fun == NULL)
+     insert_fun = __get_reference("x_insert_cutbuffer");
+   if (insert_fun == NULL)
+     error("cannot insert from X selection");
+   () = @insert_fun();
+   update_sans_update_hook(1);
 }
 
 %!%+
@@ -223,7 +225,7 @@ define cua_insert_clipboard()
 define cua_kill_region ()
 {
    copy_to_clipboard();
-   yp_kill_region;
+   yp_kill_region();
 }
 
 %!%+
