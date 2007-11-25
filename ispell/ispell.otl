@@ -69,8 +69,8 @@ define latex_mode_hook()
 {
   define_blocal_var("flyspell_syntax_table", "TeX-Mode");	
 }
-This probably doesn't work in non-standard Tex modes that use DFA
-highlighting.
+Flyspell doesn't always work with DFA, so it turns DFA mode off when a
+blocal flyspell_syntax_table is set.
 ** checking html
 Doesn't work.  Since ispell does not have an interactive command for
 turning html parsing on, you would have to create a dictionary entry

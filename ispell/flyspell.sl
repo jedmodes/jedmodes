@@ -1,6 +1,6 @@
 % flyspell.sl
 %
-% $Id: flyspell.sl,v 1.21 2007/11/18 15:26:23 paul Exp paul $
+% $Id: flyspell.sl,v 1.22 2007/11/25 17:38:09 paul Exp paul $
 % 
 % Copyright (c) 2003-2007 Paul Boekholt.
 % Released under the terms of the GNU GPL (version 2 or later).
@@ -304,15 +304,15 @@ define flyspell_change_syntax_table(language)
      }
    else
      {
+	% this will get confused when you change the global language from a
+	% buffer that has a blocal language.
 	table = "Flyspell_" + language;
 	flyspell_make_syntax_table(table);
+	flyspell_syntax_table = table; 
+	use_syntax_table(table);
+	!if (_slang_utf8_ok)
+	  use_dfa_syntax(1);
      }
-   flyspell_syntax_table = table; 
-   % this will get confused when you change the global language from a
-   % buffer that has a blocal language.
-   use_syntax_table(table);
-   !if (_slang_utf8_ok)
-     use_dfa_syntax(1);
 }
 
 %!%+
