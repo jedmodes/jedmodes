@@ -110,7 +110,7 @@ private define ruby_calculate_indent()
 			 }
 		    }
 	       }
-	     go_left_1();
+	     !if(left(1)) break;
 	     
 	     if (0 == parse_to_point())
 	       {
@@ -124,6 +124,7 @@ private define ruby_calculate_indent()
 		       if (par_level == 1) return what_column() + 1;
 		    }
 	       }
+	     bskip_chars("^()\n");
 	     if (bolp() and (par_level == 0))
 	       {
 		  skip_white();
@@ -152,6 +153,7 @@ private define ruby_calculate_indent()
 
 private define ruby_indent_line()
 {
+   if (get_line_color()) return;
    ruby_indent_to(ruby_calculate_indent());
 }
 
@@ -160,6 +162,7 @@ private define check_endblock();
 private define check_endblock()
 {
    remove_from_hook("_jed_after_key_hooks", &check_endblock);
+   if (get_line_color()) return;
    push_spot();
    try
      {
@@ -238,7 +241,11 @@ dfa_define_highlight_rule("'([^'\\]|\\.)*'"R, "string", mode);
 dfa_define_highlight_rule("`([^`\\]|\\.)*`"R, "string", mode);
 dfa_define_highlight_rule("\"([^\"\\\\]|\\\\.)*\"", "string", mode);
 
-dfa_define_highlight_rule("%[rwWqQ]?({.*}|<.*>|\(.*\)|\[.*\]|\$.*\$|\|.*\||!.*!|/.*/|#.*#)"R,
+% parse_to_point() doesn't take DFA rules into account so
+% %r{...} can mess up the indentation - consider using %r'...'
+% or Regexp.new("...") instead
+dfa_define_highlight_rule("%[rwWqQx]?({.*}|<.*>|\(.*\)|\[.*\]|\$.*\$|\|.*\||!.*!|/.*/|#.*#|"R
+			  + "'.*'|\".*\")",
 			  "Qstring", mode);
 
 dfa_define_highlight_rule("m?/([^/\\]|\\.)*/[gio]*"R, "string", mode);
@@ -251,7 +258,6 @@ dfa_define_highlight_rule("(tr|y)/([^/\\]|\\.)*(/([^/\\]|\\.)*)?/[cds]*"R,
 			  "string", mode);
 dfa_define_highlight_rule("(tr|y)/([^/\\]|\\.)*(/([^/\\]|\\.)*)?\\?$"R,
 			  "string", mode);
-dfa_define_highlight_rule(".", "normal", mode);
 dfa_build_highlight_table (mode);
 #endif
 
@@ -269,11 +275,123 @@ dfa_build_highlight_table (mode);
 
 set_comment_info(mode, "# ", "", 4);
 
+private define last_line()
+{
+   push_spot();
+   eob();
+   what_line();
+   pop_spot();
+}
+
+private define search_heredoc_end(indent, end)
+{
+   if (strlen(indent))
+     return re_fsearch(sprintf("\\c^ *%s$", end));
+   return re_fsearch(sprintf("\\c^%s$", end));
+}
+
+private define color_buffer(min_line, max_line)
+{
+   !if (max_line) return;
+   variable string_color = color_number("string");
+   push_spot();
+   try
+     {
+	variable begin = {};
+	variable end = {};
+	variable in_heredoc = 0;
+
+	goto_line(min_line);
+	while (re_bsearch("\c<<\(-?\)\([A-Z]+\)$"R))
+	  {
+	     if (bfind_char('#'))
+	       continue;
+	     list_append(begin, what_line());
+	     eol();
+	     if (search_heredoc_end(regexp_nth_match(1), regexp_nth_match(2)))
+	       {
+		  list_append(end, what_line());
+		  if (what_line() > max_line)
+		    {
+		       in_heredoc = 1;
+		    }
+	       }
+	     else
+	       {
+		  list_append(end,  1 + last_line());
+		  in_heredoc = 1;
+	       }
+	     break;
+	  }
+	
+	!if (in_heredoc)
+	  {     
+	     while (re_fsearch("\c<<\(-?\)\([A-Z]+\)$"R))
+	       {
+		  if (what_line() > max_line)
+		    break;
+		  
+		  % parse_to_point doesn't work here for some reason
+		  if (bfind_char('#'))
+		    {
+		       eol();
+		       continue;
+		    }
+		  eol();
+		  
+		  list_append(begin, what_line());
+		  if (andelse{search_heredoc_end(regexp_nth_match(1), regexp_nth_match(2))}
+		       {what_line() < max_line})
+		    {
+		       list_append(end,  what_line());
+		    }
+		  else
+		    {
+		       list_append(end, last_line());
+		       break;
+		    }
+	       }
+	  }
+	
+	goto_line(min_line);
+	if (length(begin))
+	  {
+	     begin = [__push_list(begin)];
+	     end = [__push_list(end)];
+	     loop(max_line - min_line + 1)
+	       {
+		  if (any(begin < what_line() and end >= what_line()))
+		    set_line_color(string_color);
+		  else
+		    set_line_color(0);
+		  go_down_1();
+	       }
+	  }
+	else
+	  {
+	     loop(max_line - min_line + 1)
+	       {
+		  set_line_color(0);
+		  go_down_1();
+	       }
+	  }
+     }
+   catch RunTimeError:
+     {
+	unset_buffer_hook("color_region_hook");
+     }
+   finally
+     {
+	pop_spot();
+     }   
+}
+
 public define ruby_mode()
 {
    set_mode(mode, 2);
    use_keymap(mode);
    use_syntax_table(mode);
+   set_buffer_hook("color_region_hook", &color_buffer);
    set_buffer_hook("indent_hook", &ruby_indent_line);
    set_buffer_hook("newline_indent_hook", "ruby_newline_and_indent"); 
    runhooks("ruby_mode_hook");
