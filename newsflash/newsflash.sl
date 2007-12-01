@@ -1,6 +1,6 @@
 % newsflash.sl
 % 
-% $Id: newsflash.sl,v 1.3 2007/09/01 11:35:05 paul Exp paul $
+% $Id: newsflash.sl,v 1.4 2007/12/01 08:35:03 paul Exp paul $
 %
 % Copyright (c) 2006, 2007 Paul Boekholt.
 % Released under the terms of the GNU GPL (version 2 or later).
@@ -538,12 +538,12 @@ define rss_mode()
 define get_is_read(feed)
 {
    variable links, is_read = struct {titles, links};
-   variable t =sqlite_get_table(db, sprintf("select title, link from items where feed='%s' and is_read='1'",
-					    str_quote_string(feed, "'", '\'')));
+   variable t =sqlite_get_array(db, String_Type, "select title, link from items where feed=? and is_read='1'",
+				feed);
    if (length(t))
    {
-      is_read.titles = t[[[1:]],0];
-      is_read.links = t[[[1:]],1];
+      is_read.titles = t[*,0];
+      is_read.links = t[*,1];
    }
    return is_read;
 }
@@ -579,9 +579,9 @@ define item_handler(u)
 
 public define newsflash()
 {
-   variable feeds = sqlite_get_table(db, "select name, url from feeds");
-   variable names = feeds[[[1:]], 0], urls = feeds[[[1:]], 1];
-   variable feed = read_with_completion(strjoin(feeds[[[1:]], 0], ","),
+   variable feeds = sqlite_get_array(db, String_Type, "select name, url from feeds");
+   variable names = feeds[*, 0], urls = feeds[*, 1];
+   variable feed = read_with_completion(strjoin(feeds[*, 0], ","),
 					"feed to read",
 					"",
 					"",
@@ -618,11 +618,11 @@ public define newsflash()
 % jedscape.sl
 public define read_rss_data(url, data)
 {
-   variable feed = sqlite_get_table(db, sprintf("select name, url from feeds where url='%s'",
-						str_quote_string(url, "'", '\'')));
-   if (length(feed) > 2)
+   variable feed = sqlite_get_array(db, String_Type, "select name, url from feeds where url=?",
+				    url);
+   if (length(feed))
      {
-	feed = feed[1, 0];
+	feed = feed[0, 0];
      }
    else
      {
