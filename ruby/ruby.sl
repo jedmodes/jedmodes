@@ -258,6 +258,7 @@ dfa_define_highlight_rule("(tr|y)/([^/\\]|\\.)*(/([^/\\]|\\.)*)?/[cds]*"R,
 			  "string", mode);
 dfa_define_highlight_rule("(tr|y)/([^/\\]|\\.)*(/([^/\\]|\\.)*)?\\?$"R,
 			  "string", mode);
+dfa_define_highlight_rule("[^ -~]+", "normal", mode);
 dfa_build_highlight_table (mode);
 #endif
 
@@ -302,7 +303,7 @@ private define color_buffer(min_line, max_line)
 	variable in_heredoc = 0;
 
 	goto_line(min_line);
-	while (re_bsearch("\c<<\(-?\)\([A-Z]+\)$"R))
+	while (re_bsearch("\c<<\(-?\)\([A-Z]+\)\>"R))
 	  {
 	     if (bfind_char('#'))
 	       continue;
@@ -326,7 +327,7 @@ private define color_buffer(min_line, max_line)
 	
 	!if (in_heredoc)
 	  {     
-	     while (re_fsearch("\c<<\(-?\)\([A-Z]+\)$"R))
+	     while (re_fsearch("\c<<\(-?\)\([A-Z]+\)\>"R))
 	       {
 		  if (what_line() > max_line)
 		    break;
