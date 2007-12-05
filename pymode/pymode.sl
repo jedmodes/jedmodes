@@ -92,9 +92,12 @@
 % 2.1.3 2007-05-14 
 %       - simplified browse_pydoc_server()
 %       - added info about DFA syntax highlight to pymode_hook doc
-%         (TODO: how about a syntax highlight toggle function?)
-% 2.1.4 2007-05-25 add StopIteration keyword, formatting
-% 2.1.5 2007-06-21 add autoload for fit_window() (report Michael Johnson)
+% 2.1.4 2007-05-25 - add StopIteration keyword, formatting
+% 2.1.5 2007-06-21 - add autoload for fit_window() (report Michael Johnson)
+% 2.1.6 2007-12-05 - implement Jörg Sommer's fix for DFA highlight under UTF-8
+%                  - set_highlight_scheme() function and mode menu entry
+%                  - Python_Use_DFA custom variable
+%                  - cleanup and fix of DFA rules
 
 % TODO
 % ----
@@ -178,6 +181,24 @@ custom_variable("Py_Indent_Level", 4);
 %!%-
 custom_variable("Python_Doc_Root", "/usr/share/doc/python/html/");
 
+%!%+
+%\variable{Python_Use_DFA}
+%\synopsis{Use DFA syntax highlight for \var{python_mode}?}
+%\usage{variable Python_Use_DFA = 0}
+%\description
+%  Choose the syntax highlight scheme.
+%  
+%  Syntax highlight could use either a DFA syntax highlight scheme or the
+%  "traditional" one. Advantages are:
+%    
+%  traditional: highlights muliti-line string literals (if enclosed in """)
+%    
+%  dfa: highlights some syntax errors (e.g. invalid number formats, 
+%       mix of Spaces and Tab in code indention, or quote with trailing 
+%       whitespace at eol)
+%\seealso{python->set_highlight_scheme, enable_dfa_syntax_for_mode}
+%!%-
+custom_variable("Python_Use_DFA", 0);
 
 %!%+
 %\function{python_mode_hook}
@@ -227,26 +248,13 @@ custom_variable("Python_Doc_Root", "/usr/share/doc/python/html/");
 %           % more customization...
 %        }
 %#v-
-%  * Set the syntax highlight scheme
-%  
-%    Syntax highlight could use either a DFA syntax highlight scheme or the
-%    "traditional" one. Advantages are:
-%    
-%    traditional: highlights muliti-line string literals (if enclosed in """)
-%    
-%    dfa: highlights some syntax errors (e.g. invalid number formats, 
-%    	  mix of Spaces and Tab in code indention, or quote with trailing 
-%    	  whitespace at eol)
-%#v+
-%        define python_mode_hook() { 
-%           enable_dfa_syntax_for_mode("python");
-%           % disable_dfa_syntax_for_mode("python");
-%           % more customization...
-%        }
-%#v-
 %\seealso{py_untab, py_reindent, python->check_indentation}
 %!%-
 
+% Custom colours (pre-defined since Jed 0-99.18)
+% Make sure they have a different background as there is no foreground to see.
+custom_color("trailing_whitespace", get_color("menu"));     
+custom_color("tab",                 get_color("menu"));    
 
 % Functions
 % =========
@@ -649,11 +657,9 @@ static define calculate_indent()
 % Tab- or space-use is determined by get_indent_level() (0 -> use tabs)
 public  define py_indent_line() % (width = calculate_indent())
 {
-   variable width;
-   if (_NARGS)
-     width = ();
-   else
-     width = calculate_indent();
+   !if (_NARGS)
+     calculate_indent();
+   variable width = ();
    
    push_spot();
    bol_trim();
@@ -1116,14 +1122,14 @@ public  define py_exec() % (cmd="python")
 }
 
 % output filter for use with ishell-mode
-% insert a newline after main prompt...
 static define python_output_filter(str)
 {
-   if (str == ">>> ")
-     str = "\n" + str;
    % Remove the "poor man's bold" in python helptexts
-   if (is_substr(str, ""))
-	 str = str_re_replace_all(str, ".", "");
+   str = str_re_replace_all(str, ".", "");
+   % Append a newline to the prompt if output goes to separate buffer
+   if (str == ">>> " 
+       and get_blocal_var("Ishell_Handle").output_placement == "o")
+      str += "\n";
    return str;
 }
 
@@ -1131,7 +1137,7 @@ public define python_shell()
 {
    define_blocal_var("Ishell_output_filter", &python_output_filter);
    ishell_mode("python");
-   ishell_set_output_placement("o"); % separate-buffer
+   ishell_set_output_placement("l"); % log in separate-buffer
 }
 
 
@@ -1209,11 +1215,9 @@ static define get_import_lines()
 public define py_help() %(topic=NULL)
 {
    % get optional argument or ask
-   variable topic;
-   if (_NARGS)
-     topic = ();
-   else
-     topic = read_mini("Python Help for: ", "", "");
+   !if (_NARGS)
+     read_mini("Python Help for: ", "", "");
+   variable topic = ();
    
    variable str, module, object_list, help_cmd;
    
@@ -1350,44 +1354,80 @@ set_syntax_flags(mode, 0);			% keywords ARE case-sensitive
 () = define_keywords_n(mode, "NotImplementedError", 19, 1);
 
 #ifdef HAS_DFA_SYNTAX
+
 %%% DFA_CACHE_BEGIN %%%
-static define setup_dfa_callback(mode)
+private define dfa_rule(rule, color)
 {
-   dfa_enable_highlight_cache("pymode.dfa", mode);
-   dfa_define_highlight_rule("\"\"\".+\"\"\"", "string", mode);	% long string (""")
-   dfa_define_highlight_rule("'''.+'''", "string", mode);	% long string (''')
-   dfa_define_highlight_rule("\"[^\"]*\"", "string", mode);	% normal string
-   dfa_define_highlight_rule("'[^']*'", "string", mode);	% normal string
-   dfa_define_highlight_rule("#.*", "comment", mode);		% comment
-   dfa_define_highlight_rule("[A-Za-z_][A-Za-z_0-9]*", "Knormal", mode); % identifier
-   dfa_define_highlight_rule("[1-9][0-9]*[lLjJ]?", "number", mode);	% decimal int/complex
-   dfa_define_highlight_rule("0[0-7]*[lL]?", "number", mode);		% octal int
-   dfa_define_highlight_rule("0[xX][0-9a-fA-F]+[lL]?", "number", mode);	% hex int
-   dfa_define_highlight_rule("[1-9][0-9]*\.?[0-9]*([Ee][\+\-]?[0-9]+)?[jJ]?"R, "number", mode); % float/complex n.[n]
-   dfa_define_highlight_rule("0?\.[0-9]+([Ee][\+\-]?[0-9]+)?[jJ]?"R, "number", mode);   	  % float/complex n.[n]
-   dfa_define_highlight_rule("[ \t]+", "normal", mode);
-   dfa_define_highlight_rule("[\\(\\[{}\\]\\),:\\.\"`'=;]", "delimiter", mode);
-   dfa_define_highlight_rule("[\\+\\-\\*/%<>&\\|\\^~]", "operator", mode); % 1 char
-   dfa_define_highlight_rule("<<|>>|==|<=|>=|<>|!=", "operator", mode);	  % 2 char
+   dfa_define_highlight_rule(rule, color, $1);
+}
+
+private define setup_dfa_callback(mode)
+{
+   % dfa_enable_highlight_cache("pymode.dfa", mode);
+   $1 = mode; % used by dfa_rule()
    
-   % Flag badly formed numeric literals or identifiers.  This is more effective
-   % if you change the error colors so they stand out.
-   dfa_define_highlight_rule("[1-9][0-9]*[lL]?[0-9A-Za-z\\.]+", "error", mode);	% bad decimal
-   dfa_define_highlight_rule("0[0-7]+[lL]?[0-9A-Za-z\\.]+", "error", mode); % bad octal
-   dfa_define_highlight_rule("0[xX][0-9a-fA-F]+[lL]?[0-9A-Za-z\\.]+", "error", mode); % bad hex
-   dfa_define_highlight_rule("\\.[0-9]+([Ee][\\+\\-]?[0-9]+)?[A-Za-z]+", "error", mode); % bad float
-   dfa_define_highlight_rule("[A-Za-z_][A-Za-z_0-9]*\\.[0-9]+[A-Za-z]*", "error", mode); % bad identifier
-   % Flag mix of Spaces and Tab in code indention
-   dfa_define_highlight_rule("^ +\t+[^ \t#]", "error", mode);
-   dfa_define_highlight_rule("^\t+ +[^ \t#]", "error", mode);
-   % Flag quote with trailing whitespace at eol
-   dfa_define_highlight_rule("\\[ \t]$"R, "error", mode);
+   % Strings
+   %% "normal" string literals
+   dfa_rule("\"[^\"]*\"", "string");	 
+   dfa_rule("'[^']*'", "string");
+   %% "long" string literals
+   dfa_rule("\"\"\".+\"\"\"", "Qstring");
+   dfa_rule("'''.+'''", "Qstring");
+   %% string delimiters of multi-line string
+   dfa_rule("\"\"\"|'''", "string");          
+   % Comments
+   dfa_rule("#.*", "comment");		 
+   % Keywords (identifier)
+   dfa_rule("[A-Za-z_][A-Za-z_0-9]*", "Knormal"); 
+   % Delimiters and operators
+   dfa_rule("[\(\[{}\]\),:\.\"`'=;]"R, "delimiter");
+   dfa_rule("[\+\-\*/%<>&\|\^~]"R, "operator");  % 1 char
+   dfa_rule("<<|>>|==|<=|>=|<>|!=", "operator"); % 2 char
+   dfa_rule("\\$"R, "operator");    		 % line continuation
+   %% Flag line continuation with trailing whitespace
+   dfa_rule("\\[ \t]+$"R, "Qtrailing_whitespace");
+   % Numbers
+   dfa_rule("[1-9][0-9]*[lLjJ]?", "number"); % decimal int/complex
+   dfa_rule("0[0-7]*[lL]?", "number"); % octal int
+   dfa_rule("0[xX][0-9a-fA-F]+[lL]?", "number");	% hex int
+   dfa_rule("[1-9][0-9]*\.?[0-9]*([Ee][\+\-]?[0-9]+)?[jJ]?"R, "number"); % float/complex n.[n]
+   dfa_rule("0?\.[0-9]+([Ee][\+\-]?[0-9]+)?[jJ]?"R, "number"); % float/complex n.[n]
+   %% Flag badly formed numeric literals or identifiers.  
+   %% This is more effective if you change the error colors so they stand out.
+   dfa_rule("[1-9][0-9]*[lL]?[0-9A-Za-z\.]+"R, "error");	% bad decimal
+   dfa_rule("0[0-7]+[lL]?[0-9A-Za-z\.]+"R, "error"); % bad octal
+   dfa_rule("0[xX][0-9a-fA-F]+[lL]?[0-9A-Za-z\.]+"R, "error"); % bad hex
+   dfa_rule("\.[0-9]+([Ee][\+\-]?[0-9]+)?[A-Za-z]+"R, "error"); % bad float
+   dfa_rule("[A-Za-z_][A-Za-z_0-9]*\.[0-9]+[A-Za-z]*"R, "error"); % bad identifier
+   % Whitespace
+   dfa_rule(" ", "normal");  % normal whitespace
+   dfa_rule("\t", "tab");
+   %% Flag mix of Spaces and Tab in code indention 
+   dfa_rule("^ +\t+[^ \t#]", "menu_selection"); % distinctive background colour
+   dfa_rule("^\t+ +[^ \t#]", "menu_selection"); % distinctive background colour
+   % Render non-ASCII chars as normal to fix a bug with high-bit chars in UTF-8
+   dfa_rule("[^ -~]+", "normal");
+   
    dfa_build_highlight_table(mode);
 }
-dfa_set_init_callback(&setup_dfa_callback, mode);
+dfa_set_init_callback(&setup_dfa_callback, "python");
 %%% DFA_CACHE_END %%%
-% enable_dfa_syntax_for_mode(mode);
 #endif
+
+static define set_highlight_scheme()
+{
+   if (_NARGS)
+      Python_Use_DFA = ();
+   else
+      Python_Use_DFA = not(Python_Use_DFA);
+   variable schemes = ["DFA", "traditional"];
+   if (Python_Use_DFA)
+      enable_dfa_syntax_for_mode(mode);
+   else
+      disable_dfa_syntax_for_mode("python");
+   use_syntax_table("python"); % activate the DFA/non-DFA syntax
+   vmessage("using %s highlight scheme", schemes[not(Python_Use_DFA)]);
+}
 
 
 % Keybindings
@@ -1421,6 +1461,8 @@ static define python_menu(menu)
    menu_append_item(menu, "Re&indent buffer|region", "py_reindent");
    menu_append_item(menu, "Reindent &block|region", "python->reindent_block");
    menu_append_item(menu, "&Untab buffer", "py_untab");
+   menu_append_item(menu, "&Toggle syntax highlight scheme", 
+		    	  "python->set_highlight_scheme");
    menu_append_separator(menu);
    menu_append_item(menu, "&Run Buffer", &run_local_hook, "run_buffer_hook");
    menu_append_item(menu, "Python &Shell", "python_shell");
@@ -1461,5 +1503,6 @@ public define python_mode()
    mode_set_mode_info("run_buffer_hook", "py_exec");
    mode_set_mode_info(mode, "init_mode_menu", &python_menu);
    % set_buffer_hook("newline_indent_hook", "py_newline_and_indent");
+   set_highlight_scheme(Python_Use_DFA);
    run_mode_hooks("python_mode_hook");
 }
