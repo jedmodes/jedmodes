@@ -13,17 +13,26 @@
 % set fixture:
 require("unittest");
 
+private variable ch170;
+
+if (_slang_utf8_ok())
+   ch170 = "ª";
+else
+   ch170 = "\d170";
+
+private variable teststring = "bar\n";
+private variable testbuf = "*bar*";
 static define setup()
 {
-   popup_buffer("*bar*");
-   insert("bar\n");
+   popup_buffer(testbuf);
+   insert(teststring);
 }
        
 static define teardown()
 {
-   sw2buf("*bar*");
+   sw2buf(testbuf);
    set_buffer_modified_flag(0);
-   close_buffer("*bar*");
+   close_buffer(testbuf);
 }
 
 
@@ -77,10 +86,6 @@ test_last_result(32);
 test_function("ch_table->string2int", "100000", 2);
 test_last_result(32);
 
-#if (_slang_utf8_ok)
-#stop
-#endif
-
 % ct_status_line: undefined  Undocumented
 %  static define ct_status_line()
 % test_function("ch_table->ct_status_line");
@@ -97,10 +102,11 @@ test_last_result(32);
 %  static define ct_down ()
 static define test_ct_down()
 {
+   variable cc;
    special_chars();
    ch_table->ct_down();
-   % () = get_y_or_n("continue");
-   test_equal(bufsubstr()[0], 170, "special_chars should highlight char 170");
+   cc = substr(bufsubstr(), 1, 1);
+   test_equal(ch170, cc, "special_chars should highlight char nr 170");
    close_buffer("*ch_table*");
 }
 
@@ -165,10 +171,7 @@ static define test_ct_insert_and_close()
    ch_table->ct_insert_and_close();
    push_mark();
    go_left_1();
-   if (_slang_utf8_ok())
-      test_equal(bufsubstr(), "ª");
-   else
-      test_equal(bufsubstr(), "�");
+   test_equal(bufsubstr(), ch170, "should insert char nr 170");
 }
   
 update(1);
