@@ -1,6 +1,6 @@
 % flyspell.sl
 %
-% $Id: flyspell.sl,v 1.22 2007/11/25 17:38:09 paul Exp paul $
+% $Id: flyspell.sl,v 1.23 2007/12/07 17:01:47 paul Exp paul $
 % 
 % Copyright (c) 2003-2007 Paul Boekholt.
 % Released under the terms of the GNU GPL (version 2 or later).
@@ -257,6 +257,7 @@ define setup_dfa_callback (name)
    dfa_define_highlight_rule 
      (sprintf("[%s][%s]*[%s]",ispell_letters, flyspell_wordchars, ispell_letters),
       "Knormal", name);
+   dfa_define_highlight_rule("[^ -~%s]+", "normal", name);
    dfa_build_highlight_table (name);
 }
 %%% DFA_CACHE_END %%%
@@ -272,19 +273,8 @@ define flyspell_make_syntax_table(name)
    syntax_tables[name] = 1;
    create_syntax_table(name);
    set_syntax_flags(name, 0);
-   if (_slang_utf8_ok)
-     {
-	% this won't highlight "thye're".
-	% OTOH using ispell_wordchars here would not highlight any word
-	% that has a "'" adjacent to it, and DFA would not work well if you
-	% have any UTF-8 characters not in your ispell_letters
-	define_syntax(ispell_letters, 'w', name);
-     }
-   else
-     {
-	define_syntax(flyspell_wordchars, 'w', name);
-	dfa_set_init_callback (&setup_dfa_callback, name);
-     }
+   define_syntax(flyspell_wordchars, 'w', name);
+   dfa_set_init_callback (&setup_dfa_callback, name);
 }
 
 % A change in syntax table is from starting flyspell in a buffer with
@@ -310,8 +300,7 @@ define flyspell_change_syntax_table(language)
 	flyspell_make_syntax_table(table);
 	flyspell_syntax_table = table; 
 	use_syntax_table(table);
-	!if (_slang_utf8_ok)
-	  use_dfa_syntax(1);
+	use_dfa_syntax(1);
      }
 }
 
