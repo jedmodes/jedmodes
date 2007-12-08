@@ -1,6 +1,6 @@
 % cal.sl    -*- mode: Slang; mode: fold -*-
 %
-% $Id: cal.sl,v 1.14 2006/05/30 14:57:57 paul Exp paul $
+% $Id: cal.sl,v 1.15 2007/12/08 07:14:21 paul Exp paul $
 % Keywords: calendar, Emacs
 %
 % Copyright (c) 2000-2006 JED, Eero Tamminen, Paul Boekholt
@@ -38,14 +38,12 @@ custom_variable ("CalPrompt", "Month Year:");
 custom_variable ("DiaryLookahead", [6,0,0,0,0,0,0]);
 
 
-#ifexists _slang_utf8_ok
 % This is a list of arrays of strings that assigns different colors to
 % different appointments.  It should look like 
 % {["meeting", "String"], ["breakfast", "lunch", "Comment"], ...}
 
 custom_variable ("diary_colors", {});
 
-#endif
 % more custom_variables in diary.sl
 %}}}
 variable displayed_month, displayed_year; % the displayed month / yr
@@ -117,7 +115,7 @@ define cal_convert_month (month_name)
    m = is_list_element(strlow(CalMonths), strlow(month_name), ',');
    if (m) return m;
    % presume it's an integer
-   return integer(month_name);
+   return atoi(month_name);
 }
 
 % The number of days elapsed between the Gregorian date 12/31/1 BC and DATE.
@@ -300,7 +298,7 @@ define cal_set_mark()
 
 define cal_exchange_point_and_mark()
 {
-   if (marked_date == NULL) verror ("calendar mark is not set");
+   if (marked_date == NULL) throw RunTimeError, "calendar mark is not set";
    variable this_date = cursor_absolute_date;
    goto_absolute_date(marked_date);
    marked_date = this_date();
@@ -308,7 +306,7 @@ define cal_exchange_point_and_mark()
 
 define cal_count_days_region()
 {
-   if (marked_date == NULL) verror ("calendar mark is not set");
+   if (marked_date == NULL) throw RunTimeError, "calendar mark is not set";
    vmessage("region has %d days (inclusive)", 1 + abs(cursor_absolute_date - marked_date));
 }
   
@@ -436,7 +434,6 @@ define insert_yearly_diary_entry ()
      make_diary_entry(string(cursor_month) + "/" +  string(cursor_day));
 }
 
-#ifexists _slang_utf8_ok
 variable default_color = length(diary_colors) + 1;
 define extract_color_number(color_entry)
 {
@@ -454,7 +451,7 @@ define assign_colors(month_colors, mark_pattern, month, year)
    bob();
    while (re_fsearch(mark_re))
      {
-	day = integer(regexp_nth_match(1));
+	day = atoi(regexp_nth_match(1));
 	!if (month_colors[day])
 	  month_colors[day] = default_color;
 	()=ffind_char('\t');
@@ -495,7 +492,6 @@ define insert_colors(month_colors, month, year)
      }
 }
 
-#endif
 % mark days for which there are appointments.
 public define mark_diary_entries()
 {
@@ -504,42 +500,21 @@ public define mark_diary_entries()
    replace("\t", " ");
    variable mark_pattern, mark_re,
      month, day, year;
-#ifexists _slang_utf8_ok
    variable month_colors = Integer_Type[32];
-#endif
    if (DiaryEuropeanFormat)
      mark_pattern = "^\\([0-9][0-9]?\\)/0?%d/%d\t";
    else
      mark_pattern = "^0?%d/\\([0-9][0-9]\\)?/%d\t";
    (month, year) = (cursor_month, cursor_year);
    open_diary();
-#ifnexists _slang_utf8_ok
-   push_spot();
-#endif
    USER_BLOCK0
      {
-#ifnexists _slang_utf8_ok
-	mark_re = sprintf(mark_pattern, month, year);
-	bob;
-	while (re_fsearch(mark_re))
-	  {
-	     day = integer(regexp_nth_match(1));
-	     setbuf("*calendar*");
-	     cal_cursor_to_visible_date(month, day, year);
-	     go_right_1;
-	     del;
-	     insert_char('\t');
-	     setbuf(dbuf);
-	     eol;
-	  }
-#else
 	setbuf(dbuf);
 	push_spot();
 	assign_colors(month_colors, mark_pattern, month, year);
 	pop_spot();
 	setbuf("*calendar*");
 	insert_colors(month_colors, month, year);
-#endif
      }
 
    --month; if (month == 0) { month = 12; --year; }
@@ -550,9 +525,6 @@ public define mark_diary_entries()
    X_USER_BLOCK0;
 
    pop_spot();
-#ifnexists _slang_utf8_ok
-   setbuf("*calendar*");
-#endif
    set_readonly(1);
    set_buffer_modified_flag(0);
    cal_cursor_to_visible_date(cursor_date);
@@ -574,7 +546,7 @@ define read_date ()
    month = cal_convert_month(extract_element(t, 0, ' '));
    year = integer(extract_element(t, 1, ' '));
    if (month < 1 or month > 12 or year < 1)
-     error ("not a valid date");
+     throw RunTimeError, "not a valid date";
    return month, year;
 }
 
@@ -630,30 +602,10 @@ define calendar_mode()
 {
    set_mode("calendar", 0);
    use_keymap ("Calendar_Map");
-#ifnexists _slang_utf8_ok
-   use_syntax_table(mode);
-#else
    _set_buffer_flag(0x1000);
-#endif
    mode_set_mode_info(mode, "init_mode_menu", &cal_menu);
    run_mode_hooks("calendar_mode_hook");
 }
-
-
-#ifdef HAS_DFA_SYNTAX
-create_syntax_table (mode);
-%%% DFA_CACHE_BEGIN %%%
-define setup_dfa_callback (mode)
-{
-   dfa_enable_highlight_cache("calendar.dfa", mode);
-   dfa_define_highlight_rule ("[0-9][0-9]?\t", "Qkeyword", mode);
-   dfa_define_highlight_rule ("\\*\\*?\t", "Qkeyword", mode);
-   dfa_build_highlight_table(mode);
-}
-dfa_set_init_callback (&setup_dfa_callback, mode);
-%%% DFA_CACHE_END %%%
-enable_dfa_syntax_for_mode(mode);
-#endif
 
 
 % output three month calendar into separate buffer
@@ -707,9 +659,7 @@ public define calendar ()
    % I want the calendar in the bottom window
    onewindow();
    sw2buf("*calendar*");
-#ifexists _slang_utf8_ok
    _set_buffer_flag(0x1000);
-#endif
    bob();
    splitwindow();	% when I do this manually I end up in top 
    			% window, but when done from slang in the bottom?
@@ -727,7 +677,6 @@ public define calendar ()
      }
    sw2buf(obuf);
    otherwindow();
-   TAB=1;
    generate_calendar(month, year);
    if (month == this_month and year == this_year)
      day = this_day;

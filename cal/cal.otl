@@ -63,12 +63,11 @@
   only dates I can understand.
 ** marking appointments
    In the calendar window, press `m' to mark dates on which you have
-   appointments.  Cal can only mark non-recurring appointments, but
-   unlike Emacs' calendar it has a configurable feature to mark different
+   appointments.  Cal can only mark non-recurring appointments, but unlike
+   Emacs' calendar it has a configurable feature to mark different
    appointments in different colors.  Of course this works best if you don't
-   have more than one appointment per day.  This feature only works with
-   JED 0.99-17 and S-Lang 2 since it uses the new escape-sequence coloring
-   feature.  You have add to .jedrc something like
+   have more than one appointment per day.  You have add to .jedrc something
+   like
    #v+
    variable diary_colors = {["Tom", "Dick", "Harry", "Operator"],
                             ["eeting", "String"],
@@ -104,29 +103,8 @@
       show_diary_entries(1);
    }
    #v-
-** using static functions and variables in hooks
-   Say, you want calendar to show your appointments, but only if the current
-   month is visible.  I have a variable today_visible but that's static.  In
-   slang 2.0.2 and higher you can write
-   #v+
-   autoload("calendar->today_visible", "cal");
-   define calendar_move_hook()
-   {
-      if (calendar->today_visible)
-        show_diary_entries(1);
-   }
-   #v-
-   But in older versions of slang this will not work.  Place the
-   calendar_move_hook in a separate file, calhooks.sl say, and add
-   #v+
-   autoload ("calendar_move_hook", "calhooks");
-   #v-
-   to your .jedrc.
-* changes in version 1.13
-** removed view_diary_entries
-   and also the DiaryViewFun customvariable.
-** new appointment coloring feature
-   see [marking appointments]
-** reordered namespace-related code
-   All autoloads, requires and provides are now in the Global namespace for
-   compatibility with slang 2.0.2.
+* changes
+** version 1.14
+   -Added DFA fix for UTF-8 (Joerg Sommer)
+   -Tweaked DFA rules for dates
+   -Now requires Slang 2

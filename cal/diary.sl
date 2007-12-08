@@ -1,9 +1,9 @@
 % diary.sl
 % 
-% $Id: diary.sl,v 1.4 2005/11/26 16:58:06 paul Exp paul $
+% $Id: diary.sl,v 1.6 2007/12/08 07:26:18 paul Exp paul $
 % Keywords: calendar, Emacs
 % 
-% Copyright (c) 2003 Paul Boekholt.
+% Copyright (c) 2003, 2007 Paul Boekholt.
 % Released under the terms of the GNU GPL (version 2 or later).
 % 
 % This file provides the diary function that can be used to view your
@@ -30,10 +30,9 @@ custom_variable ("CalWeekdays", weekdaynames[ (CalStartWeek + [0:6]) mod 7 ]);
 % it's ~/calendar.
 custom_variable ("DiaryFile", dircat(getenv("HOME"), "calendar"));
 
-% Should the diary be in the European format dd/mm/yyyy? This only works
-% with show_diary_entries(), unless you have a calendar program that 
-% understands it. To convert your calendar file between European and 
-% American style, try regexp-replacing \([^\/]+\)/\([0-9\*]+\) by \2\/\1
+% Should the diary be in the European format dd/mm/yyyy?.  To
+% convert your calendar file between European and  American style, try
+% regexp-replacing \([^\/]+\)/\([0-9\*]+\) by \2\/\1
 custom_variable ("DiaryEuropeanFormat", 0);
 
 
@@ -42,12 +41,13 @@ create_syntax_table ("diary");
 %%% DFA_CACHE_BEGIN %%%
 define setup_dfa_callback_diary (mode)
 {
+   variable dayname;
    dfa_enable_highlight_cache("diary.dfa", mode);
-   dfa_define_highlight_rule ("^[0-9\\*][0-9\\*]?/[0-9\\*][0-9\\*]?\t", "comment", mode);
-   dfa_define_highlight_rule ("^[0-9][0-9]?/[0-9][0-9]?/20[0-9][0-9]\t", "comment", mode);
-   foreach (weekdaynames)
-     dfa_define_highlight_rule (Sprintf("^%s\\+?[1-5]?\t", exch, 1), "string", mode);
-   
+   dfa_define_highlight_rule ("^[1-9]?[0-9\\*]/[1-9]?[0-9\\*]?\t", "comment", mode);
+   dfa_define_highlight_rule ("^[1-9]?[0-9]/[1-9]?[0-9]/20[0-9][0-9]\t", "comment", mode);
+   foreach dayname (weekdaynames)
+     dfa_define_highlight_rule (sprintf("^%s\\+?[1-5]?\t", dayname), "string", mode);    
+   dfa_define_highlight_rule("[^ -~]+", "normal", mode);
    dfa_build_highlight_table(mode);
 }
 dfa_set_init_callback (&setup_dfa_callback_diary, "diary");
