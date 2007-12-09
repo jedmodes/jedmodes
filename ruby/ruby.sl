@@ -27,6 +27,10 @@
 require("comments");
 require("pcre");
 
+#ifnexists  __push_list
+autoload("list2array", "datutils");
+#endif
+
 custom_variable("ruby_indent_level", 2);
 
 private define ruby_indent_to(n)
@@ -357,11 +361,16 @@ private define color_buffer(min_line, max_line)
 	goto_line(min_line);
 	if (length(begin))
 	  {
+#ifexists __push_list
 	     begin = [__push_list(begin)];
 	     end = [__push_list(end)];
+#else
+	     begin = list2array(begin, Integer_Type);
+	     end = list2array(end, Integer_Type);
+#endif
 	     loop(max_line - min_line + 1)
 	       {
-		  if (any(begin < what_line() and end >= what_line()))
+		  if (wherefirst(begin < what_line() and end >= what_line()) != NULL)
 		    set_line_color(string_color);
 		  else
 		    set_line_color(0);
