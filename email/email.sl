@@ -1,9 +1,9 @@
 % email.sl -*- mode: SLang; mode: Fold -*-
 % 
-% $Id: email.sl,v 1.5 2006/09/28 18:48:33 paul Exp paul $
+% $Id: email.sl,v 1.6 2007/12/09 10:07:21 paul Exp paul $
 % Keywords: mail
 % 
-% Copyright (c) 2003-2005 Paul Boekholt, Morten Bo Johansen
+% Copyright (c) 2003-2007 Paul Boekholt, Morten Bo Johansen
 % Released under the terms of the GNU GPL (version 2 or later).
 % 
 % This file was written by the following people:
@@ -102,7 +102,7 @@ static variable color_italic = "delimiter";
 #ifdef HAS_DFA_SYNTAX
 % The highlighting copes with email addresses and url's
 dfa_enable_highlight_cache ("email.dfa",mode);
-dfa_define_highlight_rule ("\xC3.", "normal", mode);
+dfa_define_highlight_rule("[^ -~]+", "normal", mode);
 dfa_define_highlight_rule ("^(To|Cc|Newsgroups): .*",color_to,mode);
 dfa_define_highlight_rule ("^Date: .*",color_header,mode);
 dfa_define_highlight_rule ("^From: .*",color_from,mode);
