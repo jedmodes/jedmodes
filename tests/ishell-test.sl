@@ -1,9 +1,32 @@
 % Test ishell.sl
+% ishell.sl: Interactive shell mode (based on ashell.sl by J. E. Davis)
+
+% Copyright (c) 2007 Günter Milde
+% Released under the terms of the GNU General Public License (ver. 2 or later)
+
+% Versions
+% --------
+% 0.2 2007-11-30  * merge with template from testscript wizard
+%     		  * test log buffer
 
 % currently, this tests function calls for errors but does only a partial
 % test of advertised functionality
 
-% ishell.sl: Interactive shell mode (based on ashell.sl by J. E. Davis)
+require("unittest");
+
+% test availability of public functions (comment to skip)
+test_true(is_defined("ishell_mode"), "public fun ishell_mode undefined");
+test_true(is_defined("ishell"), "public fun ishell undefined");
+test_true(is_defined("terminal"), "public fun terminal undefined");
+test_true(is_defined("shell_command"), "public fun shell_command undefined");
+test_true(is_defined("shell_cmd_on_region_or_buffer"), "public fun shell_cmd_on_region_or_buffer undefined");
+test_true(is_defined("shell_cmd_on_region"), "public fun shell_cmd_on_region undefined");
+test_true(is_defined("filter_region"), "public fun filter_region undefined");
+
+% Fixture
+% -------
+
+require("ishell");
 
 % custom_variable("Ishell_default_output_placement", ">");
 % custom_variable("Ishell_logout_string", ""); % default is Ctrl-D
@@ -13,36 +36,14 @@
 % custom_variable("Shell_Default_Shell", getenv ("SHELL"));
 % custom_variable("Ishell_Default_Shell", Shell_Default_Shell+" -i");
 
-require("unittest");
-
-% Fixture
-% -------
-
-autoload("Global->ishell_send_input", "ishell");
-autoload("Global->ishell_logout", "ishell");
-autoload("get_buffer", "txtutils");
-
 private variable cmd = "echo 'hello world'";
 private variable testbuf = "*bar*";
-% the setting of ADD_NEWLINE has influence of the return value of
-% functions saving the buffer (e.g. using bufsubstring()) and processing the
-% resulting file
-private variable add_newline_before = ADD_NEWLINE;
-
-static define mode_setup()
-{
-   ADD_NEWLINE = 0;
-}
-
-static define mode_teardown()
-{
-   ADD_NEWLINE = add_newline_before;
-}
+private variable teststring = "a test line\n";
 
 static define setup()
 {
-   popup_buffer(testbuf);
-   insert("bar bar");
+   sw2buf(testbuf);
+   insert(teststring);
 }
 
 static define teardown()
@@ -52,20 +53,23 @@ static define teardown()
    close_buffer(testbuf);
 }
 
+% Test functions
+% --------------
+
 % ishell_mode(cmd=Ishell_Default_Shell); Open a process and attach it to the current buffer.
 % test_function("ishell_mode");
 static define test_ishell_mode()
 {
    ishell_mode(); % attach a shell to the buffer
    % test the attached shell
-   %
+   % 
    % to test the proper working, we would need a way to synchronize the
    % assynchron working (i.e. wait for a response from the command.)
-   %
+   % 
    % Maybe input_pending() can be (ab)used in conjunction with an output handler
    % pushing a string back on the input-stream (ungetkey()). (Maybe a special
    % blocal "Ishell_output_filter"?)
-
+   
    usleep(2000);  % wait for the startup
    insert("pwd");
    ishell_send_input();
@@ -74,6 +78,7 @@ static define test_ishell_mode()
    ishell_logout();
    usleep(1000);  % wait for the result
 }
+
 
 static define test_ishell()
 {
@@ -94,8 +99,9 @@ static define test_ishell()
 static define test_terminal()
 {
    % terminal();       % doesnot close!
-   terminal("exit");
+   terminal("logout");
 }
+
 
 % shell_command(cmd="", output_handling=0); Run a shell command
 static define test_shell_command_0()
@@ -116,13 +122,13 @@ static define test_shell_command_named_buffer()
 
 static define test_shell_command_1() % insert at point
 {
-   shell_command(cmd, 1);
-   test_equal(get_buffer(), "bar barhello world\n");
+   shell_command(cmd, 1); 
+   test_equal(get_buffer(), teststring+"hello world\n");
 }
 
 static define test_shell_command_2() % replace region/buffer at point
 {
-   shell_command(cmd, 2);
+   shell_command(cmd, 2); 
    test_equal(get_buffer(), "hello world\n");
 }
 
@@ -163,20 +169,23 @@ static define test_shell_cmd_on_region_or_buffer()
 {
    push_visible_mark();
    bob();
-   test_equal(shell_cmd_on_region_or_buffer("cat", 3), "bar bar");
+   test_equal(shell_cmd_on_region_or_buffer("cat", 3), teststring);
 }
 
+  
 % shell_cmd_on_region(cmd="", output_handling=0, postfile_args=""); Save region to a temp file and run a command on it
 static define test_shell_cmd_on_region()
 {
-   test_equal(shell_cmd_on_region("cat", 3), "bar bar");
+   test_equal(shell_cmd_on_region("cat", 3), teststring);
 }
+
 
 % filter_region(cmd=NULL); Filter the region through a shell command
 static define test_filter_region()
 {
    filter_region("wc");
-   % the filename part of the output differs as we use a tmp file
-   test_equal(get_buffer()[[0:4]], "0 2 7",
-      "filter_region output differs from expected value");
+   bob(); push_mark();
+   fsearch("/tmp");
+   test_equal(bufsubstr(), " 1  3 12 ",
+	     "filter_region output differs from expected value");
 }

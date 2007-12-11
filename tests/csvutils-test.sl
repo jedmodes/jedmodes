@@ -6,7 +6,7 @@
 % Versions:
 % Versions:
 % 0.1 2006-03-03   basic test, check public functions
-% 0.2 2006-03-03   use test function discovery
+% 0.2 2006-10-05   use test function discovery
 
 require("unittest");
 require("txtutils");

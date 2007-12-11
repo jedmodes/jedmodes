@@ -5,6 +5,7 @@
 %
 % Versions:
 % 0.1 2006-03-03
+% 02  2007-12-11 Define test-functions instead of procedural script
 
 require("unittest");
 
