@@ -36,8 +36,7 @@
 %  2.6.3 2007-05-14 * documentation update
 %  	 	    * insert_block_markup() inserts newline if region|word
 %  	 	      doesnot start at bol
-
-% _debug_info = 1;
+%  2.7   2007-12-11 * new function re_replace()
 
 provide("txtutils");
 
@@ -362,13 +361,14 @@ public define newline_indent()
 %\usage{number_lines()}
 %\description
 %  Precede all lines in the buffer (or a visible region) with line numbers
-%\notes
+%  
 %  The numbers are not just shown, but actually inserted into the buffer.
+%\notes
 %  Use \var{toggle_line_number_mode} (Buffers>Toggle>Line_Numbers) to show
 %  line numbers without inserting them in the buffer.
 %\seealso{set_line_number_mode, toggle_line_number_mode}
 %!%-
-public define number_lines ()
+define number_lines()
 {
    variable visible_mark = is_visible_mark();
    push_spot;
@@ -482,4 +482,29 @@ define insert_block_markup(beg_tag, end_tag)
    % put cursor inside the markup tags if the region is void
    if (region == "")
      go_left(strlen(end_tag));
+}
+
+
+
+%!%+
+%\function{re_replace}
+%\synopsis{Replace all occurences of regexp \var{pattern} with \var{rep}}
+%\usage{re_replace(pattern, rep)}
+%\description
+%  Regexp equivalent to \sfun{replace}.
+%  Replaces all occurences of of regexp \var{pattern} with \var{rep}
+%  from current editing point to the end
+%  of the buffer. The editing point is returned to the initial location.
+%  The regexp syntax is the same as in \sfun{re_fsearch} 
+%  (currently S-Lang regular expressions).
+%\seealso{replace, re_search_forward, str_re_replace, query_replace_match}
+%!%-
+define re_replace(pattern, rep)
+{
+   push_spot();
+   EXIT_BLOCK {pop_spot();}
+   while (re_fsearch(pattern)) {
+      !if (replace_match(rep, 0))
+	 error ("replace_match failed.");
+   }
 }
