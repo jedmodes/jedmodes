@@ -89,8 +89,10 @@
 % 1.9.1 2006-11-23 bugfix in shell_cmd_on_region_or_buffer()
 % 		   (`output_handling' can be string or integer)
 % 1.9.2 2007-05-14 cleanup in ishell()
+% 1.10  2007-12-11 new output_placement "l": Log (input and output) in outbuf
+% 		   fix autoloads
 %
-% CUSTOMIZATION
+% Customisation
 % -------------
 % 
 %     * custom variables
@@ -103,16 +105,11 @@
 %
 % Examples for output filters:
 %
-%    % Some programs put out ^M-s. We don't want them on Unix
-%
-%       define mupad_ishell_output_filter(str)
-%         { return str_delete_chars (str, "\r"); }
-%       define_blocal_var("Ishell_output_filter", "mupad_ishell_output_filter")
-%
 %    % Output commenting:
 %       define ishell_comment_output(str)
 %         {
-%            return strreplace_all (str, "\n", "\n"+"% ");
+%            variable c = get_comment_info()
+%            return strreplace_all (str, "\n", \n"+c.cbeg);
 %         }
 %       define_blocal_var("Ishell_output_filter", "ishell_comment_output")
 %
@@ -126,7 +123,9 @@
 
 % _debug_info = 1;
 
-% --- requirements ----------------------------------------------------
+% Requirements
+% ------------
+
 autoload("push_keymap", "bufutils");
 autoload("pop_keymap", "bufutils");
 autoload("rebind", "bufutils");
@@ -137,7 +136,7 @@ autoload("normalized_modename", "bufutils");
 autoload("fit_window", "bufutils");
 autoload("get_blocal", "sl_utils");
 autoload("push_defaults", "sl_utils");
-autoload("run_local_hook", "bufutils");
+autoload("run_local_function", "bufutils");
 autoload("bufsubfile", "bufutils");
 autoload("view_mode", "view");
 autoload("get_buffer", "txtutils");
@@ -152,11 +151,13 @@ autoload("get_buffer", "txtutils");
 %\usage{String_Type Ishell_default_output_placement = ">"}
 %\description
 % Where is output from the process placed:
-%    "_"           end of buffer
+%    "_" or ""     end of buffer
 %    "@"           end of buffer (return to point)
-%    ">"           below corresponding input (on an new line)
-%    "o"           output buffer
-%    "."           point (also the default for not listed strings)
+%    ">"           new line below corresponding input
+%    "."           current point position
+%    "o"           separate output buffer
+%    "log"         log input and output in a separate buffer
+% The default for not listed strings is "."
 %\notes
 % This is an extended version of the options for \sfun{set_process}
 %\seealso{ishell, ishell_mode, set_process}
@@ -168,7 +169,7 @@ custom_variable("Ishell_default_output_placement", ">");
 %\synopsis{interactive shell logout string}
 %\usage{String_Type Ishell_logout_string = ""}
 %\description
-% the string sent to the process for logout
+% The string sent to the process for logout.
 %\seealso{ishell, ishell_mode}
 %!%-
 custom_variable("Ishell_logout_string", ""); % default is Ctrl-D
@@ -176,13 +177,12 @@ custom_variable("Ishell_logout_string", ""); % default is Ctrl-D
 %!%+
 %\variable{Ishell_Max_Popup_Size}
 %\synopsis{Size of ishell output buffer}
-%\usage{Int_Type Ishell_Max_Popup_Size = 10}
+%\usage{Int_Type Ishell_Max_Popup_Size = 0.3}
 %\description
 %  Maximal size for resizing the ishell output buffer
-%  (if \var{Ishell_default_output_placement} == "o").
-%\seealso{ishell, ishell_mode}
+%\seealso{ishell, ishell_mode, Ishell_default_output_placement}
 %!%-
-custom_variable("Ishell_Max_Popup_Size", 10);
+custom_variable("Ishell_Max_Popup_Size", 0.3);
 
 %!%+
 %\variable{Ishell_Default_Shell}
@@ -242,6 +242,22 @@ static define initialize_process_handle()
    define_blocal_var("Ishell_Handle", handle);
 }
 
+% append str to the corresponding output buffer of buffer `buf'
+static define append_to_outbuf(buf, str)
+{
+   variable outbuf = sprintf("*%s Output*", buf);
+   popup_buffer(outbuf, Ishell_Max_Popup_Size);
+   eob();
+   set_readonly(0);
+   insert(str);
+   eob();
+   fit_window(get_blocal("is_popup", 0));
+   view_mode();
+   pop2buf(buf);
+   return;
+}
+
+
 % send region or current line to attached process
 define ishell_send_input()
 {
@@ -256,10 +272,6 @@ define ishell_send_input()
      str = line_as_string();
    if (handle.output_placement == ">") % below corresponding input
      newline();
-     % {
-     % 	insert("\n\n"); % separate from input by newlines
-     % 	go_left_1();
-     % }
    move_user_mark(handle.mark);
    pop_spot();
    % remove prompt if present
@@ -270,12 +282,17 @@ define ishell_send_input()
    if (str[-1] != '\n')
      str += "\n";
    % show("ishell_input:", str);
+   if (handle.output_placement == "l") % log
+      append_to_outbuf(whatbuf(), str);
    % show("prompt:", handle.prompt);
-   % send to attached process (via handle.input fifo cache)
-   handle.input += str; % FI
+   
+   % Send to attached process 
+   % (use handle.input fifo cache to send in chunks not larger than
+   %  Process_Input_Size)
+   handle.input += str; % first-in
    while (strlen(handle.input))
      {
-	str = substr(handle.input, 1, Process_Input_Size);           % FO
+	str = substr(handle.input, 1, Process_Input_Size);  % first-out
 	handle.input = substr(handle.input, Process_Input_Size+1, -1); %
 	% (str, handle.input) =
 	%   strbreak(handle.input, Process_Input_Size, '\n'); % FO
@@ -285,46 +302,37 @@ define ishell_send_input()
 }
 
 % insertion of output
-define ishell_insert_output (pid, str)
+define ishell_insert_output(pid, str)
 {
    variable buf = whatbuf(), handle = get_blocal_var("Ishell_Handle");
-
-   % Some programs (especially under Windooof) put out ^M-s,
-   % jed does not expect them (regardless of the crmode).
+   % Some programs put out ^M-s also in their UNIX version,
+   % Jed does not expect them (regardless of the crmode).
+   % (Please mail if this poses problems on Windows, so that it can be made
+   % conditional.)
    str = str_delete_chars (str, "\r");
-
+   
    % find out what the prompt is (normally the last line of output)
-   handle.prompt = strchop (str, '\n', 0)[-1];
+   handle.prompt = strchop(str, '\n', 0)[-1];
 
+   % Filter the output string (call a filter-output-hook)
    % show("ispell_output:", str);
-   % filter the output string (call a filter-output-hook)
-   if (blocal_var_exists("Ishell_output_filter"))
-     str = run_local_hook("Ishell_output_filter", str);
+   if (run_local_function("Ishell_output_filter", str))
+      str = ();
    % abort, if filter returns empty string
    !if (strlen(str))
      return;
-
-   % where shall the output go?
+   
+   % Insert output string
+   %  go to the right place
    switch(handle.output_placement)
-     { case "_" :  eob;}
-     { case "@" : push_spot; eob;}
-     { case ">" : goto_user_mark(handle.mark);}
-     { case "o" : % output-buffer
-	popup_buffer(buf + "-output", Ishell_Max_Popup_Size);
-	eob();
-	set_readonly(0);
-	insert(str);
-	eob();
-	fit_window(get_blocal("is_popup", 0));
-	view_mode();
-	pop2buf(buf);
-	return;
-     }
-     % Default: output will go to the current buffer position.
-
+     { case "_": eob; }
+     { case "@": push_spot; eob; }
+     { case ">": goto_user_mark(handle.mark); }
+     { case "o" or case "l": append_to_outbuf(buf, str); return; }
+     % { case "m" : message(strtrim(str)); } % does this work at all?
+     % { case "." : ; } % (insert at current buffer position, default) 
    insert(str);
    move_user_mark(handle.mark);
-
    if (handle.output_placement == "@")
      pop_spot();       % return to previous position
    %make the insertion visible
@@ -399,6 +407,7 @@ static define ishell_menu(menu)
    menu_append_item(menu, "&. Point",		      "ishell_set_output_placement", ".");
    menu_append_item(menu, "&> Line below input",      "ishell_set_output_placement", ">");
    menu_append_item(menu, "&o Output buffer",         "ishell_set_output_placement", "o");
+   menu_append_item(menu, "&l Log buffer",            "ishell_set_output_placement", "l");
 }
 
 %!%+
