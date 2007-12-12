@@ -12,7 +12,7 @@
 % matches.
 
 provide("jedpcre");
-import("pcre");
+require("pcre");
 require("srchmisc");
 require("occur");  % this requires the occur from jedmodes.sf.net/mode/occur
 
@@ -139,11 +139,6 @@ public define pcre_query_replace()
 %}}}
 %{{{ occur
 
-private variable occur_re;
-private define pcre_match(str)
-{
-   pcre_exec(occur_re, str);
-}
 
 public define pcre_occur()
 {
@@ -151,7 +146,7 @@ public define pcre_occur()
    if (_NARGS) pat = ();
    else
      pat = read_mini("Find All (Regexp):", LAST_SEARCH, Null_String);
-   occur_re = pcre_compile(pat);
+   variable occur_re = pcre_compile(pat);
    tmp = "*occur*";
    occur->obuf = whatbuf();
    occur->nlines=0;
@@ -160,13 +155,12 @@ public define pcre_occur()
    push_mark_eob;
    str = strchop(bufsubstr, '\n', 0);
    pop_spot;
-   variable index = where(array_map(Integer_Type, &pcre_match, str));
+   variable index = where(array_map(Integer_Type, &pcre_exec, occur_re, str));
    !if (length(index)) return message("no matches");
    pop2buf(tmp);
    erase_buffer();
-   foreach (index)
+   foreach n (index)
      {
-	n = ();
 	vinsert ("%*d: %s\n", occur->line_number_width, 1+n, str[n]);
      }
    bob(); set_buffer_modified_flag(0);
