@@ -1,6 +1,6 @@
 % Various programming utils that are used by most of my other modes.
 %
-% Copyright (c) 2006 Günter Milde
+% Copyright (c) 2006 Guenter Milde (milde users.sf.net)
 % Released under the terms of the GNU General Public License (ver. 2 or later)
 %
 % Version    1.0   first public release
@@ -24,6 +24,7 @@
 %                  (Normal users will will usually not re-evaluate.)
 %            1.5.4 Documentation update for run_function mentioning call_function
 %            1.5.5 Documentation fix for push_defaults()
+% 2007-11-30 1.5.6 Documentation update for run_function()
 
 % _debug_info = 1;
 
@@ -39,35 +40,47 @@ provide("sl_utils");
 %\example
 % A function with one compulsory and two optional arguments
 %#v+
-% define fun() % (a1, a2="d2", a3=whatbuf())
-% {
-%    variable a1, a2, a3;
-%    (a1, a2, a3) = push_defaults( , "d2", whatbuf(), _NARGS);
-%    vmessage("(%S, %S, %S)", a1, a2, a3);
-% }
+%   define fun() % (a1, a2="d2", a3=whatbuf())
+%   {
+%      variable a1, a2, a3;
+%      (a1, a2, a3) = push_defaults( , "d2", whatbuf(), _NARGS-1);
+%      vmessage("(%S, %S, %S)", a1, a2, a3);
+%   }
 %#v-
 % results in:
 %   fun(1)       %  --> (1, d2, *scratch*)
 %   fun(1, 2)    %  --> (1, 2, *scratch*)
 %   fun(1, 2, 3) %  --> (1, 2, 3)
 % but
-%   fun()        %  --> (NULL, d2, *scratch*)  !!compulsory arg missing!!
+%   fun()        %  --> !!compulsory arg missing!!
 %   fun(1, , )   %  --> (1, NULL, NULL)  !!empty args replaced with NULL!!
 %\notes
-% Do not forget the _NARGS argument!
+% Never forget the _NARGS argument to \sfun{push_defaults}!
+% 
+% Mixed compulsory-optional arguments can be defined somewhat simpler, if
+% the compulsory argument comes last:
+%#v+
+%   define fun2(a2) % (a1="d1", a2)
+%   {
+%      variable a1 = push_defaults("d1", _NARGS-1);
+%      vmessage("(%S, %S)", a1, a2);
+%   }
+%#v-
+% (To the author, the compulsory-first ordering appears more "natural",
+% though. Maybe this is due to the Python experience where compulsory
+% arguments need to precede optional ones.)
 % 
 % The arguments to push_defaults will always be evaluated. If time is an issue,
-% rather use a construct like
+% use a placeholder (e.g. NULL) or a construct like
 %#v+
-% define fun() % (a=time_consuming_fun())
-% {
-%    !if (_NARGS)
-%      time_consuming_fun();
-%    variable a = ();
-%    ...
-% }
+%   define fun() % (a=time_consuming_fun())
+%   {
+%      !if (_NARGS)
+%        time_consuming_fun();
+%      variable a = ();
+%      ...
+%   }
 %#v-
-%
 %\seealso{__push_args, __pop_args, _NARGS }
 %!%-
 define push_defaults() % args, n
@@ -164,6 +177,10 @@ define push_array(a)
 %      message("this buffer is fooish");
 %#v-
 % will print the message if foo is a blocal variable with nonzero value.
+%\note
+% Since some time, get_blocal also takes a optional default value. However,
+% it will throw an error, if no \var{default} argument is specified and
+% there is no blocal_variable with \var{name}.
 %\seealso{get_blocal_var, blocal_var_exists}
 %!%-
 define get_blocal() % (name, default=NULL)
@@ -182,10 +199,11 @@ define get_blocal() % (name, default=NULL)
 %\usage{Int_Type run_function(fun, [args])}
 %\description
 % Run a function (if it exists) pushing \var{args} as argument list.
-% In contrast to \sfun{call_function}, there is a return value:
+% In contrast to \sfun{call_function}, there is a return value
+% (pushed on the stack after the function call):
 % 
-%  1 the function is defined (or internal)
-%  0 the function is not defined
+%  1 the function was found (is_defined or internal)
+%  0 the function was not found
 %  
 % The \var{fun} can be a function name or reference (this allows both:
 % yet undefined functions (as string) as well as private or static functions
@@ -193,16 +211,22 @@ define get_blocal() % (name, default=NULL)
 %\example
 %#v+
 %
-%    !if (run_function("foo"))
-%       message("\"foo\" is not defined");
+%    if (run_function("foo"))
+%       message("\"foo\" successfull called");
 %
 %    !if (run_function(&foo))
 %       message("\"foo\" is not defined");
 %#v-
+% The return value can be used to decide whether to take up a return value:
+%#v+
+%
+%    if (run_function("filter", str))
+%       str = ();
+%#v-
 %\notes
 % If fun is (solely) an internal function, the optional arguments will be
-% silently popped. If there are both, internal and internal|library variant
-% of a function, the non-internal takes precedence. Use \sfun{call} to
+% silently popped. If there are both, an internal and an intrinsic or library
+% variant of a function, the non-internal takes precedence. Use \sfun{call} to
 % explicitely call an internal function. 
 %\seealso{call_function, runhooks, run_local_hook, call}
 %!%-
@@ -278,39 +302,35 @@ define what_line_if_wide ()
 
 %!%+
 %\function{_implements}
-%\synopsis{Create or reuse a new static namespace
+%\synopsis{Create or reuse a new static namespace}
 %\usage{_implements(Str name)}
 %\description
 %  The \sfun{_implements} function creates a new static namespace 
 %  and associates it with the current compilation unit.
 %  
-%  If a namespace with the specified name already exists, behaviour 
-%  depends on the value of the variable \var{_debug_info}:
-%  
-%  If _debug_info == 0 (default), a `NamespaceError' exception arises.
-%  
-%  If _debug_info == 1, the the current static namespace is changed 
-%  to \var{name}. 
+%  If a namespace with the specified name already exists, the the current
+%  static namespace is changed  to \var{name} with \sfun{use_namespace}.
 %  
 %  This alows re-evaluation of files in debugging|development mode.
 %  
 %\notes  
-%  (In SLang 2 this is standard behaviour of implements(), if the 
-%  namespace was defined in the same file. If defined in another file,
-%  it still throws an error.)
+%  Since SLang 2 the standard implements() (re)uses a namespace if it was
+%  defined in the same file. If defined in another file, it still throws a
+%  namespace error.
 %\example
 %  To allow easy re-evaluation of a mode during development, write
 %#v+
-%   _debug_info = 1;
 %   autoload("_implements", "sl_utils");
-%   % other autoloads that should go to the "Global" namespace
+%   % other autoloads that should bind to the "Global" namespace
 %   _implements("foo");
+%   % autoloads, require, and function and variable definitions now go to the
+%   % namespace "foo"
 %#v-
-%\seealso{implements, use_namespace, _debug_info}
+%\seealso{implements, use_namespace}
 %!%-
 define _implements(name)
 {
-  if (length(where(name == _get_namespaces())) and _debug_info)
+  if (length(where(name == _get_namespaces())))
     use_namespace(name);
   else
     implements(name);
