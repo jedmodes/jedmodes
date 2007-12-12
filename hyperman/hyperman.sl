@@ -598,8 +598,8 @@ public define unix_whatis()
    definekey ("man_goto_section", "s", mode);
 }
 
-Help_Message["man"] =
-  "(M)anpage, (A)propos, (W)hatis, (L)ast page, (N)ext section, (P)revious section";
+set_help_message("(M)anpage, (A)propos, (W)hatis, (L)ast page, (N)ext section, (P)revious section",
+		 "man");
 
 static variable numbers = "123456789abcdefghijklmnop";
 
