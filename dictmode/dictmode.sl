@@ -22,6 +22,7 @@
 % 2006-03-13         first public version
 % 2006-03-14  0.6.1  bugfix for zero-length keywords
 % 2006-09-26  0.6.2  bugfix for {multi word keywords} (report Paul Boekholt)
+% 2007-10-18  0.6.3  optional extensions with #if ( )
 %
 % Usage
 % -----
@@ -77,9 +78,8 @@ custom_variable("Dict_Backends", "dict-cli.sl,dict-curl.sl,dict-socket.sl");
 
 !if (_featurep("dict-backend"))
 {
-   foreach (strchop(Dict_Backends, ',', 0))
+   foreach $1 (strchop(Dict_Backends, ',', 0))
      {
-	$1 = ();
 	if (expand_jedlib_file($1) != "")
 	  if (evalfile($1))
 	    break;
@@ -107,19 +107,22 @@ autoload("listing_list_tags", "listing");
 
 % History: walk for and backwards in the history of lookups
 #if (strlen(expand_jedlib_file("circle.sl")))
-autoload("create_circ", "circle");
-autoload("circ_previous", "circle");
-autoload("circ_next", "circle");
-autoload("circ_get", "circle");
-autoload("circ_append", "circle");
+require("circle");
+% dummy autoload for byte-compiling
+#if (autoload("create_circ", "circle"), 1)
+#endif
 #endif
 
-% format thesaurus output in collumns
+% Table formatting
 #if (strlen(expand_jedlib_file("csvutils.sl")))
-autoload("get_lines", "csvutils");
 autoload("list2table", "csvutils");
+autoload("get_lines", "csvutils");
 autoload("strjoin2d", "csvutils");
+% dummy autoload for byte-compiling
+#if (autoload("list2table", "csvutils.sl"), 1)
 #endif
+#endif
+
 
 % Custom variables
 % ----------------
@@ -200,7 +203,7 @@ else
 %#v-
 %\notes
 %  As there is a separate lookup for every database in the list, using
-%  a server-side "virtual database" saves ressources, especially if the
+%  a server-side "virtual database" saves resources, especially if the
 %  Dict_Server is not "localhost".
 %\seealso{dict, dict_reverse_lookup, Dict_DB}
 %!%-
@@ -563,6 +566,7 @@ public define thesaurus() % (word=bget_word())
    replace(", ", "\n");
    replace(",\n", "\n");
 
+% format thesaurus output in collumns
 #ifexists list2table
    variable words = get_lines(1);
    words = list2table(words);
@@ -592,12 +596,10 @@ public define thesaurus() % (word=bget_word())
 %!%-
 static define show() % (what=NULL)
 {
-   variable what;
-   if (_NARGS)
-     what = ();
-   else
-     what = read_with_completion("db,strat,server,info:",
-	"Show what:", "db", "", 's');
+   !if (_NARGS)
+     read_with_completion("db,strat,server,info:", "Show what:", 
+	"db", "", 's');
+   variable what = ();
 
    popup_buffer("*dict show*");
    set_readonly(0);
