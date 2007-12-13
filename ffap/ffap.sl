@@ -1,6 +1,6 @@
 % ffap.sl
 % 
-% $Id: ffap.sl,v 1.7 2007/04/09 12:01:50 paul Exp paul $
+% $Id: ffap.sl,v 1.8 2007/12/13 10:46:50 paul Exp paul $
 % 
 % Copyright (c) 2003-2007 Paul Boekholt.
 % Released under the terms of the GNU GPL (version 2 or later).
@@ -11,6 +11,7 @@
 % setkey("ffap", "^x^f); or whatever you use for find_file
 % to .jedrc
 
+require("pcre");
 
 %!%+
 %\variable{Ffap_URL_Reader}
@@ -112,18 +113,21 @@ ffap_set_info("SLang", ".sl", get_jed_library_path(), 2);
 
 %{{{ finding the file at point
 
-% Get the word at point and try to match it to a valid file|dir|URL
+% Try to match `word' to a valid file|dir|URL
 % Return the guess and a status indicator 
-% USAGE (file, status) = ffap_find()
+% USAGE (file, status) = ffap_find(word)
 %   status: -1  no valid file found
 %   	     0  file is found after some guessing
 %            1  'file' is a valid file
 %            2  'file' is a directory
 %            3  'file' is a URL
-private define ffap_find()
+private define ffap_find(word)
 {
+   !if (strlen(word)) 
+     return("", -1);
+   
    variable mode, path = "", exts= "", always = 0, 
-     word, file, this_file, dir, ext;
+     file, this_file, dir, ext;
    (mode, ) = what_mode();
    if (assoc_key_exists(ffap_info, mode))
      {
@@ -131,20 +135,14 @@ private define ffap_find()
 	path = ffap_info[mode].path;
 	always = ffap_info[mode].always;
      }
-   % Simple scheme to separate a path or URL from context
-   % will not work for filenames|URLs with spaces or "strange" characters.
-   word = get_word("-a-zA-z_.0-9~/+:?=&\\");
-   word = strtrim_end(word, ".+:?");
-   !if (strlen(word)) 
-     return("", -1);
    % check for URI
    if ((is_substr(word, "http://")==1) or (is_substr(word, "ftp://")==1))
      return(word, 3);
    
    (this_file, dir, ,) = getbuf_info();
    switch (file_status(dircat(dir, word)))
-     { case 1: return (word, 1); } % file in buffer-dir or absolute filename
-     { case 2: return(word, 2); }  % dir in buffer-dir or absolute dirname
+     { case 1: return (dircat(dir, word), 1); } % file in buffer-dir or absolute filename
+     { case 2: return(dircat(dir, word), 2); }  % dir in buffer-dir or absolute dirname
 
    if(path_is_absolute(word))
      {
@@ -187,6 +185,7 @@ private define ffap_find()
    return (file, -1);
 }
 
+private variable file_line_re=pcre_compile("^(.*?):([0-9]+)(:.*)?$");
 %!%+
 %\function{ffap}
 %\synopsis{Find File At Point}
@@ -204,8 +203,25 @@ private define ffap_find()
 %!%-
 public define ffap()
 {
-   variable file, status;
-   (file, status) = ffap_find();
+   variable file, status, word, line = 0;
+   
+   % Simple scheme to separate a path or URL from context
+   % will not work for filenames|URLs with spaces or "strange" characters.
+   word = get_word("-a-zA-z_.0-9~/+:?=&\\");
+   word = strtrim_end(word, ".+:?");
+   
+   (file, status) = ffap_find(word);
+   
+   % try whether there is a line number appended:
+   if (andelse {status == -1}
+       {pcre_exec(file_line_re, word)})
+
+     {
+	(word, line) = (pcre_nth_substr(file_line_re, word, 1),
+			atoi(pcre_nth_substr(file_line_re, word, 2)));
+	(file, status) = ffap_find(word);
+     }
+	
    if (status == 3) % URL
      {
 	if (is_defined(Ffap_URL_Reader))
@@ -235,6 +251,8 @@ public define ffap()
 	  }
      }
    () = find_file(file);
+   if (status == 1 and line > 0)
+      goto_line(line);
 }
 
 %}}}
