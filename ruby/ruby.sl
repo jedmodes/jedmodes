@@ -70,8 +70,8 @@ private define looking_at_block_end ()
 }
 
 private variable block_start_re=
-  pcre_compile("^((begin|case|class|def|else|elsif|ensure|for|if|module|rescue"
-	       + "|unless|until|when|while)\b(?!.*\bend$))|((\bdo|{|\|) *$)"R);
+  pcre_compile("^(?:(?:begin|case|class|def|else( if)?|elsif|ensure|for|if|module|rescue"
+	       + "|unless|until|when|while)\b(?!.*\bend$))|(?:(?:\bdo|{|\|) *$)"R);
 
 
 private define ruby_calculate_indent()
@@ -142,11 +142,8 @@ private define ruby_calculate_indent()
 	push_mark_eol();
 	exchange_point_and_mark();
 
-	if (pcre_exec(block_start_re, bufsubstr()))
-	  {
-	     extra_indent += ruby_indent_level;
-	  }
-	return indent + extra_indent;
+	return indent + extra_indent
+	  + ruby_indent_level * pcre_exec(block_start_re, bufsubstr());
      }
    finally
      {
@@ -298,6 +295,7 @@ private define search_heredoc_end(indent, end)
 private define color_buffer(min_line, max_line)
 {
    !if (max_line) return;
+   if (is_visible_mark()) return;
    variable string_color = color_number("string");
    push_spot();
    try
