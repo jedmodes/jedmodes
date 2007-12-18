@@ -161,29 +161,19 @@
 % 	     * vc_list_dir() did open a buffer even if dir not under vc
 % 	     * basic support for SVK (http://svk.bestpractical.com/)
 % 	     * edit log-message in a dedicated buffer
+% 	     * after commit, update all buffers that changed on disk
+% 2007-12-18 * New functions: vc_subtract_selected(), vc_delete_selected,
+% 	       vc_commit_dir()
+% 	     * remove spurious arg in vc_commit_finish()
 %                           
 % TODO
 % ====
 % 
 % * Document public variables/functions
-% * Add support for 'diff -r HEAD'
-% * use filelist.sl for the listings
+% * insert (and filter) a status report into the log-message buffer
+% * use listings.sl for the listings
 % * syntax highlight (DFA) in directory listing
-% * fit_window() for popup buffers
-% 
-% On 22.10.07, Joachim Schmitz wrote:
-%
-% > When prompting for the comment on commit, it would be nice to get 
-% > the same editing buffer, which one gets if you call
-% > `svn ci` from the commandline,
-% > a multiline buffer would also be sufficient.
-% 
-% Another option would be to emulate the svn behaviour (listing all changed
-% files, remembering to do this recursively for directories, ...).
-% >> use svn st | grep ^M
-% > svn status is a good idea. Instead of depending on grep I'd probabely
-% > rather use Jed's regexp features to hide|cut the spurious lines.
-
+% * Add support for 'diff -r HEAD'
 
 #<INITIALIZATION>
 % Add a "File>Version Control" menu popup
@@ -206,9 +196,10 @@ autoload("reload_buffer", "bufutils");
 autoload("popup_buffer", "bufutils");
 autoload("buffer_dirname", "bufutils");
 autoload("strread_file", "bufutils");
-autoload("re_replace", "txtutils");
-
+autoload("get_line", "txtutils");       % >= 2.7
+autoload("re_replace", "txtutils");       % >= 2.7
 require("x-keydefs");              % symbolic keyvars, including Key_Esc
+
 % require("filelist");
 
 %% Variables %{{{
@@ -260,10 +251,10 @@ if (file_status(SVK_root) != 2 and getenv("SVKROOT") != NULL)
 %!%-
 custom_variable("SVN_set_reserved_keybindings", 0);
 
-private variable cmd_output_buffer = " * VC output*";  % normally hidden
-private variable diff_buffer = " *VC diff*";
-private variable list_buffer = " *VC marked files*";
+private variable diff_buffer = "*VC diff*";
 private variable dirlist_buffer = "*VC directory list*";
+private variable list_buffer = " *VC marked files*"; % normally hidden
+private variable cmd_output_buffer = " * VC output*";  % normally hidden
 private variable project_root = ""; % cache for get_op_dir()
 
 %}}}
@@ -345,7 +336,7 @@ static define is_svk_dir(dir)
       delbuf("*svk-config-tmp*"); 
       sw2buf(buf);
    }
-   setbuf ("*svk-config-tmp*");
+   sw2buf ("*svk-config-tmp*");
    erase_buffer ();
    if (-1 == insert_file_region(path_concat(SVK_root, "config"),
 				"  hash: ",
@@ -421,7 +412,7 @@ private define escape_arg(str) { %{{{
 
 % Run vc-executable.
 % 
-% \var{args}             list of commands and options
+% \var{args}             list of commands and options (will be shell-escaped)
 % \var{dir}              dir to chdir() to before calling the command.
 % \var{use_message_buf}  Insert report into " *VC output*" buffer
 % 		         (else into current buffer)
@@ -467,13 +458,17 @@ define do_vc(args, dir, use_message_buf, signal_error) %{{{
    set_buffer_modified_flag(0);
    set_readonly(1);
    fit_window(get_blocal("is_popup", 0)); % resize popup window
-    
-   sw2buf(buf);
-   % restore working dir
-   () = chdir(cwd);
+
+   % Restore buffer and working dir
    % show cmd output if return value != 0
-   if (result)
-      pop2buf(cmd_output_buffer);
+   () = chdir(cwd);
+   if (use_message_buf) {
+      !if (result) 
+	 close_buffer(cmd_output_buffer);
+      else 
+	 pop2buf(buf);
+   }
+   
    % throw error if return value != 0
    if (result and signal_error) 
       error(sprintf("svn returned error code %d", result));
@@ -484,6 +479,7 @@ define do_vc(args, dir, use_message_buf, signal_error) %{{{
 
 private variable end_of_log_str = 
    "# --- diese und die folgenden Zeilen werden ignoriert ---";
+% "=== Targets to commit (you may delete items from it) ===";
 
 % Prepare commit of files in array `files' in working dir `dir'.
 % Edit Log message in a dedicated buffer.
@@ -504,14 +500,15 @@ private define vc_commit_start(dir, files)
    flush(sprintf(msg, _Reserved_Key_Prefix));
 }
 
-static define vc_commit_finish(buf)
+static define vc_commit_finish()
 {
-   variable dir, files;
-   dir = buffer_dirname();
-   files = get_blocal_var("files");
+   variable flags, dir = buffer_dirname();
+   variable file, files = get_blocal_var("files");
+   variable calling_buf = get_blocal("calling_buf", "");
+   
    % TODO: parse the files list so it can be edited like in SVK
    
-   % get message (buffer up to info area)
+   % get message (buffer-content up to info area)
    bob();
    push_mark();
    bol_fsearch(end_of_log_str);
@@ -522,16 +519,17 @@ static define vc_commit_finish(buf)
    do_vc(["commit", "-m", msg, files], dir, 1, 1);
    % if everything went fine, close the log buffer
    close_buffer();
+   
    % Re-load commited buffers to update changes to special vars
-   buf = whatbuf();
-   variable file;
    foreach file (dir + files)
       % only update if open and changed on disk:
       if (file_p(file)) { 
 	 find_file(file); % go to the open buffer
-	 if (file_changed_on_disk())
+	 (, , , flags) = getbuf_info();
+	 if (flags & 4)
 	    reload_buffer();
       }
+   sw2buf(calling_buf);
 }
 %}}}
 
@@ -546,7 +544,7 @@ static define vc_commit_finish(buf)
    } Cvs_Mark_Type;
 
 
-variable marks = Assoc_Type [];
+variable marks = Assoc_Type[Cvs_Mark_Type];
 
 private define make_line_mark () { %{{{
     return create_line_mark(color_number("menu_selection"));
@@ -557,16 +555,16 @@ private define mark_file(file) { %{{{
     variable new = @Cvs_Mark_Type;
     new.filename = file;
     
-    variable orig_buf = whatbuf();
+    variable buf = whatbuf();
     
     update_list_buffer(new);
     update_diff_buffer(new);
     update_dirlist_buffer(new);
-    setbuf(orig_buf);
+    sw2buf(buf);
     
     marks[file] = new;
     %% recenter(0);
-    call("redraw");
+    % call("redraw");
     message("Marked " + file);    
 }
 %}}}
@@ -580,35 +578,38 @@ private define unmark_file(file) { %{{{
 %}}}
 
 public define vc_unmark_all() { %{{{
-    marks = Assoc_Type [];
+    marks = Assoc_Type[Cvs_Mark_Type];
 }
 %}}}
 
 public define vc_mark_buffer() { %{{{
-    %% otherwindow_if_messagebuffer_active();  
     mark_file(buffer_filename());
 }
 %}}}
 
 public define vc_unmark_buffer() { %{{{
-    %% otherwindow_if_messagebuffer_active();    
     unmark_file(buffer_filename());
 }
 %}}}
 
-define have_marked_files() { %{{{
-    return length(assoc_get_keys(marks));
-}
+% define have_marked_files() { %{{{
+%     return length(marks);
+% }
 %}}}
 
-define toggle_marked_file(file) { %{{{
-    if (file != Null_String) {        
-        if (assoc_key_exists(marks, file)) {
-            unmark_file(file);
-        } else {
-            mark_file(file);
-        }
-    }
+define toggle_marked_file(file)  %{{{
+{
+   if (file == "")
+      return;
+   
+   % prepend buffer dir
+   file = path_concat(buffer_dirname(), file);
+   
+   if (assoc_key_exists(marks, file)) {
+      unmark_file(file);
+   } else {
+      mark_file(file);
+   }
 }
 %}}}
 
@@ -677,9 +678,7 @@ private define extract_filename() { %{{{
 %}}}
 
 define toggle_marked() { %{{{
-    variable file, dir;
-    (file, dir) = extract_filename();    
-    toggle_marked_file(path_concat(file, dir));
+   toggle_marked_file(extract_filename());
 }
 %}}}
 
@@ -688,7 +687,7 @@ define toggle_marked() { %{{{
 
 %% "SVN diff" view %{{{
 
-private variable diff_filenames = Assoc_Type [];
+private variable diff_filenames = Assoc_Type[String_Type];
 
 private define init_diff_buffer(dir, new_window) { %{{{
     if (new_window)
@@ -698,14 +697,14 @@ private define init_diff_buffer(dir, new_window) { %{{{
     
     set_readonly(0);
     erase_buffer();
-    diff_filenames = Assoc_Type [];
+    diff_filenames = Assoc_Type[String_Type];
     set_buffer_dirname(dir);
 }
 %}}}
 
 private define update_diff_buffer (mark) { %{{{
-   variable orig_buf = whatbuf();
-   setbuf(diff_buffer);
+   variable buf = whatbuf();
+   sw2buf(diff_buffer);
    if (assoc_key_exists(diff_filenames, mark.filename)) {
       variable line = diff_filenames [mark.filename];
       push_spot();
@@ -713,31 +712,26 @@ private define update_diff_buffer (mark) { %{{{
       mark.diff_line_mark = make_line_mark();
       pop_spot();
     }
-   setbuf(orig_buf);
+   sw2buf(buf);
 }
 %}}}
 
-private define diff_extract_filename() { %{{{
-    push_spot();
-    
-    EXIT_BLOCK {
-        pop_spot();
-    }
-    
-    if (bol_bsearch("Index: ")) {
-        variable filename = line_as_string()[[7:]];
-        variable dir = buffer_dirname();
-        
-        return (dir, filename);        
-    }
-    
-    error("No file selected (try redoing the command between 'Index: '- lines)");
+private define diff_extract_filename() %{{{
+{
+   push_spot();
+   !if (bol_bsearch("Index: ")) 
+      error("No file selected (call the command between 'Index: '- lines)");
+   
+   variable filename = line_as_string()[[7:]];
+      
+   pop_spot();
+   return filename;        
 }
 %}}}
 
-private define postprocess_diff_buffer() { %{{{
+private define postprocess_diff_buffer() %{{{
+{
     popup_buffer(diff_buffer);
-    push_spot();
     bob();
     () = down(2);
     
@@ -758,10 +752,10 @@ private define postprocess_diff_buffer() { %{{{
         () = down(1);
     }    
     set_readonly(1);
-    % set to diff mode, if diff_mode is globally defined
-    call_function("diff_mode");
-    vc_list_mode();
-    pop_spot();
+   % set to diff mode, if diff_mode is globally defined
+   call_function("diff_mode");
+   vc_list_mode();
+   bob();
 }
 %}}}
 
@@ -790,21 +784,18 @@ private define diff_extract_linenumber() { %{{{
 
 private define list_extract_filename() %{{{
 {    
-    push_spot();
-    EXIT_BLOCK {
-        pop_spot();
-    }
+   push_spot();
+   EXIT_BLOCK { pop_spot(); }
     
-    variable line = line_as_string();
+   variable line = line_as_string();
     
-    if (andelse  {line != ""}
-        {line[[0]] != " "}
-        {path_is_absolute(line)})
-    {
-        return (path_dirname(line), path_basename(line));
-    }
-    
-    error("Line doesn't contain a valid filename\n");
+   !if (andelse  {line != ""}
+	  {line[[0]] != " "}
+	  {path_is_absolute(line)})
+      error("Line doesn't contain a valid filename\n");
+   
+   % return (path_dirname(line), path_basename(line));
+   return strtrim(line);
 }
 %}}}
 
@@ -844,7 +835,7 @@ public define vc_list_marked() { %{{{
 %}}}
 
 private define update_list_buffer (mark) { %{{{
-    setbuf(list_buffer);
+    sw2buf(list_buffer);
     init_list_buffer(0);
     
     push_spot();
@@ -867,38 +858,31 @@ private define update_list_buffer (mark) { %{{{
 
 %% "SVN directory list" view %{{{
 
-private variable dirlist_filenames = Assoc_Type [];
+private variable dirlist_filenames = Assoc_Type[Integer_Type];
 
-private define dirlist_valid_filename(line) %{{{
-{
-   return andelse {strlen(line) > 2} {line[[0]] != " " or line[[1]] == " "};
-}
-%}}}
 
 private define dirlist_extract_filename() %{{{
 {    
-   push_spot();
-   EXIT_BLOCK { pop_spot(); }
-   
-   variable dir, file, info_fields, line = line_as_string();
-   
-   !if (dirlist_valid_filename(line)) 
-      error("Line doesn't contain a valid filename\n");
-       
-   dir = buffer_dirname();
-   % get number of leading info columns
-   switch (get_vc_system(dir))
-     { case "cvs": info_fields = 1; }
-     { case "svn": info_fields = 6; }
-     { case "svk": info_fields = 3; }
-   file = strtrim(line[[info_fields:]]);
-   
-   return (dir, file);
+   variable line = get_line(), dir = buffer_dirname(),
+   flags = Assoc_Type[Integer_Type];
+   flags["cvs"] = 1; 
+   flags["svn"] = 6; 
+   flags["svk"] = 3; 
+
+   % get number of leading info columns for used VC system
+   flags = flags[get_vc_system(dir)];
+
+   if (orelse{strlen(line) <= flags} {line[flags] != ' '}) {
+      % show(line, line[flags], "no valid filename");
+      return "";
+   }
+
+   return strtrim(line[[flags:]]);
 }
 %}}}
 
 private define update_dirlist_buffer(mark) { %{{{
-    setbuf(dirlist_buffer);
+    sw2buf(dirlist_buffer);
     push_spot();
     
     if (assoc_key_exists(dirlist_filenames, mark.filename)) {
@@ -910,35 +894,6 @@ private define update_dirlist_buffer(mark) { %{{{
         pop_spot();
     }    
 }
-%}}}
-
-private define postprocess_dirlist_buffer()  %{{{
-{
-   variable filename, dir;
-   sw2buf(dirlist_buffer);
-   set_readonly(0);
-   push_spot();
-   bob();
-   re_replace("cvs update: warning: \(.*\) was lost"R, "! \1"R);
-   bob();
-   () = down(2);
-   
-   while (down(1)) {
-      if (dirlist_valid_filename(line_as_string())) {
-	 (dir, filename) = dirlist_extract_filename();
-	 
-	 filename = path_concat(dir, filename);
-	 dirlist_filenames[filename] = what_line();
-	 
-	 if (assoc_key_exists(marks, filename)) {
-	    update_dirlist_buffer(marks[filename]);
-	 }
-      }
-   }    
-   set_readonly(1);
-   pop_spot();
-}
-
 %}}}
 
 % Set dirctory for VC operations.
@@ -953,44 +908,65 @@ private define get_op_dir() { %{{{
 }
 %}}}
 
-public define vc_list_dir() { %{{{
-   variable dir = get_op_dir();
+public define vc_list_dir() % (dir=get_op_dir())%{{{
+{
+   !if (_NARGS)
+      get_op_dir(); % push on stack
+   variable dir = ();
+   % get vc system, abort if dir is not under version control
    variable vc_system = get_vc_system(dir);
+   
    sw2buf(dirlist_buffer);
    vc_list_mode();
    % set buffer directory and unset readonly flag
    setbuf_info("", dir, dirlist_buffer, 0);
+   define_blocal_var("generating_function", [_function_name, dir]);
+   set_readonly(0);
    erase_buffer();
    
-   variable vc_list_dir_buf = whatbuf();
    % cvs returns a very verbose list with the status command 
    % the info recommends a dry-run of update for a short list
    switch (vc_system)
      { case "cvs": do_vc(["-n", "-q", "update"], dir, 0, 0); }
      { do_vc(["status"], dir, 0, 0); }
    
-   % return to directory listing and postprocess
-   sw2buf(dirlist_buffer);
-   postprocess_dirlist_buffer();
+   % postprocess dirlist buffer
+   variable file;
+   bob();
+   re_replace("cvs update: warning: \(.*\) was lost"R, "! \1"R);
+   bob();
+   () = down(2);
+   
+   while (down(1)) {
+      file = dirlist_extract_filename();
+      if (file == "")
+	 continue;
+      file = path_concat(dir, file);
+      dirlist_filenames[file] = what_line();
+      
+      if (assoc_key_exists(marks, file)) {
+	 update_dirlist_buffer(marks[file]);
+      }
+   }
+   set_readonly(1);
+   bob();
 }
 %}}}
 
-%\function{filelist_reread}
+%\function{vc_reread}
 %\synopsis{Re-read the current file listing}
-%\usage{filelist_reread()}
+%\usage{vc_list_reread()}
 %\description
 %  Re run the function that generated the current file list to
 %  update the view.
-%\seealso{filelist_mode}
+%\seealso{vc_list_mode}
 %!%-
-public  define filelist_reread()
+public  define vc_list_reread()
 {
    variable line = what_line();
    () = run_function(push_array(get_blocal("generating_function")));
    goto_line(line);
 }
-
-
 
 %}}}
 
@@ -1065,8 +1041,6 @@ public define vc_diff_marked() { %{{{
 
     do_vc(["diff", rfiles], dir, 0, 0);
     postprocess_diff_buffer();
-
-    sw2buf(diff_buffer);
 }
 %}}}
 
@@ -1085,23 +1059,64 @@ public define vc_update_marked() { %{{{
 %% directory list buffers). %{{{
 
 public define vc_add_selected() { %{{{
-    variable dir, file;
-    (dir, file) = extract_filename();    
+   variable dir = buffer_dirname(), 
+   	    file = extract_filename();
     do_vc(["add", file], dir, 1, 1);
+}
+%}}}
+
+% take file out of version control, keep local copy
+public define vc_subtract_selected() %{{{
+{ 
+   variable dir = buffer_dirname(), 
+   	    tmpfile, file = extract_filename(),
+	    prompt = "Delete '%s' from VC (keep local copy)";
+   
+   if (get_y_or_n(sprintf(prompt, file)) != 1) 
+      return;
+   
+   switch(get_vc_system(dir))
+     { case "svn": 
+	   tmpfile = make_tmp_file(dir+file);
+	   rename_file(file, tmpfile);
+	   do_vc(["remove", "--force", file], dir, 1, 1); 
+	   rename_file(tmpfile, file);
+     }
+     { case "svk": 
+	do_vc(["remove", "--force", "--keep-local", file], dir, 1, 1); 
+     }
+     { case "cvs": error("TODO: not implemented yet"); 
+     	% move to backup, remove from vc, restore
+     }
+}
+%}}}
+
+% take file out of version control, delete local copy
+public define vc_delete_selected() %{{{
+{ 
+   variable dir = buffer_dirname(), 
+   	    tmpfile, file = extract_filename();
+   if (get_y_or_n(sprintf("Delete '%s' from VC and local copy", file)) != 1) 
+      return;
+   switch(get_vc_system(dir))
+     { case "svn": do_vc(["remove", "--force", file], dir, 1, 1); }
+     { case "svk": do_vc(["remove", "--force", file], dir, 1, 1); }
+     { case "cvs": error("TODO: not implemented yet"); 
+	% deleter from working cpy, remove from vc
+     }
 }
 %}}}
 
 % commit one selected file
 public define vc_commit_selected() { %{{{
-   variable dir, file;
-   (dir, file) = extract_filename();    
-   vc_commit_start(dir, [file]);
+   variable file = extract_filename();
+   vc_commit_start(buffer_dirname(), [file]);
 }
 %}}}
 
 public define vc_diff_selected() { %{{{
-    variable dir, file;
-    (dir, file) = extract_filename();
+   variable dir = buffer_dirname(), 
+   	    file = extract_filename();
     init_diff_buffer(dir, 1);
     do_vc(["diff", file], dir, 0, 0);
     postprocess_diff_buffer();
@@ -1109,31 +1124,21 @@ public define vc_diff_selected() { %{{{
 %}}}
 
 public define vc_update_selected() { %{{{
-    variable dir, file;
-    (dir, file) = extract_filename();
-    do_vc(["update", file], dir, 1, 1);
+   variable file = extract_filename();
+    do_vc(["update", file], buffer_dirname(), 1, 1);
 }
 %}}}
 
-public define vc_revert_selected() { %{{{
-    variable dir, file;
-    (dir, file) = extract_filename();
-    
-    variable a = ' ';
-    
-    while (a != 'y' and a != 'n') {
-        a = get_mini_response("Revert '" + file + "' [ny]?");    
-    } 
-    
-    if (a == 'y') {    
-        do_vc(["revert", file], dir, 1, 1);
-    }
+public define vc_revert_selected() %{{{
+{ 
+   variable file = extract_filename();
+   if (get_y_or_n(sprintf("Revert '%s'", file)) == 1) 
+        do_vc(["revert", file], buffer_dirname(), 1, 1);
 }
 %}}}
 
 public define vc_open_selected() { %{{{
-    variable dir, file, linenum;
-    (dir, file) = extract_filename();
+    variable linenum, file = extract_filename();
     
     if (whatbuf() == diff_buffer) {
         linenum = diff_extract_linenumber();
@@ -1141,8 +1146,7 @@ public define vc_open_selected() { %{{{
         linenum = 0; 
     }
     
-    otherwindow();
-    find_file(path_concat(dir, file));
+    find_file(path_concat(buffer_dirname, file));
     if (linenum) {
         goto_line(linenum);
     }
@@ -1167,6 +1171,15 @@ public define vc_add_dir() { %{{{
 	do_vc(["add", "--non-recursive", name], parent, 1, 1); }
 }
 %}}}
+
+% commit all modified files in dir and subdirs
+public define vc_commit_dir() %{{{
+{
+   variable dir = get_op_dir();
+   % commit with empty files list
+   vc_commit_start(dir, String_Type[0]);
+}
+
 
 public define vc_diff_dir() { %{{{
     variable dir = get_op_dir();
@@ -1199,6 +1212,7 @@ private define vc_commom_menu_callback(menu) {
    menu_append_separator(menu);
    
    menu_append_item(menu, "Add directory", "vc_add_dir");
+   menu_append_item(menu, "Commit directory", "vc_commit_dir");
    menu_append_item(menu, "Diff directory", "vc_diff_dir");
    menu_append_item(menu, "Update directory", "vc_update_dir");
    menu_append_item(menu, "&Open directory list", "vc_list_dir");
@@ -1224,6 +1238,9 @@ static define vc_list_menu_callback(menu) { %{{{
    menu_append_item(menu, "&diff file", "vc_diff_selected");
    menu_append_item(menu, "&update file", "vc_update_selected");
    menu_append_item(menu, "&revert file", "vc_revert_selected");
+   menu_append_item(menu, "&subtract file (keep local copy)", "vc_subtract_selected");
+   menu_append_item(menu, "delete file (also local copy)", "vc_delete_selected");
+   
    menu_append_separator(menu);
    
    menu_append_item(menu, "&toggle Mark", "svn->toggle_marked");
@@ -1234,6 +1251,8 @@ static define vc_list_menu_callback(menu) { %{{{
    menu_append_separator(menu);
    
    menu_append_item(menu, "&Quit", "close_buffer");
+   
+   menu_insert_item("&Open directory list", menu, "Re-read &list", "vc_list_reread");
 }
 %}}}
 
@@ -1275,6 +1294,7 @@ variable kmap = "svn-list";
    definekey("vc_add_selected", "a", kmap);
    definekey("vc_commit_selected", "c", kmap);
    definekey("vc_diff_selected", "d", kmap);
+   definekey("vc_list_reread", "g", kmap);   % dired like
    definekey("vc_update_selected", "u", kmap);
    definekey("vc_open_selected", "\r", kmap);
    definekey("vc_revert_selected", "r", kmap);
@@ -1302,11 +1322,14 @@ private variable log_mode = "vc-log";
 % >> User Survey: Which key should close this buffer and trigger the commit?
 % > _Reserved_Key_Prefix + c      % Jörg Sommer
 % > Key_Esc or ^W	       	  % Joachim Schmitz
+% 
+% IMO, Key_Esc is not suited as it is usualla an "abort" key
+% Maybe it should open the mode-menu to give a choice?
 !if (keymap_p(log_mode)) {
    make_keymap(log_mode);
-   definekey("svn->vc_commit_finish", Key_Esc, log_mode);
    definekey_reserved("svn->vc_commit_finish", "c", log_mode);
    % keep ^W as close_buffer (in CUA mode)
+   definekey("close_buffer", Key_Esc, log_mode);
 }
 
 % context menu
@@ -1320,6 +1343,7 @@ static define vc_log_mode()
 {
    set_mode(log_mode, 1);
    mode_set_mode_info(log_mode, "init_mode_menu", &log_mode_menu);
+   mode_set_mode_info(log_mode, "run_buffer_hook", &vc_commit_finish);
    use_keymap(log_mode);
 }
 
