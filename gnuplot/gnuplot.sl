@@ -1,6 +1,6 @@
 % Editing mode for the Gnuplot plotting program
 %
-% Copyright (c) 2006 Günter Milde
+% Copyright (c) 2006 Guenter Milde (milde users.sf.net)
 % Released under the terms of the GNU General Public License (ver. 2 or later)
 %
 % based on a gnuplot highligting mode by Michele Dondi <bik.mido@tiscalinet.it>
@@ -16,6 +16,7 @@
 %  	            code cleanup after getting version 1.5 of ishell
 %  2005-11-02 1.1.3 fixed the "public" statements
 %  2006-05-26 1.1.4 fixed autoloads (J. Sommer)
+%  2007-12-19 1.1.5 fixed view_mode() autoload
 %
 %
 %  TODO
@@ -64,7 +65,7 @@ autoload("popup_buffer", "bufutils");
 autoload("close_buffer", "bufutils");
 autoload("get_blocal", "sl_utils");
 autoload("fit_window", "bufutils");
-autoload("view_mode", "bufutils");
+autoload("view_mode", "view");
 autoload("ishell_mode", "ishell");
 autoload("shell_cmd_on_region", "ishell");
 
@@ -73,7 +74,7 @@ autoload("shell_cmd_on_region", "ishell");
 % _debug_info = 1;
 
 % -- Variables
-% As printout I prefer *.eps files to include in LaTeX
+
 %!%+
 %\variable{Gnuplot_Print_Terminal}
 %\synopsis{Terminal option used by the gnuplot_print command}
@@ -84,7 +85,8 @@ autoload("shell_cmd_on_region", "ishell");
 %  LaTeX document.
 %\seealso{gnuplot_mode, gnuplot_run, Gnuplot_Output_Extension}
 %!%-
-custom_variable ("Gnuplot_Print_Terminal",  "postscript eps enhanced");
+custom_variable("Gnuplot_Print_Terminal",  "postscript eps enhanced");
+
 %!%+
 %\variable{Gnuplot_Output_Extension}
 %\synopsis{Extension to add to gnuplot print files}
@@ -94,7 +96,8 @@ custom_variable ("Gnuplot_Print_Terminal",  "postscript eps enhanced");
 %  basename + "." + Gnuplot_Output_Extension.
 %\seealso{gnuplot_print, Gnuplot_Print_Terminal, gnuplot_mode}
 %!%-
-custom_variable ("Gnuplot_Output_Extension", ".eps");
+custom_variable("Gnuplot_Output_Extension", ".eps");
+
 %!%+
 %\variable{Gnuplot_Command}
 %\synopsis{Command for running gnuplot.}
@@ -103,7 +106,18 @@ custom_variable ("Gnuplot_Output_Extension", ".eps");
 %  Command for running gnuplot. You might need to add a path or switches.
 %\seealso{gnuplot_mode, gnuplot_run, gnuplot_shell, gnuplot_plot, gnuplot_print}
 %!%-
-custom_variable ("Gnuplot_Command", "gnuplot -persist");
+custom_variable("Gnuplot_Command", "gnuplot -persist");
+
+% Location of Gnuplot Html documentation source.
+% The default is valid for the gnuplot-doc package of Debian GNU/Linux
+#if (file_status("/usr/share/doc/gnuplot-doc/gnuplot.html/index.html"))
+custom_variable("Gnuplot_Html_Doc", 
+		"/usr/share/doc/gnuplot-doc/gnuplot.html/index.html");
+#else
+custom_variable("Gnuplot_Html_Doc", "");
+#endif
+
+     
 
 % ----------------------------------------------------------------------------
 
@@ -155,11 +169,9 @@ define gnuplot_info ()
 %!%-
 define gnuplot_help() %([topic])
 {
-   variable topic;
-   if (_NARGS)
-     topic = ();
-   else
-     topic = read_mini("Gnuplot Help for: ", "", "");
+   !if (_NARGS)
+     read_mini("Gnuplot Help for: ", "", "");
+   variable topic = ();
 
    popup_buffer("*gnuplot help*");
    set_readonly(0);
@@ -195,7 +207,7 @@ define gnuplot_help() %([topic])
 define gnuplot_run()
 {
    % variable cbuf = whatbuf();
-   shell_cmd_on_region(Gnuplot_Command, "*gnuplot-output*");
+   shell_cmd_on_region_or_buffer(Gnuplot_Command, "*gnuplot-output*");
    recenter(window_info('r'));
    % pop2buf(cbuf);
 }
@@ -421,16 +433,18 @@ set_syntax_flags (mode, 0);
 () = define_keywords_n(mode, "clearprintpauseresetshellsplot", 5, 1);
 () = define_keywords_n(mode, "replotrereadupdate", 6, 1);
 
-% --- the mode dependend menu
+% mode menu
 static define gnuplot_menu(menu)
 {
-   menu_append_item (menu, "&Gnuplot Region/Buffer", "gnuplot_run");
-   menu_append_item (menu, "Gnuplot &Shell", "gnuplot_shell");
-   menu_append_item (menu, "&Display Plot", "gnuplot_plot");
-   menu_append_item (menu, "&Print Plot", "gnuplot_print");
-   menu_append_item (menu, "&New File(defaults)", "gnuplot_get_defaults");
-   menu_append_item (menu, "&Strip Defaults", "gnuplot_strip_defaults");
-   menu_append_item (menu, "Gnuplot &Help", "gnuplot_help");
+   menu_append_item(menu, "&Gnuplot Region/Buffer", "gnuplot_run");
+   menu_append_item(menu, "Gnuplot &Shell", "gnuplot_shell");
+   menu_append_item(menu, "&Display Plot", "gnuplot_plot");
+   menu_append_item(menu, "&Print Plot", "gnuplot_print");
+   menu_append_item(menu, "&New File(defaults)", "gnuplot_get_defaults");
+   menu_append_item(menu, "&Strip Defaults", "gnuplot_strip_defaults");
+   menu_append_item(menu, "Gnuplot &Help", "gnuplot_help");
+   if (Gnuplot_Html_Doc != "")
+      menu_append_item(menu, "&Browse Gnuplot Doc", "html_browse", Gnuplot_Html_Doc);
 }
 
 % --- now define the mode ---------------------------------------------
