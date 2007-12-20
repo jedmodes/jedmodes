@@ -58,7 +58,7 @@
 % ------------
 
 () = evalfile("mouse");  % does not have a provide("mouse") line
-provide("mouse");
+provide("mouse");        % mouse.sl fails to do this!
 
 autoload("run_function", "sl_utils");
 autoload("cua_mark", "cuamark");
