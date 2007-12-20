@@ -9,7 +9,7 @@
 % 0.9.1  2003/01/15
 %   * A remake of Dino Sangois jedgrep under use of the new listing
 %     and filelist modes. (Which are inspired by the old jedgrep by Dino!)
-%   * grep_replace_command: Replace in the grep results
+%   * grep_replace_cmd: Replace in the grep results
 %     (both, result display and source files!)
 % 0.9.2 2003/07/09
 %   * bugfix contract_filename did not work properly (needs chdir() first)
@@ -44,7 +44,9 @@
 % 1.1.5 2007-04-19  added mode menu and more Customisation hints
 % 1.1.6 2007-10-04  no DFA highlight in UTF-8 mode (it's broken)
 %       2007-10-23  no DFA highlight cache (it's just one rule)
-%
+% 1.1.7 2007-12-20 name grep->grep_replace_cmd() to grep->replace_cmd()
+% 		    rebind also cua_replace_cmd() to grep->replace_cmd()
+%                   apply Jörg Sommer's DFA-UTF-8 fix and re-enable highlight
 % Usage
 % -----
 %
@@ -175,7 +177,7 @@ static define grep_prefix_length()
 
 % fsearch in the grep results, skipping grep's statistical data
 % return the length of the pattern found or -1
-static define grep_fsearch(pat)
+private define grep_fsearch(pat)
 {
    variable pat_len;
    do
@@ -192,7 +194,7 @@ static define grep_fsearch(pat)
 
 % The actual replace function
 % (replace in both, the grep output and the referenced file)
-define grep_replace(new, len)
+private define grep_replace(new, len)
 {
    variable buf = whatbuf(),
    no_of_bufs = count_buffers(),
@@ -240,7 +242,7 @@ define grep_replace(new, len)
 }
 
 % Replace across files found by grep (interactive function)
-define grep_replace_cmd()
+static define replace_cmd()
 {
    variable old, new;
 
@@ -281,30 +283,25 @@ define grep_replace_cmd()
 create_syntax_table(mode);
 
 #ifdef HAS_DFA_SYNTAX
-%%% DFA_CACHE_BEGIN %%%
-private define setup_dfa_callback(mode)
-{
-   % dfa_enable_highlight_cache("grep.dfa", mode);
-   dfa_define_highlight_rule("^[^:]*:[0-9]+:", "keyword", mode);
-   dfa_build_highlight_table(mode);
-}
-dfa_set_init_callback (&setup_dfa_callback, "grep");
-%%% DFA_CACHE_END %%%
-!if (_slang_utf8_ok)  % DFA is broken in UTF-8 mode
-  enable_dfa_syntax_for_mode(mode);
+dfa_define_highlight_rule("^[^:]*:[0-9]+:", "keyword", mode);
+% render non-ASCII chars as normal to fix a bug with high-bit chars in UTF-8
+dfa_define_highlight_rule("[^ -~]+", "normal", mode);
+dfa_build_highlight_table(mode);
+enable_dfa_syntax_for_mode(mode);
 #endif
 
 !if(keymap_p(mode))
 {
    copy_keymap(mode, "filelist");
-   rebind("replace_cmd", "grep->grep_replace_cmd", mode);
+   rebind("replace_cmd", "grep->replace_cmd", mode);
+   rebind("cua_replace_cmd", "grep->replace_cmd", mode);
 }
 
 % --- the mode dependend menu
 static define grep_menu(menu)
 {
    filelist->filelist_menu(menu);
-   menu_insert_item("&Grep", menu, "&Replace across matches", "grep_replace");
+   menu_insert_item("&Grep", menu, "&Replace across matches", "grep->replace_cmd");
    menu_delete_item(menu + ".&Grep");
    menu_delete_item(menu + ".Tar");
 }
@@ -395,7 +392,8 @@ public define grep() % ([what], [path])
    path = contract_filename(path);
 
    % recursive grep with special char '!' (analog to kpathsea)
-   if (substr(basename, strlen(basename), 1 ) == "!")
+   if (andelse{basename != ""}
+	 {substr(basename, strlen(basename), 1 ) == "!"})
      {
 	options = "-r";
 	path = path_dirname(path);
