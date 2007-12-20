@@ -1,5 +1,5 @@
 % ding.sl   Ding dictionary lookup
-% 
+%
 % Copyright (c) 2006 Guenter Milde (milde users.sf.net)
 % Released under the terms of the GNU General Public License (ver. 2 or later)
 %
@@ -14,44 +14,47 @@
 % 2007-04-16 1.3   error message, if no dictionary found
 % 2007-04-17 1.3.1 replaced custom variable Wordlists with private one and
 %                  auxiliary function ding->add_dictionary
-% 	     	   Documentation update, cleanup, 
+% 	     	   Documentation update, cleanup,
 % 	     	   bugfixes: Case sensitivity, Ding_Dictionary
 % 2007-06-03 1.4   convert iso-latin1 <-> UTF-8 if not in UTF-8 mode.
 % 2007-09-20 1.4.1 reset blocal var "encoding" with buffer re-use,
 % 	     	   use List for blocal var "generating_function"
-% 	     	   
+% UNP	     1.5   * ding(): an empty string arg triggers an interactive 
+% 	     	     request for a word the same way as no optional arg does.
+% 	     	   * custom var Ding_Case_Search
+% 	     	   * failsave formatting
 %
 % Usage
 % -----
-% 
+%
 % * Place "ding.sl" in the jed_library_path
-% 
+%
 % * Add autoload("ding", "ding") to your .jedrc (or use update_ini()
 %   from  make_ini.sl)
 %
 % * Add your dictionaries
 %   "de-en" is automatically set, if the file is found in a standard location
-% 
-%   Proposed scheme for keys is lang1-lang2 with abbreviations from 'locale' 
+%
+%   Proposed scheme for keys is lang1-lang2 with abbreviations from 'locale'
 %   settings, say "de-en" == German::English, e.g.::
-%   
+%
 %     autoload("ding->add_dictionary", "ding");
 %     define ding_setup_hook()
-%     { 
-%       
-%       ding->add_dictionary("de-en", "/usr/share/trans/de-en"); 
+%     {
+%
+%       ding->add_dictionary("de-en", "/usr/share/trans/de-en");
 %       ding->add_dictionary("se-de", "~/dictionaries/swedish-german.txt");
-%     }  
-% 
+%     }
+%
 % * Optionally change custom variables
 
-% Requirements 
+% Requirements
 % ------------
 %
 % * A bilingual wordlist in ASCII format (e.g. the one that comes
 %   with "ding" http://www.tu-chemnitz.de/~fri/ding/ (German-English)
 %   or the ones from the "magic dic" http://magic-dic.homeunix.net/ )
-%   
+%
 % * the grep command (with support for the -w argument, e.g. GNU grep)
 
 % extensions from http://jedmodes.sf.net/
@@ -60,6 +63,7 @@ require("sl_utils"); % basic stuff
 require("bufutils");
 autoload("get_word", "txtutils");
 autoload("bget_word", "txtutils");
+autoload("get_buffer", "txtutils");
 autoload("get_table", "csvutils");
 autoload("insert_table", "csvutils");
 autoload("strtrans_latin1_to_utf8", "utf8helper");
@@ -67,12 +71,7 @@ autoload("utf8_to_latin1", "utf8helper");
 % standard mode not loaded by default
 require("keydefs"); % symbolic constants for many function and arrow keys
 
-% name it
-provide("ding");
-implements("ding");
-private variable mode = "ding";
-
-% Customization
+% Customisation
 % -------------
 
 % The default wordlist, given as language pair
@@ -84,6 +83,8 @@ custom_variable("Ding_Direction", 2);
 % what to look for  (0,1) == ["substring", "word"]
 custom_variable("Ding_Word_Search", 1);
 
+% do a case-sensitive lookup for the word?
+custom_variable("Ding_Case_Search", CASE_SEARCH_DEFAULT);
 
 % Initialization
 % --------------
@@ -106,7 +107,7 @@ private variable help_string =
 private variable Dictionaries = Assoc_Type[String_Type];
 
 % add a new dictionary to the map of known dictionaries
-% 
+%
 % TODO: Interaktive... ask in minibuffer?
 % custom separator-string (Dictionaries as Assoc_Type[List_Type])
 %  add_dictionary(key, file, sep=Default_Sep, word_chars=get_word_chars())
@@ -128,19 +129,18 @@ static define add_dictionary(key, file)
 !if (assoc_key_exists(Dictionaries, Ding_Dictionary))
   verror("Default dictionary (%s) not defined.", Ding_Dictionary);
 
-
 % Functions
 % ---------
 
 private define ding_status_line()
 {
    variable languages, str;
-   languages = str_replace_all(Ding_Dictionary, "-", 
+   languages = str_replace_all(Ding_Dictionary, "-",
 			       Direction_Names[Ding_Direction]);
    str = sprintf("Look up[%s] %s  (Case %d, Word_Search %d)",
 			  languages,
 			  get_blocal("generating_function")[1],
-			  CASE_SEARCH,
+			  Ding_Case_Search,
 			  Ding_Word_Search);
    set_status_line(str + " (%p)", 0);
 }
@@ -155,7 +155,7 @@ static define toggle_direction()
 
 static define toggle_case()
 {
-   CASE_SEARCH = not(CASE_SEARCH);
+   Ding_Case_Search = not(Ding_Case_Search);
    ding_status_line();
 }
 
@@ -173,15 +173,18 @@ static define toggle_word_search()
 %    Wordlists[key] = file+\n+sep;
 % }
 
-% Switch focus to side: 0 left, 1 right, 2 toggle 
+% Switch focus to side: 0 left, 1 right, 2 toggle
 static define switch_sides(side)
 {
-   variable len = ffind(get_blocal_var("delimiter"));  
+   variable len = ffind(get_blocal_var("delimiter"));
    % len == 0: right, len >0: left
    !if(len * side)
      bol;
    else
-     go_right(len+2);
+     {
+	go_right(len);
+	skip_white();
+     }
 }
 
 % Do we need customizable comment strings?
@@ -203,13 +206,61 @@ private define string_wc(str)
    return length(strtok(str));
 }
 
+% format the output buffer
+static define format_output()
+{
+   variable e, str = get_buffer();
+   % enable undoing in case something goes wrong:
+   try (e)
+     {
+	variable sep  = get_blocal("delimiter", Default_Sep);
+	variable a1, a2, a = get_table(sep, 1); % read results into a 2d-array
+	% show(a);
+	%  Sort by length of result
+	% TODO word-count on first alternative (until first |) in source lang
+	% flush(sprintf("sorting %d results", what_line));
+	% variable wc = array_map(Int_Type, &strlen, a);
+	% % variable wc = array_map(Int_Type, &string_wc, a);
+	% a = a[array_sort(wc[*, source_lang]), *];
+	
+	% Replace the | (alternative-bars) with newlines
+	%  tricky, as we need this independently for the two sides
+	sep = sprintf(" %s ", sep);
+	% first language
+	insert_table(a[*,[0]], "n", sep);
+	bob();
+	replace("|", "\n|");
+	a1 = get_table(sep, 1)[*,0];
+	% show("a1", a1);
+	% second language
+	insert_table(a[*,[1]], "n", sep);
+	bob();
+	replace("|", "\n");
+	a2 = get_table(sep, 1)[*,0];
+	% show("a2", a2);
+	a = String_Type[length(a1), 2];
+	a[*,0] = a1;
+	a[*,1] = a2;
+	% show("a", a);
+	% show("a1,a2", a);
+	insert_table(a, "n", sep);
+     }
+   catch AnyError:
+     { 
+	insert(str);
+	% show(e);
+	throw e.error, e.message;
+     }
+}
+
 public  define ding_mode(); % forward definition
 
 public define ding() % ([word], direction=Ding_Direction)
 {
-   variable word, direction; 
-   (word, direction) = push_defaults( , Ding_Direction, _NARGS);
-   if (word == NULL)
+   variable word, direction;
+   (word, direction) = push_defaults("", Ding_Direction, _NARGS);
+   word = strtrim(word);
+   if (word == "")
      word = read_mini("word to translate:", bget_word(), "");
    % poor mans utf-8 conversion
    !if (_slang_utf8_ok)
@@ -218,11 +269,10 @@ public define ding() % ([word], direction=Ding_Direction)
    variable pattern, lookup_cmd = "grep",
      file = extract_element(Dictionaries[Ding_Dictionary], 0, '\n'),
    sep  = extract_element(Dictionaries[Ding_Dictionary],1,'\n');
-   
    if (sep == NULL)
      sep = Default_Sep;
    % Assemble command
-   !if (CASE_SEARCH)
+   !if (Ding_Case_Search)
      lookup_cmd += " -i ";
    if (Ding_Word_Search) % Whole word search
      lookup_cmd += " -w";
@@ -237,67 +287,35 @@ public define ding() % ([word], direction=Ding_Direction)
    popup_buffer(Dingbuf);
    set_readonly(0);
    erase_buffer();
-   
+
    % call the grep command
    flush("calling " + lookup_cmd);
    shell_perform_cmd(lookup_cmd, 1);
 
+   % post-process output
    delete_comments();
+   trim_buffer();
+   define_blocal_var("delimiter", sep);
+   define_blocal_var("generating_function", {_function_name, word, direction});
+   define_blocal_var("encoding", "utf8");
+   !if (_slang_utf8_ok)
+     utf8_to_latin1();
+   if (bobp and eobp)
+     {
+	vinsert("No results for '%s'", word);
+	% insert("\n\n" + lookup_cmd);
+     }
+   else
+     {
+	eob;
+	% show(lookup_cmd, what_line, "results");
+	if (what_line < 1000) % do not format too long buffers as this takes time
+	  format_output();
+	bob;
+     }
    % find out which language the word is from
    fsearch(word);
    variable source_lang = not(ffind(sep));
-   
-   define_blocal_var("encoding", "utf8");
-   define_blocal_var("delimiter", sep);
-   define_blocal_var("generating_function", {_function_name, word, direction});
-   
-   % Sort results
-   eob;
-   if (bobp and eobp)
-     {
-	insert("No results for " + word);
-	% insert("\n\n" + lookup_cmd);
-     }
-   else if (orelse {what_line < 1000}
-       {get_y_or_n(sprintf("Format %d results (may take time)", what_line))})
-     {
-	% Format the lookup result
-	% show(lookup_cmd, what_line, "results");
-	variable a1, a2, a = get_table(sep, 1); % read results into a 2d-array
-	% show(a);
-	%  Sort by length of result
-	% TODO word-count on first alternative (until first |) in source lang
-	% flush(sprintf("sorting %d results", what_line));
-	% variable wc = array_map(Int_Type, &strlen, a);
-	% % variable wc = array_map(Int_Type, &string_wc, a);
-	% a = a[array_sort(wc[*, source_lang]), *];
-	
-	% Replace the | (alternative-bars) with newlines
-	%  tricky, as we need this independently for the two sides
-	% first language
-	insert_table(a[*,[0]], NULL, " "+sep+" ");
-	bob();
-	replace("|", "\n");
-	a1 = get_table(sep, 1)[*,0];
-	% show("a1", a1);
-	% second language
-	insert_table(a[*,[1]], NULL, " "+sep+" ");
-	bob();
-	replace("|", "\n");
-	a2 = get_table(sep, 1)[*,0];
-	% show("a2", a2);
-	a = String_Type[length(a1), 2];
-	a[*,0] = a1;
-	a[*,1] = a2;
-	% show("a", a);
-	% show("a1,a2", a);
-	insert_table(a, NULL, " "+sep+" ");
-     }
-   bob;
-   trim_buffer();
-   
-   !if (_slang_utf8_ok)
-     utf8_to_latin1();
    switch_sides(not(source_lang));
    ding_mode();
    fit_window(get_blocal("is_popup", 0));
@@ -354,8 +372,11 @@ private define ding_menu (menu)
 
 % --- Create and initialize the syntax tables.
 create_syntax_table (mode);
-define_syntax ("::", "", '%', mode);   % Comments (2nd language as comment)
-% define_syntax ("::", '>', mode);      % keyword
+define_syntax("::", "", '%', mode);   % Comments (2nd language as comment)
+% define_syntax("::", '>', mode);      % keyword
+define_syntax('|', '#', mode);      % examples
+% define_syntax("|", '+', mode);      % examples
+
 
 set_syntax_flags (mode, 0);
 
