@@ -22,6 +22,7 @@
 %                   documentation for public functions
 % 2007-10-18  2.3.5 cosmetics (require() instead of autoloads, push_default())
 % 2007-10-23  2.3.6 do not cache the dfa highlight table
+% 2007-12-20  2.3.7 implement JöÃ¶rg Sommer's fix for DFA highlight under UTF-8
 % Functions and Functionality
 %
 %   ch_table()        characters 000...255
@@ -386,18 +387,15 @@ define_syntax("0-9", '0', mode);
 set_syntax_flags(mode, 0);
 
 #ifdef HAS_DFA_SYNTAX
-%%% DFA_CACHE_BEGIN %%%
-private define setup_dfa_callback(mode)
-{
-   % dfa_enable_highlight_cache("ch_table.dfa", mode);
-   dfa_define_highlight_rule("^ *[0-9A-Z]+\t", "number", mode);
-   dfa_define_highlight_rule("^\\[.*$", "number", mode);
-   dfa_build_highlight_table(mode);
-}
-dfa_set_init_callback(&setup_dfa_callback, "ch_table");
-%%% DFA_CACHE_END %%%
-!if (_slang_utf8_ok)  % DFA is broken in UTF-8 mode
-  enable_dfa_syntax_for_mode(mode);
+% numbers in first column
+dfa_define_highlight_rule("^ *[0-9A-Z]+\t", "number", mode);
+% header line
+dfa_define_highlight_rule("^\[.*$"R, "number", mode);
+% render non-ASCII chars as normal to fix a bug with high-bit chars in UTF-8
+dfa_define_highlight_rule("[^ -~]+", "normal", mode);
+
+dfa_build_highlight_table(mode);
+enable_dfa_syntax_for_mode(mode);
 #endif
 
 % --- Keybindings
