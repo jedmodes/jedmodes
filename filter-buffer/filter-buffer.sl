@@ -1,5 +1,6 @@
 % Filter buffer: show/hide lines that match a pattern
-%
+% ===================================================
+% 
 % Copyright (c) 2006 Guenter Milde (milde users.sf.net)
 % Released under the terms of the GNU General Public License (ver. 2 or later)
 %
@@ -11,6 +12,8 @@
 % 2006-06-09 0.3.1 INITIALIZATION: moved the menu entries to a popup
 % 2007-08-31 0.3.2 bugfix in delete_hidden_lines() (J. Sommer, GM)
 % 2007-09-20 0.3.3 copy_visible_lines() now works also for readonly buffers
+% 2007-12-20 0.4   generic (un)folding of blocks; use PCRE regexps;
+% 	     	   re_fold_buffer()
 %
 % Usage
 % -----
@@ -31,10 +34,14 @@ define filter_buffer_load_popup_hook(menubar)
    menu_insert_popup(5, menu, "F&ilter Buffer");
    menu += ".F&ilter Buffer";
    menu_append_item(menu, "&Hide Matching Lines", "set_matching_hidden");
-   menu_append_item(menu, "&Show Matching Lines", "set_matching_hidden(0)");
+   % menu_append_item(menu, "&Show Matching Lines", "set_matching_hidden(0)");
+   menu_append_item(menu, "Show &Only Matching Lines",
+      "set_buffer_hidden(1); set_matching_hidden(0)");
    menu_append_item(menu, "Show &All Lines",      "set_buffer_hidden(0)");
-   menu_append_item(menu, "&Toggle Line Hiding", "toggle_hidden_lines");
+   menu_append_item(menu, "&Toggle Line Hiding",  "toggle_hidden_lines");
+   menu_append_item(menu, "&Copy Hidden Lines",   "copy_hidden_lines");
    menu_append_item(menu, "&Delete Hidden Lines", "delete_hidden_lines");
+
 }
 append_to_hook ("load_popup_hooks", &filter_buffer_load_popup_hook);
 
@@ -47,11 +54,75 @@ _autoload(4);
 
 % Requirements
 % ------------
+
+% standard modes
+require("pcre");
 autoload("get_comment_info", "comments");
+
+% modes from http://jedmodes.sf.net/
 autoload("push_defaults", "sl_utils");
 
 % Functions
-% ---------
+% =========
+
+
+% PCRE regexp matching
+% --------------------------------
+
+% Search forward for compiled PCRE regular expression \var{pat}
+% (use \sfun{pcre_compile} to compile a pattern)
+% Place point at bol of first matching line
+% Return whether a match is found
+define pcre_fsearch_line(re) {
+    push_mark();
+    do {
+	push_mark_eol();
+	if (pcre_exec(re, bufsubstr())) {
+	    pop_mark_0();
+	    bol();
+	    return 1;
+	}
+    } while (down_1());
+    pop_mark_1();
+    return 0;
+}
+
+% Search forward for PCRE regular expression \var{pat}
+% Place point at begin of the match
+% Return whether a match is found
+% Other than the variant in jedpcre.sl by Paul Boekholt, this function does
+% not find matches across line. OTOH, it works correct with the '^' bol
+% anchor.
+public define pcre_fsearch(pat)
+{
+   variable re = pcre_compile(pat);
+   !if (pcre_fsearch_line(re))
+      return 0;
+   variable match_pos = pcre_nth_match(re, 0);
+   go_right(match_pos[0]);
+   return 1;
+}
+
+
+% Search backward for compiled PCRE regular expression \var{pat}
+% Place point at bol of first matching line
+% Return whether a match is found
+public define pcre_bsearch_line(re) {
+    push_mark();
+    do {
+	push_mark();
+	bol();
+	if (pcre_exec(re, bufsubstr())) {
+	    pop_mark_0();
+	    return 1;
+	}
+    } while (up_1());
+    pop_mark_1();
+    return 0;
+}
+
+% Hide and show lines
+% --------------------
 
 %!%+
 %\function{set_buffer_hidden}
@@ -67,9 +138,7 @@ autoload("push_defaults", "sl_utils");
 %!%-
 public define set_buffer_hidden() % (hide=1)
 {
-   variable hide = 1;
-   if (_NARGS)
-     hide = ();
+   variable hide = push_defaults(1, (_NARGS));
    push_spot();
    !if (is_visible_mark())
      mark_buffer();
@@ -82,10 +151,11 @@ public define set_buffer_hidden() % (hide=1)
 %\synopsis{Hide all lines that match the regexp \var{pat}}
 %\usage{Void set_matching_hidden() %(hide=1, [pat])}
 %\description
-%  Filter the buffer, hiding all lines matching the regular expression
-%  \var{pat}.
-%  If \var{hide} == 0, unhide (make visible) the matching lines instead.
-%
+%  Filter all lines matching the PCRE regular expression (pcre)
+%  \var{pat}. The argument \var{hide} decides what to do with matching
+%  lines:
+%    1: hide
+%    0: unhide (make visible) matching lines.
 %  If called without optional argument \var{pat}, ask for a pattern in
 %  the minibuffer.
 %\example
@@ -106,24 +176,23 @@ public define set_matching_hidden() %(hide=1, [pat])
    (hide, pat) = push_defaults(1, NULL, _NARGS);
 
    variable prompt = ["Show only", "Hide all"];
-   prompt = prompt[hide] + " lines containing regexp:";
+   prompt = prompt[hide] + " lines containing (pcre) regexp:";
    if (pat == NULL)
-     pat = read_mini(prompt, "", ".*");
+     pat = read_mini(prompt, "", "");
 
    push_spot_bob();
    % speadup for "matchall"
-   if (pat == ".*")
+   if (pat == ".*" or pat == "")
      {
 	set_buffer_hidden(hide);
 	pop_spot();
 	return;
      }
-   !if (hide)
-     set_buffer_hidden();
-   while (andelse{not(eobp())}{re_fsearch(pat)})
+   variable re = pcre_compile(pat);
+   while (andelse{not(eobp())}{pcre_fsearch_line(re)})
      {
 	set_line_hidden(hide);
-	eol;
+	eol();
      }
 
    pop_spot();
@@ -146,6 +215,9 @@ public define toggle_hidden_lines()
    while (down_1);
    pop_spot();
 }
+
+% Handle hidden lines
+% -------------------
 
 %!%+
 %\function{delete_hidden_lines}
@@ -191,15 +263,21 @@ public define copy_visible_lines()
    while (down_1);
    widen();
    pop_spot();
-   % move string to kill-ring 
+   % move string to kill-ring
    % (use tmp buffer as the current one might be read-only)
-   sw2buf(make_tmp_buffer_name("visible_lines")); 
+   sw2buf(make_tmp_buffer_name("visible_lines"));
    push_mark();
    insert(str);
    yp_kill_region();
    set_buffer_modified_flag(0);
    delbuf(whatbuf);
 }
+
+% TODO: search in visible lines
+
+
+% Hide Comments
+% -------------
 
 %!%+
 %\function{set_comments_hidden}
@@ -218,8 +296,12 @@ public define copy_visible_lines()
 %  \sfun{set_comments_hidden} doesnot work for multiline comments.
 %
 %  Beware: hidden lines are still part of a defined region, thus
-%  copying a region will copy the hidden lines as well. (And
-%  evaluating a region will evaluate the hidden lines.)
+%
+%  * copying a region will copy the hidden lines as well,
+%  * evaluating a region will evaluate the hidden lines,
+%  * search and replace will replace in the hidden lines, ...
+%
+%  Use \sfun{copy_visible_lines} or \sfun{delete_hidden_lines}.
 %\seealso{set_matching_hidden, get_comment_info, comment_line}
 %!%-
 public define set_comments_hidden() % (hide=1)
@@ -240,3 +322,29 @@ public define set_comments_hidden() % (hide=1)
    set_matching_hidden(hide, pattern);
 }
 
+
+% Token Outline
+% -------------
+
+% Fold the buffer according to mode-dependent tokens.
+ 
+
+% The token_pcre is an array or a list of regular expressions matching
+% with language "tokens" with increasing verbosity.
+% 
+mode_set_mode_info("SLang", "token_pcre", 
+		   ["^(public define|custom_variable)",
+		    "^((public )define|(public |custom_)variable)",
+		    "^((public |static )define|"
+		    +"(public |static |custom_)variable)",
+		   ]);
+#stop		     
+% fold buffer, leaving only lines matching the token regexp for the current
+% mode visible
+public define fold_by_token(level)
+{
+   variable token, tokens = mode_get_mode_info("token_pcre");
+   level = min([level, length(tokens)]);
+   token = tokens[level-1];
+   return level, token;
+}
