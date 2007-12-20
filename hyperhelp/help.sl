@@ -77,9 +77,10 @@
 %   1.9.3 2007-10-04  no DFA highlight in UTF-8 mode (it's broken)
 %   1.9.4 2007-10-15  re-enable DFA highlight, as it is rather unlikely that
 %   	  	      help text contains multibyte chars (hint P. Boekholt) 
-%   	  	      Otherwise, disable it in the help_mode_hook() with 
-%   	  	      disable_dfa_syntax_for_mode("help");
 %   1.9.5 2007-10-18  re-introduce the sprint_variable() autoload
+%   1.9.6 2007-12-20  add JöÃ¶rg Sommer's fix for DFA highlight under UTF-8
+%   	  	      new highlight rules for keyword and headings
+
 % 
 % Usage
 % -----
@@ -154,6 +155,7 @@ autoload("run_function",        "sl_utils");
 autoload("get_blocal",          "sl_utils");
 autoload("push_array",          "sl_utils");
 autoload("push_defaults",       "sl_utils");
+autoload("get_word",           "txtutils");
 autoload("bget_word",           "txtutils");
 autoload("popup_buffer",        "bufutils");
 autoload("close_buffer",        "bufutils");
@@ -193,9 +195,14 @@ autoload("sprint_variable", "sprint_var");
 % Announcement and namespace
 % --------------------------
 % This help browser (with "hyperlinks") is a drop-in replacement for the
-% standard help. Modes depending on extensions in this file should 
-% ``require("hyperhelp", "help.sl")``. 
-% ::
+% standard help. Modes depending on extensions in this file should
+% require "hyperhelp", e.g. via::
+% 
+%   #if (_jed_version < 9919)
+%     require("hyperhelp", "help.sl");
+%   #else % new syntax introduced in Jed 0.99.19
+%     require("hyperhelp", "Global", "help.sl");
+%   #endif
 
 provide("help");
 provide("hyperhelp");
@@ -690,13 +697,13 @@ public  define where_is()
    !if (_NARGS)
      read_function_from_mini("Where is command:", get_object());
    variable cmd = ();
-   variable n, help_str = cmd + " is on ";
+   variable n, help_str = cmd + " is on: ";
 
    n = which_key(cmd);
    !if (n)
      help_str = cmd + " is not on any keys.";
    loop(n)
-     help_str += expand_keystring() + "  ";
+     help_str += expand_keystring() + ",  ";
    help_str += "   Keymap: " + what_keymap();
 
    current_topic = [_function_name, cmd];
@@ -1353,43 +1360,39 @@ define goto_prev_object ()
 create_syntax_table(mode);
 set_syntax_flags(mode, 0);
 
-%%% DFA_CACHE_BEGIN %%%
-static define help_dfa_callback(mode)
-{
-   % dfa_define_highlight_rule("\\\".*\\\"", "Qstring", mode);
-   dfa_define_highlight_rule("`[^']+'",      "Kstring", mode);
-   dfa_define_highlight_rule("->",           "operator", mode);
-   dfa_define_highlight_rule(" [a-zA-Z_]+,", "KQnormal", mode);
-   dfa_define_highlight_rule(" [a-zA-Z_]+$", "QKnormal", mode);
-   dfa_build_highlight_table(mode);
-}
-dfa_set_init_callback(&help_dfa_callback, mode);
-%%% DFA_CACHE_END %%%
+% dfa_define_highlight_rule("\\\".*\\\"", "Qstring", mode);
+dfa_define_highlight_rule("->",           "operator", mode);
+% Help topic (only word that starts on bol in standar help texts)
+%dfa_define_highlight_rule("^[a-zA-Z0-9_]+",  "Kbold",  mode); 
+dfa_define_highlight_rule("`[^']+'",      "QKstring",  mode);
+dfa_define_highlight_rule(" [a-zA-Z0-9_]+,", "Knormal", mode);
+% last item in SEE ALSO but not a heading
+dfa_define_highlight_rule(" [a-zA-Z0-9_]+[a-z0-9_][a-zA-Z0-9_]*$", "Knormal", mode);
+dfa_define_highlight_rule("^ +[A-Z ]+$",   "underline", mode);
 
-% !if (_slang_utf8_ok)  % DFA is broken in UTF-8 mode
+% render non-ASCII chars as normal to fix a bug with high-bit chars in UTF-8
+dfa_define_highlight_rule("[^ -~]+", "normal", mode);
+
+dfa_build_highlight_table(mode);
 enable_dfa_syntax_for_mode(mode);
 % keywords will be added by the function help_mark_keywords()
 
 % special syntax table for listings (highlight all words in keyword colour)
 create_syntax_table(helplist);
 set_syntax_flags(helplist, 0);
-%%% DFA_CACHE_BEGIN %%%
-static define helplist_dfa_callback(helplist)
-{
-   dfa_define_highlight_rule("[A-Za-z0-9_]*", "keyword", helplist);
-   dfa_define_highlight_rule("->", "operator", helplist);
-   dfa_build_highlight_table(helplist);
-}
-dfa_set_init_callback(&helplist_dfa_callback, helplist);
-%%% DFA_CACHE_END %%%
 
-!if (_slang_utf8_ok)  % DFA is broken in UTF-8 mode
-  enable_dfa_syntax_for_mode(helplist);
+dfa_define_highlight_rule("[A-Za-z0-9_]*", "keyword", helplist);
+dfa_define_highlight_rule("->", "operator", helplist);
+% render non-ASCII chars as normal to fix a bug with high-bit chars in UTF-8
+dfa_define_highlight_rule("[^ -~]+", "normal", helplist);
+
+dfa_build_highlight_table(helplist);
+enable_dfa_syntax_for_mode(helplist);
 #endif
 
 private define _add_keyword(keyword)
 {
-   variable word = strtrim(keyword, "`',() \t");
+   variable word = strtrim(keyword, "`',(): \t");
    % show("adding keyword", keyword, is_defined(word));
    if( is_defined(word) > 0)      % function
      add_keyword(mode, keyword);
@@ -1403,9 +1406,10 @@ static define help_mark_keywords()
    variable keyword, word, pattern,
      patterns = ["\\\`[_a-zA-Z0-9]+\\\'",
 		 " [_a-zA-Z0-9]+,",
-		 " [_a-zA-Z0-9]+$"
+		 "[, ][_a-zA-Z0-9]+ ?$"
 		 ];
    push_spot_bob();
+   _add_keyword(get_word(Slang_word_chars));  % help object
    foreach pattern (patterns)
      {
 	while (re_fsearch(pattern))
