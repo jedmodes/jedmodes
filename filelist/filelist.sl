@@ -72,6 +72,8 @@
 % 2007-10-01  1.7.5 * optional extensions with #if ( )
 % 2007-10-04  1.7.6 * no DFA highlight in UTF-8 mode (it's broken)
 % 2007-10-23  1.7.7 * no DFA highlight caching
+% 2007-12-20  1.7.8 * add JöÃ¶rg Sommer's fix for DFA highlight under UTF-8
+
 
 %
 % TODO: * more bindings of actions: filelist_cua_bindings
@@ -86,6 +88,10 @@
 % 	* give error reason with errno/errno_string (if not automatically done)
 %       * use MIME_types and mailcap (view and edit commands) for
 %         FileList_Default_Commands
+%         hint: `mimedb -a` returns default app for a file
+%               `xdg-open` opens an URL with default app (opendesktop.org)
+%               
+
 %
 % Usage
 % -----
@@ -220,7 +226,6 @@ if (FileList_Trash_Bin != "")
 % The command is called via system(command + file + "&")
 static variable FileList_Default_Commands = Assoc_Type[String_Type, ""];
 
-% TODO: use MIME/mailcap entries
 % under xjed and jed in xterm use X programs
 if (getenv("DISPLAY") != NULL) % assume X-Windows running
 {
@@ -229,21 +234,23 @@ if (getenv("DISPLAY") != NULL) % assume X-Windows running
    FileList_Default_Commands[".dvi"]     = "xdvi";
    FileList_Default_Commands[".dvi.gz"]  = "xdvi";
    FileList_Default_Commands[".eps"]     = "gv";
-   FileList_Default_Commands[".gif"]     = "display";
-   FileList_Default_Commands[".gnuplot"] = "gnuplot -persist";
-   FileList_Default_Commands[".html"]    = "dillo";   % fast and light browser
-   FileList_Default_Commands[".htm"]     = "dillo";
-   FileList_Default_Commands[".jpg"]     = "display";
-   FileList_Default_Commands[".jpeg"]    = "display";
+   FileList_Default_Commands[".gif"]     = "gpicview";
+   % FileList_Default_Commands[".gnuplot"] = "gnuplot -persist";
+   FileList_Default_Commands[".html"]    = "sensible-browser";
+   FileList_Default_Commands[".htm"]     = "sensible-browser";
+   FileList_Default_Commands[".ico"]     = "gpicview";
+   FileList_Default_Commands[".jpg"]     = "gpicview";
+   FileList_Default_Commands[".jpeg"]    = "gpicview";
    FileList_Default_Commands[".lyx"]     = "lyx-remote";
    FileList_Default_Commands[".odt"]     = "ooffice";
-   FileList_Default_Commands[".png"]     = "display";
+   FileList_Default_Commands[".png"]     = "gpicview";
    FileList_Default_Commands[".pdf"]     = "xpdf";
    FileList_Default_Commands[".pdf.gz"]  = "gv";
    FileList_Default_Commands[".ps"]      = "gv";
    FileList_Default_Commands[".ps.gz"]   = "gv";
    FileList_Default_Commands[".sk"]      = "sketch";
-   FileList_Default_Commands[".xpm"]     = "display";
+   FileList_Default_Commands[".svg"]     = "inkview";
+   FileList_Default_Commands[".xpm"]     = "gpicview";
 } 
 
 static variable listing = "listing";
@@ -793,16 +800,18 @@ create_syntax_table(mode);
 % set_syntax_flags (mode, 0);
 % define_syntax ("-+0-9.", '0', mode);            % Numbers
 
-private define setup_dfa_callback(mode)
-{
-   dfa_define_highlight_rule(".*" + Dir_Sep + "$", "keyword", mode); % dir
-   dfa_define_highlight_rule("^d[\\-r][\\-w]x.*$", "keyword", mode); % dir with "ls -l"
-   dfa_define_highlight_rule(".*~$", "comment", mode); % backup copies
-   dfa_build_highlight_table(mode);
-}
-dfa_set_init_callback(&setup_dfa_callback, mode);
-!if (_slang_utf8_ok)  % DFA is broken in UTF-8 mode
-  enable_dfa_syntax_for_mode(mode);
+% directories
+dfa_define_highlight_rule(".*" + Dir_Sep + "$", "keyword", mode);
+dfa_define_highlight_rule("^d[\\-r][\\-w]x.*$", "keyword", mode); % with "ls -l"
+% backup copies
+dfa_define_highlight_rule(".*~$", "comment", mode); 
+% Bugfix for high-bit chars in UTF-8
+% render every char outside the range of printable ASCII chars as normal
+dfa_define_highlight_rule("[^ -~]+", "normal", mode);
+
+dfa_build_highlight_table(mode);
+
+enable_dfa_syntax_for_mode(mode);
 #endif
 
 static define mc_bindings()
@@ -855,25 +864,26 @@ static define dired_bindings()
 % --- the mode dependend menu
 static define filelist_menu(menu)
 {
+   % Re-use the listing mode menu
    listing->listing_menu(menu);
+   % Insert extensions before the "Edit Listing" entry
    menu_insert_separator("&Edit Listing", menu);
-   menu_insert_item ("&Edit Listing", menu, "&Open",             "filelist_open_file");
-   menu_insert_item ("&Edit Listing", menu, "Open &With",        "filelist_open_file_with(1)");
-   menu_insert_item ("&Edit Listing", menu, "Open in other window", "filelist_open_in_otherwindow");
-   menu_insert_item ("&Edit Listing", menu, "&View (read-only)", "filelist_view_file");
-   menu_insert_item ("&Edit Listing", menu, "Open &Directory",    "filelist_list_base_dir");
-   menu_insert_item ("&Edit Listing", menu, "Open Tagged &Files", "filelist_open_tagged");
+   menu_insert_item("&Edit Listing", menu, "&Open", "filelist_open_file");
+   menu_insert_item("&Edit Listing", menu, "Open &With", "filelist_open_file_with(1)");
+   menu_insert_item("&Edit Listing", menu, "Open in other window", "filelist_open_in_otherwindow");
+   menu_insert_item("&Edit Listing", menu, "&View (read-only)", "filelist_view_file");
+   menu_insert_item("&Edit Listing", menu, "Open &Directory", "filelist_list_base_dir");
+   menu_insert_item("&Edit Listing", menu, "Open Tagged &Files", "filelist_open_tagged");
    menu_insert_separator("&Edit Listing", menu);
-   menu_insert_item ("&Edit Listing", menu, "&Copy",      	 "filelist_copy_tagged");
-   menu_insert_item ("&Edit Listing", menu, "Rename/&Move", 	 "filelist_rename_tagged");
-   menu_insert_item ("&Edit Listing", menu, "&Rename/ regexp", 	 "filelist_do_rename_regexp");
-   menu_insert_item ("&Edit Listing", menu, "Make Di&rectory", 	 "filelist_make_directory");
-   menu_insert_item ("&Edit Listing", menu, "Delete",      	 "filelist_delete_tagged");
+   menu_insert_item("&Edit Listing", menu, "&Copy", "filelist_copy_tagged");
+   menu_insert_item("&Edit Listing", menu, "Rename/&Move", "filelist_rename_tagged");
+   menu_insert_item("&Edit Listing", menu, "&Rename/ regexp", "filelist_do_rename_regexp");
+   menu_insert_item("&Edit Listing", menu, "Make Di&rectory", "filelist_make_directory");
+   menu_insert_item("&Edit Listing", menu, "Delete", "filelist_delete_tagged");
    menu_insert_separator("&Edit Listing", menu);
-   menu_insert_item ("&Edit Listing", menu, "&Grep",      	 "filelist_do_grep");
-   menu_insert_item ("&Edit Listing", menu, "Tar",      	 "filelist_do_tar");
+   menu_insert_item("&Edit Listing", menu, "&Grep", "filelist_do_grep");
+   menu_insert_item("&Edit Listing", menu, "Tar", "filelist_do_tar");
    menu_insert_separator("&Edit Listing", menu);
-   menu_append_item (		      menu, "&Quit",        	 "close_buffer");
 }
 
 public  define filelist_mouse_2click_hook (line, col, but, shift)
