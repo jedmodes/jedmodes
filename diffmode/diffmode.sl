@@ -45,6 +45,9 @@
 % 2.2.2 2007-10-04 no DFA highlight in UTF-8 mode (broken for multi-byte chars)
 % 		   enable it with enable_dfa_syntax_for_mode("Diff");
 % 2.2.3 2007-10-23 switch on highlight caching
+% 2.3   2007-12-20  standard color-name "trailing_whitespace"
+% 		   implement JöÃ¶rg Sommer's fix for DFA highlight under UTF-8
+%                 
 %
 % Usage
 % -----
@@ -127,7 +130,6 @@ custom_color("diff_block",   get_color("preprocess"));  % @@
 custom_color("diff_deleted", get_color("error"));       % -
 custom_color("diff_added",   get_color("keyword"));     % +
 custom_color("diff_junk",    get_color("comment"));     % Only / Binary
-custom_color("diff_white",   get_color("region"));	% (trailing) whitespace
 %}}}
 
 %%%% Diff low level helpers %{{{
@@ -519,20 +521,20 @@ define diff_apply_block()
 %%%%}}}
 
 %%%% Standard mode things: keymap, syntax, highlighting %{{{
-private variable Diff = "Diff";
+private variable mode = "Diff";
 
 define diff_add_saurus_bindings()
 {
-	definekey("diff_top_of_file", Key_Shift_F11, Diff);
-	definekey("diff_end_of_file", Key_Shift_F12, Diff);
-	definekey("diff_top_of_block", Key_Ctrl_F11, Diff);
-	definekey("diff_end_of_block", Key_Ctrl_F12, Diff);
-	definekey("(,) = diff_redo_block(0,0)", Key_F12, Diff);
-	definekey("diff_redo_file()", Key_F11, Diff);
-	definekey("diff_remove_block(1)", Key_F8, Diff);
-	definekey("diff_remove_only_lines()", Key_F9, Diff);
-	definekey("diff_jump_to(1)", "^V", Diff);
-        definekey("diff_jump", "\r", Diff);  % Return: "intelligent" jump
+	definekey("diff_top_of_file", Key_Shift_F11, mode);
+	definekey("diff_end_of_file", Key_Shift_F12, mode);
+	definekey("diff_top_of_block", Key_Ctrl_F11, mode);
+	definekey("diff_end_of_block", Key_Ctrl_F12, mode);
+	definekey("(,) = diff_redo_block(0,0)", Key_F12, mode);
+	definekey("diff_redo_file()", Key_F11, mode);
+	definekey("diff_remove_block(1)", Key_F8, mode);
+	definekey("diff_remove_only_lines()", Key_F9, mode);
+	definekey("diff_jump_to(1)", "^V", mode);
+        definekey("diff_jump", "\r", mode);  % Return: "intelligent" jump
 	%% Other Functions
 	% diff_mark_file(skipheader);
 	% diff_mark_block(skipheader);
@@ -540,41 +542,39 @@ define diff_add_saurus_bindings()
 	% diff_narrow_to_block(skipheader);
 }
 
-!if (keymap_p(Diff)) {
-	make_keymap(Diff);
+!if (keymap_p(mode)) {
+	make_keymap(mode);
 	diff_add_saurus_bindings();
 }
 
-create_syntax_table(Diff);
+create_syntax_table(mode);
+
+
+% Highlighting 
+% ------------
+
+% NEEDS dfa for this mode to work.
 
 #ifdef HAS_DFA_SYNTAX
-%%% DFA_CACHE_BEGIN %%%
-private define setup_dfa_callback (name)
-{
-   dfa_enable_highlight_cache("diffmode.dfa", name);
 
-   dfa_define_highlight_rule("^diff .*",      "diff_cmd",     name);
-   dfa_define_highlight_rule("^\+\+\+ .*"R,   "diff_newfile", name);
-   dfa_define_highlight_rule("^--- .*",       "diff_oldfile", name);
-   dfa_define_highlight_rule("^\\+.*[^ \t]",    "diff_added",   name);
-   dfa_define_highlight_rule("^-.*[^ \t]",    "diff_deleted", name);
-   dfa_define_highlight_rule("^Only .*",      "diff_junk",    name);
-   dfa_define_highlight_rule("^Binary .*",    "diff_junk",    name);
-   dfa_define_highlight_rule("^@@ .*",        "diff_block",   name);
-   % non-unified diffs:
-   dfa_define_highlight_rule("^> .*",         "diff_added",   name);
-   dfa_define_highlight_rule("^< .*",         "diff_deleted", name);
-   % trailing whitespace
-   dfa_define_highlight_rule("[ \t]+$",       "Qdiff_white",   name);
+dfa_define_highlight_rule("^diff .*",      "diff_cmd",     mode);
+dfa_define_highlight_rule("^\+\+\+ .*"R,   "diff_newfile", mode);
+dfa_define_highlight_rule("^--- .*",       "diff_oldfile", mode);
+dfa_define_highlight_rule("^\\+.*[^ \t]",  "diff_added",   mode);
+dfa_define_highlight_rule("^-.*[^ \t]",    "diff_deleted", mode);
+dfa_define_highlight_rule("^Only .*",      "diff_junk",    mode);
+dfa_define_highlight_rule("^Binary .*",    "diff_junk",    mode);
+dfa_define_highlight_rule("^@@ .*",        "diff_block",   mode);
+% non-unified diffs:
+dfa_define_highlight_rule("^> .*",         "diff_added",   mode);
+dfa_define_highlight_rule("^< .*",         "diff_deleted", mode);
+% trailing whitespace
+dfa_define_highlight_rule("[ \t]+$",       "Qtrailing_whitespace",   mode);
+% render non-ASCII chars as normal to fix a bug with high-bit chars in UTF-8
+dfa_define_highlight_rule("[^ -~]+", "normal", mode);
 
-   dfa_build_highlight_table(name);
-}
-dfa_set_init_callback(&setup_dfa_callback, "Diff");
-%%% DFA_CACHE_END %%%
-
-% Highlighting NEEDS dfa for this mode to work.
-!if (_slang_utf8_ok)  % DFA is broken in UTF-8 mode
-  enable_dfa_syntax_for_mode(Diff);
+dfa_build_highlight_table(mode);
+enable_dfa_syntax_for_mode(mode);
 
 #endif
 %%%%}}}
@@ -912,10 +912,10 @@ static define check_num_files(c)
 
 public define diff_mode()
 {
-	set_mode(Diff, 0);
-	use_syntax_table(Diff);
-	use_keymap(Diff);
-	mode_set_mode_info(Diff, "init_mode_menu", &diff_init_menu);
+	set_mode(mode, 0);
+	use_syntax_table(mode);
+	use_keymap(mode);
+	mode_set_mode_info(mode, "init_mode_menu", &diff_init_menu);
 	set_buffer_undo(1);
 	run_mode_hooks("diff_mode_hook");
 	if ((Diff_Use_Tree > 0) and (check_num_files(Diff_Use_Tree) == 0)) {
