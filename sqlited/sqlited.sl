@@ -1,6 +1,6 @@
 % sqlited.sl
 % 
-% $Id: sqlited.sl,v 1.3 2007/09/15 06:20:53 paul Exp paul $
+% $Id: sqlited.sl,v 1.4 2007/12/23 10:56:37 paul Exp paul $
 %
 % Copyright (c) 2006,2007 Paul Boekholt.
 % Released under the terms of the GNU GPL (version 2 or later).
@@ -63,9 +63,11 @@ private define edit()
    variable db = get_blocal_var("db"),
    tablename = get_blocal_var("tablename"),
    rowid = extract_rowid(line_as_string());
-   variable default = sqlite_get_table(db, sprintf("select \"%s\" from '%s' where _ROWID_ = '%s'",
-						   column, tablename, rowid));
-   default = default[1,0];
+   variable default = sqlite_get_array(db, String_Type, 
+				       sprintf("select \"%s\" from '%s' where _ROWID_ = ?",
+					       column, tablename),
+				       rowid);
+   default = default[0,0];
    variable new_value = read_mini("new value", "", default);
    sqlite_exec(db, sprintf("update '%s' set '%s'= ? where _ROWID_ = ?",
 			   tablename, column),
