@@ -164,6 +164,7 @@
 % 2007-12-18 * New functions: vc_subtract_selected(), vc_delete_selected,
 % 	       vc_commit_dir()
 % 	     * remove spurious arg in vc_commit_finish()
+% 2008-01-03 * bugfix: swapped arguments in vc_commit_buffer()
 %                           
 % TODO
 % ====
@@ -628,7 +629,7 @@ public define vc_commit_buffer() { %{{{
     variable file, dir;
     (file, dir) = require_buffer_file_in_vc();
     save_buffer();
-    vc_commit_start([file], dir);
+    vc_commit_start(dir, [file]);
 }
 %}}}
 
@@ -1026,9 +1027,9 @@ public define vc_add_marked() { %{{{
 %}}}
 
 public define vc_commit_marked() { %{{{
-    variable dir, rfiles;    
-    (dir, rfiles) = find_marked_common_root();
-    vc_commit_start(dir, rfiles);
+    variable dir, files;    
+    (dir, files) = find_marked_common_root();
+    vc_commit_start(dir, files);
     vc_unmark_all();
 }
 %}}}
