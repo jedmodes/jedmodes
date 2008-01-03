@@ -1,6 +1,5 @@
+% svn.sl: Utilities for SVN and CVS access from jed. 
 % -*- mode: slang -*-
-%
-% Utilities for SVN and CVS access from jed. 
 % 
 % Copyright (c) 2003,2006 Juho Snellman
 %               2007      Guenter Milde
@@ -953,6 +952,7 @@ public define vc_list_dir() % (dir=get_op_dir())%{{{
 }
 %}}}
 
+%!%+
 %\function{vc_reread}
 %\synopsis{Re-read the current file listing}
 %\usage{vc_list_reread()}
@@ -1070,7 +1070,7 @@ public define vc_subtract_selected() %{{{
 { 
    variable dir = buffer_dirname(), 
    	    tmpfile, file = extract_filename(),
-	    prompt = "Delete '%s' from VC (keep local copy)";
+	    prompt = "Remove '%s' from VC (keep local copy)";
    
    if (get_y_or_n(sprintf(prompt, file)) != 1) 
       return;
