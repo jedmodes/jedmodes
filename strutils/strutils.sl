@@ -23,7 +23,9 @@
 %                   for large strings.
 %             1.5.1 bugfix in str_re_replace_all() by M. Johansen
 % 2007-05-09  1.6   new function strsplit()
-% 2007-05-25  1.6.1 optimised str_re_replace() by Paul Boekholt
+% 2007-05-25  1.6.1 optimized str_re_replace() by Paul Boekholt
+% 2008-01-04  1.6.2 docu fix in strsplit(), max_n not functional yet
+%                   bugfix for n_max=0 in str_re_replace()
 %
 % (projects for further functions in projects/str_utils.sl)
 
@@ -101,7 +103,7 @@ define string_get_match() % (str, pattern, pos=1, nth=0)
 %!%-
 define str_re_replace(str, pattern, rep, max_n)
 {
-   variable n, pos = 1, next_pos, len, outstr=String_Type[0],
+   variable n, pos = 1, next_pos, len, outstr=String_Type[1],
      match, backref, x_rep;
    
    % do replacements one-by-one, caching results in array
@@ -249,9 +251,8 @@ define strwrap() % (str, wrap=WRAP, delim=' ', quote = 0)
    !if (length(words))
      return words;
    lines = words[[0]];
-   foreach (words[[1:]])
+   foreach word (words[[1:]])
      {
-        word = ();
         if ( strlen(lines[-1]) + strlen(word) < wrap)
           lines[-1] += char(delim) + word;
         else
@@ -343,14 +344,7 @@ define get_keystring()
 %\usage{strsplit(str, sep, max_n=0)}
 %\description
 %  Return a list of the words in the string \var{str}, using \var{sep} as the
-%  delimiter string.  If \var{max_n} is given, at most \var{max_n} splits are
-%  done. (Counting from the end, if \var{max_n} is negative.)
-%\example
-%#v+
-%  strsplit("1, 2, 3,5, 4  5. 6", ", ")     == ["1", "2", "3,5", "4  5. 6"]
-%  strsplit("1, 2, 3,5, 4  5. 6", ", ", 1)  == ["1", "2, 3,5, 4  5. 6"]
-%  strsplit("1, 2, 3,5, 4  5. 6", ", ", -1) == ["1, 2, 3,5", "4  5. 6"]
-%#v-
+%  delimiter string.  
 %\seealso{strchop, strtok, strreplace, is_substr}
 %!%-
 define strsplit() % (str, sep, max_n=0)
@@ -375,5 +369,14 @@ define strsplit() % (str, sep, max_n=0)
         (str, ) = strreplace(str, sep, char(sep_char), max_n);
      }
    return strchop(str, sep_char, 0);
+   % TODO
+   %  If \var{max_n} is given, at most \var{max_n} splits are
+   %  done. (Counting from the end, if \var{max_n} is negative.)
+   %\example
+   %#v+
+   %  strsplit("1, 2, 3,5, 4  5. 6", ", ")     == ["1", "2", "3,5", "4  5. 6"]
+   %  strsplit("1, 2, 3,5, 4  5. 6", ", ", 1)  == ["1", "2, 3,5, 4  5. 6"]
+   %  strsplit("1, 2, 3,5, 4  5. 6", ", ", -1) == ["1, 2, 3,5", "4  5. 6"]
+   %#v-
 }
 
