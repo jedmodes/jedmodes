@@ -165,6 +165,7 @@
 % 	       vc_commit_dir()
 % 	     * remove spurious arg in vc_commit_finish()
 % 2008-01-03 * bugfix: swapped arguments in vc_commit_buffer()
+% 2008-01-04 * bugfix: vc_commit_finish() left the window open
 %                           
 % TODO
 % ====
@@ -500,11 +501,12 @@ private define vc_commit_start(dir, files)
    flush(sprintf(msg, _Reserved_Key_Prefix));
 }
 
+
 static define vc_commit_finish()
 {
    variable flags, dir = buffer_dirname();
    variable file, files = get_blocal_var("files");
-   variable calling_buf = get_blocal("calling_buf", "");
+   variable buf = whatbuf();
    
    % TODO: parse the files list so it can be edited like in SVK
    
@@ -517,8 +519,6 @@ static define vc_commit_finish()
    set_buffer_modified_flag(0);
    % show(msg);
    do_vc(["commit", "-m", msg, files], dir, 1, 1);
-   % if everything went fine, close the log buffer
-   close_buffer();
    
    % Re-load commited buffers to update changes to special vars
    foreach file (dir + files)
@@ -529,7 +529,10 @@ static define vc_commit_finish()
 	 if (flags & 4)
 	    reload_buffer();
       }
-   sw2buf(calling_buf);
+   
+   % if everything went fine, close the log buffer
+   sw2buf(buf);
+   close_buffer();
 }
 %}}}
 
@@ -1324,7 +1327,7 @@ private variable log_mode = "vc-log";
 % > _Reserved_Key_Prefix + c      % Jörg Sommer
 % > Key_Esc or ^W	       	  % Joachim Schmitz
 % 
-% IMO, Key_Esc is not suited as it is usualla an "abort" key
+% IMO, Key_Esc is not suited as it is usually an "abort" key
 % Maybe it should open the mode-menu to give a choice?
 !if (keymap_p(log_mode)) {
    make_keymap(log_mode);
