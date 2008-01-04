@@ -29,6 +29,14 @@
 %                   or jed in a DOS window).
 % 1.6   2006-03-29  renamed KP_Return to KP_Enter (Thei Wejnen)
 % 1.6.1 2007-07-25  renamed set_keyvar() to _keystr()
+% 1.7   UNP	    bugfix: set default for Key_Esc to "\e\e\e" 
+% 		    (triple escape) this is:
+% 		      + compatible with cuamisc.sl and cua.sl
+% 		      + save (a lot of keys emit "\e" and some "\e\e" as 
+% 		        leading part of their keystring).
+% 		    In xjed, pressing [Esc] will emit Key_Escape. In
+% 		    (non-x) jed, distinguishing these is tricky but can
+% 		    be achieved with cua_one_press_escape() from cuamisc.sl
 %       
 % USAGE
 %
@@ -191,7 +199,7 @@ custom_variable("ALT_CHAR", 27); % '\e'
 
 variable Key_Alt          = _keystr("", "", char(ALT_CHAR));
 % cua emulation uses triple escape ("\e\e\e") as Esc key string.
-custom_variable("Key_Esc", _keystr("", "", "\e"));
+custom_variable("Key_Esc", _keystr("", "", "\e\e\e"));
 
 % Tab
 % ---
