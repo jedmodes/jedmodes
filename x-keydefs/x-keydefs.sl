@@ -1,15 +1,15 @@
-
 % x-keydefs.sl: Extended set of key variables
+% *******************************************
 %
 %   * add key definitions
 %     (Key_Esc, Key_Alt, Key_*_Return, Key_*_Tab, Key_KP_*)
-%
 %   * On xjed, call x_set_keysym for "special_keys"
 %
 % Copyright (c) 2006 Guenter Milde (milde users.sf.net)
 % Released under the terms of the GNU General Public License (ver. 2 or later)
 %
-% VERSIONS
+% Versions
+% ========
 %
 % 1.1   2004-12-01  first public version
 % 1.2   2004-12-03  merged files x-keydefs.sl and x-keysyms.sl
@@ -29,7 +29,7 @@
 %                   or jed in a DOS window).
 % 1.6   2006-03-29  renamed KP_Return to KP_Enter (Thei Wejnen)
 % 1.6.1 2007-07-25  renamed set_keyvar() to _keystr()
-% 1.7   UNP	    bugfix: set default for Key_Esc to "\e\e\e" 
+% 1.7   2008-01-04  bugfix: set default for Key_Esc to "\e\e\e" 
 % 		    (triple escape) this is:
 % 		      + compatible with cuamisc.sl and cua.sl
 % 		      + save (a lot of keys emit "\e" and some "\e\e" as 
@@ -37,8 +37,13 @@
 % 		    In xjed, pressing [Esc] will emit Key_Escape. In
 % 		    (non-x) jed, distinguishing these is tricky but can
 % 		    be achieved with cua_one_press_escape() from cuamisc.sl
+% 1.7.1 2008-01-07  do not change the keystring of the [Esc] key to Key_Escape
+% 		    as this breaks compatibility in non-CUA emulation modes. See
+% 		    cuamisc.sl to find out how to configure it for other
+% 		    modes.
 %       
-% USAGE
+% Usage
+% =====
 %
 % Place in the jed library path.
 %
@@ -62,14 +67,14 @@
 %   simple  require("x-keydefs"), some modes that define keybindings
 %   without use of Key_* variables may break.
 % 
-% CUSTOMISATION | EXTENSION
+% Customisation and Extension
+% ===========================
 %
 % If you want to use alternative key strings, define x_keydefs_hook(). e.g.
-%
+% ::
+% 
 %    define x_keydefs_hook()
 %    {
-%       % Let the ESC key send a triple "\e" (e.g. for "cua" emulation):
-%       Key_Esc = "\e\e\e";
 %       % Alternative keystring values:
 %       Key_Return = "\e[8~";
 %       Key_BS     = "\e[16~";
@@ -81,23 +86,23 @@
 % In xjed, additional bindings can be enabled with x_set_keysym():
 %
 % Get the keysyms from the file keysymdef.h or the Jed variable X_LAST_KEYSYM
-% e.g. with
+% e.g. with::
 % 
-% autoload("get_keystring", "strutils");  % from jedmodes.sf.net
-% public define showkey_literal()
-% {
-%    flush ("Press key:");
-%    variable key = get_keystring();
-%    if (prefix_argument(0))
-%      insert (key);
-%    else
-%      {
-% #ifdef XWINDOWS
-%        key += sprintf(" X-Keysym: %X", X_LAST_KEYSYM);
-% #endif
-%        message ("Key sends " + key);
-%      }
-% }
+%  autoload("get_keystring", "strutils");  % from jedmodes.sf.net
+%  public define showkey_literal()
+%  {
+%     flush ("Press key:");
+%     variable key = get_keystring();
+%     if (prefix_argument(0))
+%       insert (key);
+%     else
+%       {
+%  #ifdef XWINDOWS
+%         key += sprintf(" X-Keysym: %X", X_LAST_KEYSYM);
+%  #endif
+%         message ("Key sends " + key);
+%       }
+%  }
 %
 % Attention: In JED <= 99.16, x_set_keysym() works only for keysyms in the
 %            range `0xFF00' to `0xFFFF'. Since JED 99.17 this restriction is
@@ -106,11 +111,12 @@
 % Shift-Tab on X-Windows
 % ----------------------
 %
-% Unfortunately, Shift-Tab doesnot send any keystring in most X-Window setups.
+% Unfortunately, Shift-Tab doesnot send any keystring in most X-Window setups
 % as it is bound to "ISO_Left_Tab", Keysym 0xFE20
 %
-% x-keydefs solves this with x_set_keysym in jed >= 99.17. 
-% For jed < 99.17, a line
+% This is fixed by x-keydefs using x_set_keysym().
+% 
+% For jed < 99.17, x_set_keysym() does not work for Shift-Tab. A line
 %      keycode 23 = Tab
 % in ~/.Xmodmap can cure this problem. However, this doesnot work
 % with the XKB keyboard driver
@@ -119,7 +125,8 @@
 % TODO: test IBMPC keystrings, 
 %       find keystrings for Ctrl-Shift Movement keys
 
-% ----------------------------------------------------------------------------
+% Definitions
+% ===========
 
 % make sure we have the basic definitions loaded:
 require("keydefs");
@@ -198,7 +205,8 @@ variable Key_KP_9         = _keystr("\eOy", "K3", "\eOy");
 custom_variable("ALT_CHAR", 27); % '\e'
 
 variable Key_Alt          = _keystr("", "", char(ALT_CHAR));
-% cua emulation uses triple escape ("\e\e\e") as Esc key string.
+
+% see also cuamisc.sl
 custom_variable("Key_Esc", _keystr("", "", "\e\e\e"));
 
 % Tab
@@ -252,8 +260,11 @@ private variable x_set_keysym_p = __get_reference("x_set_keysym");
 
 if (is_defined("x_server_vendor"))
 {
-   % ESC (make it distinguishable from keys that start with \e
-   @x_set_keysym_p(0xFF1B, 0,    Key_Esc);
+   % ESC already emits a recognized keystring ("\e"). As some users or
+   % emulations prefer it this way (to use the ESC as a prefix key) changing
+   % this to let the key ESC emit Key_Esc is left to the emulation or a users
+   % jed.rc (see cuamisc.sl for more details).
+   %@x_set_keysym_p(0xFF1B, 0,    Key_Esc);
 
    % DEL (see also .jedrc for this topic)
    % (on my system it did not distinguish modifiers)
