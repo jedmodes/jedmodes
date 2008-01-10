@@ -38,9 +38,9 @@
 % 		    (non-x) jed, distinguishing these is tricky but can
 % 		    be achieved with cua_one_press_escape() from cuamisc.sl
 % 1.7.1 2008-01-07  do not change the keystring of the [Esc] key to Key_Escape
-% 		    as this breaks compatibility in non-CUA emulation modes. See
-% 		    cuamisc.sl to find out how to configure it for other
-% 		    modes.
+% 		    as this breaks compatibility in non-CUA emulation modes. 
+% 		    (See cuamisc.sl for functions and documentation to 
+% 		    configure it for other modes.)
 %       
 % Usage
 % =====
