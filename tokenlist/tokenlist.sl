@@ -154,6 +154,8 @@
 %%     - autoload popup_buffer() if bufutils.sl present
 %%   2007-10-18 G. M.
 %%     - help text for public functions, fix optional use of popup_buffer()
+%%   2008-01-11 G. M.
+%%     - popup_buffer() was used in the wrong place: put it in tkl_display_results()
 
 #<INITIALIZATION>
 
@@ -529,11 +531,7 @@ define tkl_display_token()
    pop2buf (buf);
    goto_line (line);
    tkl_make_line_visible();
-#ifexists popup_buffer   
-   popup_buffer(tkl_TokenBuffer);
-#else   
    pop2buf (tkl_TokenBuffer);
-#endif
 }
 
 % \usage{Void tkl_goto_token()}
@@ -592,8 +590,12 @@ private define tkl_two_windows (bottom_size)
 define tkl_display_results()
 {
    Line_Mark = NULL;
+#ifexists popup_buffer
+   popup_buffer(tkl_TokenBuffer);
+#else
    tkl_two_windows (SCREEN_HEIGHT / 2);
    sw2buf (tkl_TokenBuffer);
+#endif
    set_mode(tkl_mode, 0);
    set_buffer_hook ("update_hook", &tkl_update_token_hook);
    mode_set_mode_info (tkl_mode, "init_mode_menu", &tkl_menu);
