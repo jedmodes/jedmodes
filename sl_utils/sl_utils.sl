@@ -24,7 +24,7 @@
 %                  (Normal users will will usually not re-evaluate.)
 %            1.5.4 Documentation update for run_function mentioning call_function
 %            1.5.5 Documentation fix for push_defaults()
-% 2007-11-30 1.5.6 Documentation update for run_function()
+% 2008-01-11 1.5.6 Documentation update for run_function() and get_blocal()
 
 % _debug_info = 1;
 
@@ -165,23 +165,28 @@ define push_array(a)
 
 %!%+
 %\function{get_blocal}
-%\synopsis{return value of blocal variable or default value}
-%\usage{Any get_blocal (String name, [Any default=NULL])}
+%\synopsis{Return value of blocal variable or default}
+%\usage{Any get_blocal(String name, [Any default=NULL])}
 %\description
+% Deprecated: use the standard function \var{get_blocal_var} with a second
+% argument.
+% 
 % This function is similar to get_blocal_var, but if the local variable
-% "name" doesnot exist, it returns the default value instead of an error.
-% Default defaults to NULL.
+% "name" doesnot exist, it returns NULL or the default value instead 
+% of an error.
 %\example
+% Since some time (which Jed version??), \var{get_blocal_var} also takes an
+% optional default value:
 %#v+
-%    if (get_blocal(foo), 0)
-%      message("this buffer is fooish");
+%    !if (get_blocal_var(foo), 0)
+%      message("this buffer lacks foo");
 %#v-
-% will print the message if foo is a blocal variable with nonzero value.
+% prints the message if the blocal variable "foo" is zero or does not exist.
 %\note
-% Since some time, get_blocal also takes a optional default value. However,
-% it will throw an error, if no \var{default} argument is specified and
-% there is no blocal_variable with \var{name}.
-%\seealso{get_blocal_var, blocal_var_exists}
+% There is no "default default" in \var{get_blocal_var}. Instead, it will
+% throw an error, if there is no blocal_variable with \var{name} and no
+% \var{default} argument is specified.
+%\seealso{get_blocal_var, blocal_var_exists, set_blocal_var, define_blocal_var}
 %!%-
 define get_blocal() % (name, default=NULL)
 {
