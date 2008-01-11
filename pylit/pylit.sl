@@ -12,7 +12,7 @@
 %                  same age
 % 0.2.2 2007-03-09 call rst_mode() if the output buffer is text
 %                  literate version
-% 0.3   UNPUB      set matching mode in pylit_diff and pylit_doctest
+% 0.3   2008-01-11 set matching mode in pylit_diff and pylit_doctest
 % ===== ========== ==========================================================
 %
 %
