@@ -67,6 +67,11 @@
 % 		   run_local_function(): try mode-info also with 
 % 		   normalized_modename()
 % 		   use mode_info instead of global var for help_message()
+% 2008-01-11 1.16  reload_buffer(): insert disk version, delete content later
+% 	     	                    preventing an empty buffer after undo(),
+%		   Minor code and doc edits (cleanup).
+
+provide("bufutils");
 
 % Requirements 
 % ------------
@@ -98,7 +103,7 @@ define normalized_modename() % (mode=get_mode_name())
 }
 
 % Set the mode-dependend string with help (e.g. on keybindings)
-define set_help_message() % (str, mode=normalized_modename())
+define set_help_message() % (str, mode=get_mode_name())
 {
    variable str, mode; % optional argument
    (str, mode) = push_defaults(get_mode_name(), _NARGS-1);
@@ -187,9 +192,9 @@ define run_local_function() % (fun, [args])
 %!%-
 define run_local_hook() % (hook, [args])
 {
-   variable args = __pop_args(_NARGS-1);
-   variable hook = ();
-   () = run_local_function(hook, __push_args(args));
+   variable args = __pop_args(_NARGS);
+   % call run_local_function and discard the return value
+   () = run_local_function(__push_args(args));
 }
 
 % deprecated, use run_local_hook instead
@@ -299,7 +304,7 @@ define window_set_rows(n)
 %   }
 %   append_to_hook("load_popup_hooks", &fit_window_load_popup_hook);
 %#v-
-%\seealso{enlargewin, popup_buffer}
+%\seealso{window_set_rows, enlargewin, popup_buffer}
 %!%-
 public define fit_window () % fit_window(max_rows = 1.0)
 {
@@ -467,11 +472,11 @@ define popup_close_buffer_hook(buf)
 %!%+
 %\function{popup_buffer}
 %\synopsis{Open a "popup" buffer}
-%\usage{popup_buffer(buf, max_rows = Max_Popup_Size)}
+%\usage{popup_buffer(buf=whatbuf(), max_rows=Max_Popup_Size)}
 %\description
 % The "popup" buffer opens in a second window (using pop2buf).
 % Closing with close_buffer closes the popup window (if new)
-% or puts back the previous buffer (if reused).
+% or restores the previous buffer (if reused).
 %
 % The blocal variable "is_popup" marks the buffer as "popup".
 % It contains the upper limit when fitting the window or 0 if the window
@@ -488,14 +493,14 @@ define popup_close_buffer_hook(buf)
 %
 %\seealso{setbuf, sw2buf, close_buffer, fit_window, delete_window}
 %!%-
-define popup_buffer() % (buf, max_rows = Max_Popup_Size)
+define popup_buffer() % (buf=whatbuf(), max_rows = Max_Popup_Size)
 {
    % get arguments
    variable buf, max_rows;
    (buf, max_rows) = push_defaults(whatbuf(), Max_Popup_Size, _NARGS);
 
    variable replaced_buf, calling_buf = whatbuf();
-   variable open_windows = nwindows - MINIBUFFER_ACTIVE; % before opening new
+   variable open_windows = nwindows() - MINIBUFFER_ACTIVE; % before opening new
    % Open/go_to the buffer, store the replaced buffers name
    replaced_buf = pop2buf_whatbuf(buf);
    % The buffer is displayed
@@ -503,7 +508,7 @@ define popup_buffer() % (buf, max_rows = Max_Popup_Size)
    %  -> we can savely fit the window and close it when closing the buffer
    % or
    %  b) in an existing "permanent" (non-popup) window.
-   %  -> set max_rows to 0 to prevent meddeling in existing split schemes
+   %  -> set max_rows to 0 to prevent meddling in existing split schemes.
    if (open_windows > 1)
      {
 	sw2buf(replaced_buf);
@@ -522,36 +527,40 @@ define popup_buffer() % (buf, max_rows = Max_Popup_Size)
 %
 % see also push_mode/pop_mode from pushmode.sl
 
-private variable stack_name = "keymap_stack";
+private variable _stack_name = "keymap_stack";
 
 % temporarily push the keymap
 define push_keymap(new_keymap)
 {
-   % push the old map's name on blocal stack
-   define_blocal_var(stack_name, what_keymap()+"|"+get_blocal(stack_name, ""));
-   use_keymap(new_keymap);
-   % append the new keymap to the modename
+   !if (blocal_var_exists(_stack_name))
+     define_blocal_var(_stack_name, {});
+   variable keymaps = get_blocal_var(_stack_name);
+   variable old_keymap = what_keymap();
    variable mode, flag;
    (mode, flag) = what_mode();
-   set_mode(mode + " (" + new_keymap + ")", flag);
-   %Test show("keymap stack is:", get_blocal_var(stack_name));
+   
+   use_keymap(new_keymap);
+   % push the old keymap and mode name on blocal stack
+   list_append(keymaps, mode);
+   list_append(keymaps, old_keymap);
+   % append the new keymap to the modename
+   set_mode(sprintf("%s (%s)", mode, new_keymap), flag);
+   %Test show("keymap stack is:", get_blocal(_stack_name));
    %Test show("current keymap is:", what_keymap());
 }
 
-define pop_keymap ()
+define pop_keymap()
 {
-   variable kstack = get_blocal_var(stack_name);
-   variable oldmap = extract_element (kstack, 0, '|');
-   if (oldmap == "")
-     error("keymap stack is empty.");
-
-   variable mode, flag;
-   (mode, flag) = what_mode();
-   set_mode(mode[[:-(strlen(what_keymap)+4)]], flag);
-   use_keymap(oldmap);
-   set_blocal_var(kstack[[strlen(oldmap)+1:]], stack_name);
-  %Test show("keymap stack is:", get_blocal_var(stack_name));
-  %Test	show("current keymap is:", what_keymap());
+   variable keymaps = get_blocal_var(_stack_name);
+   variable old_keymap = list_pop(keymaps, -1);
+   variable old_mode = list_pop(keymaps, -1);
+   variable flag;
+   (, flag) = what_mode();
+   
+   use_keymap(old_keymap);
+   set_mode(old_mode, flag);
+   %Test show("keymap stack is:", get_blocal(_stack_name));
+   %Test	show("current keymap is:", what_keymap());
 }
 
 %!%+
@@ -610,9 +619,9 @@ define rebind_reserved(old_fun, new_fun, keymap)
 %!%+
 %\function{buffer_dirname}
 %\synopsis{Return the directory associated with the buffer}
-%\usage{Str buffer_dirname()}
+%\usage{Str buffer_dirname(buf=whatbuf())}
 %\description
-%   Return the directory associated with the buffer}
+%   Return the directory associated with the buffer
 %\seealso{getbuf_info, buffer_filename}
 %!%-
 define buffer_dirname()
@@ -695,10 +704,10 @@ public define reload_buffer()
      
    % reset the changed-on-disk flag
    setbuf_info(file, dir, name, flags & ~0x004);
-
+   
    erase_buffer(whatbuf());
    () = insert_file(path_concat(dir, file));
-
+   
    goto_line(line);
    goto_column_best_try(col);
    set_buffer_modified_flag(0);
@@ -728,12 +737,9 @@ if (Jed_Tmp_Directory == NULL)
 static define delete_temp_files()
 {
    variable file;
-   foreach (strchop(strtrim_beg(Bufsubfile_Tmp_Files), '\n', 0))
-     {
-	file = ();
-	if (file_status(file) == 1)
-	  delete_file(file);
-     }
+   foreach file (strchop(strtrim_beg(Bufsubfile_Tmp_Files), '\n', 0))
+     if (file_status(file) == 1)
+       delete_file(file);
    return 1;
 }
 add_to_hook("_jed_exit_hooks", &delete_temp_files);
@@ -819,5 +825,3 @@ public define untab_buffer ()
    untab ();
    pop_spot();
 }
-
-provide("bufutils");
