@@ -18,6 +18,8 @@
 % --------
 % 0.1   2007-11-20 * split from rst.sl
 %                  * allow for overline chars
+% 0.1.1 2008-01-16 * bugfix in heading()
+% 		     (for numerical arg without existing adornments)
 % 
 % Requirements
 % ------------
@@ -79,7 +81,8 @@ static variable Underline_Regexp = "^\([$uchars]\)\1+[$blank]*$"R$;
 % ~~~~~~~~~~~~~~~~~~~
 % ::
 
-% String of sorted adornment codes.
+% String of sorted adornment codes, e.g. "** * = - ~ _"
+% An adornment code is a 2-char string with "<overline ch><underline ch>"
 % Used and amended with section_level()
 % (re)set from existing section titles with update_adornments()
 private variable adornments = "";
@@ -232,9 +235,9 @@ static define bsearch_heading() % (max_level=0, skip_hidden=0)
    return 0;
 }
 
-% update the sorted listing of section title adornments,
-% return number of valid section title levels
-define update_adornments()
+% update the sorted listing of section title adornment codes,
+% An adornment code is a 2-char string with "<overline ch><underline ch>"
+static define update_adornments()
 {
    variable l_max, ch;
    adornments = "";      % reset private var
@@ -246,6 +249,36 @@ define update_adornments()
    pop_spot();
    % show("adornments", adornments);
 }
+
+% extract adornment code for given level from the static var adornments 
+% or the next unused one from Rst_Underline_Chars that follows adornment of
+% heading level-1
+private define get_adornment_code(level) ; % forward declaration
+private define get_adornment_code(level)
+{
+   % Look in already defined heading adornments
+   variable adornment = strtrim(substr(adornments, level*2-1, 2));
+   if (adornment != "") 
+      return adornment;
+   % New level: get a new adornment code
+   if (level == 1) % no headings in present document
+      return Rst_Underline_Chars[[0]];
+   % Return "best choice" for next level adornment
+   %   get a sorted tuple of all "canonical" adornments, 
+   %   starting with the one that follows the adornment of level-1 heading
+   variable ads = Rst_Underline_Chars+Rst_Underline_Chars; 
+   variable current_ad = get_adornment_code(level-1)[[0]];
+   variable ch, start = is_substr(ads, current_ad);
+   ads = substr(ads, start, -1);
+   % return the first un-used
+   foreach ch (ads) {
+      adornment = char(ch);
+      !if (is_substr(adornments, adornment)) {
+	 return adornment;
+      }
+   }
+}
+
 
 
 % Navigation
@@ -336,12 +369,6 @@ static define mark_section()
 % ~~~~~~~
 % ::
 
-% extract adornment code for given level from the static var adornments
-private define get_adornment_code(level)
-{
-   return strtrim(substr(adornments, level*2-1, 2));
-}
-
 %!%+
 %\function{rst->heading}
 %\synopsis{Mark up current line as section title}
@@ -405,23 +432,6 @@ static define heading() % ([level])
 		level, l_max);
       % Get adornment code for given level 
       adornment = get_adornment_code(level);
-      if (adornment == "") { % new level
-	 % Append the next un-used from Rst_Underline_Chars
-	 % that follows adornment of the last heading
-	 
-	 % make a pool of "canonical" adornments, starting with the one
-	 % that follows the adornment of the current section
-	 variable ads = Rst_Underline_Chars+Rst_Underline_Chars; 
-	 variable current_ad = get_adornment_code(l_max-1)[[0]];
-	 variable start = is_substr(ads, current_ad);
-	 ads = substr(ads, start, -1);
-	 foreach ch (ads) {
-	    !if (is_substr(adornments, char(ch))) {
-	       adornment = char(ch);
-	       break;
-	    }
-	 }
-      }
    }
    else
       adornment = strtrim(level);
