@@ -99,15 +99,16 @@ static define test_command_help()
 }
 
 % static define set_export_cmd(export_type)
-static define test_set_export_cmd_html_long()
+static define test_set_export_cmd_html()
 {
    variable testcmd = " --option", old_cmd = Rst2Html_Cmd;
    buffer_keystring(testcmd + "\r");
    rst->set_export_cmd("html");
    test_equal(Rst2Html_Cmd, old_cmd + testcmd);
-   Rst2Html_Cmd = old_cmd;}
+   Rst2Html_Cmd = old_cmd;
+}
 
-static define test_set_export_cmd_tex_long()
+static define test_set_export_cmd_tex()
 {
    variable testcmd = " --option", old_cmd = Rst2Latex_Cmd;
    buffer_keystring(testcmd + "\r");
@@ -116,7 +117,7 @@ static define test_set_export_cmd_tex_long()
    Rst2Latex_Cmd = old_cmd;
 }
 
-static define test_set_export_cmd_pdf_long()
+static define test_set_export_cmd_pdf()
 {
    variable testcmd = " --option", old_cmd = Rst2Pdf_Cmd;
    buffer_keystring(testcmd + "\r");
