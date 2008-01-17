@@ -1,6 +1,6 @@
 % ispell.sl	-*- mode: SLang; mode: fold -*-
 % 
-% $Id: ispell.sl,v 1.23 2007/11/18 15:26:23 paul Exp paul $
+% $Id: ispell.sl,v 1.24 2008/01/17 19:34:50 paul Exp $
 % 
 % Copyright (c) 2001-2006 Guido Gonzato, John Davis, Paul Boekholt.
 % Released under the terms of the GNU GPL (version 2 or later).
@@ -56,7 +56,7 @@ static define start_ispell_process ()
    variable args = strtok (ispell_command + " -a");
    setbuf(ibuf);
    erase_buffer;
-   message ("starting ispell process....");
+   vmessage ("starting %s process....", Ispell_Program_Name);
 
    foreach (args)
      ;
@@ -67,7 +67,7 @@ static define start_ispell_process ()
    ispell_process = open_process ();
 #endif
    if (ispell_process == -1)
-     throw RunTimeError, "Unable to open ispell process";
+     throw RunTimeError, "Could not start " + Ispell_Program_Name;
 
    % () = wait_for_ispell_output (5); 
    % The header is NOT followed by a blank line...
@@ -83,12 +83,12 @@ static define start_ispell_process ()
 	if (looking_at("execvp"))
 	  {
 	     pop2buf(buf);
-	     throw RunTimeError, "Could not start ispell!";
+	     throw RunTimeError, "Could not start " + Ispell_Program_Name;
 	  }
 	else
 	  {
 	     pop2buf(buf);
-	     throw RunTimeError, "Ispell crashed!";
+	     throw RunTimeError, Ispell_Program_Name + " crashed!";
 	  }
      }
    send_process(ispell_process, "!\n");
