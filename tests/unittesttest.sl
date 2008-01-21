@@ -53,9 +53,10 @@ if (unittest->Error_Count == last_error_count + 1)
    unittest->Error_Count--;
 }
 
-testmessage("\ntest_equal(): this should not show in the report");
+testmessage("\ntest_equal(): should not show in the report if passing");
 test_equal(1+1, 2, "# test_equal failed: 1+1 should be 2");
 
+testmessage("\ntest_equal(): should show in the report if failing");
 last_error_count = unittest->Error_Count;
 test_equal(1+1, 3);
 if (unittest->Error_Count == last_error_count + 1)
