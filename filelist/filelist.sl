@@ -72,7 +72,8 @@
 % 2007-10-01  1.7.5 * optional extensions with #if ( )
 % 2007-10-04  1.7.6 * no DFA highlight in UTF-8 mode (it's broken)
 % 2007-10-23  1.7.7 * no DFA highlight caching
-% 2007-12-20  1.7.8 * add JöÃ¶rg Sommer's fix for DFA highlight under UTF-8
+% 2008-01-21  1.7.8 * fix stack leftovers in filelist_open_file()
+% 	      	    * add JöÃ¶rg Sommer's fix for DFA highlight under UTF-8
 
 
 %
@@ -695,7 +696,7 @@ public  define filelist_open_file() % (scope=0, close=FileList_Cleanup)
      }
      { case 2: close_buffer(buf);}
 
-   array_map(Int_Type, &_open_file, filenames, line_numbers);
+   () = array_map(Int_Type, &_open_file, filenames, line_numbers);
 }
 
 public  define filelist_open_in_otherwindow()
