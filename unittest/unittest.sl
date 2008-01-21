@@ -15,7 +15,11 @@
 %                  Unittest_Function_Pattern
 % 0.3.1 2006-10-05 added requirements
 % 0.4   2007-02-06 removed _lists_equal() and is_equal(), using _eqs() instead
-% 0.4.1 2007-07-25 added test_unequal()
+% 0.4.1 2007-07-25 added test_unequal(), as this gives better feedback than
+%                  test_true(a != b);
+% 0.5   2008-01-21 Unittest_Skip_Patterns replaced by Unittest_Skip_Pattern
+%                  (String instead of Array of Strings).
+%                  code cleanup, better testreporting
 
 require("sl_utils");  % push_defaults, ...
 require("datutils");  % push_list, pop2list, ...
@@ -28,7 +32,6 @@ implements("unittest");
 % Customization
 % -------------
 
-
 custom_variable("Unittest_Reportfile", "testreport.txt");
 
 % The regexp pattern for test-file detection
@@ -40,21 +43,22 @@ custom_variable("Unittest_Function_Pattern", "\Ctest_"R);
 
 
 %!%+
-%\variable{Unittest_Skip_Patterns}
-%\synopsis{Skip test considered "long"?}
-%\usage{variable Unittest_Skip_Patterns = ["interactive"]}
+%\variable{Unittest_Skip_Pattern}
+%\synopsis{Skip test based on regexp pattern.}
+%\usage{variable Unittest_Skip_Patterns = "interactive"}
 %\description
-%  To save time or ressources, tests matching one of this
-%  array of regexp patterns are skipped, even if they match the
+%  Tests matching this regexp pattern are skipped, even if they match the
 %  \var{Unittest_Function_Pattern}.
 %  
 %  The default will skip tests that have the string "interactive" somewhere
 %  in their name.
 %\seealso{test_buffer, test_file, test_files, test_files_and_exit}
 %!%-
-custom_variable("Unittest_Skip_Patterns", ["interactive"]);
+custom_variable("Unittest_Skip_Pattern", "interactive");
 
 
+% Global variables (for internal use)
+% -----------------------------------
 
 static variable reportbuf = "*test report*";
 % number of errors in one file
@@ -74,7 +78,7 @@ private variable plurals = ["", "s"];
 %  Based on RunTimeError.
 %
 %  Use this for critical assertions where it doesnot make sense to continue
-%  evaluating the script (because of follow-on errors).
+%  evaluating the script or the test-function (because of follow-on errors).
 %\example
 %  Make an assertion that \var{a} is true:
 %#v+
@@ -86,10 +90,11 @@ private variable plurals = ["", "s"];
 %  definition. However, the error message would then give the function
 %  definition as place where the error occured. Therefore it is better to
 %  throw the AssertionError directly in the test script.
+%  TODO: could the line of the assert() fun be extracted from the backtrace?
 %\seealso{test_equal, test_true, try, catch, new_exception, RunTimeError}
 %!%-
 !if (is_defined("AssertionError"))
-  new_exception("AssertionError", RunTimeError, "False Assertion");
+  new_exception("AssertionError", RunTimeError, "Assertion failed");
 
 % Auxiliary functions
 % -------------------
@@ -99,9 +104,8 @@ private variable plurals = ["", "s"];
 private define _sprint_list(lst)
 {
    variable element, str = "";
-   foreach (lst)
+   foreach element (lst)
      {
-        element = ();
         if (NULL != wherefirst(typeof(element) == [String_Type, BString_Type]))
           str += ", " + make_printable_string(element);
         else
@@ -116,8 +120,8 @@ private define _sprint_list(lst)
 
 public define sprint_error(err)
 {
-   return sprintf("'%s' in %s:%d %s ", 
-      err.descr, err.file, err.line, err.message);
+   return sprintf("'%s' %s in %s:%d ", 
+      err.descr, err.message, err.file, err.line);
 }
 
 % The test functions
@@ -235,14 +239,12 @@ public define test_for_exception() % (fun, [args])
 {
    variable args = pop2list(_NARGS-1);
    variable fun = ();
-   
-   variable err = NULL, stack_before = _stkdepth();
-   
    % convert string to function reference
    if (typeof(fun) == String_Type)
      fun = __get_reference(fun);
    
    % test-run the function
+   variable err = NULL, stack_before = _stkdepth();
    try (err)
      {
         if (fun == NULL)
@@ -341,72 +343,70 @@ public  define test_last_result() % args
 %!%-
 public define test_file(file)
 {
-   variable err, leftovers, testfuns, testfun, skips=0,
-     _setup, _teardown, _mode_setup, _mode_teardown, 
-     namespace = "_" + path_sans_extname(path_basename(file));
-   
+   variable err, testfuns, testfun, skips, skipped_tests;
+   variable namespace = "_" + path_sans_extname(path_basename(file));
    namespace = str_replace_all(namespace, "-", "_");
-   % Ensure a clean start
-   leftovers = pop2list();
-   if (length(leftovers) > 0)
-     testmessage("\n garbage on stack: %s", _sprint_list(leftovers));
-   % reset the error count with every compilation unit
+   variable old_namespace = current_namespace();
+   if (old_namespace == "")
+      old_namespace = "Global";
+   
+   % Clean stack and input buffer
+   test_stack();
+   while (input_pending(0))
+     testmessage("\n input pending: %c", getkey());
+   
+   % Reset the error count with every compilation unit
    Error_Count = 0; 
 
-   % evaluate the file/buffer in its own namespace
+   % Evaluate the file/buffer in its own namespace
    testmessage("\n %s: ", path_basename(file));
    try (err)
      () = evalfile(file, namespace);
-   catch OpenError:
-     {
-        testmessage("\n  E: %s ", sprint_error(err));
-        Error_Count++;
-        return;
-     }
-   catch AnyError:
-     {
-        testmessage("\n  E: %s ", sprint_error(err));
-        Error_Count++;
-     }
+   catch AnyError: {
+      testmessage("\n  E: %s ", sprint_error(err));
+      Error_Count++;
+      if (err.error == OpenError)
+	 return;
+   }
    test_stack();
-
-   _setup = __get_reference(namespace+"->setup");
-   _teardown = __get_reference(namespace+"->teardown");
-   _mode_setup = __get_reference(namespace+"->mode_setup");
-   _mode_teardown = __get_reference(namespace+"->mode_teardown");
-
-   % test functions matching the test pattern
-   if (_mode_setup != NULL)
-          @_mode_setup();
+   
+   call_function(namespace+"->mode_setup");
+   
+   % Get names of test functions matching the test pattern
    testfuns = _apropos(namespace, Unittest_Function_Pattern, 2);
-   % testmessage("\n\n " + sprint_variable(testfuns));
    testfuns = testfuns[array_sort(testfuns)];
-   foreach testfun (testfuns)
+   
+   skipped_tests = array_map(Int_Type, &string_match, 
+			     testfuns, Unittest_Skip_Pattern, 1);
+   skips = length(where(skipped_tests));
+   % show("testfuns", testfuns[where(not(skipped_tests))]);
+   if (skips)
+      testmessage("\n  skipping: %s", 
+	       strjoin(testfuns[where(skipped_tests)]+"()", " "));
+   
+   % Run the testfuns in their namespace
+   use_namespace(namespace);
+   foreach testfun (testfuns[where(not(skipped_tests))])
      {
-        if (wherefirst(array_map(Int_Type, 
-                       &string_match, testfun, Unittest_Skip_Patterns, 1))
-            != NULL)
-          {
-             testmessage("\n  %s: skipped", testfun);
-             skips++;
-             continue;
-          }
-        testfun = namespace+"->"+testfun;
-        if (_setup != NULL)
-          @_setup();
+	call_function(namespace+"->setup");
+	
         test_function(testfun);
+	
         test_stack();
-        if (_teardown != NULL)
-          @_teardown();
+	call_function(namespace+"->teardown");
      }
-   if (_mode_teardown != NULL)
-          @_mode_teardown();
+   use_namespace(old_namespace);
+   
+   % Cleanup and sum up
+   call_function(namespace+"->mode_teardown");
+   
    if (Error_Count)
      testmessage("\n ");
    testmessage("\n %d error%s", Error_Count, plurals[Error_Count!=1] );
+      
    if (skips)
-     testmessage("\n %d test%s skipped (matching '%s')",
-        skips, plurals[skips!=1], strjoin(Unittest_Skip_Patterns, "' or '"));
+      testmessage(", %d test%s skipped (matching '%s')", 
+		  skips, plurals[skips!=1], Unittest_Skip_Pattern);
 }
 
 % test the current buffer
@@ -435,7 +435,7 @@ public define test_files();
 %  * Evaluate directory-wide fixture script teardown.sl if it exists
 %\notes
 % TODO: % gobbing of dirname part.
-%\seealso{test_file, test_buffer, test_function, Unittest_File_Patterns}
+%\seealso{test_file, test_buffer, test_function, Unittest_File_Pattern}
 %!%-
 public define test_files() % (dir="")
 {
@@ -447,7 +447,22 @@ public define test_files() % (dir="")
    variable setup_file = path_concat(dir, "setup.sl");
    variable teardown_file = path_concat(dir, "teardown.sl");
    variable file, match, no_of_errors = 0, no_of_files;
-
+   variable time_struct = localtime(_time);
+   
+   % insert time stamp
+   testmessage("%d-%02d-%02d %02d:%02d\n", 
+      time_struct.tm_year+1900,
+      time_struct.tm_mon+1, 
+      time_struct.tm_mday,
+      time_struct.tm_hour,
+      time_struct.tm_min);
+   
+   % insert jed version and flavour
+   variable utf8support = ["", " (utf8)"];
+   testmessage("Jed %s%s, S-Lang %s, Emulation '%s'", 
+	       _jed_version_string, utf8support[_slang_utf8_ok], 
+	        _slang_version_string, _Jed_Emulation);
+	      
    % separate and preprocess file list
    if (pattern == "")
      pattern = Unittest_File_Pattern;
@@ -479,9 +494,8 @@ public define test_files() % (dir="")
    
    if (1 == file_status(setup_file))
      evalfile(setup_file);
-   foreach (files)
+   foreach file (files)
      {
-        file = ();
         switch (file_status(file))
           { case 1: test_file(file); no_of_errors += Error_Count;}
           { case 2: no_of_errors += test_files(path_concat(file, ""));}
