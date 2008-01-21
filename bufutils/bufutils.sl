@@ -70,6 +70,7 @@
 % 2008-01-11 1.16  reload_buffer(): insert disk version, delete content later
 % 	     	                    preventing an empty buffer after undo(),
 %		   Minor code and doc edits (cleanup).
+% 2008-01-21 1.17  fit_window(): recenter if window contains whole buffer
 
 provide("bufutils");
 
@@ -325,9 +326,9 @@ public define fit_window () % fit_window(max_rows = 1.0)
      wanted_rows = max_rows;
    % fit window
    window_set_rows(wanted_rows);
-   % TODO (or cruft?) put last line at bottom line
-   % if (eobp)
-   % ...
+   % if window contains whole buffer, put last line at bottom line
+   if (wanted_rows <= max_rows)
+      recenter(what_line());
 }
 
 % --- closing the buffer -------------------------------------------------
@@ -374,7 +375,7 @@ define close_other_buffer ()
 %\notes
 %  The \sfun{popup_buffer} function automatically records the calling
 %  buffer.
-%\seealso{close_and_replace_word, popup_buffer, close_buffer}
+%\seealso{close_and_replace_word, get_word, popup_buffer, close_buffer}
 %!%-
 define close_and_insert_word()
 {
