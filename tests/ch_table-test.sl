@@ -13,13 +13,6 @@
 % set fixture:
 require("unittest");
 
-private variable ch170;
-
-if (_slang_utf8_ok())
-   ch170 = "ª";
-else
-   ch170 = "\d170";
-
 private variable teststring = "bar\n";
 private variable testbuf = "*bar*";
 static define setup()
@@ -105,8 +98,8 @@ static define test_ct_down()
    variable cc;
    special_chars();
    ch_table->ct_down();
-   cc = substr(bufsubstr(), 1, 1);
-   test_equal(ch170, cc, "special_chars should highlight char nr 170");
+   test_equal(170, what_char(), 
+	      "special_chars(); ct_down() should set point to char 170");
    close_buffer("*ch_table*");
 }
 
@@ -166,13 +159,13 @@ static define test_ct_down()
 %  static define ct_insert_and_close ()
 static define test_ct_insert_and_close()
 {
+   % open char-table, go to second line, insert-and-close
    special_chars();
    ch_table->ct_down();
    ch_table->ct_insert_and_close();
+   % get inserted char
    push_mark();
    go_left_1();
-   test_equal(bufsubstr(), ch170, "should insert char nr 170");
+   test_equal(bufsubstr(), char(170), "should insert char nr 170");
 }
-  
-update(1);
 
