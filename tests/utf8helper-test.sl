@@ -19,27 +19,31 @@ test_true(is_defined("strtrans_utf8_to_latin1"), "public fun strtrans_utf8_to_la
 
 require("utf8helper");
 
-% testbufs[_slang_utf8_ok] is in active encoding
-private variable testbufs = ["ch_table-lat1-decimal.txt", 
-                             "ch_table-utf8-decimal.txt"],
-  teststrings = String_Type[length(testbufs)],
-  base_dir = path_dirname(__FILE__);
+% testbufs[_slang_utf8_ok] is in native encoding
+private variable teststrings = {},
+    base_dir = path_dirname(__FILE__), 
+    testbufs = ["ch_table-lat1-decimal.txt", 
+		"ch_table-utf8-decimal.txt"];
 
 static define setup()
 {
    % do not autoconvert the test buffers:
    UTF8Helper_Read_Autoconvert = 0;
    
-   variable i=0, buf;
-   foreach buf (testbufs)
-     {
-        % load file
-        () = find_file(base_dir + "/" + buf);
-        % extract teststring
-        mark_buffer();
-        teststrings[i] = bufsubstr();
-        i++;
-     }
+   variable buf;
+   foreach buf (testbufs) {
+      % load file
+      () = find_file(path_concat(base_dir, buf));
+      % unset readonly flag (and unset file binding), 
+      % so that we can edit without further questions.
+      variable file, dir, name, flags;
+      (file, dir, name, flags) = getbuf_info();
+      setbuf_info("", dir, name, flags & ~0x8);
+      
+      % extract teststring
+      mark_buffer();
+      list_append(teststrings, bufsubstr());
+   }
 }
 
 static define teardown()
@@ -107,7 +111,7 @@ static define test_has_invalid_chars()
 
 static define test_has_invalid_chars_false()
 {
-   sw2buf(testbufs[_slang_utf8_ok]); % testbuffer in active encoding
+   sw2buf(testbufs[_slang_utf8_ok]); % testbuffer in native encoding
    test_equal(0, utf8helper->has_invalid_chars());
 }
 
