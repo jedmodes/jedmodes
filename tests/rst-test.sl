@@ -98,32 +98,30 @@ static define test_command_help()
    close_buffer("*rst export help*");
 }
 
+% test the dictionary mapping filename extensions to export cmd pointers
+static define test_export_cmds()
+{
+   test_equal(rst->export_cmds["html"] , &Rst2Html_Cmd);
+   test_equal(rst->export_cmds["pdf"] , &Rst2Pdf_Cmd);
+   test_equal(rst->export_cmds["tex"] , &Rst2Latex_Cmd);
+}
 % static define set_export_cmd(export_type)
-static define test_set_export_cmd_html()
+static define test_set_export_cmd()
 {
-   variable testcmd = " --option", old_cmd = Rst2Html_Cmd;
-   buffer_keystring(testcmd + "\r");
-   rst->set_export_cmd("html");
-   test_equal(Rst2Html_Cmd, old_cmd + testcmd);
-   Rst2Html_Cmd = old_cmd;
-}
-
-static define test_set_export_cmd_tex()
-{
-   variable testcmd = " --option", old_cmd = Rst2Latex_Cmd;
-   buffer_keystring(testcmd + "\r");
-   rst->set_export_cmd("tex");
-   test_equal(Rst2Latex_Cmd, old_cmd + testcmd);
-   Rst2Latex_Cmd = old_cmd;
-}
-
-static define test_set_export_cmd_pdf()
-{
-   variable testcmd = " --option", old_cmd = Rst2Pdf_Cmd;
-   buffer_keystring(testcmd + "\r");
-   rst->set_export_cmd("pdf");
-   test_equal(Rst2Pdf_Cmd, old_cmd + testcmd);
-   Rst2Pdf_Cmd = old_cmd;
+   variable export_type, cmd_p, cmd, addition = " --test";
+   
+   foreach export_type (["html", "pdf", "tex"]) {
+      % get pointer to export cmd custom var
+      cmd_p = rst->export_cmds[export_type];
+      cmd = @cmd_p;
+      % simulate keyboard input (adding `addition` to the default value)
+      buffer_keystring(addition + "\r");
+      rst->set_export_cmd(export_type);
+      
+      test_equal(@cmd_p, cmd + addition, 
+		 "should be changed by set_export_cmd()");
+      @cmd_p = cmd;
+   }
 }
 
 % public  define rst_view_html() % (browser=Browse_Url_Browser))
