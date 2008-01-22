@@ -7,7 +7,7 @@
 %  2002 Johann Gerell
 %  2003 Karl-Heinz Wild
 %  2007 Guenter Milde
-%  2007 Paul Boekholt
+%  2007-2008 Paul Boekholt
 % Released under the terms of the GNU GPL (version 2 or later).
 % 
 % [Install]
@@ -226,9 +226,6 @@ set_syntax_flags (mode, 4);
 #ifdef HAS_DFA_SYNTAX
 dfa_enable_highlight_cache("ruby.dfa", mode);
 dfa_define_highlight_rule("#.*$", "comment", mode);
-dfa_define_highlight_rule("([\\$%&@\\*]|\\$#)[A-Za-z_0-9]+", "normal", mode);
-dfa_define_highlight_rule(strcat("\\$([_\\./,\"", "\\#\*\?\]\[;!@:\$<>\(\)"R,
-				 "%=\-~\^\|&`'\+]|\^[A-Z])"R), "normal", mode);
 dfa_define_highlight_rule("[A-Za-z_][A-Za-z_0-9]*[\?!]?"R, "Knormal", mode);
 dfa_define_highlight_rule("[0-9]+(\.[0-9]+)?([Ee][\+\-]?[0-9]*)?"R, "number",
 			  mode);
