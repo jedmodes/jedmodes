@@ -49,9 +49,8 @@
 % 1.2.3 2007-09-24 bugfix in utf8_to_latin1(): did not convert two (or more)
 % 		   high-bit chars in a row  in UTF8 mode (report P. Boekholt)
 % 		   and latin1_to_utf8(): similar problem in non-UTF8 mode.
-% 		   
-
-implements("utf8helper");
+% 1.2.4 2008-01-22 helper fun register_autoconvert_hooks()
+% 		   (called at end of script if evaluated first time).
 
 % Customisation
 % -------------
@@ -98,6 +97,17 @@ custom_variable("UTF8Helper_Write_Autoconvert", 0);
 % modes from http://jedmodes.sf.net
 autoload("get_blocal", "sl_utils");
 autoload("list2array", "datutils");
+autoload("fit_window", "bufutils");
+autoload("popup_buffer", "bufutils");
+#if (expand_jedlib_file("view.sl") != "")
+autoload("view_mode", "view");
+#endif
+
+% Namespace
+% ---------
+
+provide("utf8helper");
+implements("utf8helper");
 
 % Functions
 % ---------
@@ -120,8 +130,8 @@ autoload("list2array", "datutils");
 %!%-
 public define latin1_to_utf8()
 {
-   variable ch, act_on_region = is_visible_mark();
-   if (act_on_region)
+   variable ch, convert_region = is_visible_mark();
+   if (convert_region)
      narrow_to_region();
    else if (get_blocal("encoding") == "utf8")
      {
@@ -167,7 +177,7 @@ public define latin1_to_utf8()
 	  } while (right(1));
      }
    pop_spot();
-   if (act_on_region)
+   if (convert_region)
      widen_region();
    else
      define_blocal_var("encoding", "utf8");
@@ -190,45 +200,39 @@ public define latin1_to_utf8()
 %!%-
 public define utf8_to_latin1 ()
 {
-   variable ch, act_on_region = is_visible_mark();
+   variable ch, convert_region = is_visible_mark();
 
-   if (act_on_region)
+   if (convert_region)
      narrow_to_region();
    else if (get_blocal("encoding", "utf8") != "utf8")
      error("Buffer is not utf8 encoded");
 
    push_spot_bob();
-   if (_slang_utf8_ok)
-     {
-	do
-	  {
-	     ch = what_char();
-	     if ((ch >= 128) and (ch < 256))
-	       {
-		  del();
-		  insert_byte(ch);
-		  go_left_1();
-	       }
-	  } while ( right(1) );
-     }
-   else
-     {
-	variable old_case_search = CASE_SEARCH;
-	CASE_SEARCH = 1;
-	while (fsearch_char(194)) % '‚'
-	  del();
-	bob();
-	while (fsearch_char(195))  % 'ƒ'
-	   {
-	      del();
-	      ch = what_char();
-	      del();
-	      insert_byte(ch+64);
-	   }
-	CASE_SEARCH = old_case_search;
-     }
+   if (_slang_utf8_ok) {
+      do {
+	 ch = what_char();
+	 if ((ch >= 128) and (ch < 256)) {
+	    del();
+	    insert_byte(ch);
+	    go_left_1();
+	 }
+      } while ( right(1) );
+   } else {
+      variable old_case_search = CASE_SEARCH;
+      CASE_SEARCH = 1;
+      while (fsearch_char(194)) % '‚'
+	 del();
+      bob();
+      while (fsearch_char(195)) {  % 'ƒ'
+	 del();
+	 ch = what_char();
+	 del();
+	 insert_byte(ch+64);
+      }
+      CASE_SEARCH = old_case_search;
+   }
    pop_spot ();
-   if (act_on_region)
+   if (convert_region)
      widen_region();
    else
      define_blocal_var("encoding", "latin1");
@@ -309,85 +313,103 @@ static define has_invalid_chars()
    return result;
 }
 
-private define utf8helper_read_hook()
+% convert encoding to native encoding (or vice versa)
+static define autoconvert(to_native)
 {
-   variable msg, do_convert = get_blocal("utf8helper_read_autoconvert",
-      UTF8Helper_Read_Autoconvert);
-   % ask user if default is -1
-   if (do_convert == -1)
-     {
-	push_spot();
-	% has_invalid_chars() moves point to first invalid char to give the
-	% user a chance to examine the situation
-	!if (has_invalid_chars())
-	  {  % no need to bother the user with questions in this case
-	     % message("no offending chars");
-	     return;
-	  }
-	update_sans_update_hook(1); % repaint to show "invalid" char
-	if (_slang_utf8_ok)
-	  msg = "Buffer contains high-bit chars. Convert to UTF-8";
-	else
-	  msg = "Buffer seems to contain UTF-8 chars. Convert to iso-latin-1";
-	do_convert = get_y_or_n(msg);
-	pop_spot();
-     }
-   % and store the result
-   define_blocal_var("utf8helper_read_autoconvert", do_convert);
+   % unset readonly flag (and unset file binding), 
+   % so that we can edit without further questions.
+   variable file, dir, name, flags;
+   (file, dir, name, flags) = getbuf_info();
+   setbuf_info("", dir, name, flags & ~0x8);
+   
+   if (to_native) {
+      if (_slang_utf8_ok)
+	 latin1_to_utf8();
+      else
+	 utf8_to_latin1();
+   }
+   else { % convert from native encoding to alternative
+      if (_slang_utf8_ok)
+	 utf8_to_latin1();
+      else
+	 latin1_to_utf8();
+   }
+   
+   % reset the buffer info
+   setbuf_info(file, dir, name, flags);
+}
 
+static define utf8helper_read_hook()
+{
+   variable msg, 
+      do_convert = get_blocal("utf8helper_read_autoconvert",
+			      UTF8Helper_Read_Autoconvert);
    % abort if do_convert == 0 ("do not convert")
    !if (do_convert)
      return;
+   
+   % Check for out of place encoding - no need to convert if there is no
+   % invalid character.
+   
+   push_spot(); % has_invalid_chars() moves point to first invalid
+   		% char to give the user a chance to examine the situation. 
+   
+   !if (has_invalid_chars()) { 
+      % message("no offending chars"); 
+      do_convert = 0; 
+   }
+   
+   % ask user if default is -1
+   if (do_convert == -1) {
+      update_sans_update_hook(1); % repaint to show "invalid" char
+      if (_slang_utf8_ok)
+	 msg = "Buffer contains high-bit chars. Convert to UTF-8";
+      else
+	 msg = "Buffer seems to contain UTF-8 chars. Convert to iso-latin-1";
+      do_convert = get_y_or_n(msg);
+      % and store the answer
+      define_blocal_var("utf8helper_read_autoconvert", do_convert);
+   }
+   pop_spot();
 
-   % convert encoding
-   if (_slang_utf8_ok)
-     latin1_to_utf8();
-   else
-     utf8_to_latin1();
+   % abort if no invalid chars or user decided to skip autoconversion
+   !if (do_convert)
+     return;
 
-   % reset the buffer modified flag as we did not change content
-   % (prevents questions when the buffer is closed without further changes).
-   set_buffer_modified_flag(0);
+   % convert encoding (to_native = 1)
+   autoconvert(1);
 
    % mark for re-conversion before writing:
    if (not(blocal_var_exists("utf8helper_write_autoconvert")))
-     define_blocal_var("utf8helper_write_autoconvert",
+     define_blocal_var("utf8helper_write_autoconvert", 
 	UTF8Helper_Write_Autoconvert);
 }
 
 static define utf8helper_write_hook(file)
 {
-   variable do_convert = get_blocal("utf8helper_write_autoconvert", 0);
+   % Get autoconvert option:
    % Default is 0, so do not convert if it is not autoconverted
    % TODO: consider the case where the user always wants a definite encoding.
-
-   !if (do_convert)
-     return;
+   variable do_convert = get_blocal("utf8helper_write_autoconvert", 0);
 
    % ask user if default is -1
-   if (do_convert == -1)
-     do_convert = get_y_or_n("Re-convert buffer encoding before saving");
-   % and store the result
-   define_blocal_var("utf8helper_write_autoconvert", do_convert);
-
-   % convert encoding
-   if (_slang_utf8_ok)
-     utf8_to_latin1();
-   else
-     latin1_to_utf8();
+   if (do_convert == -1) {
+      do_convert = get_y_or_n("Re-convert buffer encoding before saving");
+      % and store the result
+      define_blocal_var("utf8helper_write_autoconvert", do_convert);
+   }
+   if (do_convert)
+      autoconvert(0);
 }
 
 static define utf8helper_restore_hook(file)
 {
-   if (_slang_utf8_ok)
-     if (get_blocal("encoding", "") == "latin1")
-       latin1_to_utf8();
-   else
-     if (get_blocal("encoding", "") == "utf8")
-       utf8_to_latin1();
+   variable do_convert = get_blocal("utf8helper_write_autoconvert", 0);
+   if (do_convert)
+      autoconvert(1);
 }
 
-!if (_featurep("utf8helper"))
+static define register_autoconvert_hooks()
 {
    if (UTF8Helper_Read_Autoconvert)
      append_to_hook("_jed_find_file_after_hooks", &utf8helper_read_hook);
@@ -397,13 +419,21 @@ static define utf8helper_restore_hook(file)
 	append_to_hook("_jed_save_buffer_after_hooks", &utf8helper_restore_hook);
      }
 }
-provide("utf8helper");
+
+% register the autoconvert hooks if 
+% * this file is evaluated the first time and
+% * the custom variables are non-zero
+!if (_featurep("utf8helper"))
+   register_autoconvert_hooks();
 
 % Joerg Sommer also wrote:
 %   And I've written some functions for UTF-8 features. Maybe they get a menu
 %   entry "Edit->UTF-8 specials".
+%   
+% Suggestion: (place them under Edit>Re&gion Ops, as they act on regions)
+% 
 #if (_slang_utf8_ok)
-define insert_after_char(char)
+static define insert_after_char(char)
 {
    narrow_to_region();
    try
@@ -424,6 +454,5 @@ define underline() { insert_after_char(0x332); }
 define double_underline() { insert_after_char(0x333); }
 define overline() { insert_after_char(0x305); }
 define double_overline() { insert_after_char(0x33f); }
-
 #endif
 
