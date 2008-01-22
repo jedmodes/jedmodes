@@ -19,7 +19,8 @@
 %                  test_true(a != b);
 % 0.5   2008-01-21 Unittest_Skip_Patterns replaced by Unittest_Skip_Pattern
 %                  (String instead of Array of Strings).
-%                  code cleanup, better testreporting
+%                  code cleanup, better reporting
+% 0.5.1 2008-01-22 test_files(): better report formatting
 
 require("sl_utils");  % push_defaults, ...
 require("datutils");  % push_list, pop2list, ...
@@ -450,7 +451,7 @@ public define test_files() % (dir="")
    variable time_struct = localtime(_time);
    
    % insert time stamp
-   testmessage("%d-%02d-%02d %02d:%02d\n", 
+   testmessage("\n%d-%02d-%02d %02d:%02d ", 
       time_struct.tm_year+1900,
       time_struct.tm_mon+1, 
       time_struct.tm_mday,
@@ -500,8 +501,9 @@ public define test_files() % (dir="")
           { case 1: test_file(file); no_of_errors += Error_Count;}
           { case 2: no_of_errors += test_files(path_concat(file, ""));}
      }
-   testmessage("\n%d file%s|dir%s, %d error%s ", no_of_files, plural, plural,
+   testmessage("\n%d file%s|dir%s, %d error%s\n", no_of_files, plural, plural,
       no_of_errors, plurals[no_of_errors!=1]);
+   
    if (1 == file_status(teardown_file))
      evalfile(teardown_file);
 
