@@ -79,7 +79,7 @@
 % 2.2   2007-11-15 * custom colors.
 % 2.3   2008-01-11 * section headings: allow for adorning with overline,
 %                  * split outline and section functions to rst-outline.sl,
-%                  * implement JöÃ¶rg Sommer's fix for DFA under UTF-8,
+%                  * implement J. Sommer's fix for DFA under UTF-8,
 % 2.3.1 2008-01-22 * made export_cmds static for better testing
 % 		     and configuring.
 
