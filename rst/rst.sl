@@ -17,6 +17,8 @@
 % Versions
 % ========
 % 
+% .. class:: frameless
+%
 % ===== ========== ============================================================
 % 1.1   2004-10-18 initial attempt
 % 1.2   2004-12-23 removed dependency on view mode (called by runhooks now)
@@ -74,10 +76,12 @@
 %                    replacement (Attention! can lead to segfaults with older,
 %                    buggy S-Lang versions: update S-Lang or downgrade rst.sl)
 %                  * more work on "rst-fold"
-% 2.2   2007-11-15 * custom colors 
-% 2.3   2008-01-11 * section headings: allow for adorning with overline
-%                  * split outline and section functions to rst-outline.sl
-%                  * implement JöÃ¶rg Sommer's fix for DFA under UTF-8
+% 2.2   2007-11-15 * custom colors.
+% 2.3   2008-01-11 * section headings: allow for adorning with overline,
+%                  * split outline and section functions to rst-outline.sl,
+%                  * implement JöÃ¶rg Sommer's fix for DFA under UTF-8,
+% 2.3.1 2008-01-22 * made export_cmds static for better testing
+% 		     and configuring.
 
 % ===== ========== ============================================================
 % 
@@ -257,7 +261,7 @@ custom_color("rst_directive",    get_color("keyword2"));
 private variable helpbuffer = "*rst export help*";
 
 % Pointer to the export command string for a given file extension
-private variable export_cmds = Assoc_Type[Ref_Type];
+static variable export_cmds = Assoc_Type[Ref_Type];
 export_cmds["html"] = &Rst2Html_Cmd;
 export_cmds["tex"] = &Rst2Latex_Cmd;
 export_cmds["pdf"] = &Rst2Pdf_Cmd;
@@ -459,8 +463,8 @@ static define command_help(cmd)
 static define set_export_cmd(export_type)
 {
    variable cmd_var = export_cmds[export_type]; % variable reference
-   variable cmd = @cmd_var;
-   @cmd_var = read_mini("export cmd and options:", "", cmd);
+   @cmd_var = read_mini(strup(export_type)+" export cmd and options:", 
+			"", @cmd_var);
 }
 
 % Markup
