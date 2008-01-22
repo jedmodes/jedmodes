@@ -20,6 +20,7 @@
 %                  * allow for overline chars
 % 0.1.1 2008-01-16 * bugfix in heading()
 % 		     (for numerical arg without existing adornments)
+% 0.1.2 2008-01-22 * KP keybindings require x-keydefs
 % 
 % Requirements
 % ------------
@@ -31,6 +32,7 @@ require("comments");
 % extra modes (from http://jedmodes.sf.net/mode/)::
 
 autoload("string_repeat", "strutils");
+require("x-keydefs");
 
 % Navigation buffer (navigable table of contents) with
 % http://jedmodes.sf.net/mode/tokenlist ::
