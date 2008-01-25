@@ -51,6 +51,7 @@
 % 		   and latin1_to_utf8(): similar problem in non-UTF8 mode.
 % 1.2.4 2008-01-22 helper fun register_autoconvert_hooks()
 % 		   (called at end of script if evaluated first time).
+% 1.2.5 2008-01-25 remove dependency on datutils.sl and sl_utils.sl
 
 % Customisation
 % -------------
@@ -95,8 +96,6 @@ custom_variable("UTF8Helper_Write_Autoconvert", 0);
 % ------------
 
 % modes from http://jedmodes.sf.net
-autoload("get_blocal", "sl_utils");
-autoload("list2array", "datutils");
 autoload("fit_window", "bufutils");
 autoload("popup_buffer", "bufutils");
 #if (expand_jedlib_file("view.sl") != "")
@@ -133,7 +132,7 @@ public define latin1_to_utf8()
    variable ch, convert_region = is_visible_mark();
    if (convert_region)
      narrow_to_region();
-   else if (get_blocal("encoding") == "utf8")
+   else if (get_blocal_var("encoding", "") == "utf8")
      {
 	message("Buffer is already UTF-8 encoded");
 	return;
@@ -204,7 +203,7 @@ public define utf8_to_latin1 ()
 
    if (convert_region)
      narrow_to_region();
-   else if (get_blocal("encoding", "utf8") != "utf8")
+   else if (get_blocal_var("encoding", "utf8") != "utf8")
      error("Buffer is not utf8 encoded");
 
    push_spot_bob();
@@ -277,7 +276,8 @@ public define strtrans_utf8_to_latin1(str)
         list_append(charlist, ch+shift);
         shift = 0;
      }
-   return array_to_bstring(list2array(charlist, UChar_Type));
+   % return array_to_bstring(list2array(charlist, UChar_Type));
+   return array_to_bstring(typecast([__push_list(charlist)], UChar_Type));
 }
 
 % Hooks for automatic conversion
@@ -342,8 +342,8 @@ static define autoconvert(to_native)
 static define utf8helper_read_hook()
 {
    variable msg, 
-      do_convert = get_blocal("utf8helper_read_autoconvert",
-			      UTF8Helper_Read_Autoconvert);
+      do_convert = get_blocal_var("utf8helper_read_autoconvert",
+				  UTF8Helper_Read_Autoconvert);
    % abort if do_convert == 0 ("do not convert")
    !if (do_convert)
      return;
@@ -390,7 +390,7 @@ static define utf8helper_write_hook(file)
    % Get autoconvert option:
    % Default is 0, so do not convert if it is not autoconverted
    % TODO: consider the case where the user always wants a definite encoding.
-   variable do_convert = get_blocal("utf8helper_write_autoconvert", 0);
+   variable do_convert = get_blocal_var("utf8helper_write_autoconvert", 0);
 
    % ask user if default is -1
    if (do_convert == -1) {
@@ -404,7 +404,7 @@ static define utf8helper_write_hook(file)
 
 static define utf8helper_restore_hook(file)
 {
-   variable do_convert = get_blocal("utf8helper_write_autoconvert", 0);
+   variable do_convert = get_blocal_var("utf8helper_write_autoconvert", 0);
    if (do_convert)
       autoconvert(1);
 }
