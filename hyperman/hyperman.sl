@@ -1,9 +1,9 @@
 % hyperman.sl
 %
-% $Id: hyperman.sl,v 1.28 2007/06/03 09:57:45 paul Exp paul $
+% $Id: hyperman.sl,v 1.29 2008/01/26 10:39:41 paul Exp paul $
 % Keywords: help, hypermedia, unix
 %
-% Copyright (c) 2000-2007 JED, Paul Boekholt, Günter Milde
+% Copyright (c) 2000-2008 JED, Paul Boekholt, Günter Milde
 % Released under the terms of the GNU GPL (version 2 or later).
 % hypertextish man pager
 
@@ -532,7 +532,7 @@ public define unix_man ()
 %\usage{unix_apropos([subject])}
 %\description
 %   Runs "man -k" to get a list of manpages whose names match \var{subject}
-%   and display the result in a buffer in \var{man_mode}
+%   and display the result in a buffer in \sfun{man_mode}
 %\seealso{unix_man}
 %!%-
 public define unix_apropos()
@@ -560,12 +560,15 @@ public define unix_whatis()
    set_readonly(0);
    push_visible_mark;
    newline;
+   word = strtrim_beg(word, "-"); % strip '-' from options
    () = run_shell_cmd(strcat("whatis ", word));
-   message("hit w to continue");
+   message("hit any key to continue");
    update_sans_update_hook(0);
-   getkey;
-   if (dup == 'w') pop;
-   else ungetkey;
+   % wait for any key and discard the key sequence
+   ( , ) = get_key_binding();
+   % getkey;
+   % if (dup == 'w') pop;
+   % else ungetkey;
    del_region;
    set_readonly(ro);
    set_buffer_modified_flag(mo);
@@ -598,8 +601,8 @@ public define unix_whatis()
    definekey ("man_goto_section", "s", mode);
 }
 
-set_help_message("(M)anpage, (A)propos, (W)hatis, (L)ast page, (N)ext section, (P)revious section",
-		 "man");
+Help_Message["man"] =
+  "(M)anpage, (A)propos, (W)hatis, (L)ast page, (N)ext section, (P)revious section";
 
 static variable numbers = "123456789abcdefghijklmnop";
 
@@ -637,6 +640,7 @@ static define man_menu(menu)
    menu_set_select_popup_callback(menu+".&section", &man_jump_callback);
    menu_append_item (menu, "&go to page", "unix_man");
    menu_append_item (menu, "&apropos", "unix_apropos");
+   menu_append_item (menu, "&what is", "unix_whatis");
    menu_append_item (menu, "&close man buffers", "man_cleanup");
 }
 
@@ -672,11 +676,12 @@ enable_dfa_syntax_for_mode(mode);
 
 static define man_mouse(line, col, but, shift)
 {
-   if (but == 1)
-     {
+   switch (but)
+     { case 1:
 	if (re_looking_at (man_pattern)) man_follow;
      }
-   else unix_whatis;
+     { case 4: unix_whatis; }
+     { return -1; } % pass wheel scrolling events to the default hook
    1;
 }
 
@@ -685,7 +690,7 @@ static define man_mouse(line, col, but, shift)
 %!%+
 %\function{man_mode}
 %\synopsis{Mode for reading man pages}
-%\usage{man_mode()}
+%\usage{man->man_mode()}
 %\description
 %  The following man commands are available in the buffer.
 %  \var{TAB}     move to next manpage reference
@@ -696,8 +701,8 @@ static define man_mouse(line, col, but, shift)
 %  \var{p}       Jump to previous manpage section.
 %  \var{n}       Jump to next manpage section.
 %  \var{s}       Go to a manpage section.
-%  \var{w}       Run \var{whatis} on the word at point
-%  \var{a}       Call \var{unix_apropos}
+%  \var{w}       Run \sfun{whatis} on the word at point
+%  \var{a}       Call \sfun{unix_apropos}
 %  \var{q}       Deletes the manpage window, kill its buffer.
 %  \var{h}       Give help for man_mode
 %\seealso{unix_man}
