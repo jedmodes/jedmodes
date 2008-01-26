@@ -1,6 +1,6 @@
 % hyperman.sl
 %
-% $Id: hyperman.sl,v 1.29 2008/01/26 10:39:41 paul Exp paul $
+% $Id: hyperman.sl,v 1.30 2008/01/26 10:48:36 paul Exp paul $
 % Keywords: help, hypermedia, unix
 %
 % Copyright (c) 2000-2008 JED, Paul Boekholt, Günter Milde
@@ -601,8 +601,8 @@ public define unix_whatis()
    definekey ("man_goto_section", "s", mode);
 }
 
-Help_Message["man"] =
-  "(M)anpage, (A)propos, (W)hatis, (L)ast page, (N)ext section, (P)revious section";
+set_help_message("(M)anpage, (A)propos, (W)hatis, (L)ast page, (N)ext section, (P)revious section",
+		 "man");
 
 static variable numbers = "123456789abcdefghijklmnop";
 
