@@ -1,10 +1,10 @@
 % rfcview.sl	-*- mode: Slang; mode: Fold -*-
 % RFC viewer
 % 
-% $Id: rfcview.sl,v 1.4 2006/06/05 12:19:50 paul Exp paul $
+% $Id: rfcview.sl,v 1.5 2008/01/27 15:35:19 paul Exp paul $
 % Keywords: docs
 %
-% Copyright (c) 2003-2006 Paul Boekholt.
+% Copyright (c) 2003-2008 Paul Boekholt.
 % Released under the terms of the GNU GPL (version 2 or later).
 % 
 % Not as pretty as Emacs' rfcview, but more features.
@@ -61,7 +61,7 @@ define find_rfc(rfc)
      file = search_path_for_file
      (Rfc_Path, sprintf("rfc%s.txt.gz", strtrim_beg(rfc, "0")));
    if (file == NULL)
-     error ("file not found");
+     throw RunTimeError, "file not found";
    ()=read_file(file);
    pop2buf(whatbuf);
    rfc_mode;
@@ -75,7 +75,7 @@ define find_rfc(rfc)
 % get RFC from rfc-index
 define get_rfc_from_index()
 {
-   !if (re_bsearch("^[0-9]")) error ("not looking at rfc");
+   !if (re_bsearch("^[0-9]")) throw RunTimeError, "not looking at rfc";
    push_mark;
    skip_chars("0-9");
    find_rfc(bufsubstr);
@@ -129,9 +129,8 @@ define rolo()
    push_spot;
    push_mark_eob;
    set_region_hidden(1);
-   foreach (strchop(pattern, '|', '\\'))
+   foreach subpattern (strchop(pattern, '|', '\\'))
      {
-	subpattern = ();
 	goto_spot;
 	while (re_fsearch(subpattern))
 	  {
@@ -171,12 +170,14 @@ define scroll_other(cmd)
 {
    variable buf = whatbuf;
    otherwindow;
-   ERROR_BLOCK
+   try
+     {
+	call(cmd);
+     }
+   finally
      {
 	pop2buf(buf);
      }
-   call(cmd);
-   EXECUTE_ERROR_BLOCK;
 }
 
 % go to a page from the ToC
@@ -301,7 +302,7 @@ public define rfc_mode()
    eob;
    if (re_bsearch("^[0-9\\.]*[ \t]*references"))
      {
-	while (re_fsearch("^[ \t]*\\(\\[[^\\]]+\\]\\)"))
+	while (re_fsearch("^[ \t]*\\(\\[[^\\]]{1,20}\\]\\)"))
 	  {
 	     add_keyword(mode, regexp_nth_match(1));
 	     eol;
