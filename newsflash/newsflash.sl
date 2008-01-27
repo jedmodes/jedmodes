@@ -1,8 +1,8 @@
 % newsflash.sl
 % 
-% $Id: newsflash.sl,v 1.4 2007/12/01 08:35:03 paul Exp paul $
+% $Id: newsflash.sl,v 1.5 2008/01/27 14:35:55 paul Exp paul $
 %
-% Copyright (c) 2006, 2007 Paul Boekholt.
+% Copyright (c) 2006-2008 Paul Boekholt.
 % Released under the terms of the GNU GPL (version 2 or later).
 % 
 % This is a RSS+Atom reader for JED.  It uses the expat module.
@@ -37,6 +37,9 @@ variable userdata = struct {
    url,
    cleanlevel,
    
+   % reference to characterdata element being read
+   cdataref,
+   
    % <item>s
    item,
    items,
@@ -58,7 +61,7 @@ variable debug_mode=0;
 variable db, dbfile = dircat(Jed_Home_Directory, "rss.db");
 $1 = file_status(dbfile);
 db = sqlite_open(dbfile);
-!if ($1)
+ifnot ($1)
 {
    % Some fields (e.g. description and date in the items table) are currently not used
    sqlite_exec(db, "CREATE TABLE feeds (feed_id INTEGER PRIMARY KEY, name TEXT UNIQUE, url TEXT UNIQUE, cleanlevel INTEGER default '3')");
@@ -89,8 +92,7 @@ db = sqlite_open(dbfile);
 	{"xml.com (rss 2.0)", "http://www.oreillynet.com/pub/feed/20?format=rss2"},
 	{"xml.com (Atom)", "http://www.oreillynet.com/pub/feed/20"}
    })
-     sqlite_exec(db, sprintf("INSERT OR IGNORE INTO feeds ('name', 'url') VALUES ('%s', '%s')",
-			     $2[0], $2[1]));
+     sqlite_exec(db, "INSERT OR IGNORE INTO feeds ('name', 'url') VALUES (?, ?)", $2[0], $2[1]);
    sqlite_exec(db, "UPDATE feeds SET cleanlevel=0 WHERE name='JED checkins'");
 }
 sqlite_exec(db, "PRAGMA synchronous = OFF;");
@@ -111,49 +113,15 @@ define pop_state(p)
    else p.userdata.state = "";
 }
 
-% We need all these functions because it's not possible to pass a reference
-% to a structure member in slang 2.0.  It would be easier to just read
-% characterdata into a "characterdata" member and copy it to the correct
-% member when the element's closing tag is seen, but in some RSS dialects the
-% "item" elements are children of the "channel" element and in some they are
-% siblings.
-define read_title(p, s)
-{
-   p.userdata.item.title += s;
-}
 
-define read_link(p, s)
+define read_characterdata(p, s)
 {
-   p.userdata.item.link +=s;
-}
-
-define read_description(p, s)
-{
-   p.userdata.item.description += s;
-}
-
-define read_date(p, s)
-{
-   p.userdata.item.date += s;
-}
-
-define read_channel_description(p, s)
-{
-   p.userdata.channel.description += s;
-}
-
-define read_channel_title(p, s)
-{
-   p.userdata.channel.title += s;
-}
-
-define read_channel_link(p, s)
-{
-   p.userdata.channel.link +=s;
+   if (p.userdata.cdataref != NULL)
+     @p.userdata.cdataref += s;
 }
 
 define startElement(p, name, atts) {
-   if (name == "item" or name == "entry")
+   if (name == "item" || name == "entry")
      {
 	p.userdata.item = @item_struct;
 	p.userdata.item.title = "";
@@ -162,7 +130,7 @@ define startElement(p, name, atts) {
 	p.userdata.item.is_read = 0;
 	p.userdata.item.date = "";
      }
-   else if (name == "channel" or name == "feed")
+   else if (name == "channel" || name == "feed")
      {
 	if (name == "feed")
 	  p.userdata.is_atom = 1;
@@ -173,13 +141,12 @@ define startElement(p, name, atts) {
 	p.userdata.channel.description = "";
 	p.userdata.channel.link = "";
      }
-   else if (p.userdata.state == "item"
-	   or p.userdata.state == "entry")
+   else if (p.userdata.state == "item" || p.userdata.state == "entry")
      {	  
 	switch (name)
 	  {
 	   case "title":
-	     p.characterdatahandler = &read_title;
+	     p.userdata.cdataref = &p.userdata.item.title;
 	  }
 	  {
 	   case "link":
@@ -199,43 +166,45 @@ define startElement(p, name, atts) {
 		    }
 	       }
 	     else
-	       p.characterdatahandler = &read_link;
+	       p.userdata.cdataref = &p.userdata.item.link;
 	  }
 	  {
 	     % summary and content are for Atom feeds
 	     % presumably they are different things, but I can't find many
 	     % Atom feeds to test this on.
 	   case "description" or case "summary" or case "content":
-	     p.characterdatahandler = &read_description;
+	     p.userdata.cdataref = &p.userdata.item.description;
 	  }
 	  {
 	   case "dc:date":
-	     p.characterdatahandler = &read_date;
+	     p.userdata.cdataref = &p.userdata.item.date;
 	  }
      }
-   else if (p.userdata.state == "channel"
-	   or p.userdata.state == "feed")
+   else if (p.userdata.state == "channel" || p.userdata.state == "feed")
      {	  
 	switch (name)
 	  {
 	   case "title":
-	     p.characterdatahandler = &read_channel_title;
+	     p.userdata.cdataref = &p.userdata.channel.title;
 	  }
 	  {
 	   case "link":
-	     p.characterdatahandler = &read_channel_link;
+	     p.userdata.cdataref = &p.userdata.channel.link;
 	  }
 	  {
 	   case "description" or case "summary":
-	     p.characterdatahandler = &read_channel_description;
+	     p.userdata.cdataref = &p.userdata.channel.description;
 	  }
      }
+   if (p.userdata.cdataref != NULL)
+     p.characterdatahandler = &read_characterdata;
 
    push_state(p, name);
 }
 
 define endElement(p, name)
 {
+   p.userdata.cdataref = NULL;
    p.characterdatahandler = NULL;
    switch (name)
      {
@@ -279,6 +248,8 @@ define rss_new(url)
    p.userdata.states={};
    p.userdata.state="";
    p.userdata.item="";
+   p.userdata.cdataref=NULL;
+   p.characterdatahandler = &read_characterdata;
    p.startelementhandler = &startElement;
    p.endelementhandler = &endElement;
    p.userdata.url = url;
@@ -290,6 +261,11 @@ define get_rss(p)
    variable c = curl_new(p.userdata.url);
    curl_setopt(c, CURLOPT_FOLLOWLOCATION, 1);
    curl_setopt(c, CURLOPT_WRITEFUNCTION, &write_callback, p);
+   curl_setopt (c, CURLOPT_HTTPHEADER,
+                ["User-Agent: firefox",
+                 "Content-Type: application/x-www-form-urlencoded",
+                 "Accept-Charset: ISO-8859-1,utf-8"]);
+
    runhooks("jedscape_curlopt_hook", c);
 
    curl_perform (c);
@@ -305,7 +281,6 @@ define get_rss(p)
 define store_feed(feed, items)
 {
    variable item;
-   variable qfeed = str_quote_string(feed, "'", '\'');
    % We know what items are in the feed now, presumably old items
    % won't come back so we can erase them from the database
    sqlite_exec(db, "delete from items where feed = ?", feed);
@@ -474,7 +449,7 @@ define scroll()
 {
    variable buf =  whatbuf();
    variable item = item_at_point();
-   !if(buffer_visible("news description"))
+   ifnot (buffer_visible("news description"))
      return view_item();
    pop2buf("news description");
    if (item == get_blocal_var("item", NULL))
@@ -515,7 +490,7 @@ define rss_jedscape()
    jedscape_get_url(item.link);
 }
 
-!if (keymap_p(mode))
+ifnot (keymap_p(mode))
 {
    copy_keymap(mode, "view");
    definekey(&rss_goto_page, "g", mode);
