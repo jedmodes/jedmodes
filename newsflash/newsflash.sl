@@ -263,7 +263,6 @@ define get_rss(p)
    curl_setopt(c, CURLOPT_WRITEFUNCTION, &write_callback, p);
    curl_setopt (c, CURLOPT_HTTPHEADER,
                 ["User-Agent: firefox",
-                 "Content-Type: application/x-www-form-urlencoded",
                  "Accept-Charset: ISO-8859-1,utf-8"]);
 
    runhooks("jedscape_curlopt_hook", c);
