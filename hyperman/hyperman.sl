@@ -1,6 +1,6 @@
 % hyperman.sl
 %
-% $Id: hyperman.sl,v 1.30 2008/01/26 10:48:36 paul Exp paul $
+% $Id: hyperman.sl,v 1.31 2008/01/27 10:18:46 paul Exp paul $
 % Keywords: help, hypermedia, unix
 %
 % Copyright (c) 2000-2008 JED, Paul Boekholt, Günter Milde
@@ -9,6 +9,7 @@
 
 provide ("hyperman");
 provide ("man");
+require("pcre");
 require("bufutils");
 require("view");
 implements("man");
@@ -54,31 +55,37 @@ custom_variable("Man_Complete_Whatis", 1);
 
 
 static variable mode = "man",
-#ifnexists _slang_utf8_ok
-  man_word_chars = "-A-Za-z0-9_.:+()",
-  page_pattern = "\\([-A-Za-z0-9_][-A-Za-z0-9_.:+]*\\)",
-  sec_pattern = "(\\([0-9no]\\)\\([a-zA-Z+]*\\))",
-#else
-  man_word_chars = "-A-Za-z0-9_.:+()\e[]",
-  page_pattern = "\\([-A-Za-z0-9_\e\\[\\]][-A-Za-z0-9_.:+\e\\[\\]]*\\)",
-  sec_pattern = "(\\([0-9no\e\\[\\]]\\)\\([a-zA-Z+\e\\[\\]]*\\))",
-#endif
+  man_word_chars = "-A-Za-z0-9_.:+()\e[]";
+
+% pcre patterns
+variable  page_pattern = "([-A-Za-z0-9_\e\\[\\]][-A-Za-z0-9_.:+\e\\[\\]]*)",
+  sec_pattern = "\\(([0-9no\e\\[\\]])([a-zA-Z+\e\\[\\]]*)\\)",
   man_pattern = sprintf("%s ?%s", page_pattern, sec_pattern);
+
+variable page_re = pcre_compile(page_pattern),
+sec_re = pcre_compile(sec_pattern),
+man_re = pcre_compile(man_pattern);
+
+% slang patterns
+page_pattern = "\\([-A-Za-z0-9_\e\\[\\]][-A-Za-z0-9_.:+\e\\[\\]]*\\)";
+sec_pattern = "(\\([0-9no\e\\[\\]]\\)\\([a-zA-Z+\e\\[\\]]*\\))";
+man_pattern = sprintf("%s ?%s", page_pattern, sec_pattern);
+
 
 static variable Man_History = String_Type[16],
   keep_history = 1,
   this_manpage;
 % ---- Functions -----------------------------------------------------------
 
-#ifexists _slang_utf8_ok
 %{{{ escape sequences
+variable escape_re=pcre_compile("\e\\[[0-9]+\\]");
+define purge_escapes(str);
 define purge_escapes(str)
 {
-   variable beg, len;
-   while(string_match(str, "\e\\[[0-9]+\\]", 1))
+   if(pcre_exec(escape_re, str))
      {
-	(beg, len) = string_match_nth(0);
-	str = substr(str, 1, beg) + substr(str, beg+len+1, -1);
+	variable m = pcre_nth_match(escape_re, 0);
+	str = substr(str, 1, m[0]) + purge_escapes(substr(str, m[1]+1, -1));
      }
    return str;
 }
@@ -87,17 +94,16 @@ variable bold_marker = sprintf("\e[%d]", color_number("keyword")),
 italic_marker = sprintf("\e[%d]", color_number("keyword1"));
 %}}}
 
-#endif
 %{{{ parsing references
 
 static define parse_ref(word)
 {
-   if (string_match(word, man_pattern, 1))   % e.g. man(5)
+   if (pcre_exec(man_re, word))   % e.g. man(5)
      {
         variable sec, page, ext;
-        page = string_nth_match(word, 1);
-        sec  = string_nth_match(word, 2);
-        ext  = string_nth_match(word, 3);
+        page = pcre_nth_substr(man_re, word, 1);
+        sec  = pcre_nth_substr(man_re, word, 2);
+        ext  = pcre_nth_substr(man_re, word, 3);
 
         if (strlen(ext) and Man_Use_Extensions)
           sec = "-e " + ext;
@@ -116,7 +122,7 @@ static define parse_ref(word)
 %               "man"         to "man"
 static define make_ref(subj)
 {
-   if (string_match(subj, man_pattern, 1))
+   if (pcre_exec(man_re, subj))
      return subj;
    subj = strtok(subj, " "); % ["5", "man"] , ["-e", "tcl", "exit"]
    switch (length(subj))
@@ -136,14 +142,10 @@ variable man_completions="";
 % Can be in the n exit or exit(n) or exit(3tcl) format.
 static define man_read_subject()
 {
-#ifnexists _slang_utf8_ok
-   variable word= get_word(man_word_chars);
-#else
    variable word= purge_escapes(get_word(man_word_chars));
-#endif
    if (is_substr(word, "("))  % maybe it's a C function
      {
-	!if (string_match(word, man_pattern, 1))
+	!if (pcre_exec(man_re, word))
 	  word = strchop(word, '(', 0)[0];
      }
    if (Man_Complete_Whatis)
@@ -164,11 +166,6 @@ static define man_clean_manpage ()
    variable section_alist=String_Type[25, 2], sections = 0, line;
    bob ();
    flush (clean);
-#ifnexists _slang_utf8_ok
-   replace ("_\010", Null_String);	% remove _^H underscores
-   while (fsearch ("\010"))	% remove overstrike
-     deln (2);
-#else
    % fix hyphens if in utf-8 mode
    if (_slang_utf8_ok)
      {
@@ -207,7 +204,7 @@ static define man_clean_manpage ()
 	pop;
 	insert("\e[0]");
      }
-#endif
+
    if (Man_Clean_Headers)
      {
 	variable header;
@@ -247,18 +244,10 @@ static define man_clean_manpage ()
    variable alist_index;
    while (sections <  25)
      {
-#ifnexists _slang_utf8_ok
-	!if (re_fsearch ("^[A-Z]")) break;
-#else
 	!if (re_fsearch ("^[\e0-9\\[\\]]*[A-Z]")) break;
-#endif
 	line = line_as_string;
 	if (strlen(line) > 50) continue;   %  header or footer
-#ifnexists _slang_utf8_ok
-	section_alist[sections, 0] = line;
-#else
 	section_alist[sections, 0] = purge_escapes(line);
-#endif
 	section_alist[sections, 1] = string(what_line());
 	sections++;
      }
@@ -282,21 +271,13 @@ static define man_clean_manpage ()
 public define man_next_section ()
 {
    go_down_1 ();
-#ifnexists _slang_utf8_ok
-   () = re_fsearch ("^[A-Z]");
-#else
    () = re_fsearch ("^[\e0-9\\[\\]]*[A-Z]");
-#endif
    recenter (1);
 }
 
 public define man_previous_section ()
 {
-#ifnexists _slang_utf8_ok
-   () = re_bsearch ("^[A-Z]");
-#else
    () = re_bsearch ("^[\e0-9\\[\\]]*[A-Z]");
-#endif
    recenter (1);
 }
 
@@ -321,25 +302,18 @@ public define man_goto_section ()
 public define man_next_reference ()
 {
    skip_chars (man_word_chars);
-#ifexists _slang_utf8_ok
    go_right_1; % weirdness in searching w/ escape sequences
-#endif
    () = re_fsearch (man_pattern);
 }
 
 public define man_previous_reference ()
 {
    bskip_chars (man_word_chars);
-#ifnexists _slang_utf8_ok
-   () = re_bsearch (man_pattern);
-#else
    if (re_bsearch (man_pattern))
      {
 	bskip_chars("\e[]0-9");
 	bskip_chars("-a-zA-Z0-9");
      }
-   
-#endif
 }
 %}}}
 
@@ -456,9 +430,7 @@ static define man_get_ref ()
    if (bolp)
      {
 	go_left(2);
-#ifexists _slang_utf8_ok
 	if(looking_at_char(']')) {bskip_chars("\e[]0-9"); go_left_1;}
-#endif
 	if (looking_at_char('­'))
 	  {
 	     push_mark;
@@ -479,11 +451,7 @@ static define man_get_ref ()
 	message (word + " is not a man-page");
 	return "";
      }
-#ifnexists _slang_utf8_ok
-   return parse_ref(word); % extract and normalize reference
-#else
    return parse_ref(purge_escapes(word)); % extract and normalize reference
-#endif
 }
 
 public define man_follow()
@@ -550,12 +518,8 @@ public define unix_apropos()
 public define unix_whatis()
 {
    push_spot;
-#ifnexists _slang_utf8_ok
-   variable ro = is_readonly(), mo = buffer_modified(), word = get_word("-A-Za-z0-9_.:");
-#else
    variable ro = is_readonly(), mo = buffer_modified(),
    word = purge_escapes(get_word("-A-Za-z0-9_.:\e[]0-9"));
-#endif
    eol;
    set_readonly(0);
    push_visible_mark;
@@ -628,7 +592,7 @@ static define man_page_callback(popup)
      {
 	buf = ();
 	if (is_substr(buf, "*Man"))
-	  menu_append_item(popup, buf[[5:]][[:-2]], &sw2buf, buf);
+	  menu_append_item(popup, buf[[5:-2]], &sw2buf, buf);
      }
 }
 
@@ -646,32 +610,6 @@ static define man_menu(menu)
 
 %}}}
 
-#ifnexists _slang_utf8_ok
-%{{{ Syntax Highlighting
-
-#ifdef HAS_DFA_SYNTAX
-create_syntax_table (mode);
-%%% DFA_CACHE_BEGIN %%%
-static define setup_dfa_callback (mode)
-{
-   variable word_ch = "A-Za-z0-9:_\\.\\+\\-";
-   variable page_pat = sprintf("[A-Za-z0-9_][%s]*",word_ch);
-   variable sec_pat = "\\([0-9no][a-zA-Z\\+\\-]*\\)";
-   variable man_pat = sprintf("%s%s", page_pat, sec_pat);
-   dfa_enable_highlight_cache(mode +".dfa", mode);
-   dfa_define_highlight_rule (man_pat, "Qkeyword0", mode);
-   man_pat = sprintf("^%s ?%s", page_pat, sec_pat);
-   dfa_define_highlight_rule (man_pat, "Qkeyword0", mode);
-   dfa_build_highlight_table(mode);
-}
-dfa_set_init_callback (&setup_dfa_callback, mode);
-%%% DFA_CACHE_END %%%
-enable_dfa_syntax_for_mode(mode);
-#endif
-
-%}}}
-
-#endif
 %{{{ mouse support
 
 static define man_mouse(line, col, but, shift)
@@ -711,14 +649,7 @@ static define man_mode()
 {
    view_mode ();
    use_keymap (mode);
-#ifnexists _slang_utf8_ok
-#ifdef HAS_DFA_SYNTAX
-   use_syntax_table(mode);
-   use_dfa_syntax(1);
-#endif
-#else
    _set_buffer_flag(0x1000);
-#endif
    set_mode(mode, 0);
    set_buffer_hook("mouse_up", &man_mouse);
    mode_set_mode_info(mode, "init_mode_menu", &man_menu);
@@ -731,11 +662,7 @@ static define man_read_completions()
 {
    variable fp = fopen(dircat(Jed_Home_Directory, "man_completions"), "r");
    if (fp == NULL) return;
-#ifnexists _slang_utf8_ok
-   () = fread (&man_completions, Char_Type, 1000000, fp);
-#else
    () = fread_bytes(&man_completions, 1000000, fp);
-#endif
    () = fclose(fp);
 }
 
@@ -745,11 +672,7 @@ public define man_make_completions()
    variable fp = popen
      ("(whatis -w '*' | sed -e 's/).*/),/' | tr -d '\n') 2> /dev/null", "r");
    if (fp == NULL) return;
-#ifnexists _slang_utf8_ok
-   () = fread (&man_completions, Char_Type, 1000000, fp);
-#else
    () = fread_bytes(&man_completions, 1000000, fp);
-#endif
    () = pclose(fp);
    fp = fopen(dircat(Jed_Home_Directory, "man_completions"), "w");
    if (fp == NULL) return;
