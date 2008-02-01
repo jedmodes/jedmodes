@@ -214,6 +214,33 @@ static define test_assoc_get_key()
    test_equal("5", assoc_get_key(ass, 5));
 }
 
+% Array_Type array([args])
+% Return an array containing the arguments
+
+static define test_array__integer()
+{
+   test_equal(array(0, 1, 2, 3), [0, 1, 2, 3]);
+}
+
+static define test_array__string()
+{
+   test_equal(array("0", "1"), ["0","1"]);
+}
+
+static define test_array__empty()
+{
+   test_equal(array(), Any_Type[0]);
+}
+
+static define test_array__mixed()
+{
+   variable a = Any_Type[3], a1 = array(0, "1", '2');
+   a[0] = 0; a[1] = "1"; a[2] = '2';
+   test_equal(length(a1), 3);
+   test_equal(_typeof(a1), Any_Type);
+}
+
+
 #stop
    
 % pop2array: library function
@@ -247,38 +274,6 @@ static define test_assoc_get_key()
 static define test_pop2array()
 {
    Arr  pop2array(N=_stkdepth, [type]);
-}
-
-% array: library function
-% 
-%  SYNOPSIS
-%   Return an array containing the arguments
-% 
-%  USAGE
-%   Array_Type array([args])
-% 
-%  DESCRIPTION
-%   Pack the arguments into an array and return it.
-%   The type is autodetermined (defaulting to `Any_Type'
-%   if the element types differ).
-% 
-%  NOTES
-%  If you know the datatype of the arguments, you can save resources pushing
-%  the arguments first and using `pop2array' with the datatype argument.
-% 
-%      (arg1, ...., argN);
-%      a = pop2array(N, datatype)
-% 
-%  instead of (the simpler)
-% 
-%      a = array(arg1, ...., argN);
-% 
-% 
-%  SEE ALSO
-%   pop2array, push_array, list2array
-static define test_array()
-{
-   Arr  = array([args]);
 }
 
 
