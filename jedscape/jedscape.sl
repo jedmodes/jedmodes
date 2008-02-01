@@ -1,8 +1,8 @@
 % jedscape.sl
 %
-% $Id: jedscape.sl,v 1.10 2007/06/09 12:43:49 paul Exp paul $
+% $Id: jedscape.sl,v 1.11 2008/02/01 18:29:50 paul Exp paul $
 %
-% Copyright (c) 2003-2007 Paul Boekholt.
+% Copyright (c) 2003-2008 Paul Boekholt.
 % Released under the terms of the GNU GPL (version 2 or later).
 %
 % Mode for browsing the web in JED.
@@ -10,9 +10,12 @@
 provide("jedscape");
 require("curl");
 require("pcre");
+require("sqlite");
 require("bufutils");
 require("view");
 autoload("read_rss_data", "newsflash");
+autoload("sqlited_table", "sqlited");
+
 try
 {
    require("gettext");
@@ -38,18 +41,15 @@ define find_page();
 custom_variable("Jedscape_Home", dircat (Jed_Home_Directory, "jed_home.html"));
 
 %!%+
-%\variable{Jedscape_Bookmark_File}
-%\synopsis{filename of the jedscape bookmark file}
+%\variable{Jedscape_DB}
+%\synopsis{filename of the jedscape database}
 %\description
-% Bookmark file looks like:
-%#v+
-% name\thref\n
-%#v-
-% like links' bookmark file.  If the href contains a \var{%s}, the user
-% is prompted for a search parameter.
+% The database has one table bookmarks(name, url) and a table for search
+% engines.  Search Engines work more or less like in Firefox - e.g. type
+% 'wp foo' at the 'open' prompt to search for 'foo' in Wikipedia.
 %\seealso{jedscape}
 %!%-
-custom_variable("Jedscape_Bookmark_File", dircat (Jed_Home_Directory, "jedscape_bookmarks"));
+custom_variable("Jedscape_DB", dircat (Jed_Home_Directory, "jedscape_db"));
 
 %!%+
 %\variable{Jedscape_Html_Filter}
@@ -79,7 +79,7 @@ custom_variable("Jedscape_Emulation", "w3");
 private variable mode="jedscape";
 
 private variable
-  version="$Revision: 1.10 $",
+  version="$Revision: 1.11 $",
   title="",
   this_href_mark, last_href_mark,      % check if tags don't overlap
   url_file ="",			       %  /dir/file.html
@@ -90,6 +90,21 @@ private variable
   href_i,			       %  counter for hrefs
   anchor_list, anchor_marks, anchor_i,	       %  anchors
   links= struct{ previous, next, up, contents};   %  links in <head>
+
+%{{{ database
+$1 = file_status(Jedscape_DB);
+variable db = sqlite_open(Jedscape_DB);
+!if ($1)
+{
+   sqlite_exec(db, "CREATE TABLE bookmarks (name TEXT PRIMARY KEY, url TEXT)");
+   sqlite_exec(db, "CREATE TABLE searchengines (name TEXT PRIMARY KEY, url TEXT)");
+   sqlite_exec(db, "INSERT INTO searchengines (name, url) VALUES ('wp', 'http://en.wikipedia.org/wiki/Special:Search?&search=%s')");
+   sqlite_exec(db, "INSERT INTO searchengines (name, url) VALUES ('php', 'http://php.net/search.php?pattern=%s&show=quickref')");
+   sqlite_exec(db, "INSERT INTO searchengines (name, url) VALUES ('cpan', 'http://cpan.uwinnipeg.ca/search?query=%s&mode=dist')");
+   sqlite_exec(db, "INSERT INTO searchengines (name, url) VALUES ('perl', 'http://cpan.uwinnipeg.ca/cgi-bin/docperl?query=%s&si=2')");
+}
+
+%}}}
 
 %{{{ html parsing
 
@@ -333,6 +348,7 @@ private define write_callback (v, data)
 
 % flag to signal that the history should not be pushed
 private variable page_is_download=0;
+private variable se_re = pcre_compile("([^ ]+?) (.*)");
 
 define find_page(url)
 {
@@ -353,10 +369,18 @@ define find_page(url)
    
    setbuf(" jedscape_buffer");
    erase_buffer();
+   if (pcre_exec(se_re, file))
+     {
+	variable se, term;
+	(se, term) = pcre_nth_substr(se_re, file, 1), pcre_nth_substr(se_re, file, 2);
+	se = sqlite_get_array(db, String_Type, "select url from searchengines where name = ?", se);
+	if (length(se))
+	  file = sprintf(se[0,0], curl_easy_escape(curl_new(""), term));
+     }
+
    !if (strncmp(file, "http://", 7))
      {
 	variable c = curl_new (file);
-	curl_setopt(c, CURLOPT_USERAGENT, sprintf("jed %s", _jed_version_string));
 	curl_setopt(c, CURLOPT_FOLLOWLOCATION, 1);
 	curl_setopt(c, CURLOPT_WRITEFUNCTION, &write_callback, &v);
 	% You can use this hook to set a proxy server, e.g:
@@ -452,7 +476,6 @@ private define download(url)
    variable fp=fopen(dest, "w");
    if (fp == NULL)
      throw OpenError;
-   curl_setopt(c, CURLOPT_USERAGENT, sprintf("jed %s", _jed_version_string));
    curl_setopt(c, CURLOPT_FOLLOWLOCATION, 1);
    curl_setopt (c, CURLOPT_WRITEFUNCTION, &download_callback, fp);
    curl_setopt (c, CURLOPT_PROGRESSFUNCTION, &progress_callback, stdout);
@@ -541,10 +564,12 @@ define goto_next_position()
 %!%-
 public define jedscape_get_url() % url
 {
-   !if (_NARGS) read_mini("open", "", "");
+   variable url;
+   if (_NARGS) url = ();
+   else url = read_mini("open", "", "");
    variable last_host, last_file, last_line;
    (last_host, last_file, last_line) = (url_host, url_file, what_line());
-   find_page();
+   find_page(url);
    push_position(last_host, last_file, last_line);
 }
 
@@ -751,14 +776,6 @@ private define view_url()
    message(strcat(url_host, url_file));
 }
 
-define add_bookmark()
-{
-   variable bookmark_title = read_mini(_("Title:"), title, "");
-   if (-1 == append_string_to_file (sprintf("%s\t%s\n", bookmark_title, url_file), Jedscape_Bookmark_File))
-     message ("could not add bookmark");
-   else
-     message ("bookmark added");
-}
 
 %}}}
 
@@ -801,6 +818,7 @@ private define mouse_2click_hook(line, col, button, shift)
 
 %{{{ keymap
 
+define add_bookmark();
 
 !if (keymap_p(mode))
   copy_keymap(mode, "view");
@@ -867,7 +885,8 @@ private define links_popup(menu)
      }
 }
 
-% Simple 'smart bookmark'
+%{{{ bookmarks
+
 private define bookmark_callback(bm)
 {
    if (is_substr(bm, "%s"))
@@ -877,21 +896,50 @@ private define bookmark_callback(bm)
      }
    jedscape_get_url(bm);
 }
-	  
+
 private define jedscape_bookmark_popup(menu)
 {
-   variable bookmark, fp = fopen (Jedscape_Bookmark_File, "r");
-   if (fp == NULL)
-     throw OpenError, _("ERROR - unable to open bookmark file.");
-
-   foreach bookmark (fp) using ("line")
+   variable name, url;
+   foreach name, url (db) using ("select name, url from bookmarks order by name")
      {
-	bookmark = strchop(strtrim(bookmark), '\t', 0);
-	if (length(bookmark)<2) break;
-	menu_append_item(menu, bookmark[0], &bookmark_callback, bookmark[1]);
+	menu_append_item(menu, name, &bookmark_callback, url);
      }
-
 }
+
+define add_bookmark()
+{
+   variable name = read_mini(_("name:"), title, "");
+   
+   sqlite_exec(db, "insert into bookmarks (name, url) values (?, ?)",
+	       name, strcat(url_host, url_file));
+   message ("bookmark added");
+}
+
+define edit_bookmarks()
+{
+   sqlited_table(db, Jedscape_DB, "bookmarks");
+}
+
+%}}}
+
+%{{{ search engines
+
+define add_searchengine()
+{
+   variable name = read_mini(_("name:"), title, "");
+   variable url = read_mini("url:", "", "");
+   
+   sqlite_exec(db, "insert into searchengines (name, url) values (?, ?)",
+	       name, url);
+   message ("search engine added");
+}
+
+define edit_searchengines()
+{
+   sqlited_table(db, Jedscape_DB, "searchengines");
+}
+
+%}}}
 
 define jedscape_menu(menu)
 {
@@ -900,9 +948,12 @@ define jedscape_menu(menu)
       ["&Dir", "jedscape"],
       ["&Open local page", "jedscape->open_local"],
       ["&Go to URL", "jedscape_get_url"],
-      ["&Add Bookmark",	"jedscape->add_bookmark"],
       [_("History Page"), "jedscape->view_history"],
-      ["&Source", "jedscape->view_source"]})
+      ["&Source", "jedscape->view_source"],
+      ["&Add Bookmark",	"jedscape->add_bookmark"],
+      ["Edit bookmarks", "jedscape->edit_bookmarks"],
+      ["Add search engine", "jedscape->add_searchengine"],
+      ["Edit search engines", "jedscape->edit_searchengines"]})
      menu_append_item(menu, item[0], item[1]);
    menu_append_popup(menu, "&Links");
    menu_set_select_popup_callback(menu+".&Links", &links_popup);
@@ -920,7 +971,7 @@ define jedscape_menu(menu)
 %  markup.  You can open a document in \var{jedscape_mode} with \var{jedscape}
 %  or \var{jedscape_get_url}.
 %  You can customize \var{jedscape mode} in a jedscape_hook.sl file.
-%\seealso{Jedscape_Home, Jedscape_Bookmark_File, Jedscape_Html_Filter, Jedscape_Emulation}
+%\seealso{Jedscape_Home, Jedscape_DB, Jedscape_Html_Filter, Jedscape_Emulation}
 %!%-
 define jedscape_mode()
 {
