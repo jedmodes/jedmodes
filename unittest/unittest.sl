@@ -20,10 +20,10 @@
 % 0.5   2008-01-21 Unittest_Skip_Patterns replaced by Unittest_Skip_Pattern
 %                  (String instead of Array of Strings).
 %                  code cleanup, better reporting
-% 0.5.1 2008-01-22 test_files(): better report formatting
+% 0.5.1 2008-01-22 test_files(): better testreport formatting
+% 0.5.2 2008-02-06 removed (direct) dependency on datutils
 
 require("sl_utils");  % push_defaults, ...
-require("datutils");  % push_list, pop2list, ...
 autoload("popup_buffer", "bufutils");
 autoload("buffer_dirname", "bufutils");
 autoload("sprint_variable", "sprint_var");
@@ -121,8 +121,8 @@ private define _sprint_list(lst)
 
 public define sprint_error(err)
 {
-   return sprintf("'%s' %s in %s:%d ", 
-      err.descr, err.message, err.file, err.line);
+   return sprintf("'%s' %s in %s() %s:%d ", 
+      err.descr, err.message, err.function, err.file, err.line);
 }
 
 % The test functions
@@ -147,16 +147,16 @@ public define sprint_error(err)
 %!%-
 public  define testmessage() % (fmt, ...)
 {
-   variable buf = whatbuf(), args = pop2list(_NARGS);
+   variable buf = whatbuf(), args = __pop_list(_NARGS);
    sw2buf(reportbuf);
    set_readonly(0);
    eob;
-   vinsert(push_list(args));
+   vinsert(__push_list(args));
    set_buffer_modified_flag(0);
    % view_mode();
    sw2buf(buf);
    args[0] = str_replace_all(args[0], "\n", " ");
-   vmessage(push_list(args));
+   vmessage(__push_list(args));
 }
 
 %!%+
@@ -191,7 +191,6 @@ public  define test_equal() % (a, b, comment="")
 {
    variable a, b, comment;
    (a, b, comment) = push_defaults( , , "", _NARGS);
-   
    !if (_eqs(a, b))
      {
         testmessage("\n  E: %s==%s failed. %s", 
@@ -225,7 +224,7 @@ public  define test_unequal() % (a, b, comment="")
 public  define test_stack() % (comment="")
 {
    variable comment = push_defaults("", _NARGS);
-   variable leftovers = pop2list();
+   variable leftovers = __pop_list(_stkdepth);
    if (length(leftovers) > 0)
      {
         testmessage("\n  E: garbage on stack: %s, %s", 
@@ -238,7 +237,7 @@ public  define test_stack() % (comment="")
 % store list of return value(s) in Last_Result
 public define test_for_exception() % (fun, [args])
 {
-   variable args = pop2list(_NARGS-1);
+   variable args = __pop_list(_NARGS-1);
    variable fun = ();
    % convert string to function reference
    if (typeof(fun) == String_Type)
@@ -250,11 +249,11 @@ public define test_for_exception() % (fun, [args])
      {
         if (fun == NULL)
           throw UndefinedNameError, "tested function not defined";
-        @fun(push_list(args));
+        @fun(__push_list(args));
      }
    catch AnyError: {}
    % store return value(s)
-   Last_Result = pop2list(_stkdepth()-stack_before);
+   Last_Result = __pop_list(_stkdepth()-stack_before);
    return err;
 }
 
@@ -292,13 +291,13 @@ public define test_for_exception() % (fun, [args])
 %!%-
 public define test_function() % (fun, [args])
 {
-   variable args = pop2list(_NARGS-1);
+   variable args = __pop_list(_NARGS-1);
    variable fun = ();
    variable err, error_count_before = Error_Count;
    
    % test-run the function
    testmessage("\n  %S(%s): ", fun, _sprint_list(args));
-   err = test_for_exception(fun, push_list(args));
+   err = test_for_exception(fun, __push_list(args));
    if (err != NULL)
      {
         testmessage("E: %s", sprint_error(err));
@@ -313,11 +312,11 @@ public define test_function() % (fun, [args])
 }
 
 % Test if the return value of a tested function equals the expected
-% result (This is basically a list comparision of pop2list(args) with
+% result (This is basically a list comparision of __pop_list(args) with
 % unittest->Last_Result and with special report settings)
 public  define test_last_result() % args
 {
-   variable expected_result = pop2list(_NARGS);
+   variable expected_result = __pop_list(_NARGS);
    % silently pass if Last_Result meets expectations
    if (_eqs(Last_Result, expected_result))
      return;
@@ -514,9 +513,9 @@ public define test_files() % (dir="")
 
 public define test_files_and_exit()
 {
-   variable args = pop2list(_NARGS), no_of_errors;
+   variable args = __pop_list(_NARGS), no_of_errors;
    
-   no_of_errors = test_files(push_list(args));
+   no_of_errors = test_files(__push_list(args));
    % append report buffer to report file
    sw2buf(reportbuf);
    mark_buffer();
