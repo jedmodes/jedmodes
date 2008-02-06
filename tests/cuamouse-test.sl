@@ -63,9 +63,9 @@ static define teardown()
 %    returns an Integer denoting:
 %           -1 - click "before" region
 %           -2 - click "after" region
-%           -3 - click in region but "void space" (i.e. past eol)
 %            0 - no region defined
 %            1 - click in region
+%            2 - click in region but "void space" (i.e. past eol)
 %
 %  SEE ALSO
 %   cuamouse_left_down_hook, cuamouse_right_down_hook
@@ -94,8 +94,8 @@ static define test_click_in_region_after()
 % in region but after eol
 static define test_click_in_region_after_eol()
 {
-   test_equal(click_in_region(2, 13), -3, "click after eol should return -3");
-   test_equal(click_in_region(3, 2), -3, "click after eol should return -3");
+   test_equal(click_in_region(2, 13), 2, "click after eol should return 2");
+   test_equal(click_in_region(3, 2), 2, "click after eol should return 2");
 }
 
 % no region
