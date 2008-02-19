@@ -166,9 +166,13 @@
 % 	     * remove spurious arg in vc_commit_finish()
 % 2008-01-03 * bugfix: swapped arguments in vc_commit_buffer()
 % 2008-01-04 * bugfix: vc_commit_finish() left the window open
-% 2008-01-07 * bugfixes: 
-% 	        + diff_filenames holds Integer_Type values
-% 	        + add missing autoloads, get_blocal |-> get_blocal_var()
+% 2008-01-07 * bugfix: diff_filenames holds Integer_Type values
+% 	       bugfix: add missing autoloads, get_blocal --> get_blocal_var()
+% 2008-02-19 * add CVS keywords for this file
+% 	     * bury output buffer after commit (show last line in minibuffer)
+% 	     * re-open instead of reload buffers to avoid 
+% 	       "file changed on disk" questions
+% 	     
 %                           
 % TODO
 % ====
@@ -178,6 +182,7 @@
 % * use listings.sl for the listings
 % * syntax highlight (DFA) in directory listing
 % * Add support for 'diff -r HEAD'
+% * Consider -u option for svn status (show externally updated files)
 
 #<INITIALIZATION>
 % Add a "File>Version Control" menu popup
@@ -207,12 +212,13 @@ autoload("get_line", "txtutils");       % >= 2.7
 autoload("re_replace", "txtutils");       % >= 2.7
 require("x-keydefs");              % symbolic keyvars, including Key_Esc
 
-% require("filelist");
+% require("listing");
 
-%% Variables %{{{
 implements("svn");
 provide("svn");
- 
+
+%% Variables %{{{
+
 %!%+
 %\variable{SVN_executable}
 %\synopsis{The location of the svn executable}
@@ -298,17 +304,18 @@ private define set_buffer_dirname(dir)
 %\usage{Integer file_p(file)}
 %\description
 %   Looks for the buffer-filenames of all open buffers and compares to
-%   the argument. Return the number of open buffers with filename file.
+%   the argument. Return the buffer name of the first match or the empty
+%   string.
 %   (buffer-filename is dir + file, see \sfun{buffer_filename})
 %\example
 %#v+
-%   !if(file_p(file))
+%   if(file_p(file) == "")
 %      find_file(file)
 %#v-
 %   will only open a new buffer (and do nothing is file is already open), 
 %   while
 %#v+
-%   if(file_p(file))
+%   if(file_p(file) != "")
 %      find_file(file)
 %#v-
 %   will never open a new buffer (and switch to an open buffer associated 
@@ -324,14 +331,33 @@ public  define file_p(file)
 	% cannot use buffer_filename(), as it does not accept `buf' argument
 	(f, dir, , ) = getbuf_info(buf);
 	if (dir + f == file)
-	  fp++;
+	  return buf;
      }
-   return fp;
+   return "";
 }
 
+% Re-open buffer \var{buf}.
+% 
+% In contrast to reload_buffer, this closes the buffer and opens a new one
+% with find_file(). This prevents questions about changed versions on disk.
+static define reopen_buffer(buf)
+{
+   variable file, dir, col, line;
+   (file, dir, , ) = getbuf_info();
+   if (file == "")
+      verror("No file attached to %s", buf);
+   line = what_line();
+   col = what_column();
+   
+   delbuf(buf);
+   find_file(dir + file);
+   
+   goto_line(line);
+   goto_column_best_try(col);
+}
 
-
-%% Executing version control commands %{{{
+% Executing version control commands
+% ==================================
 
 % find out whether `dir' is under svk version control
 % * checks in the SVKROOT/config file (format as in svk version v2.0.1 )
@@ -448,7 +474,7 @@ define do_vc(args, dir, use_message_buf, signal_error) %{{{
    }
     
    % set working dir
-   if (chdir(dir)) {
+   if (chdir(dir) == -1) {
       error("Couldn't chdir to '" + dir + "': " + errno_string(errno));
    }
    set_buffer_dirname(dir);
@@ -458,8 +484,12 @@ define do_vc(args, dir, use_message_buf, signal_error) %{{{
    insert(msg + "\n\n");
    
    result = run_shell_cmd(cmd);
+   
+   if (bolp)
+      go_up_1();
+   msg = get_line();
     
-   flush("done");
+   flush(msg);
    % bob();
    set_buffer_modified_flag(0);
    set_readonly(1);
@@ -469,9 +499,10 @@ define do_vc(args, dir, use_message_buf, signal_error) %{{{
    % show cmd output if return value != 0
    () = chdir(cwd);
    if (use_message_buf) {
-      % !if (result) 
-      % 	 close_buffer(cmd_output_buffer);
-      % else 
+      !if (result) 
+	 bury_buffer(cmd_output_buffer);
+	 % close_buffer(cmd_output_buffer);
+       else 
 	 pop2buf(buf);
    }
    
@@ -513,8 +544,6 @@ static define vc_commit_finish()
    variable file, files = get_blocal_var("files");
    variable buf = whatbuf();
    
-   variable _file, _dir, _name, _flags;
-   
    % TODO: parse the files list so it can be edited like in SVK
    
    % get message (buffer-content up to info area)
@@ -527,20 +556,21 @@ static define vc_commit_finish()
    % show(msg);
    do_vc(["commit", "-m", msg, files], dir, 1, 1);
    
-   % Re-load commited buffers to update changes to special vars
-   foreach file (dir + files)
-      % only update if open and changed on disk:
-      if (file_p(file)) { 
-	 find_file(file); % go to the open buffer
-	 % TODO: this triggers a "file changed on disk" question!
-	 (_file, _dir, _name, _flags) = getbuf_info();
-	 if (_flags & 4) {
-	    reload_buffer();
-	 }
+   % Re-load commited buffers to update changes (e.g. to $Keywords$)
+   files = dir + files;
+   variable buffer, flags,
+      buffers = array_map(String_Type, &file_p, files);
+   %   filter files without open buffer
+   buffers = buffers[where(buffers != "")];
+   foreach buffer (buffers) {
+      % reload if changed one disk:
+      (, , , flags) = getbuf_info(buffer);
+      if (flags & 4) {
+	 reopen_buffer();
       }
-   
-   % if everything went fine, close the log buffer
-   sw2buf(buf);
+   }
+   % if everything went fine, close the "*Log Message*" buffer
+   sw2buf(buf); % make active so close_buffer closes the window as well
    close_buffer();
 }
 %}}}
@@ -938,7 +968,7 @@ public define vc_list_dir() % (dir=get_op_dir())%{{{
    erase_buffer();
    
    % cvs returns a very verbose list with the status command 
-   % the info recommends a dry-run of update for a short list
+   % the info recommends a dry-run of 'update' for a short list
    switch (vc_system)
      { case "cvs": do_vc(["-n", "-q", "update"], dir, 0, 0); }
      { do_vc(["status"], dir, 0, 0); }
