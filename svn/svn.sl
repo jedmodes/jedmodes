@@ -1,8 +1,8 @@
 % svn.sl: Utilities for SVN and CVS access from jed. 
 % -*- mode: slang -*-
 % 
-% :Date:      $Date: 2008/02/19 12:24:01 $
-% :Version:   $Revision: 1.22 $
+% :Date:      $Date: 2008/02/19 13:21:22 $
+% :Version:   $Revision: 1.23 $
 % :Copyright: (c) 2003,2006 Juho Snellman
 %                 2007      Guenter Milde
 %
@@ -323,7 +323,7 @@ static define reopen_file(file)
 	    and  flags & 4 % changed one disk
 	   ) {
 	   delbuf(buf);
-	   find_file(file);
+	   () = find_file(file);
 	   % try to restore the point position from the recent files cache
 	   call_function("recent_file_goto_point");   
 	   break;
@@ -533,7 +533,7 @@ static define vc_commit_finish()
    
    % Re-load commited buffers to update changes (e.g. to $Keywords$)
    foreach file (dir + files) {
-      reopen_file();
+      reopen_file(file);
    }
 
    % if everything went fine, close the "*Log Message*" buffer
