@@ -1,8 +1,8 @@
 % svn.sl: Utilities for SVN and CVS access from jed. 
 % -*- mode: slang -*-
 % 
-% :Date:      $Date: 2008/02/19 10:17:20 $
-% :Version:   $Revision: 1.21 $
+% :Date:      $Date: 2008/02/19 12:24:01 $
+% :Version:   $Revision: 1.22 $
 % :Copyright: (c) 2003,2006 Juho Snellman
 %                 2007      Guenter Milde
 %
@@ -488,8 +488,7 @@ define do_vc(args, dir, use_message_buf, signal_error) %{{{
 
 %% Commit files %{{{
 
-private variable end_of_log_str = 
-   "# --- diese und die folgenden Zeilen werden ignoriert ---";
+private variable end_of_log_str = "# === Targets to commit ===";
 % "=== Targets to commit (you may delete items from it) ===";
 
 % Prepare commit of files in array `files' in working dir `dir'.
@@ -528,18 +527,15 @@ static define vc_commit_finish()
    variable msg = bufsubstr();
    set_buffer_modified_flag(0);
    % show(msg);
+   
+   % now commit to VC
    do_vc(["commit", "-m", msg, files], dir, 1, 1);
    
    % Re-load commited buffers to update changes (e.g. to $Keywords$)
-   files = dir + files;
-   variable buffer, flags,
-      buffers = array_map(String_Type, &file_p, files);
-   %   filter files without open buffer
-   buffers = buffers[where(buffers != "")];
-   foreach buffer (buffers) {
-	 reopen_buffer();
-
+   foreach file (dir + files) {
+      reopen_file();
    }
+
    % if everything went fine, close the "*Log Message*" buffer
    sw2buf(buf); % make active so close_buffer closes the window as well
    close_buffer();
