@@ -1,8 +1,8 @@
 % svn.sl: Utilities for SVN and CVS access from jed. 
 % -*- mode: slang -*-
 % 
-% :Date:      $Date: 2008/02/19 09:28:45 $
-% :Version:   $Revision: 1.20 $
+% :Date:      $Date: 2008/02/19 10:17:20 $
+% :Version:   $Revision: 1.21 $
 % :Copyright: (c) 2003,2006 Juho Snellman
 %                 2007      Guenter Milde
 %
@@ -300,62 +300,35 @@ private define set_buffer_dirname(dir)
    setbuf_info(file, dir, name, flags);
 }
 
-%!%+
-%\function{file_p}
-%\synopsis{Return the number of open buffers associated to file}
-%\usage{Integer file_p(file)}
-%\description
-%   Looks for the buffer-filenames of all open buffers and compares to
-%   the argument. Return the buffer name of the first match or the empty
-%   string.
-%   (buffer-filename is dir + file, see \sfun{buffer_filename})
-%\example
-%#v+
-%   if(file_p(file) == "")
-%      find_file(file)
-%#v-
-%   will only open a new buffer (and do nothing is file is already open), 
-%   while
-%#v+
-%   if(file_p(file) != "")
-%      find_file(file)
-%#v-
-%   will never open a new buffer (and switch to an open buffer associated 
-%   with \var{file}).
-%\seealso{bufferp, buffer_filename, buffer_list, getbuf_info, find_file}
-%!%-
-public  define file_p(file)
-{
-   variable dir, buf, f, fp=0;
-   loop (buffer_list())
-     {
-	buf = (); % retrieve from stack, as getbuf_info take optional arg
-	% cannot use buffer_filename(), as it does not accept `buf' argument
-	(f, dir, , ) = getbuf_info(buf);
-	if (f != "" and dir + f == file)
-	  return buf;
-     }
-   return "";
-}
-
-% Re-open buffer \var{buf}.
+% Re-open file \var{file}.
 % 
-% In contrast to reload_buffer, this closes the buffer and opens a new one
-% with find_file(). This prevents questions about changed versions on disk.
-static define reopen_buffer(buf)
+% In contrast to reload_buffer(), reopen_file() takes a (full) filename as argument.
+% 
+% To prevent questions about changed versions on disk, it avoids switching
+% to the buffer. Also, it closes the buffer and re-loads the file with find_file(). 
+% 
+% Does nothing if file is up-to-date or not attached to any buffer.
+static define reopen_file(file)
 {
-   variable file, dir, col, line;
-   (file, dir, , ) = getbuf_info();
-   if (file == "")
-      verror("No file attached to %s", buf);
-   line = what_line();
-   col = what_column();
-   
-   delbuf(buf);
-   find_file(dir + file);
-   
-   goto_line(line);
-   goto_column_best_try(col);
+
+   % Put the list of buffers in an array instead of looping over
+   % buffer_list(). This way leftovers after a `break' are automatically
+   % removed from the stack.
+   variable buffers = [buffer_list(), pop];    
+   variable buf, dir, f, flags;
+   foreach buf (buffers)
+     {
+	(f, dir, ,flags) = getbuf_info(buf);
+	if (dir + f == file
+	    and  flags & 4 % changed one disk
+	   ) {
+	   delbuf(buf);
+	   find_file(file);
+	   % try to restore the point position from the recent files cache
+	   call_function("recent_file_goto_point");   
+	   break;
+	}
+     }
 }
 
 % Executing version control commands
@@ -564,11 +537,8 @@ static define vc_commit_finish()
    %   filter files without open buffer
    buffers = buffers[where(buffers != "")];
    foreach buffer (buffers) {
-      % reload if changed one disk:
-      (, , , flags) = getbuf_info(buffer);
-      if (flags & 4) {
 	 reopen_buffer();
-      }
+
    }
    % if everything went fine, close the "*Log Message*" buffer
    sw2buf(buf); % make active so close_buffer closes the window as well
