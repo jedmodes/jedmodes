@@ -1,8 +1,11 @@
 % svn.sl: Utilities for SVN and CVS access from jed. 
 % -*- mode: slang -*-
 % 
-% Copyright (c) 2003,2006 Juho Snellman
-%               2007      Guenter Milde
+% :Date:      $Date$
+% :Version:   $Revision$
+% :URL:       $URL$
+% :Copyright: (c) 2003,2006 Juho Snellman
+%                 2007      Guenter Milde
 %
 % (Standard MIT/X11 license follows)
 % 
@@ -485,11 +488,10 @@ define do_vc(args, dir, use_message_buf, signal_error) %{{{
    
    result = run_shell_cmd(cmd);
    
-   if (bolp)
-      go_up_1();
-   msg = get_line();
-    
-   flush(msg);
+   if (bsearch("revision"))
+      flush(get_line());
+   else
+      flush("done");
    % bob();
    set_buffer_modified_flag(0);
    set_readonly(1);
