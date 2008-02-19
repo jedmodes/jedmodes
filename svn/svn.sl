@@ -1,9 +1,8 @@
 % svn.sl: Utilities for SVN and CVS access from jed. 
 % -*- mode: slang -*-
 % 
-% :Date:      $Date$
-% :Version:   $Revision$
-% :URL:       $URL$
+% :Date:      $Date: 2008/02/19 09:28:45 $
+% :Version:   $Revision: 1.20 $
 % :Copyright: (c) 2003,2006 Juho Snellman
 %                 2007      Guenter Milde
 %
@@ -333,7 +332,7 @@ public  define file_p(file)
 	buf = (); % retrieve from stack, as getbuf_info take optional arg
 	% cannot use buffer_filename(), as it does not accept `buf' argument
 	(f, dir, , ) = getbuf_info(buf);
-	if (dir + f == file)
+	if (f != "" and dir + f == file)
 	  return buf;
      }
    return "";
