@@ -1,6 +1,6 @@
 % ruby.sl
 % 
-% $Id: ruby.sl,v 1.3 2007/11/02 17:16:33 paul Exp paul $
+% $Id: ruby.sl,v 1.11 2008/01/22 10:31:41 boekholt Exp $
 % 
 % Copyright (c) ca.
 %  2000 Shugo Maeda
@@ -399,7 +399,7 @@ public define ruby_mode()
    set_buffer_hook("color_region_hook", &color_buffer);
    set_buffer_hook("indent_hook", &ruby_indent_line);
    set_buffer_hook("newline_indent_hook", "ruby_newline_and_indent"); 
-   runhooks("ruby_mode_hook");
+   run_mode_hooks("ruby_mode_hook");
 }
 
 provide("ruby");
