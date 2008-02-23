@@ -1,9 +1,9 @@
 % email.sl -*- mode: SLang; mode: Fold -*-
 % 
-% $Id: email.sl,v 1.7 2007/12/30 19:04:12 paul Exp paul $
+% $Id: email.sl,v 1.8 2008/02/23 07:21:21 paul Exp paul $
 % Keywords: mail
 % 
-% Copyright (c) 2003-2007 Paul Boekholt, Morten Bo Johansen
+% Copyright (c) 2003-2008 Paul Boekholt, Morten Bo Johansen
 % Released under the terms of the GNU GPL (version 2 or later).
 % 
 % This file was written by the following people:
@@ -57,13 +57,13 @@ variable mode  = "email";
 % List of things that look like non-nested quotes (as Emacs' supercite
 % makes) in this buffer. We assume that you don't try to edit two emails
 % at once.
-variable sc_quotes = "";
+variable sc_quotes = Assoc_Type[Integer_Type];
 
 %}}}
 
 %{{{ keymap
 
-!if (keymap_p (mode)) make_keymap (mode);
+ifnot (keymap_p(mode)) make_keymap (mode);
 rebind("format_paragraph", "email_reformat", mode);
 definekey_reserved ("kill_this_level_around_point", "", mode);
 definekey_reserved ("email_delete_quoted_sigs", "", mode);
@@ -141,8 +141,8 @@ enable_dfa_syntax_for_mode(mode);
 static define email_is_tag ()
 {
    push_spot_bol ();
-   orelse {andelse {Email_Have_Mbox} {bobp ()} {looking_at ("From ")}}
-     {1 == re_looking_at ("^[A-Za-z][^: ]*:")};
+   (Email_Have_Mbox && bobp () && looking_at ("From ")
+    || 1 == re_looking_at ("^[A-Za-z][^: ]*:"));
    pop_spot ();
 }
 
@@ -157,11 +157,10 @@ static define email_have_header ()
 
 static define email_is_body ()
 {
-   !if (email_have_header ()) return 1;
+   ifnot (email_have_header()) return 1;
    push_spot ();
-   orelse
-     {bol_bsearch ("\n")}
-     {bol_bsearch ("--- Do not modify this line.  Enter your message below")};
+   (bol_bsearch("\n")
+    || bol_bsearch("--- Do not modify this line.  Enter your message below"));
    pop_spot ();
 }
 
@@ -169,23 +168,19 @@ static define email_is_body ()
 static define email_parsep ()
 {
    push_spot_bol ();
-   if (looking_at("-- "))
-     1;
-   else if (email_is_body ()) {
-      skip_chars(MailEdit_Quote_Chars+" \t");
-      eolp();
-   } else
-     (email_is_tag () or (skip_white (),eolp ()));
+   (looking_at("-- ")
+    || email_is_body() && (skip_chars(MailEdit_Quote_Chars+" \t"), eolp())
+    || email_is_tag ()
+    || (skip_white(), eolp()));
    pop_spot ();
-   return ();
 }
 
 static define reformat_header ()
 {
    push_spot ();
-   while (not (email_is_tag ()))
+   while (not email_is_tag())
      {
-	!if(up_1 ())
+	ifnot (up_1())
 	  {
 	     pop_spot ();
 	     return;
@@ -207,18 +202,21 @@ static define reformat_header ()
 
 static define goto_end_of_headers()
 {
-   bob;
-   () = orelse
-     {bol_fsearch ("--- Do not modify this line.  Enter your message below")}
-     {bol_fsearch ("\n")}
-     {eob, newline, newline, 1};
+   bob();
+   ifnot (bol_fsearch("--- Do not modify this line.  Enter your message below")
+	  || bol_fsearch ("\n"))
+     {
+	eob();
+	newline();
+	newline();
+     }
    go_up_1;
 }
 
 static define narrow_to_body()
 {
    push_spot;
-   !if(email_have_header) mark_buffer;
+   ifnot(email_have_header) mark_buffer();
    else
      {
 	goto_end_of_headers;
@@ -237,9 +235,8 @@ static define narrow_to_body()
 static define check_sc_quote()
 {
    variable sc_quote;
-   foreach (strchop(sc_quotes, ',', 0))
+   foreach sc_quote (sc_quotes) using ("keys")
      {
-	sc_quote = ();
 	if (looking_at(sc_quote))
 	  return sc_quote;
      }
@@ -262,13 +259,12 @@ static define reformat_quote()
    variable quotes, qlen;
    USER_BLOCK0
      {
-	orelse
-	  { not looking_at(quotes)}
+	not looking_at(quotes)
 	% If more quote-like stuff follows, it's a deeper quoting level
 	% Might as well test for -lists
-	  { go_right(qlen), skip_white, eolp}
-	  { check_sc_quote() != "" }
-	  { is_substr(MailEdit_Quote_Chars+"-", char(what_char()) )};
+	  || (go_right(qlen), skip_white(), eolp())
+	  || check_sc_quote() != ""
+	  || is_substr(MailEdit_Quote_Chars+"-", char(what_char()));
      }
    
    push_spot_bol;
@@ -334,28 +330,26 @@ static define ispell_is_quote_hook()
 % This is based on Tomasz 'tsca' Sienicki's oe_quot.sl for slrn.
 public define un_oe_quote ()
 { variable rtk, hvr,len, cregexp =
-     "\\(\n[|:> ]*\\)"  % line 1: quotes
-     + "\\([|:>] ?\\)[^\n]\\{60,\\}" % extra quote, line of text
-     + "\\1\\([^|:>]\\{1,15\\}\\)" % line 2: quotes, some text -> BROKEN!
-     + "\\1\\2", % line 3: first and extra quote
+     "\(\n[|:> ]*\)"R  % line 1: quotes
+     + "\([|:>] ?\)[^\n]\{60,\}"R % extra quote, line of text
+     + "\1\([^|:>]\{1,15\}\)"R % line 2: quotes, some text -> BROKEN!
+     + "\1\2"R, % line 3: first and extra quote
      line = what_line;
    bob;
    if (email_have_header)
      {
-	!if (bol_fsearch("--- Do not modify this line."))
+	ifnot (bol_fsearch("--- Do not modify this line."))
 	  ()= bol_fsearch("\n");
 	go_down_1;
      }
    push_mark_eob;
    rtk = bufsubstr_delete;
-   forever
+   while (string_match(rtk,cregexp,2))
      {
-	if (string_match(rtk,cregexp,2))
-	  {
-	     (hvr,len) = string_match_nth(3);
-	     rtk = (substr(rtk,1,hvr) + string_nth_match(rtk,2)
-		    + substr(rtk,hvr+1,-1));
-	  } else break;
+	(hvr,len) = string_match_nth(3);
+	insert(substr(rtk,1,hvr));
+	insert(string_nth_match(rtk,2));
+	rtk = substr(rtk,hvr+1,-1);
      }
    insert(rtk);
    goto_line(line);
@@ -367,7 +361,7 @@ public define un_oe_quote ()
 public define check_sc_quotes()
 {
    variable sc_quote, pos = 1, len;
-   sc_quotes = "";
+   sc_quotes = Assoc_Type[Integer_Type];
    push_spot();
    mark_buffer;
    variable buffer = bufsubstr;
@@ -379,9 +373,7 @@ public define check_sc_quotes()
 	   + "\\1\\2"	% next line starts with quotes and sc quote
 	   , pos))
 	  {
-	     sc_quote = string_nth_match(buffer, 2);
-	     !if (is_list_element(sc_quotes, sc_quote, ','))
-	       sc_quotes += sc_quote + ",";
+	     sc_quotes[string_nth_match(buffer, 2)] = 1;
 	     (pos, len) = string_match_nth (0);
 	     pos += len + 1;
 	  }
@@ -398,12 +390,12 @@ public define email_reformat ()
 % email_reformat on the second paragraph.
 public define email_split_quoted_paragraph ()
 {
-   if (bolp or eolp) return newline, indent_line;
-   push_spot_bol;
-   !if (re_looking_at (sprintf("^[%s]+", MailEdit_Quote_Chars)))
+   if (bolp() || eolp()) return newline(), indent_line();
+   push_spot_bol();
+   ifnot (re_looking_at(sprintf("^[%s]+", MailEdit_Quote_Chars)))
      {
         pop_spot ();
-        return newline, indent_line;
+        return newline(), indent_line();
      }
    push_mark;
    skip_chars(MailEdit_Quote_Chars+" ");
@@ -441,16 +433,13 @@ public define kill_this_level_around_point ()
    variable quotes = bufsubstr;
    quotes=strtrim_end(quotes);
    variable qlen = strlen (quotes);
-   !if (qlen) return pop_spot;
+   ifnot (qlen) return pop_spot;
    while (up_1)
      {
 	bol;
-	if (orelse
-	    { not looking_at(quotes)}
-	      { go_right(qlen), andelse
-		   { not eolp }
-		   { is_substr(MailEdit_Quote_Chars, char(what_char()))}
-	      })
+	if (not looking_at(quotes)
+	    || (go_right(qlen), not eolp())
+	    && is_substr(MailEdit_Quote_Chars, char(what_char())))
 	  {
 	     go_down_1;
 	     break;
@@ -460,13 +449,9 @@ public define kill_this_level_around_point ()
    pop_spot;
    while (down_1)
      {
-	if (orelse
-	    { not looking_at(quotes)}
-	      { go_right(qlen), andelse
-		   { not eolp }
-		   { is_substr(MailEdit_Quote_Chars, char(what_char()))}
-	      })
-
+	if (not looking_at(quotes)
+	    || (go_right(qlen), not eolp())
+	    && is_substr(MailEdit_Quote_Chars, char(what_char())))
 	  {
 	     go_up_1;
 	     break;
@@ -488,13 +473,9 @@ public define email_delete_quoted_sigs()
 	push_mark;
 	while (down_1)
 	  {
-	     if (orelse
-		 { not looking_at(quotes)}
-		   { go_right(qlen), andelse
-			{ not eolp }
-			{ skip_white, is_substr(MailEdit_Quote_Chars, char(what_char()) )}
-		   })
-
+	     if (not looking_at(quotes)
+		 || (go_right(qlen), not eolp())
+		 && (skip_white(), is_substr(MailEdit_Quote_Chars, char(what_char()))))
 	       {
 		  go_up_1;
 		  break;
@@ -513,7 +494,7 @@ public define email_prepare_reply()
      {
         push_mark;
 	% Don't delete my own signature
-	!if (bol_fsearch("-- "))
+	ifnot (bol_fsearch("-- "))
 	  eob;
 	del_region;
      }
@@ -542,13 +523,13 @@ public define email_prepare_body ()
    if (bol_fsearch(Mail_Quote_String))
      email_prepare_reply;
    else
-     !if (bol_fsearch("\n")) eob;
+     ifnot (bol_fsearch("\n")) eob;
 }
 
 % This only works with timbera.pl, and with Mutt.
 public define email_attach_file()
 {
-   !if (email_have_header) error ("no headers!");
+   ifnot (email_have_header) throw RunTimeError, "no headers!";
    variable attachment = read_with_completion("Attach", "", "", 'f');
    push_spot;
    goto_end_of_headers;
@@ -596,8 +577,7 @@ public define mail_mode ()
    define_blocal_var("flyspell_syntax_table", mode);
    define_blocal_var("ispell_region_hook", &ispell_is_quote_hook);
    check_sc_quotes;
-   runhooks ("text_mode_hook");
-   runhooks ("email_mode_hook");
+   run_mode_hooks ("email_mode_hook");
    if (Email_Quote_Level_Threshold > 0) remove_excess_quote_levels ();
 }
 
