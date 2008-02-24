@@ -1,6 +1,6 @@
 % hyperman.sl
 %
-% $Id: hyperman.sl,v 1.31 2008/01/27 10:18:46 paul Exp paul $
+% $Id: hyperman.sl,v 1.32 2008/02/24 08:58:12 paul Exp paul $
 % Keywords: help, hypermedia, unix
 %
 % Copyright (c) 2000-2008 JED, Paul Boekholt, Günter Milde
@@ -58,13 +58,11 @@ static variable mode = "man",
   man_word_chars = "-A-Za-z0-9_.:+()\e[]";
 
 % pcre patterns
-variable  page_pattern = "([-A-Za-z0-9_\e\\[\\]][-A-Za-z0-9_.:+\e\\[\\]]*)",
-  sec_pattern = "\\(([0-9no\e\\[\\]])([a-zA-Z+\e\\[\\]]*)\\)",
+variable  page_pattern = "([-A-Za-z0-9_\e\[\]][-A-Za-z0-9_.:+\e\[\]]*)"R,
+  sec_pattern = "\(([0-9no\e\[\]]|-k)([a-zA-Z+\e\[\]]*)\)"R,
   man_pattern = sprintf("%s ?%s", page_pattern, sec_pattern);
 
-variable page_re = pcre_compile(page_pattern),
-sec_re = pcre_compile(sec_pattern),
-man_re = pcre_compile(man_pattern);
+variable man_re = pcre_compile(man_pattern);
 
 % slang patterns
 page_pattern = "\\([-A-Za-z0-9_\e\\[\\]][-A-Za-z0-9_.:+\e\\[\\]]*\\)";
@@ -105,13 +103,11 @@ static define parse_ref(word)
         sec  = pcre_nth_substr(man_re, word, 2);
         ext  = pcre_nth_substr(man_re, word, 3);
 
-        if (strlen(ext) and Man_Use_Extensions)
+        if (strlen(ext) && Man_Use_Extensions)
           sec = "-e " + ext;
 
         word = sec + " " + page;
      }
-   else if (string_match(word, sprintf("%s(-k)", page_pattern), 1))
-     word = "-k " + string_nth_match(word, 1);
    else
      word = strcompress(word, " ");
    return word;  % "5 man", "-e tcl list",
@@ -127,7 +123,7 @@ static define make_ref(subj)
    subj = strtok(subj, " "); % ["5", "man"] , ["-e", "tcl", "exit"]
    switch (length(subj))
      { case 2: return  sprintf("%s(%s)",subj[1], subj[0]);}
-     { case 3 and (subj[0] == "-e "):
+     { case 3 && (subj[0] == "-e "):
         return  sprintf("%s(%s)",subj[2], subj[1]);
      }
      { return subj[-1];}
@@ -143,9 +139,8 @@ variable man_completions="";
 static define man_read_subject()
 {
    variable word= purge_escapes(get_word(man_word_chars));
-   if (is_substr(word, "("))  % maybe it's a C function
+   if (is_substr(word, "(") && not pcre_exec(man_re, word))  % maybe it's a C function
      {
-	!if (pcre_exec(man_re, word))
 	  word = strchop(word, '(', 0)[0];
      }
    if (Man_Complete_Whatis)
@@ -179,6 +174,10 @@ static define man_clean_manpage ()
    variable ch;
    while(re_fsearch("[^_]\010"))
      {
+	% This is needed for multibyte characters such as \u{2018} 
+	% in the sed manpage
+	if (_slang_utf8_ok)
+	  ()=left(right(1));
 	insert(bold_marker);
 	ch = what_char();
 	right(1);
@@ -232,7 +231,7 @@ static define man_clean_manpage ()
 	     loop (10)
 	       {
 		  bol();
-		  !if (eolp) break;
+		  ifnot (eolp()) break;
 		  delete_line ();
 	       }
 	  }
@@ -244,7 +243,7 @@ static define man_clean_manpage ()
    variable alist_index;
    while (sections <  25)
      {
-	!if (re_fsearch ("^[\e0-9\\[\\]]*[A-Z]")) break;
+	ifnot (re_fsearch ("^[\e0-9\\[\\]]*[A-Z]")) break;
 	line = line_as_string;
 	if (strlen(line) > 50) continue;   %  header or footer
 	section_alist[sections, 0] = purge_escapes(line);
@@ -294,7 +293,7 @@ public define man_goto_section ()
    names = where(section == names);
    if (length(names))
      {
-	goto_line(integer(lines[names[0]]));
+	goto_line(atoi(lines[names[0]]));
 	recenter(1);
      }
 }
@@ -353,16 +352,14 @@ static define man(subj)
 #else
    man_cmd = sprintf("MANWIDTH=%d man %s 2> /dev/null", SCREEN_WIDTH, subj);
 #endif
-   variable return_status;
-   return_status = run_shell_cmd (man_cmd);
-   if (0 != return_status and bobp and eobp)
+   variable return_status = run_shell_cmd (man_cmd);
+   if (return_status && bobp() && eobp())
      {
 	delbuf(whatbuf);
 	if (16 == return_status)
-	  verror("manpage \"%s\" not found", subj);
+	  throw RunTimeError, "manpage $subj not found"$;
 	else
-	  verror("man returned an error (return status %d)",
-		 return_status);
+	  throw RunTimeError, "man returned an error (return status $return_status)"$;
      }
    man_clean_manpage;
 
@@ -378,7 +375,7 @@ variable man_history_rotator = [[1:15],0],
 
 static define man_push_position(subj)
 {
-   !if (keep_history)
+   ifnot (keep_history)
      return;
 
    ++man_stack_depth;
@@ -395,7 +392,7 @@ static define man_push_position(subj)
 
 public define man_go_back ()
 {
-   !if (man_stack_depth) return message("Can't go back");
+   ifnot (man_stack_depth) return message("Can't go back");
    --man_stack_depth;
    ++forward_stack_depth;
    keep_history = 0;
@@ -404,7 +401,7 @@ public define man_go_back ()
 
 public define man_go_forward()
 {
-   !if (forward_stack_depth) return message("Can't go forward");
+   ifnot (forward_stack_depth) return message("Can't go forward");
    ++man_stack_depth;
    --forward_stack_depth;
    keep_history = 0;
@@ -446,7 +443,7 @@ static define man_get_ref ()
    word += strtrim (bufsubstr());
    pop_spot ();
 
-   !if (string_match(word, man_pattern, 1))
+   ifnot (string_match(word, man_pattern, 1))
      {
 	message (word + " is not a man-page");
 	return "";
@@ -484,7 +481,7 @@ public define unix_man ()
      subj = ();
    else
      subj = man_read_subject();
-   !if (strlen (subj))
+   ifnot (strlen (subj))
      return;
    keep_history = 1;
    man (subj);
@@ -530,9 +527,6 @@ public define unix_whatis()
    update_sans_update_hook(0);
    % wait for any key and discard the key sequence
    ( , ) = get_key_binding();
-   % getkey;
-   % if (dup == 'w') pop;
-   % else ungetkey;
    del_region;
    set_readonly(ro);
    set_buffer_modified_flag(mo);
@@ -543,7 +537,7 @@ public define unix_whatis()
 
 %{{{ keybindings & menu
 
-!if (keymap_p (mode))
+ifnot (keymap_p (mode))
 {
    copy_keymap (mode, "view");
    definekey ("man_follow", "^M", mode);
@@ -574,13 +568,12 @@ static define man_jump_callback(popup)
 {
    variable section_list= get_blocal_var("section_list"),
    sections = get_blocal_var("sections"), number;
-   _for (0, sections, 1)
+   _for number (0, sections, 1)
      {
-	number = ();
 	menu_append_item
 	  (popup, strlow
 	   (sprintf("&%c %s", numbers[number], section_list[number,0])),
-	   &goto_line, integer(section_list[number,1]));
+	   &goto_line, atoi(section_list[number,1]));
      }
    pop_spot();
 }
@@ -653,7 +646,7 @@ static define man_mode()
    set_mode(mode, 0);
    set_buffer_hook("mouse_up", &man_mouse);
    mode_set_mode_info(mode, "init_mode_menu", &man_menu);
-   runhooks("man_mode_hook");
+   run_mode_hooks("man_mode_hook");
 }
 
 %{{{ completions initialisation
