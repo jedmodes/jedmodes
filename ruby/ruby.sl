@@ -1,6 +1,6 @@
 % ruby.sl
 % 
-% $Id: ruby.sl,v 1.11 2008/01/22 10:31:41 boekholt Exp $
+% $Id: ruby.sl,v 1.3 2007/11/02 17:16:33 paul Exp paul $
 % 
 % Copyright (c) ca.
 %  2000 Shugo Maeda
@@ -242,9 +242,10 @@ dfa_define_highlight_rule("\"([^\"\\\\]|\\\\.)*\"", "string", mode);
 % parse_to_point() doesn't take DFA rules into account so
 % %r{...} can mess up the indentation - consider using %r'...'
 % or Regexp.new("...") instead
-dfa_define_highlight_rule("%[rwWqQx]?({.*}|<.*>|\(.*\)|\[.*\]|\$.*\$|\|.*\||!.*!|/.*/|#.*#|"R
-			  + "'.*'|\".*\")",
+dfa_define_highlight_rule("%[rwWqQx]?({.*}|<.*>|\(.*\)|\[.*\]|\$.*\$|\|.*\||!.*!|/.*/|#.*#|"R,
 			  "Qstring", mode);
+dfa_define_highlight_rule("%[rwWqQx]?'([^'\\]|\\.)*'"R, "string", mode);
+dfa_define_highlight_rule("%[rwWqQx]?\"([^\"\\\\]|\\\\.)*\"", "string", mode);
 
 dfa_define_highlight_rule("m?/([^/\\]|\\.)*/[gio]*"R, "string", mode);
 dfa_define_highlight_rule("m/([^/\\]|\\.)*\\?$"R, "string", mode);
@@ -326,17 +327,10 @@ private define color_buffer(min_line, max_line)
 	
 	!if (in_heredoc)
 	  {     
-	     while (re_fsearch("\c<<\(-?\)\([A-Z]+\)\>"R))
+	     while (re_fsearch("\c^[^#]*<<\(-?\)\([A-Z]+\)\>"R))
 	       {
 		  if (what_line() > max_line)
 		    break;
-		  
-		  % parse_to_point doesn't work here for some reason
-		  if (bfind_char('#'))
-		    {
-		       eol();
-		       continue;
-		    }
 		  eol();
 		  
 		  list_append(begin, what_line());
