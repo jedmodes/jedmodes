@@ -2,7 +2,7 @@
 %
 % $Id: tar.sl,v 1.11 2006/01/19 21:02:09 paul Exp paul $
 %
-% Copyright (c) 2003-2006 Paul Boekholt
+% Copyright (c) 2003-2008 Paul Boekholt
 % Released under the terms of the GNU GPL (version 2 or later).
 % 
 % this is a jed interface to GNU tar
@@ -17,13 +17,14 @@
 % Thanks to Günter Milde for his ideas, comments, patches and bug reports.
 
 require("view");
+require("syncproc");
 
 % binding scheme may be dired or mc.  We use a variable from filelist.sl
 % for consistency.
 custom_variable("FileList_KeyBindings", "mc");
 
 % A structure for setting some bufferlocal variables.
-!if (is_defined("Tarvars"))
+ifnot (is_defined("Tarvars"))
 typedef struct
 {
      file,			       %  tar filename (w/ path)
@@ -80,7 +81,7 @@ private define tar_mode ()
 #ifdef HAS_DFA_SYNTAX
    use_syntax_table("tar");
 #endif
-   runhooks("tar_mode_hook");
+   run_mode_hooks("tar_mode_hook");
    mode_set_mode_info( "tar", "init_mode_menu", &tar_init_menu);
    message(help_string[FileList_KeyBindings]);
    bob;   
@@ -90,24 +91,24 @@ private define tar_options (file)
 {
    variable exts = strchopr(file, '.', 0);
    if (1 == length(exts))
-     error ("file doesn't have a tar extension: " + file);
+     throw RunTimeError, "file doesn't have a tar extension";
    switch (exts[0])
-     { case "tar" : return "";}
+     { case "tar" : return String_Type[0];}
      { case "tgz" : return "-z";}
      { case "tZ" or case "tz" : return "-Z";}
      { case "tbz" : return  "--bzip2";}      %  they changed the short form
-   !if (orelse { 2 == length(exts) } { exts[1] == "tar" }) 
-     error ("file doesn't have a tar extension");
+   if (2 == length(exts) || exts[1] != "tar") 
+     throw RunTimeError, "file doesn't have a tar extension";
    switch (exts[0])
      { case "gz" : return "-z";}
      { case "Z" or case "compress" : return "-Z";}
      { case "bz2" or case "bz" : return "--bzip2";}
-     { error ("file doesn't have a tar extension");}
+     { throw RunTimeError, "file doesn't have a tar extension";}
 }
 
 private define tar_get_vars ()
 {
-   !if (blocal_var_exists("tar")) error("not a tar buffer?");
+   ifnot (blocal_var_exists("tar")) throw RunTimeError, "not a tar buffer?";
    return get_blocal_var("tar");
 }
 
@@ -120,10 +121,13 @@ public define tar_list ()
 {
    variable tar = tar_get_vars;
    set_readonly(0);
-   variable cmd = strcat ("tar -t ", tar.options, " -f ", tar.file);
    erase_buffer;
-   () = run_shell_cmd(cmd);
-   bob;
+   variable pid = open_filter_process(["tar", "-t", tar.options, "-f", tar.file], "@");
+   variable status = close_filter_process(pid);
+   if (status)
+     {
+	throw RunTimeError, "tar exited with $status"$;
+     }
    do
      {
 	insert("  ");
@@ -144,7 +148,7 @@ public define tar_list ()
 %   Emacs' tar-mode, but works by calling the GNU tar program.  You
 %   can mark archive members with the 'd' key, like in dired.  Set
 %   \var{FileList_KeyBindings} to "mc" if you want keybindings like
-%   in Midnight Commander.  When you mark a directory member, it's
+%   in Midnight Commander.  When you mark a directory member, its
 %   submembers are also marked.  Delete tagged members with 'x'.
 %\notes
 %   Unlike in Emacs' tar-mode, when you delete members they are gone - no
@@ -158,7 +162,7 @@ public define tar () % [ filename [ RO ] ]
    if (_NARGS == 2) (tar.file, tar.readonly) = ( , );
    else if (_NARGS == 1) (tar.file, tar.readonly) = ( , 0);
    else tar.file = read_with_completion("file to read", "", "", 'f');
-   !if (1 == file_status(tar.file)) 
+   ifnot (1 == file_status(tar.file)) 
      return message("file \" "+tar.file+" \"doesn't exist");
    tar.base_file = path_basename(tar.file);
    tar.options = tar_options(tar.base_file);
@@ -186,6 +190,22 @@ public define tar_set_root (tar)
    return tar.root;
 }
 
+private define extract_to_buf (buf)
+{
+   variable tar, member, buffer;
+   tar = tar_get_vars;
+   member = tar_get_member;
+   if (member[-1] == '/') throw RunTimeError, "this is a directory";
+   setbuf(buf);
+   erase_buffer;
+   variable pid = open_filter_process(["tar", "-xO", tar.options, "-f", tar.file, member], "@");
+   variable status = close_filter_process(pid);
+   if (status)
+     {
+	throw RunTimeError, "tar exited with $status"$;
+     }
+   set_buffer_modified_flag(0);
+}
 
 public define tar_view_member ()
 {
@@ -194,36 +214,35 @@ public define tar_view_member ()
    member = tar_get_member;
    buffer = sprintf("%s (%s)", path_basename(member), path_basename(tar.file));
    if(bufferp(buffer)) sw2buf(buffer);
-   else
+   else 
      {
-	if (member[-1] == '/') error("this is a directory");
-	variable cmd = create_delimited_string 
-	  (" ", "tar -xO", tar.options, "-f", tar.file, "'" + member + "'", 5);
-	if (member[[-3:]] == ".gz") cmd += "|gzip -d"; 
-	% autocompression mode doesn't uncompress tar members
+	extract_to_buf(buffer);
 	sw2buf(buffer);
-	erase_buffer;
-	() = run_shell_cmd(cmd);
-	set_buffer_modified_flag(0);
-	bob;
-	if (member[[-3:]] == ".gz")
-	  set_mode_from_extension (file_type(member[[:-4]]));
-	else set_mode_from_extension (file_type (member));
+	set_mode_from_extension (file_type (member));
+	view_mode();
      }
-   view_mode;
 }
 
 private define tar_copy_member ()
 {
    variable tar = tar_get_vars(),
    member = tar_get_member();
-   if (member[-1] == '/') error("this is a directory");
+   if (member[-1] == '/') throw RunTimeError, "this is a directory";
    variable name = read_file_from_mini("where to copy this file to");
    if (2 == file_status(name))
      name = dircat(name, path_basename(member));
-   variable cmd = create_delimited_string 
-     (" ", "tar -xO", tar.options, "-f", tar.file, "'"+member+"'", ">", name, 7);
-   () = run_shell_cmd(cmd);
+   variable state;
+   auto_compression_mode(0, &state);
+   try
+     {
+	extract_to_buf(" *tar_copy_buffer*");
+	write_buffer(name);
+	delbuf(whatbuf());
+     }
+   finally
+     {
+	auto_compression_mode(state);
+     }
 } 
 
 %{{{ tagging members
@@ -245,8 +264,7 @@ private define tag_submembers (path, tag)
 private define tag_member (on)
 {
    push_spot;
-   variable member;
-   member = tar_get_member;
+   variable member = tar_get_member();
    variable tag, subtag;
    if (on) (tag,subtag) = 'D','x';
    else (tag,subtag) = ' ',' ';
@@ -284,7 +302,7 @@ public define tar_untag_all ()
      {
 	bol;
 	go_right_1;
-	if (looking_at_char('D') or looking_at_char('x'))
+	if (looking_at_char('D') || looking_at_char('x'))
 	  {
 	     insert_char(' ');
 	     del;
@@ -332,8 +350,8 @@ public define tar_delete ()
 {
    variable tar, member;
    tar = tar_get_vars;
-   if (tar.readonly) error ("archive is opened read-only");
-   if (tar.options != "") error("I can't delete from a compressed archive");
+   if (tar.readonly) throw RunTimeError, "archive is opened read-only";
+   if (tar.options != "") throw RunTimeError, "I can't delete from a compressed archive";
    variable members, allmembers;
    (members, allmembers) = get_tagged_members;
    if (members == "") return;
@@ -342,13 +360,20 @@ public define tar_delete ()
    erase_buffer();
    insert(members + allmembers);
    buffer_format_in_columns();
-   !if (1 == get_yes_no("Do you wish to PERMANENTLY delete these members"))
+   ifnot (1 == get_yes_no("Do you wish to PERMANENTLY delete these members"))
      return sw2buf(buf);
+   setbuf("*tar output*");
+   erase_buffer();
+   variable pid = open_filter_process(["tar", "--delete", "-f", tar.file, "-T",  "-"], ".");
+   send_process(pid, members);
+   send_process_eof(pid);
+   variable status = close_filter_process(pid);
+   if (status)
+     {
+	pop2buf(whatbuf());
+	throw RunTimeError, "tar exited with $status"$;
+     }
    sw2buf(buf);
-   variable cmd = popen("tar --delete -f " + tar.file + " -T -", "w");
-   ()=fputs(members, cmd);
-   variable status = pclose(cmd);
-   if (status) verror("tar exited with %d", status);
    variable line=what_line;
    tar_list;
    goto_line(line);
@@ -359,13 +384,19 @@ private define tar_extract (all)
    variable tar, members ="";
    tar = tar_get_vars;
    if (tar.root == "") tar.root = tar_set_root(tar);
-   !if (all)
+   ifnot (all)
      (members, ) = get_tagged_members;
-   variable cmd = popen(strcat("tar -x ", tar.options, " -C ", tar.root,
-			 " -f ", tar.file, " -T -"), "w");
-   ()=fputs(members, cmd);
-   variable status = pclose(cmd);
-   if (status) verror("tar exited with %d", status);
+   setbuf("*tar output*");
+   variable pid = open_filter_process(["tar", "-x", tar.options, "-C", tar.root,
+				       "-f", tar.file, "-T", "-"], ".");
+   send_process(pid, members);
+   send_process_eof(pid);
+   variable status = close_filter_process(pid);
+   if (status)
+     {
+	pop2buf(whatbuf());
+	throw RunTimeError, "tar exited with $status"$;
+     }
 }
 
 % are there tagged members?
@@ -413,7 +444,7 @@ enable_dfa_syntax_for_mode("tar");
 #endif
 
 % Keybindings:
-!if (keymap_p ("Tar"))
+ifnot (keymap_p ("Tar"))
   copy_keymap("Tar", "view");
 % dired bindings do not do any harm (as we are in readonly) so they
 % should be available also to mc-Freaks (so the menu gives keybindings)

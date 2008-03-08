@@ -9,12 +9,9 @@ public define check_for_tar (file)
    if ( 1 == length( exts)) return 0;
    if ( is_list_element( "tgz,tar,tZ,tbz", exts[0], ','))
      return 1;
-   if (andelse 
-       { 2 != length( exts) }
-	 { exts[1] == "tar" }
-	 { is_list_element( "gz,Z,bz2,bz", exts[0], ',') })
-     return 1;
-   return 0;
+   return (2 != length(exts)
+	   && exts[1] == "tar"
+	   && is_list_element( "gz,Z,bz2,bz", exts[0], ','));
 }
 
 % This checks if file is a tar, and if so opens it read-only.
