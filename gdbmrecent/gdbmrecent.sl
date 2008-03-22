@@ -1,9 +1,9 @@
 % gdbmrecent.sl
 % 
-% $Id: gdbmrecent.sl,v 1.7 2007/09/18 19:07:59 paul Exp paul $
+% $Id: gdbmrecent.sl,v 1.8 2008/03/22 14:44:00 paul Exp paul $
 % Keywords: convenience
 %
-% Copyright (c) 2004-2007 Paul Boekholt.
+% Copyright (c) 2004-2008 Paul Boekholt.
 % Released under the terms of the GNU GPL (version 2 or later).
 % 
 % Yet another recent mode. This one was written to test my gdbm module.
@@ -19,15 +19,12 @@
 % -recent menu shows only the most recent `Recent_Max_Cached_Files' files, but line and
 %  column information is remembered for Recent_Files_Expire_Time days.
 % -Make buffer-local variables persistent.  For now this can be used to make
-%  a buffer's ispell dictionary setting persist - make sure to upgrade
-%  ispell_common.sl to revision 1.13.
+%  a buffer's ispell dictionary setting persist.
 
-!if(is_defined("_gdbm_module_version_string"))
-  import("gdbm");
+require("gdbm");
 
 provide("recent");
 provide("gdbmrecent");
-require ("bufutils");
 require ("sl_utils");
 
 % customvariables.
@@ -64,8 +61,7 @@ private define getbuf_filemark()
 {
    if(blocal_var_exists("no_recent")) return NULL;
    variable entry = buffer_filename();
-   !if (strlen(entry)) return NULL;
-   if (string_match(entry, Recent_Files_Exclude_Pattern, 1))
+   if (not strlen(entry) || string_match(entry, Recent_Files_Exclude_Pattern, 1))
      return NULL;
    variable varname, val=sprintf("%d:%d:%d",_time(), what_line_if_wide(), what_column());
    foreach varname (strchop(Gdbm_Pvars, ',', 0))
@@ -81,7 +77,7 @@ private define getbuf_filemark()
 % update date in assoc
 private define open_hook ()
 {
-   !if (recent_flag)
+   ifnot (recent_flag)
      {
 	create_blocal_var("no_recent");
 	recent_flag = 1;
@@ -89,15 +85,13 @@ private define open_hook ()
      }
    variable date, line=1, column=1, pvars="", pvar;
    variable filename = buffer_filename();
-   !if (strlen(filename)) return;
-   if (string_match(filename, Recent_Files_Exclude_Pattern, 1))
+   if (not strlen(filename) || string_match(filename, Recent_Files_Exclude_Pattern, 1))
      return;
    
    variable val = NULL, db=gdbm_open(Recent_Db, GDBM_READER, 0600);
    if (db != NULL)
      val = db[filename];
-   if (val != NULL)
-     if (3 <= sscanf(val, "%d:%d:%d%s", &date, &line, &column, &pvars))
+   if (val != NULL && 3 <= sscanf(val, "%d:%d:%d%s", &date, &line, &column, &pvars))
      {
 	% goto saved position
 	goto_line(line);
@@ -105,7 +99,7 @@ private define open_hook ()
 	% open folds
 	loop(10) % while (is_line_hidden) might cause an infinite loop!
 	  {
-	     !if(is_line_hidden) break;
+	     ifnot(is_line_hidden) break;
 	     runhooks("fold_open_fold");
 	  }
 	if (strlen(pvars))
@@ -188,8 +182,10 @@ private define menu_callback (popup)
 % current buffer's directory or a subdirectory thereof.
 private define recent_here_callback (popup)
 {
-   variable dir = buffer_dirname(), dirlen = strlen(dir);
-   !if(dirlen) return;
+   variable dir;
+   ( , dir, , ) = getbuf_info();
+   variable dirlen = strlen(dir);
+   ifnot(dirlen) return;
    variable db=gdbm_open(Recent_Db, GDBM_WRCREAT, 0600);
    if (db == NULL) return vmessage("gdbm: %s", gdbm_error());
    update_db(db);
@@ -237,7 +233,7 @@ private define exit_hook()
 	     loop (buffer_list())
 	       {
 		  buf = ();
-		  !if(strlen(buf)) continue;
+		  ifnot(strlen(buf)) continue;
 		  sw2buf(buf);
 		  filemark = getbuf_filemark();
 		  if (filemark != NULL)
