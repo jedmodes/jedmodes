@@ -10,7 +10,7 @@
 % 2003-04-16  2.0 use readonly-map from bufutils (some new bindings)
 %                 code cleanup
 % 2003-03-07  2.1 ch_table calls ch_table_mode_hook instead of ct_mode_hook
-% 2004-11-27  2.2 new format of the INITIALIZATION block allows 
+% 2004-11-27  2.2 new format of the INITIALIZATION block allows
 % 	          auto-initialisation with make-ini >= 2.2
 % 2005-11-07  2.3 changed _implements() to implements()
 % 2006-01-10  2.3.1 minor code cleanup
@@ -24,17 +24,27 @@
 % 2007-10-23  2.3.6 do not cache the dfa highlight table
 % 2007-12-20  2.3.7 implement JöÃ¶rg Sommer's fix for DFA highlight under UTF-8
 % 2008-01-21  2.4   variable upper limit, as unicode has more than 255 chars,
-% 	      	    ch_table_unicode_block(), 
-% 	      	    new menu name Edit>Char Table, 
-% 	      	    menu popup with several "blocks" under utf8
-% 	      	    do not mark the current char as region
-% 	      	    mode menu
-% 	      	    describe character (using unicode's NamesList.txt)
+% 	      	    ch_table_unicode_block(),
+% 	      	    new menu name Edit>Char Table,
+% 	      	    menu popup with several "blocks" under UTF8,
+% 	      	    do not mark the current char as region,
+% 	      	    mode menu,
+% 	      	    describe character (using unicode's NamesList.txt).
+% 2008-04-02  2.4.1 bugfix in ct_update(): skip lines 1...3,
+% 	            Edit>Char_Tables menu popup for UTF8-enabled Jed,
+% 	            re-order mode-menu,
+% 	            only fit ch-table window if too small (avoids flicker),
+% 	            Add "Musical Symbols" block.
+% 	            Menu binding for describe_character (under Help)
+% 	            ct_goto_char(): choose from all available chars,
+% 	            		   switching unicode table if needed.
+% 	            "active links" (i.e. goto given char if click on number)
 %
-% TODO: * Menu binding for describe_character (which?)
-%       * let pg_up pg_down "turn the page" to the next table
-% 
-%  
+% TODO: * search for character or table by name
+%       * apropos for character names and table names
+%       * make combining characters visible (tricky)
+%
+%
 % Functions and Functionality
 %
 %   ch_table()        characters 000...255
@@ -51,43 +61,48 @@
 % USAGE:
 % put in the jed_library_path and make available e.g. by a keybinding or
 % via the following menu entry (make-ini.sl >= 2.2 will do this for you)
- 
+
 #<INITIALIZATION>
 autoload("ch_table", "ch_table.sl");
 autoload("special_chars", "ch_table.sl");
 autoload("ch_table->menu_callback", "ch_table.sl");
+autoload("describe_character", "ch_table.sl");
 add_completion("special_chars");
 
 static define ct_load_popup_hook(menubar)
 {
-   variable pos = "&Key Macros", menu = "Global.&Edit", 
-      name = "Char &Table";
-   menu_insert_item(pos, menu, name, "special_chars");
+   variable pos = "&Key Macros", menu = "Global.&Edit";
+   if (_slang_utf8_ok) {
+      menu_insert_popup(pos, menu, "Char &Tables");
+      menu_set_select_popup_callback(menu+".Char &Tables", &ch_table->menu_callback);
+   }
+   else
+      menu_insert_item(pos, menu, "Char &Table", "special_chars");
+
+   menu_insert_item("&Describe Key Bindings", "Global.&Help",
+		    "Describe &Character", "describe_character");
 }
 
 append_to_hook("load_popup_hooks", &ct_load_popup_hook);
 #</INITIALIZATION>
 
-% debug information, uncomment to locate errors
-% _debug_info = 1;
-
 % Requirements
 % ------------
 
 % modes from http://jedmodes.sf.net
-require("view");      % readonly-keymap
-require("bufutils");  % pop up buffer 
+% require("view");      % readonly-keymap  No longer used
+require("bufutils");  % pop up buffer, rebind, close_buffer...
 require("sl_utils");  % small helpers
 
 % Name
 % ----
 provide("ch_table");
 
-try 
+try
    implements("ch_table");
 catch NamespaceError:
    use_namespace("ch_table");
-   
+
 private variable mode = "ch_table";
 
 % Customisation
@@ -96,48 +111,59 @@ private variable mode = "ch_table";
 custom_variable("ChartableStartChar", 0);
 custom_variable("ChartableNumBase", 10);
 custom_variable("ChartableCharsPerLine", ChartableNumBase);
-custom_variable("ChartableTabSpacing", 4);
+custom_variable("ChartableTabSpacing", 5);
 
-custom_variable("Chartable_NamesList", 
+custom_variable("Chartable_NamesList_File",
 		path_concat(path_dirname(__FILE__), "NamesList.txt"));
 
+custom_variable("Chartable_Blocks_File",
+		path_concat(path_dirname(__FILE__), "Blocks.txt"));
+
+% Unicode blocks listed in the Edit>Char_Tables popup
+custom_variable("Chartable_Tables", [
+					    "&Basic Latin",
+					    "Latin-&1 Supplement",
+					    "Latin Extended-A",
+					    "Latin Extended-B",
+					    "&IPA Extensions",
+					    "&Greek and Coptic",
+					    "C&yrillic",
+					    "&Hebrew",
+					    "General &Punctuation",
+					    "&Superscripts and Subscripts",
+					    "&Currency Symbols",
+					    "&Arrows",
+					    "&Mathematical Operators",
+					    "Miscellaneous &Technical",
+					    "Box &Drawing",
+					    "&Block Elements",
+					    "&Geometric Shapes",
+					    "Miscellaneous &Symbols",
+					    "Dingbats",
+					    "&Musical Symbols"
+					   ]);
 
 
-% --- global variables -------------------------------------------
+% Global variables 
+% ----------------
 
 % diplay options
 private variable StartChar = ChartableStartChar;
 private variable EndChar = 255;
+private variable BlockNr = 1;
 private variable NumBase = ChartableNumBase;
 private variable CharsPerLine = ChartableCharsPerLine;
 
 % quasi constants
 private variable Digits = "0123456789abcdef";
 
-static variable UnicodeBlocks = Assoc_Type[Array_Type];
-% TODO: initialize from Blocks.txt?
-UnicodeBlocks["Basic Latin"] =                 [0x0000, 0x007F]; 
-UnicodeBlocks["Latin-1 Supplement"] = 	       [0x0080, 0x00FF]; 
-UnicodeBlocks["Latin Extended-A"] = 	       [0x0100, 0x017F]; 
-UnicodeBlocks["Latin Extended-B"] = 	       [0x0180, 0x024F]; 
-UnicodeBlocks["IPA Extensions"] = 	       [0x0250, 0x02AF]; 
-UnicodeBlocks["Greek and Coptic"] = 	       [0x0370, 0x03FF]; 
-UnicodeBlocks["Cyrillic"] = 		       [0x0400, 0x04FF]; 
-UnicodeBlocks["Hebrew"] = 		       [0x0590, 0x05FF]; 
-UnicodeBlocks["General Punctuation"] = 	       [0x2000, 0x206F]; 
-UnicodeBlocks["Superscripts and Subscripts"] = [0x2070, 0x209F]; 
-UnicodeBlocks["Currency Symbols"] = 	       [0x20A0, 0x20CF]; 
-UnicodeBlocks["Arrows"] = 		       [0x2190, 0x21FF]; 
-UnicodeBlocks["Mathematical Operators"] =      [0x2200, 0x22FF]; 
-UnicodeBlocks["Miscellaneous Technical"] =     [0x2300, 0x23FF]; 
-UnicodeBlocks["Box Drawing"] = 		       [0x2500, 0x257F]; 
-UnicodeBlocks["Block Elements"] = 	       [0x2580, 0x259F]; 
-UnicodeBlocks["Geometric Shapes"] = 	       [0x25A0, 0x25FF]; 
-UnicodeBlocks["Miscellaneous Symbols"] =       [0x2600, 0x26FF]; 
-UnicodeBlocks["Dingbats"] = 		       [0x2700, 0x27BF]; 
+% List of unicode blocks 
+private variable UnicodeBlocks; % defined later via parse_unicode_block_file()
 
-		 
-% --- Helper functions --------------------------------------------
+% Functions
+% =========
+
+static define ct_unicode_block(); % forward definition
 
 % Functions to revert a positive  integer to a string representation
 % and vice versa
@@ -174,25 +200,29 @@ static define string2int(s, base)
    return r;
 }
 
+% Character description
+% ---------------------
+
 % return current character (translating TAB, NL and ESC)
 private define ct_what_char()
 {
-   if (looking_at("TAB"))
+   if (looking_at("\t"R))
       return '\t';
-   if (looking_at("NL"))
+   if (looking_at("\n"R))
       return '\n'; 
-   if (looking_at("ESC"))
+   if (looking_at("\e"R))
       return '\e'; 
    return what_char();
 }
 
+% insert character description into current buffer
 static define ct_describe_character(ch)
 {
    variable ch_nr = sprintf("%04X", ch);
    variable ch_nr1 = sprintf("%04X", ch+1);
    
-   if (-1 == insert_file_region(Chartable_NamesList, ch_nr, ch_nr1)) 
-      vinsert("No description. Check for %s\n", Chartable_NamesList);
+   if (-1 == insert_file_region(Chartable_NamesList_File, ch_nr, ch_nr1)) 
+      vinsert("No description. Check for %s\n", Chartable_NamesList_File);
    call("backward_delete_char"); % del last newline
    while (bol, looking_at_char('@')) {
       delete_line();
@@ -212,34 +242,36 @@ public define describe_character() % (ch=what_char)
    bob();
    fit_window(get_blocal("is_popup", 0));
    call_function("view_mode");
-}
-
-% give the ASCII-number of current char in the status line
-static define ct_status_line(ch)
-{
-   variable fmt = " Character Table: '%c' (%d, 0x%X) ---- press '?' for help ";
-   set_status_line(sprintf(fmt, ch, ch, ch), 0);
+   % "active links"
+   set_buffer_hook("mouse_up", "ch_table->ct_active_link_hook");
 }
 
 static define ct_update()
 {
-   % ensure point is in char table
-   if (what_line() < 3)
-     {
-	error("Top Of Buffer");
-	goto_line(3);
-	() = fsearch("\t");
-	skip_chars("\t");
-     }
-   push_spot();
-   !if (bol_fsearch_char('-')) {
-      pop_spot();
-      () = bol_bsearch_char('-');
-   }
-   else
-      pop_spot();
-   % get current char
+   % Ensure point is in char table
+   %  normalize position
    bskip_chars("^\t");
+   %  top
+   if (what_line() < 3) 
+      goto_line(3);
+   %  left
+   if (bolp) 
+      () = fsearch("\t");
+   % Workaround, as skip_chars("\t") skips lone combining chars too
+   while (looking_at_char('\t')) {
+      go_right_1(); % go_right skips combining chars!
+      bskip_chars("^\t");
+   }
+   %  bottom
+   push_spot();
+   variable too_low = not(bol_fsearch_char('-'));
+   pop_spot();
+   if (too_low) {
+      () = bol_bsearch_char('-');
+      bskip_chars("^\t");
+   }
+   
+   % Get current char
    variable ch = ct_what_char();
    
    % Update description
@@ -251,28 +283,32 @@ static define ct_update()
    () = bol_bsearch_char('-');
    go_down_1();
    del_region();
+   %  write new one
    vinsert("'%c' ", ch);
    ct_describe_character(ch);
+   if (what_line() > window_info('r'))
+      fit_window(get_blocal("is_popup", 0));
    set_buffer_modified_flag(0);
    set_readonly(1);
    pop_spot();
-   fit_window(get_blocal("is_popup", 0));
 
-   % update status line
-   ct_status_line(ch);
+   % give the Unicode-number of current char in the status line
+   variable name = UnicodeBlocks[BlockNr][2];
+   variable fmt = " Block %d: %s '%c' (%d, 0x%X)";
+   set_status_line(sprintf(fmt, BlockNr, name, ch, ch, ch), 0);
+   
    % write again to minibuffer (as messages don't persist)
-      % if resources are a topic, we could compute the message in
-      % ch_table and store to a private variable GotoMessage
-   vmessage("Goto char (%s ... %s, base: %d): ___",
-        int2string(StartChar, NumBase), int2string(EndChar, NumBase),  NumBase);
+   vmessage("Goto char (0 ... %s, base: %d): ",
+	    int2string(UnicodeBlocks[-1][1], NumBase),  NumBase);
 }
+
+% Movement functions
+% ------------------
 
 % Move only in the ch_table, skipping the tabs
 
 static define ct_up()
 {
-   if (what_line < 4)
-     error("Top Of Buffer");
    call("previous_line_cmd");
    ct_update;
 }
@@ -286,15 +322,14 @@ static define ct_down()
 static define ct_right()
 {
    () = fsearch("\t");
-   skip_chars("\t");
+   go_right_1();
+   % skip_chars("\t");
    ct_update();
 }
 
 static define ct_left()
 {
-   bsearch("\t");
-   % bskip_chars("^\t");
-   % call("previous_char_cmd");
+   () = bsearch("\t");
    bskip_chars("^\t");
    if(bolp)
      call("previous_char_cmd");
@@ -307,13 +342,45 @@ static define ct_page_up()
    ct_update();
 }
 
-static define ct_bob()   
-{ 
-   goto_line(3); 
-   ct_right;
+static define ct_page_down()
+{
+   call("page_down");
+   ct_update();
 }
 
+static define ct_bob()   
+{
+   bob();
+   ct_update();
+}
+
+% parse Unicode Block description file
+static define parse_unicode_block_file(file)
+{
+   % read file into array of lines
+   variable line, lines = arrayread_file(file);
+   % show(lines);
    
+   % parse the lines 
+   variable block, blocks = {};
+   variable n, beg, end, name;
+   foreach line (lines) {
+      n = sscanf (line, "%x..%x; %[-a-zA-Z0-9 ]", &beg, &end, &name);
+      % vshow("%s, [%X, %X]", name, beg, end);
+      if (n == 3) 
+	 list_append(blocks, {beg, end, name});
+   }
+   return blocks;
+}
+
+
+if (_slang_utf8_ok) 
+   UnicodeBlocks = parse_unicode_block_file(Chartable_Blocks_File);
+else
+   UnicodeBlocks = [{0, 127, "Basic Latin"},
+		    {128, 255, "High Bit Characters"}];
+% show(UnicodeBlocks);
+
 % insert current char into calling buffer
 static define ct_insert()
 {
@@ -336,48 +403,50 @@ static define ct_insert_and_close()
    close_buffer();
 }
 
-static define ct_mouse_up_hook(line, col, but, shift)
+% goto character by input of Unicode-Nr.
+static define ct_goto_char() % ([ch])
 {
-   % if (but == 1)
-   % if (what_line < 3)
-   %   ct_bob();
-   % ct_right;
-   % ct_left;
-   ct_update; %  error if click in first (number) collumn
-   return (1);
-}
+   variable max_ch = UnicodeBlocks[-1][1];
+   !if (_NARGS) {
+      variable msg = sprintf("Goto char (0 ... %s, base: %d): ",
+			     int2string(max_ch, NumBase),  NumBase);
+      variable str = read_mini(msg, "", char(LAST_CHAR));
+      string2int(str, NumBase); % push on stack
+   }
+   variable ch = (); % get from stack
 
-static define ct_mouse_2click_hook(line, col, but, shift)
-{
-   ct_insert_and_close();
-   return (0);
-}
+   if( (ch < 0) or (ch > max_ch) ) 
+     verror("%s not in range (0 ... %s)",
+	    int2string(ch, NumBase) , 
+	    int2string(max_ch, NumBase));
 
-% goto character by input of ASCII-Nr.
-static define ct_goto_char()
-{
-   variable goto_message =  sprintf("Goto char (%s ... %s, base: %d): ",
-        int2string(StartChar, NumBase), int2string(EndChar, NumBase),  NumBase);
-   variable GotoCharStr = read_mini(goto_message, "", char(LAST_CHAR));
-
-   variable GotoChar = string2int(GotoCharStr, NumBase);
-
-   if( (GotoChar<StartChar) or (GotoChar>EndChar) )
-     verror("%s not in range (%s ... %s)",
-	        GotoCharStr,
-	        int2string(StartChar, NumBase) , int2string(EndChar, NumBase));
-   ct_bob;
-   loop(GotoChar - (StartChar - (StartChar mod CharsPerLine)))
-     ct_right;
-   % give feedback
-   vmessage("Goto char: %s -> %c", GotoCharStr, GotoChar);
+   % switch unicode block if ch is outside of currently displayed table
+   if( (ch < StartChar) or (ch > EndChar) ) {
+      variable n;
+      for (n=0; n<length(UnicodeBlocks); n++) {
+      	 if (UnicodeBlocks[n][0] > ch)
+      	    break;
+      }
+      ct_unicode_block(n-1);
+   }
+   else
+      ct_bob;
+   loop(ch - StartChar) {
+      skip_chars("^\t");
+      go_right_1(); % go_right skips combining chars!
+      bskip_chars("^\t");
+   }
+   ct_update();
 }
 
 % insert the table into the buffer and fit window size
 static define insert_ch_table()
 {
    variable i, j;
-   TAB = ChartableTabSpacing;    % Set TAB for buffer
+   % Set TAB for buffer
+   TAB = ChartableTabSpacing;    
+   while (TAB * CharsPerLine > WRAP)
+      TAB--;
    % j = lengt of number on first column
    j = strlen(int2string(EndChar+1-CharsPerLine, NumBase))+1;
    if (j < TAB)
@@ -399,9 +468,9 @@ static define insert_ch_table()
 	% insert characters, symbolic notation for TAB, Newline and Escape
 	switch (i)
 	  { i < StartChar: ;}
-	  { case '\t': insert("TAB");}
-	  { case '\n': insert("NL");}
-	  { case '\e': insert("ESC");}
+	  { case '\t': insert("\t"R);}
+	  { case '\n': insert("\n"R);}
+	  { case '\e': insert("\e"R);}
 	  { insert_char(i);}
      }
    % separator
@@ -409,10 +478,13 @@ static define insert_ch_table()
    loop(col)
       insert("-");
    newline();
-   % fit_window(get_blocal("is_popup", 0));
-   ct_bob;
-   ct_update();
+   fit_window(get_blocal("is_popup", 0)); % (eventually reducing size)
+   ct_bob();
 }
+
+
+% Number base
+% -----------
 
 % set private variables and define keys to use specified number base
 static define use_base(numbase)
@@ -449,17 +521,38 @@ static define ct_change_base()
 % menu popup for unicode blocks
 static define menu_callback(menu)
 {
-   variable block, blocks = assoc_get_keys(UnicodeBlocks);
-   variable I = array_sort(blocks);
+   variable block, block_nr = -1, entry, entry_nr;
+   variable selected_blocks = array_map(String_Type, &str_delete_chars, 
+					Chartable_Tables, "&");
+   % show(selected_blocks);
    
-   foreach block (blocks[I]) 
-      menu_append_item(menu, "&"+block, 
-		       sprintf("ch_table_unicode_block(\"%s\")", block));
-   menu_append_item(menu, "&Custom", "ch_table_unicode_block(\"\")");
+   foreach block (UnicodeBlocks) {
+      block_nr++;
+      entry_nr = wherefirst(block[2] == selected_blocks);
+      if (entry_nr == NULL)
+	 continue;
+      entry = Chartable_Tables[entry_nr];
+      % show(entry);
+      menu_append_item(menu, entry, &ct_unicode_block, block_nr);
+   }
+   % menu_append_item(menu, "&Custom", "ch_table");
 }
 
 private define ch_table_menu(menu)
 {
+   % select unicode block
+   if (_slang_utf8_ok) {
+      menu_append_item(menu, "Next Table", "ch_table->ct_next_block");
+      menu_append_item(menu, "Previous Table", "ch_table->ct_previous_block");
+      menu_append_popup(menu, "Select &Table");
+      menu_set_select_popup_callback(menu+".Select &Table", &menu_callback);
+   }
+   menu_append_item(menu, "Scroll Up", "ch_table->ct_page_up");
+   menu_append_item(menu, "Scroll Down", "ch_table->ct_page_down");
+   % menu_append_item(menu, "&Describe character", "describe_character");
+   menu_append_item(menu, "&Insert", "ch_table->ct_insert");
+   menu_append_item(menu, "Insert and &return", "ch_table->ct_insert_and_return");
+   menu_append_item(menu, "Insert and &close", "ch_table->ct_insert_and_close");
    menu_append_popup(menu, "&Number base");
    variable popup = menu + ".&Number base";
    menu_append_item(popup, "&Binary",      &ct_change_base, 2);
@@ -467,15 +560,6 @@ private define ch_table_menu(menu)
    menu_append_item(popup, "&Decimal",     &ct_change_base, 10);
    menu_append_item(popup, "&Hexadecimal", &ct_change_base, 16);
    menu_append_item(popup, "&Custom",      "ch_table->ct_change_base");
-   % select unicode block
-   if (_slang_utf8_ok) {
-      menu_append_popup(menu, "&Select Block");
-      menu_set_select_popup_callback(menu+".&Select Block", &menu_callback);
-   }
-   % menu_append_item(menu, "&Describe character", "describe_character");
-   menu_append_item(menu, "&Insert", "ch_table->ct_insert");
-   menu_append_item(menu, "Insert and &return", "ch_table->ct_insert_and_return");
-   menu_append_item(menu, "Insert and &close", "ch_table->ct_insert_and_close");
    menu_append_item(menu, "&Quit", "close_buffer");
 }
 
@@ -493,6 +577,8 @@ dfa_define_highlight_rule("^ *[0-9A-Z]+\t", "number", mode);
 dfa_define_highlight_rule("^\[.*$"R, "number", mode);
 % separator
 dfa_define_highlight_rule("^----+", "number", mode);
+% unicode numbers in description
+dfa_define_highlight_rule(" [0-9A-F][0-9A-F][0-9A-F][0-9A-F]", "keyword", mode);
 % render non-ASCII chars as normal to fix a bug with high-bit chars in UTF-8
 dfa_define_highlight_rule("[^ -~]+", "normal", mode);
 
@@ -504,7 +590,7 @@ enable_dfa_syntax_for_mode(mode);
 require("keydefs"); % symbolic constants for many function and arrow keys
 
 !if (keymap_p(mode)) 
-  copy_keymap(mode, "view");
+   make_keymap(mode);
 
 % numerical input for goto_char is dynamically defined by function ct_use_base
 definekey("ch_table->ct_up",              Key_Up,    mode);
@@ -513,21 +599,65 @@ definekey("ch_table->ct_right",           Key_Right, mode);
 definekey("ch_table->ct_left",            Key_Left,  mode);
 definekey("bol; ch_table->ct_right;",     Key_Home,  mode);
 definekey("eol; ch_table->ct_update;",    Key_End,   mode);
-definekey("ch_table->ct_page_up",   	  Key_PgUp,  mode);
-definekey("call(\"page_down\"); ch_table->ct_update;", Key_PgDn,  mode);
+definekey("bob(); ch_table->ct_update;",  "<", 	     mode);
+definekey("eob(); ch_table->ct_update;",  ">", 	     mode);
+definekey("ch_table->ct_page_up",   	  Key_BS,    mode);
+definekey("ch_table->ct_page_down;", 	  " ", mode);
+
+definekey("ch_table->ct_previous_block",   Key_PgUp,      mode);
+definekey("ch_table->ct_next_block;", 	   Key_PgDn,      mode);
+definekey("ch_table->ct_unicode_block(0)", Key_Ctrl_PgUp, mode);
+definekey(sprintf("ch_table->ct_unicode_block(%d)", 
+		  length(UnicodeBlocks)-1),  Key_Ctrl_PgDn, mode);
+   
 definekey("ch_table->ct_change_base()",   "N",       mode);  % generic case
 definekey("ch_table->ct_change_base(2)",  "B",       mode);
 definekey("ch_table->ct_change_base(8)",  "O",       mode);
 definekey("ch_table->ct_change_base(10)", "D",       mode);
 definekey("ch_table->ct_change_base(16)", "H",       mode);
-definekey("ch_table->ct_insert_and_close", "^M",     mode);  % Return
+
+definekey("close_buffer",                    "\e\e\e", mode); % Escape
+definekey("ch_table->ct_insert_and_close",   "^M",   mode);  % Return
 definekey("ch_table->ct_describe_character", "d",    mode);
 definekey("ch_table->ct_insert", 	     "i",    mode);
+definekey("close_buffer",  		     "q",    mode);
 definekey("ch_table->ct_insert_and_return",  "r",    mode);
+definekey("help_message",                     "?",   mode);
 
 set_help_message(
    "<RET>:Insert q:Quit, B:Binary, O:Octal, D:Decimal, H:hex N:Number_Base",
 		 mode);
+
+% Mouse bindings
+% --------------
+
+% goto "link" (codepoint-number in char description)
+static define ct_active_link_hook(line, col, but, shift)
+{
+   variable nr, word = get_word("0-9A-Z");
+   variable is_nr = sscanf (word, "%x", &nr);
+   !if ((strlen(word) == 4) and is_nr) 
+      return 0;
+   % vshow("%d == %x", nr, nr);
+   if (whatbuf == "*character description*")
+      describe_character(nr);
+   else
+      ct_goto_char(nr);
+   return 1;
+}
+
+static define ct_mouse_up_hook(line, col, but, shift)
+{
+   !if (ct_active_link_hook(line, col, but, shift))
+      ct_update; %  move point inside character table
+   return (1);
+}
+
+static define ct_mouse_2click_hook(line, col, but, shift)
+{
+   ct_insert();
+   return (0);
+}
 
 % main function  
 % ------------------------------------------------------
@@ -574,6 +704,32 @@ public define ch_table() % (min = ChartableStartChar, max=255)
    run_mode_hooks(mode + "_mode_hook");
 }
 
+% Unicode blocks (see Blocks.txt)
+static define ct_unicode_block(n)
+{
+   variable 
+      min = UnicodeBlocks[n][0],
+      max = UnicodeBlocks[n][1];
+   BlockNr = n;
+   ch_table(min, max);
+}
+
+% Table selection
+static define ct_next_block()
+{
+   if (BlockNr >= length(UnicodeBlocks)-1)
+      error("already at last block");
+   ct_unicode_block(BlockNr+1);
+}
+
+static define ct_previous_block()
+{
+   if (BlockNr <= 0) 
+      error("already at first block");
+   ct_unicode_block(BlockNr-1);
+}
+
+
 %!%+
 %\function{special_chars}
 %\synopsis{Open a table of special characters for insertion}
@@ -594,20 +750,6 @@ public define ch_table() % (min = ChartableStartChar, max=255)
 public define special_chars()
 {
    ch_table(160);
+   BlockNr = 1;
 }
 
-
-% Unicode blocks (see Blocks.txt)
-public define ch_table_unicode_block(name)
-{
-   variable min, max;
-   try {
-      min = UnicodeBlocks[name][0];
-      max = UnicodeBlocks[name][1];
-   }
-   catch AnyError: {
-      min = integer(read_mini("List chars from Nr.", "", ""));
-      max = integer(read_mini("List chars to Nr.", "", ""));
-   }
-   ch_table(min, max);
-}
