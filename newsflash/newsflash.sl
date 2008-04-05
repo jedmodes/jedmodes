@@ -1,6 +1,6 @@
 % newsflash.sl
 % 
-% $Id: newsflash.sl,v 1.5 2008/01/27 14:35:55 paul Exp paul $
+% $Id: newsflash.sl,v 1.6 2008/04/05 07:35:12 paul Exp paul $
 %
 % Copyright (c) 2006-2008 Paul Boekholt.
 % Released under the terms of the GNU GPL (version 2 or later).
@@ -19,6 +19,19 @@ autoload("browse_url", "browse_url");
 provide("newsflash");
 implements("newsflash");
 variable mode = "newsflash";
+
+private variable uri_re=NULL;
+private define uri_parse(url)
+{
+   if (uri_re == NULL) uri_re = pcre_compile("http://([^/]+)/(.*)");
+   if (pcre_exec(uri_re, url))
+     {
+	return struct { host = pcre_nth_substr(uri_re, url, 1),
+	   path = pcre_nth_substr(uri_re, url, 2)};
+     }
+   return NULL;
+}
+   
 variable item_struct = struct {
    title,
    link,
@@ -33,6 +46,7 @@ variable userdata = struct {
    is_atom,
    % <channel> will be an item_struct
    channel, % not used
+   base,    % base URI for atom feeds
    
    url,
    cleanlevel,
@@ -121,6 +135,7 @@ define read_characterdata(p, s)
 }
 
 define startElement(p, name, atts) {
+   variable att;
    if (name == "item" || name == "entry")
      {
 	p.userdata.item = @item_struct;
@@ -133,7 +148,17 @@ define startElement(p, name, atts) {
    else if (name == "channel" || name == "feed")
      {
 	if (name == "feed")
-	  p.userdata.is_atom = 1;
+	  {
+	     p.userdata.is_atom = 1;
+	     foreach att (atts)
+	       {
+		  if (att.name=="xml:base")
+		    {
+		       p.userdata.base = uri_parse(att.value);
+		       break;
+		    }
+	       }
+	  }
 	else
 	  p.userdata.is_atom = 0;
 	p.userdata.channel = @item_struct;
@@ -155,12 +180,18 @@ define startElement(p, name, atts) {
 	     % can't deal with that.
 	     if (p.userdata.is_atom)
 	       {
-		  variable att;
 		  foreach att (atts)
 		    {
 		       if (att.name=="href")
 			 {
-			    p.userdata.item.link = att.value;
+			    if (p.userdata.base != NULL
+				&& uri_parse(att.value) == NULL)
+			      {
+				 p.userdata.item.link = +"http://" + p.userdata.base.host
+				   + path_concat(p.userdata.base.path, att.value);
+			      }
+			    else
+			      p.userdata.item.link = att.value;
 			    break;
 			 }
 		    }
@@ -261,9 +292,9 @@ define get_rss(p)
    variable c = curl_new(p.userdata.url);
    curl_setopt(c, CURLOPT_FOLLOWLOCATION, 1);
    curl_setopt(c, CURLOPT_WRITEFUNCTION, &write_callback, p);
-   curl_setopt (c, CURLOPT_HTTPHEADER,
-                ["User-Agent: firefox",
-                 "Accept-Charset: ISO-8859-1,utf-8"]);
+   curl_setopt(c, CURLOPT_HTTPHEADER,
+	       ["User-Agent: firefox",
+		"Accept-Charset: ISO-8859-1,utf-8"]);
 
    runhooks("jedscape_curlopt_hook", c);
 
@@ -286,10 +317,10 @@ define store_feed(feed, items)
    foreach item (items)
      {
 	sqlite_exec (db, "insert or ignore into items (feed, title, link, is_read) values (?, ?, ?, ?)",
-				 feed,
-				 item.title,
-				 item.link,
-				 item.is_read);
+		     feed,
+		     item.title,
+		     item.link,
+		     item.is_read);
      }
 }
 
