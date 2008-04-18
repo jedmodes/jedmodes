@@ -1,6 +1,6 @@
 % ruby.sl
 % 
-% $Id: ruby.sl,v 1.3 2007/11/02 17:16:33 paul Exp paul $
+% $Id: ruby.sl,v 1.13 2008/03/07 18:55:33 boekholt Exp $
 % 
 % Copyright (c) ca.
 %  2000 Shugo Maeda
@@ -303,13 +303,13 @@ private define color_buffer(min_line, max_line)
 	variable in_heredoc = 0;
 
 	goto_line(min_line);
-	while (re_bsearch("\c<<\(-?\)\([A-Z]+\)\>"R))
+	while (re_bsearch("\\c<<\\(-?\\)\\(\"?\\)\\([A-Z]+\\)\\2\\>"))
 	  {
 	     if (bfind_char('#'))
 	       continue;
 	     list_append(begin, what_line());
 	     eol();
-	     if (search_heredoc_end(regexp_nth_match(1), regexp_nth_match(2)))
+	     if (search_heredoc_end(regexp_nth_match(1), regexp_nth_match(3)))
 	       {
 		  list_append(end, what_line());
 		  if (what_line() > max_line)
@@ -327,14 +327,14 @@ private define color_buffer(min_line, max_line)
 	
 	!if (in_heredoc)
 	  {     
-	     while (re_fsearch("\c^[^#]*<<\(-?\)\([A-Z]+\)\>"R))
+	     while (re_fsearch("\\c^[^#]*<<\\(-?\\)\\(\"?\\)\\([A-Z]+\\)\\2\\>"))
 	       {
 		  if (what_line() > max_line)
 		    break;
 		  eol();
 		  
 		  list_append(begin, what_line());
-		  if (andelse{search_heredoc_end(regexp_nth_match(1), regexp_nth_match(2))}
+		  if (andelse{search_heredoc_end(regexp_nth_match(1), regexp_nth_match(3))}
 		       {what_line() < max_line})
 		    {
 		       list_append(end,  what_line());
