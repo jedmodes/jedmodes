@@ -1,6 +1,6 @@
 % Filter buffer: show/hide lines that match a pattern
 % ===================================================
-% 
+%
 % Copyright (c) 2006 Guenter Milde (milde users.sf.net)
 % Released under the terms of the GNU General Public License (ver. 2 or later)
 %
@@ -14,6 +14,7 @@
 % 2007-09-20 0.3.3 copy_visible_lines() now works also for readonly buffers
 % 2007-12-20 0.4   generic (un)folding of blocks; use PCRE regexps;
 % 	     	   re_fold_buffer()
+% 2008-04-21 0.4.1 do not load unfinished code from pcre-fold project
 %
 % Usage
 % -----
@@ -65,7 +66,6 @@ autoload("push_defaults", "sl_utils");
 % Functions
 % =========
 
-
 % PCRE regexp matching
 % --------------------------------
 
@@ -102,7 +102,6 @@ public define pcre_fsearch(pat)
    go_right(match_pos[0]);
    return 1;
 }
-
 
 % Search backward for compiled PCRE regular expression \var{pat}
 % Place point at bol of first matching line
@@ -275,7 +274,6 @@ public define copy_visible_lines()
 
 % TODO: search in visible lines
 
-
 % Hide Comments
 % -------------
 
@@ -322,23 +320,25 @@ public define set_comments_hidden() % (hide=1)
    set_matching_hidden(hide, pattern);
 }
 
+#stop
 
-% Token Outline
+% Work in progress:
+
+% PCRE-Fold
 % -------------
 
 % Fold the buffer according to mode-dependent tokens.
- 
 
 % The token_pcre is an array or a list of regular expressions matching
 % with language "tokens" with increasing verbosity.
-% 
-mode_set_mode_info("SLang", "token_pcre", 
+%
+mode_set_mode_info("SLang", "token_pcre",
 		   ["^(public define|custom_variable)",
 		    "^((public )define|(public |custom_)variable)",
 		    "^((public |static )define|"
 		    +"(public |static |custom_)variable)",
 		   ]);
-#stop		     
+
 % fold buffer, leaving only lines matching the token regexp for the current
 % mode visible
 public define fold_by_token(level)
