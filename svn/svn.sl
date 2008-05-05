@@ -1,8 +1,8 @@
 % svn.sl: Utilities for SVN and CVS access from jed. 
 % -*- mode: slang -*-
 % 
-% :Date:      $Date: 2008/02/19 13:21:22 $
-% :Version:   $Revision: 1.23 $
+% :Date:      $Date: 2008/02/19 13:26:01 $
+% :Version:   $Revision: 1.24 $
 % :Copyright: (c) 2003,2006 Juho Snellman
 %                 2007      Guenter Milde
 %
@@ -174,6 +174,7 @@
 % 	     * bury output buffer after commit (show last line in minibuffer)
 % 	     * re-open instead of reload buffers to avoid 
 % 	       "file changed on disk" questions
+% 2008-05-05 * Use -u option for SVN status (show externally updated files)
 % 	     
 %                           
 % TODO
@@ -184,7 +185,6 @@
 % * use listings.sl for the listings
 % * syntax highlight (DFA) in directory listing
 % * Add support for 'diff -r HEAD'
-% * Consider -u option for svn status (show externally updated files)
 
 #<INITIALIZATION>
 % Add a "File>Version Control" menu popup
@@ -310,10 +310,9 @@ private define set_buffer_dirname(dir)
 % Does nothing if file is up-to-date or not attached to any buffer.
 static define reopen_file(file)
 {
-
    % Put the list of buffers in an array instead of looping over
-   % buffer_list(). This way leftovers after a `break' are automatically
-   % removed from the stack.
+   % buffer_list(). This way leftovers after a `break` or `return` are 
+   % automatically removed from the stack.
    variable buffers = [buffer_list(), pop];    
    variable buf, dir, f, flags;
    foreach buf (buffers)
@@ -876,7 +875,7 @@ private define dirlist_extract_filename() %{{{
    variable line = get_line(), dir = buffer_dirname(),
    flag_cols = Assoc_Type[Integer_Type];
    flag_cols["cvs"] = 1; 
-   flag_cols["svn"] = 6; 
+   flag_cols["svn"] = 19; 
    flag_cols["svk"] = 3; 
 
    % get number of leading info columns for used VC system
@@ -886,7 +885,6 @@ private define dirlist_extract_filename() %{{{
       % show(line, line[flag_cols], "no valid filename");
       return "";
    }
-
    return strtrim(line[[flag_cols:]]);
 }
 %}}}
@@ -938,6 +936,7 @@ public define vc_list_dir() % (dir=get_op_dir())%{{{
    % the info recommends a dry-run of 'update' for a short list
    switch (vc_system)
      { case "cvs": do_vc(["-n", "-q", "update"], dir, 0, 0); }
+     { case "svn": do_vc(["status", "-u"], dir, 0, 0); }
      { do_vc(["status"], dir, 0, 0); }
    
    % postprocess dirlist buffer
