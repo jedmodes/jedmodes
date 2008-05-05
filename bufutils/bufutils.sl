@@ -71,6 +71,8 @@
 % 	     	                    preventing an empty buffer after undo(),
 %		   Minor code and doc edits (cleanup).
 % 2008-01-21 1.17  fit_window(): recenter if window contains whole buffer
+% 2008-05-05 1.17.1 reload_buffer(): backup buffer (if modified and backups
+% 	     	    are not disabled) before re-loading)
 
 provide("bufutils");
 
@@ -699,6 +701,15 @@ public define reload_buffer()
    (file, dir, name, flags) = getbuf_info();
    variable col = what_column(), line = what_line();
 
+   % save to backup file 
+   if (flags & 0x001            % buffer modified
+       and not(flags & 0x100))  % backups (not) disabled
+     {
+	% use write_region_to_file() to prevent attaching buffer to backup file
+	mark_buffer();
+	() = write_region_to_file(make_backup_filename(dir, file));
+     }
+   
    % Variant: only update (make this an option?)
    % !if (flags & 4)
    %   return;
