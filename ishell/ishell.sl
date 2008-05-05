@@ -91,37 +91,16 @@
 % 1.9.2 2007-05-14 cleanup in ishell()
 % 1.10  2007-12-11 new output_placement "l": Log (input and output) in outbuf
 % 		   fix autoloads
-%
-% Customisation
-% -------------
-% 
-%     * custom variables
-%          Ishell_default_output_placement  >
-% 	   Ishell_logout_string             
-% 	   Shell_Default_Shell              OS-specific
-% 	   Ishell_Default_Shell  Shell_Default_Shell+" -i" (UNIX)
-%     * ishell_mode_hook, e.g. for nicer keybindings
-%     * blocal hook "Ishell_output_filter" -> format process output
-%
-% Examples for output filters:
-%
-%    % Output commenting:
-%       define ishell_comment_output(str)
-%         {
-%            variable c = get_comment_info()
-%            return strreplace_all (str, "\n", \n"+c.cbeg);
-%         }
-%       define_blocal_var("Ishell_output_filter", "ishell_comment_output")
-%
-%    % Give a message instead of inserting anything:
-%       define ishell_output_message(str)
-%         {
-%           vmessage("%d bytes of output", strlen(str));
-%           return ""; % empty string
-%         }
-%       define_blocal_var("Ishell_output_filter", "ishell_output_message")
+% 2.0   2008-05-05 ishell_send_input() send region line-wise,
+% 		   with subsequent lines sent in ishell_insert_output() 
+% 		   after receiving a response (prompt). 
+% 		   (Please report if this creates problems, e.g. with a
+% 		   process that does not return a prompt in some cases).
+% 		   no CR cleaning by default (define an Ishell_output_filter
+% 		   for offending programs or a generic one #ifdef UNIX)
 
-% _debug_info = 1;
+
+provide("ishell");
 
 % Requirements
 % ------------
@@ -141,9 +120,64 @@ autoload("bufsubfile", "bufutils");
 autoload("view_mode", "view");
 autoload("get_buffer", "txtutils");
 
-% autoload("strbreak", "strutils");
 
-% ------------------ custom variables ---------------------------------
+% Customisation
+% -------------
+% 
+%     * custom variables: Help>Apropos ^Ishell
+%     * ishell_mode_hook, e.g. for nicer keybindings
+%     * local hook "Ishell_output_filter" -> format process output
+%
+% Examples for output filters:
+% 
+%    % Some programs put out ^M-s also in their UNIX version,
+%    % Jed does not expect them (regardless of the crmode).
+%       define ishell_remove_CRs(str)
+%         {
+%            return str_delete_chars (str, "\r");
+%         }
+%       define_blocal_var("Ishell_output_filter", "ishell_remove_CRs")
+%
+%    % Output commenting:
+%       define ishell_comment_output(str)
+%         {
+%            variable c = get_comment_info()
+%            return strreplace_all (str, "\n", \n"+c.cbeg);
+%         }
+%       define_blocal_var("Ishell_output_filter", "ishell_comment_output")
+%
+%    % Give a message instead of inserting anything:
+%       define ishell_output_message(str)
+%         {
+%           vmessage("%d bytes of output", strlen(str));
+%           return ""; % empty string
+%         }
+%       define_blocal_var("Ishell_output_filter", "ishell_output_message")
+
+% example for an ishell_mode_hook: evaluate lines between
+% <PREAMBLE> </PREAMBLE> marks or from bob() to </PREAMBLE>
+% 
+%  public define ishell_mode_hook()
+%  {
+%     variable str, handle = get_blocal_var("Ishell_Handle");
+%     push_spot();
+%     bob();
+%     if (fsearch("<PREAMBLE>"))
+%        go_down_1();
+%     push_visible_mark();
+%     if(fsearch("</PREAMBLE>")) {
+%        bol();
+%        ishell_send_input();
+%     }
+%     else
+%        pop_mark_0();
+%     pop_spot();
+%     move_user_mark(handle.mark);
+%  }
+
+
+% Custom Variables
+% ~~~~~~~~~~~~~~~~
 
 %!%+
 %\variable{Ishell_default_output_placement}
@@ -172,7 +206,7 @@ custom_variable("Ishell_default_output_placement", ">");
 % The string sent to the process for logout.
 %\seealso{ishell, ishell_mode}
 %!%-
-custom_variable("Ishell_logout_string", ""); % default is Ctrl-D
+custom_variable("Ishell_logout_string", "");
 
 %!%+
 %\variable{Ishell_Max_Popup_Size}
@@ -215,6 +249,7 @@ if (Shell_Default_Shell == NULL)
 custom_variable("Ishell_Default_Shell", Shell_Default_Shell+" -i");
 #endif
 
+
 % --- static variables
 
 % There is a restriction on the length of the string that can be fed
@@ -223,7 +258,9 @@ custom_variable("Ishell_Default_Shell", Shell_Default_Shell+" -i");
 % Output: string of 512 characters
 % static variable Process_Output_Size = 512; % maximum - 1 (for savety)
 % Input: string of 4096 chars
-static variable Process_Input_Size = 4096;
+% 
+% obsoleted by line-wise input feeding since version 1.11
+% static variable Process_Input_Size = 4096;
 
 % --- Functions ------------------------------------------------------
 
@@ -235,7 +272,7 @@ static define initialize_process_handle()
 	prompt, mark};
    handle.id = -1;
    handle.name = "";    % process name (+ arguments)
-   handle.input = "";   % cache for input data
+   handle.input = {};   % cache for input data
    handle.output_placement = Ishell_default_output_placement;
    handle.prompt = "";
    handle.mark = create_user_mark(); %for output positioning
@@ -243,8 +280,9 @@ static define initialize_process_handle()
 }
 
 % append str to the corresponding output buffer of buffer `buf'
-static define append_to_outbuf(buf, str)
+static define append_to_outbuf(str)
 {
+   variable buf = whatbuf();
    variable outbuf = sprintf("*%s Output*", buf);
    popup_buffer(outbuf, Ishell_Max_Popup_Size);
    eob();
@@ -257,16 +295,34 @@ static define append_to_outbuf(buf, str)
    return;
 }
 
+% (try to) send first line of handle.input to attached process
+static define send_input_line(handle)
+{
+   try
+      variable line = list_pop(handle.input);
+   catch IndexError: {
+      return; % list is empty
+   }
+   
+   if (handle.output_placement == "l") % log
+      append_to_outbuf(line);
+   send_process(handle.id, line);
+}
 
 % send region or current line to attached process
 define ishell_send_input()
 {
    variable str, handle = get_blocal_var("Ishell_Handle");
    push_spot();
-   if (is_visible_mark)  % if there is a region defined, take it as input
+   if (is_visible_mark)  % if there is a visible region, take it as input
      {
 	check_region(0);
 	str = bufsubstr();
+	% remove trailing newline
+	% (cannot use strtrim_end("\n"), as this kills also several \n-s
+	% while e.g. the python interpreter uses a blank line as end-of-block sign
+	if (str[-1] == '\n')
+	   str = str[[:-2]];
      }
    else
      str = line_as_string();
@@ -274,43 +330,23 @@ define ishell_send_input()
      newline();
    move_user_mark(handle.mark);
    pop_spot();
-   % remove prompt if present
+   % remove prompt if present % TODO: strip prompt for all lines?
    if (is_substr(str, handle.prompt) == 1)
      str = str[[strlen(handle.prompt):]];
-   % make sure there is a newline at the end (prompting input processing)
-   % (cannot use strtrim_end("\n"), as this kills also several \n-s)
-   if (str[-1] != '\n')
-     str += "\n";
-   % show("ishell_input:", str);
-   if (handle.output_placement == "l") % log
-      append_to_outbuf(whatbuf(), str);
-   % show("prompt:", handle.prompt);
-   
-   % Send to attached process 
-   % (use handle.input fifo cache to send in chunks not larger than
-   %  Process_Input_Size)
-   handle.input += str; % first-in
-   while (strlen(handle.input))
-     {
-	str = substr(handle.input, 1, Process_Input_Size);  % first-out
-	handle.input = substr(handle.input, Process_Input_Size+1, -1); %
-	% (str, handle.input) =
-	%   strbreak(handle.input, Process_Input_Size, '\n'); % FO
-	send_process(handle.id, str);
-	get_process_input(1);
-     }
+      
+   % split into lines and cache in handle.input
+   foreach str (strchop(str, '\n', 0)) 
+      list_append(handle.input, strcat(str, "\n"));
+      
+   % Send to attached process (line-wise)
+   send_input_line(handle);
 }
 
 % insertion of output
 define ishell_insert_output(pid, str)
 {
    variable buf = whatbuf(), handle = get_blocal_var("Ishell_Handle");
-   % Some programs put out ^M-s also in their UNIX version,
-   % Jed does not expect them (regardless of the crmode).
-   % (Please mail if this poses problems on Windows, so that it can be made
-   % conditional.)
-   str = str_delete_chars (str, "\r");
-   
+ 
    % find out what the prompt is (normally the last line of output)
    handle.prompt = strchop(str, '\n', 0)[-1];
 
@@ -318,25 +354,24 @@ define ishell_insert_output(pid, str)
    % show("ispell_output:", str);
    if (run_local_function("Ishell_output_filter", str))
       str = ();
-   % abort, if filter returns empty string
-   !if (strlen(str))
-     return;
    
    % Insert output string
-   %  go to the right place
    switch(handle.output_placement)
-     { case "_": eob; }
-     { case "@": push_spot; eob; }
-     { case ">": goto_user_mark(handle.mark); }
-     { case "o" or case "l": append_to_outbuf(buf, str); return; }
+     { case "_": eob; insert(str);}
+     { case "@": push_spot; eob; insert(str); pop_spot();}
+     { case ">": goto_user_mark(handle.mark); insert(str); }
+     { case "." : insert(str); } % (insert at current buffer position) 
+     { case "o" or case "l": append_to_outbuf(str); }
      % { case "m" : message(strtrim(str)); } % does this work at all?
-     % { case "." : ; } % (insert at current buffer position, default) 
-   insert(str);
-   move_user_mark(handle.mark);
-   if (handle.output_placement == "@")
-     pop_spot();       % return to previous position
-   %make the insertion visible
-   update_sans_update_hook(0);
+   
+   move_user_mark(handle.mark); % for subsequent output chunks
+   
+   % Send next input line to attached process 
+   % (if there are more lines in the cache)
+   send_input_line(handle);
+   % make the insertion visible 
+   update_sans_update_hook(0); % does not work some times
+   call("redraw");  		 % is this better??
 }
 
 % abort process (keybord abort)
@@ -438,7 +473,9 @@ public define ishell_mode() % (cmd=Ishell_Default_Shell)
 
    % start the process
    ishell_open_process(cmd);
-
+   % wait for the process prompt
+   get_process_input(10);  % wait up to 1 second
+   
    % modifiy keybindings (use an own keymap):
    variable ishell_map = what_keymap()+" ishell";
    !if (keymap_p(ishell_map))
@@ -482,9 +519,11 @@ public define ishell()
 %\synopsis{Run a command in a terminal}
 %\usage{terminal(cmd = Ishell_Default_Shell)}
 %\description
-% Run \var{cmd} in a terminal with the current buffers dir as pwd.
-% The terminal is the one jed runs on or (with xjed) given by variable
-% \var{XTerm_Pgm}
+% Run \var{cmd} in a terminal with the current buffer's dir as working
+% directory.
+%\notes 
+% The terminal is the one jed runs on or (with xjed) given by the custom
+% variable \var{XTerm_Pgm} (defaulting to "xterm").
 %\seealso{run_program, ishell_mode, Ishell_Default_Shell}
 %!%-
 public define terminal() % (cmd = Ishell_Default_Shell)
@@ -571,9 +610,9 @@ public define shell_command() % (cmd="", output_handling=0)
 	set_readonly(0);
 	eob;
      }
-     set_prefix_argument(1);
 
    % Run the command
+   set_prefix_argument(1);
    do_shell_cmd(cmd);
 
    % Output processing
@@ -716,5 +755,3 @@ define shell_cmd2string(cmd)
 {
    return shell_command(cmd, 3);
 }
-
-provide("ishell");
