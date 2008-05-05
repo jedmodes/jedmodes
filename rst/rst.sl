@@ -17,7 +17,7 @@
 % Versions
 % ========
 % 
-% .. class:: frameless
+% .. class:: borderless
 %
 % ===== ========== ============================================================
 % 1.1   2004-10-18 initial attempt
@@ -82,6 +82,7 @@
 %                  * implement J. Sommer's fix for DFA under UTF-8,
 % 2.3.1 2008-01-22 * made export_cmds static for better testing
 % 		     and configuring.
+% 2.3.2 2008-05-05 * DFA fix for interpreted text
 
 % ===== ========== ============================================================
 % 
@@ -99,7 +100,8 @@
 
 % extra modes (from http://jedmodes.sf.net/mode/)::
 
-autoload("structured_text_hook", "structured_text");  % >= 0.5
+require("structured_text");  % >= 0.5
+require("rst-outline");      % outline with rst section markup
 
 autoload("push_defaults", "sl_utils");
 autoload("push_array", "sl_utils");
@@ -131,13 +133,10 @@ autoload("browse_url", "browse_url");
 
 % Initialization
 % --------------
-% Load the outline features. Sets up namespace "rst".
-%
-require("rst-outline");
 
 % Name and Namespace
 % ===================
-% ::
+% Namespace "rst" is defined in rst-outline.sl already required by this file::
 
 provide("rst");
 use_namespace("rst");
@@ -283,12 +282,14 @@ Markup_Tags["hrule"]         = ["\n-------------\n", ""];  % transition
 Markup_Tags["preformatted"] = ["::\n    ", "\n"];
 
 % References (outgoing links, occure in the text)
-Markup_Tags["hyperlink_ref"]           = ["`", "`_"];   % hyperlink, anchor
-Markup_Tags["anonymous_hyperlink_ref"] = ["`", "`__"];
-Markup_Tags["numeric_footnote_ref"]   = ["",  " [#]_"]; % automatic  numbering
-Markup_Tags["symbolic_footnote_ref"]  = ["",  " [*]_"]; % automatic  numbering
-Markup_Tags["citation_ref"]           = ["[", "]_"];    % also for footnotes
-Markup_Tags["substitution_ref"]       = ["|", "|"];
+Markup_Tags["hyperlink_ref"]                = ["`", "`_"];   % hyperlink, anchor
+Markup_Tags["anonymous_hyperlink_ref"]      = ["`", "`__"];
+Markup_Tags["hyperlink_embedded"]           = ["`<", ">`_"];
+Markup_Tags["anonymous_hyperlink_embedded"] = ["`<", ">`__"]; % "one-off" hyperlink
+Markup_Tags["numeric_footnote_ref"]         = ["",  " [#]_"]; % automatic  numbering
+Markup_Tags["symbolic_footnote_ref"]        = ["",  " [*]_"]; % automatic  numbering
+Markup_Tags["citation_ref"]                 = ["[", "]_"];    % also for footnotes
+Markup_Tags["substitution_ref"]             = ["|", "|"];
 
 % Reference Targets
 Markup_Tags["hyperlink"]           = [".. _", ":"];   % URL, crossreference
@@ -576,7 +577,7 @@ private define dfa_rule(rule, color)
 private define inline_rule(pat)
 {
    variable blank = " \t";
-   variable del = "$blank"$; % "$blank'\")\]}>\-/:\.,;!\\?"R$;
+   variable del = blank; % als tried: = "$blank'\")\]}>\-/:\.,;!\\?"R$;
    return "$pat[^$blank$pat][^$pat]+($pat[^$del][^$pat]+)*[^$blank$pat]$pat"R$;
 }
 
@@ -588,7 +589,7 @@ private define setup_dfa_callback(mode)
    % Character Classes:
    variable blank = " \t";     % white space
    variable alpha = "a-zA-Z";     % alphabetic characters
-   variable alnum = "a-zA-Z0-9"$;     % alphanumeric characters
+   variable alnum = "a-zA-Z0-9";     % alphanumeric characters
    %  simple reference names (alphanumeric + internal [.-_])
    variable label = "[$alnum]+([\.\-_][$alnum]+)*"R$; 
    
@@ -602,7 +603,7 @@ private define setup_dfa_callback(mode)
    variable role_re = ":$label:"$;
    dfa_rule(        inline_rule("`")+role_re, "Qrst_interpreted");
    dfa_rule(role_re+inline_rule("`"), 	      "Qrst_interpreted");
-   dfa_rule(        inline_rule("`"),          "Qrst_interpreted");
+   dfa_rule(        inline_rule("`"), 	      "rst_interpreted");
    
    % Literal Block marker
    dfa_rule("::[$blank]*$"$, "rst_literal");
@@ -618,7 +619,7 @@ private define setup_dfa_callback(mode)
    %   revert false positives
    dfa_rule("${label}_${label}"R$, "normal");
    %  reference with backticks
-   dfa_rule("`(\\`|[^`])*`__?", "rst_reference");
+   dfa_rule("`(\\`|[^`])*`__?", "Qrst_reference");
    %  footnotes and citations
    dfa_rule("\[([#\*]|#?$label)\]_"R$, "rst_reference");
 
@@ -797,6 +798,8 @@ static define rst_menu(menu)
    popup = new_popup(menu, "&References (outgoing links)");
    menu_append_item(popup, "&Hyperlink", &markup, "hyperlink_ref");
    menu_append_item(popup, "&Anonymous Hyperlink", &markup, "anonymous_hyperlink_ref");
+   menu_append_item(popup, "&Embedded Hyperlink", &markup, "hyperlink_embedded");
+   menu_append_item(popup, "&One-off Hyperlink", &markup, "anonymous_hyperlink_embedded");
    menu_append_item(popup, "Numeric &Footnote", &markup, "numeric_footnote_ref");
    menu_append_item(popup, "&Symbolic Footnote", &markup, "symbolic_footnote_ref");
    menu_append_item(popup, "&Citation", &markup, "citation_ref");
@@ -877,6 +880,18 @@ static define rst_menu(menu)
 
 % set the comment string
 set_comment_info(mode, ".. ", "", 0);
+
+% Modify line_is_blank() from structured_text.sl
+% let section heading underlines separate paragraphs 
+% (rst does not require a blank line after a section title)
+define line_is_blank()
+{
+   bol_skip_white();
+   if (eolp())
+      return 1;
+   return is_heading_underline();
+}
+   
 
 public define rst_mode()
 {
