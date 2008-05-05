@@ -1,12 +1,12 @@
 % Provide easy access to recently opened/saved files.
 %
-% Copyright (c) 2006 Günter Milde
+% Copyright (c) 2006 Guenter Milde (milde users.sf.net)
 % Released under the terms of the GNU General Public License (ver. 2 or later)
 %
 % Version:
 % 1.0.1. by Guido Gonzato, <ggonza@tin.it>
 %
-% 2.0    by Günter Milde <g.milde web.de>
+% 2.0    by Günter Milde <milde users.sf.net>
 %        *  Use a circular array -> no hidden recent buffer
 %        *  Save to file only at exit -> less writing
 %        *  Save last cursor position when saving a file
@@ -58,7 +58,9 @@
 %        * new values for Recent_Use_Local_Cache: {-1, 0, 1} -> {0, 1, 2}
 %        * rename Restore_Last_Session --> Recent_Restore_Last_Session
 %          to have all custom variables start with "Recent_"
-% 	 * bugfix: reopen-flag was 1 for every new record.       
+% 	 * bugfix: reopen-flag was 1 for every new record.
+% 3.4.1 2006-02-17 * documentation fixes	 
+% 3.4.2 2008-05-05 * use call_function() instead of runhooks()
 %
 % USAGE:
 %
@@ -102,7 +104,6 @@ private variable mode = "recent";
 %\description
 %  The file to save the recent files list to.
 %\seealso{Recent_Use_Local_Cache, Recent_Files_Synchronize_Cache}
-%\seealso{Recent_Files_Exclude_Pattern, Recent_Files_Column_Width}
 %!%-
 #ifdef IBMPC_SYSTEM
 custom_variable("Recent_Files_Cache_File", "_jedrcnt");
@@ -113,7 +114,7 @@ custom_variable("Recent_Files_Cache_File", ".jedrecent");
 %!%+
 %\variable{Recent_Use_Local_Cache}
 %\synopsis{Do you want a local recent list? }
-%\usage{Int_Type Recent_Use_Local_Cache = -1}
+%\usage{Int_Type Recent_Use_Local_Cache = 1}
 %\description
 % Should recent.sl use a local recent Recent_Files_Cache_File?
 % (i.e. stored in directory where jed was started)
@@ -122,8 +123,8 @@ custom_variable("Recent_Files_Cache_File", ".jedrecent");
 %    1 -- local if local cache file is present at jed startup,
 %    2 -- always local.
 %
-% Toggle (0/1) with recent_toggle_local() or the menu entry
-%\seealso{Recent_Files_Cache_File, Recent_Files_Exclude_Pattern, Recent_Restore_Last_Session}
+% Toggle (0/1) with \sfun{recent_toggle_local} or the menu entry
+%\seealso{Recent_Files_Cache_File, Recent_Restore_Last_Session}
 %!%-
 custom_variable("Recent_Use_Local_Cache", 1);
 
@@ -187,11 +188,12 @@ custom_variable("Recent_Files_Column_Width", 20);
 %\description
 % Should the Recent_Files_Cache_File be read/saved during runtime to
 % synchronize different instances of jed?
-%   0 -- read at startup, save at exit (save|read also with \sfun{recent_toggle_local})
+%   0 -- read at startup, save at exit 
+%        (save|read also with \sfun{recent_toggle_local})
 %   1 -- read with every call, save with every find|save file operation
 %   
 % If it is not likely that you will run several instances of Jed in
-% parallel (e.g. on DOS), setting this variable to 0 saves ressources.  
+% parallel (e.g. on DOS), setting this variable to 0 saves resources.  
 %\seealso{Recent_Files_Cache_File, Recent_Use_Local_Cache, Recent_Restore_Last_Session}
 %!%-
 custom_variable("Recent_Files_Synchronize_Cache", 1);
@@ -358,14 +360,14 @@ static define update_cache()
    % will be updated below
 
    % update and purge the cache
-   variable filerecord, filename, i=0,
+   variable record, filename, i=0,
      new_cache = "\n"; % initialize for is_substr() search (see below)
 
    foreach(chop_filerecords(recent_files_cache))
      {
-	filerecord = ();     % ["filename", "line", "column", "reopen"]
-	filename = filerecord[0];
-	% show(filerecord);
+	record = ();     % ["filename", "line", "column", "reopen"]
+	filename = record[0];
+	% show(record);
 
 	% skip empty filenames (cleanup of corrupt .jedrecent files)
 	if (filename == "")
@@ -379,12 +381,12 @@ static define update_cache()
 
 	% update file flags and convert to string
 	if (assoc_key_exists(openfiles, filename))
-          filerecord = openfiles[filename];
+          record = openfiles[filename];
 	else
-	  filerecord = strjoin(filerecord,":");
+	  record = strjoin(record,":");
 
 	% prepend to cache
-	new_cache = strcat("\n", filerecord, new_cache);
+	new_cache = strcat("\n", record, new_cache);
 
 	if (i >= Recent_Max_Cached_Files)
 	  break;
@@ -420,7 +422,7 @@ static define goto_point(filerecord)
      {
 	!if (is_line_hidden)
 	  break;
-	runhooks("fold_open_fold");
+	call_function("fold_open_fold");
      }
 }
 
@@ -444,9 +446,8 @@ static define recent_load_file(filerecord)
 static define restore_session()
 {
    variable record, records = chop_filerecords(recent_files_cache);
-   foreach (records)
+   foreach record (records)
      {
-	record = ();
 	if (andelse
 	    { record[3] == "1" }
 	    { orelse { Recent_Restore_Last_Session != 2 }
@@ -483,19 +484,18 @@ public  define recent_toggle_local()
 
 static define recent_files_menu_callback(popup)
 {
-   variable menu, n, i = '1', filerecord, filename, dir,
+   variable menu, n, i = '1', record, filename, dir,
      toggle_str = ["&Use local filelist", "&Use global filelist"],
-     format_str = "&%c %-"+string(Recent_Files_Column_Width)+"s %s";
+     format_str = strcat("&%c %-", string(Recent_Files_Column_Width), "s %s");
 
    update_cache();
-   foreach (chop_filerecords(recent_files_cache))
+   foreach record (chop_filerecords(recent_files_cache))
      {
-	filerecord = ();
-	% show(filerecord);
-	filename= path_basename(filerecord[0]);
-	dir = contract_filename(path_dirname(filerecord[0]), "");
+	% show(record);
+	filename= path_basename(record[0]);
+	dir = contract_filename(path_dirname(record[0]), "");
 	menu_append_item (popup, sprintf (format_str, i, filename, dir),
-	   &recent_load_file, filerecord);
+	   &recent_load_file, record);
 	% menu index: 1-9, then a-z, then A-Z, then restart
 	switch (i)
 	  { case '9': i = 'a'; }
@@ -512,11 +512,10 @@ static define recent_files_menu_callback(popup)
 static define add_recent_files_popup_hook(menubar)
 {
    variable menu = "Global.&File";
-
-   menu_append_separator (menu);
-   menu_append_popup (menu, "&Recent Files");
-   menu_set_select_popup_callback (strcat (menu, ".&Recent Files"),
-				   &recent_files_menu_callback);
+   % menu_append_separator (menu);
+   menu_insert_popup("Canc&el Operation", menu, "&Recent Files");
+   menu_set_select_popup_callback(menu+".&Recent Files", 
+      				  &recent_files_menu_callback);
 }
 
 % Interface functions
@@ -585,5 +584,8 @@ append_to_hook ("load_popup_hooks", &add_recent_files_popup_hook);
 % Restore the last session
 % !! A strange bug considers only the last line (instead of AND) when
 %    the arguments of andelse are on several lines and _debug_info is 1 !!
-if ( andelse {__argc == 1} {not BATCH} {Recent_Restore_Last_Session} {Recent_Restore_Last_Session != 3 or Recent_Use_Local_Cache})
+if ( andelse {__argc == 1} 
+     {not BATCH} 
+     {Recent_Restore_Last_Session} 
+     {Recent_Restore_Last_Session != 3 or Recent_Use_Local_Cache})
   add_to_hook("_jed_startup_hooks", &restore_session);
