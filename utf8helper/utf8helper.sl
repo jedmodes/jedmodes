@@ -52,6 +52,13 @@
 % 1.2.4 2008-01-22 helper fun register_autoconvert_hooks()
 % 		   (called at end of script if evaluated first time).
 % 1.2.5 2008-01-25 remove dependency on datutils.sl and sl_utils.sl
+% 1.2.6 2008-05-05 no more dependencies
+% 		   patches by Paul Boekholt: 
+% 		     reset CASE_SEARCH also after failure,
+% 		     strtrans_utf8_to_latin1("") now works,
+% 		     has_invalid_chars(): initialize return value. 
+
+% TODO: use the iconv module (which is unfortunately undocumented) 
 
 % Customisation
 % -------------
@@ -91,16 +98,6 @@ custom_variable("UTF8Helper_Read_Autoconvert", 0);
 %\seealso{UTF8Helper_Write_Autoconvert, latin1_to_utf8, utf8_to_latin1}
 %!%-
 custom_variable("UTF8Helper_Write_Autoconvert", 0);
-
-% Requirements
-% ------------
-
-% modes from http://jedmodes.sf.net
-autoload("fit_window", "bufutils");
-autoload("popup_buffer", "bufutils");
-#if (expand_jedlib_file("view.sl") != "")
-autoload("view_mode", "view");
-#endif
 
 % Namespace
 % ---------
@@ -204,7 +201,7 @@ public define utf8_to_latin1 ()
    if (convert_region)
      narrow_to_region();
    else if (get_blocal_var("encoding", "utf8") != "utf8")
-     error("Buffer is not utf8 encoded");
+     throw RunTimeError, "Buffer is not utf8 encoded";
 
    push_spot_bob();
    if (_slang_utf8_ok) {
@@ -219,16 +216,22 @@ public define utf8_to_latin1 ()
    } else {
       variable old_case_search = CASE_SEARCH;
       CASE_SEARCH = 1;
-      while (fsearch_char(194)) % '‚'
-	 del();
-      bob();
-      while (fsearch_char(195)) {  % 'ƒ'
-	 del();
-	 ch = what_char();
-	 del();
-	 insert_byte(ch+64);
-      }
-      CASE_SEARCH = old_case_search;
+      try
+	{
+	   while (fsearch_char(194)) % '‚'
+	     del();
+	   bob();
+	   while (fsearch_char(195)) {  % 'ƒ'
+	      del();
+	      ch = what_char();
+	      del();
+	      insert_byte(ch+64);
+	   }
+	}
+      finally
+	{
+	   CASE_SEARCH = old_case_search;
+	}
    }
    pop_spot ();
    if (convert_region)
@@ -267,6 +270,7 @@ public define strtrans_latin1_to_utf8(str)
 
 public define strtrans_utf8_to_latin1(str)
 {
+   if (str == "") return "";
    variable ch, shift = 0, charlist = {};
    foreach ch (str)
      {
@@ -276,38 +280,43 @@ public define strtrans_utf8_to_latin1(str)
         list_append(charlist, ch+shift);
         shift = 0;
      }
-   % return array_to_bstring(list2array(charlist, UChar_Type));
    return array_to_bstring(typecast([__push_list(charlist)], UChar_Type));
 }
 
 % Hooks for automatic conversion
 % ------------------------------
 
+% From David Goodger in http://www.pycheesecake.org/wiki/ZenOfUnicode:
+% 
+% - The first byte of a non-ASCII character encoded in UTF-8 is
+%   always in the range 0xC0 to 0xFD, and all subsequent bytes are in
+%   the range 0x80 to 0xBF.  The bytes 0xFE and 0xFF are never used.
+
 % scan for non-printable characters in current buffer
 % leaves the point at the first invalid char or bob
 static define has_invalid_chars()
 {
-   variable ch, result;
-   bob();
+   variable ch, result = 0;
    if (_slang_utf8_ok)
      {
+	bob();
 	skip_chars("[[:print:][:cntrl:]]");
 	result = not(eobp());
 	bob();
+	return result;
      }
-   else % Jed with latin-* encoding
+   % Jed with latin-* encoding:
+   %  poor mans test: '\194' == '\x82' == 'Â' or '\195' == '\x83' == 'Ã'
+   %    	      followed by high-bit character (ch >= 128).
+   % While this is a completely valid string sequence in latin-1 encoding,
+   % is is highly indicative of utf8 encoded strings.
+   foreach ch ([194, 195])
      {
-	% poor mans test: '\194' == '\x82' == 'Â' or '\195' == '\x83' == 'Ã'
-	%      	    	  followed by high-bit character (ch >= 128).
-	% While this is a completely valid string sequence in latin-1 encoding,
-	% is is highly indicative of utf8 encoded strings.
-	foreach ch ([194, 195])
+	bob();
+	if (fsearch_char(ch) and right(1))
 	  {
-	     if (fsearch_char(ch) and right(1))
-	       {
-		  result = what_char() >= 128;
-		  break;
-	       }
+	     result = what_char() >= 128;
+	     break;
 	  }
      }
    return result;
@@ -316,7 +325,7 @@ static define has_invalid_chars()
 % convert encoding to native encoding (or vice versa)
 static define autoconvert(to_native)
 {
-   % unset readonly flag (and unset file binding), 
+   % unset readonly flag and file binding, 
    % so that we can edit without further questions.
    variable file, dir, name, flags;
    (file, dir, name, flags) = getbuf_info();
@@ -432,7 +441,6 @@ static define register_autoconvert_hooks()
 %   
 % Suggestion: (place them under Edit>Re&gion Ops, as they act on regions)
 % 
-#if (_slang_utf8_ok)
 static define insert_after_char(char)
 {
    narrow_to_region();
@@ -449,10 +457,9 @@ static define insert_after_char(char)
 }
 
 % http://www.utf8-zeichentabelle.de/unicode-utf8-table.pl
-define stroke() { insert_after_char(0x336); }
-define underline() { insert_after_char(0x332); }
-define double_underline() { insert_after_char(0x333); }
-define overline() { insert_after_char(0x305); }
-define double_overline() { insert_after_char(0x33f); }
-#endif
+static define stroke() { insert_after_char(0x336); }
+static define underline() { insert_after_char(0x332); }
+static define double_underline() { insert_after_char(0x333); }
+static define overline() { insert_after_char(0x305); }
+static define double_overline() { insert_after_char(0x33f); }
 
