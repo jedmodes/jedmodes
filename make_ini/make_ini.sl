@@ -5,7 +5,7 @@
 %
 % Usage
 % =====
-% 
+%
 % M-x make_ini   create a buffer with the autoload commands (and helpfull
 %                comments) for viewing/editing and subsequent saving
 % M-x update_ini update the ini.sl file in the current buffers working
@@ -30,7 +30,7 @@
 % 	         * look for a <INITIALIZATION> </INITIALIZATION> block
 % 	           Use this for custom initialization code (menu addings, etc)
 % 	           If such a block is found, no search for functions is done!
-% 2005-03-18 2.3 * bugfixes: list_slang_files() did only work, if 
+% 2005-03-18 2.3 * bugfixes: list_slang_files() did only work, if
 %                            dir == current working dir (report Dino Sangoi)
 %                            "%" in vinsert needs to be doubled (Dino Sangoi)
 %                            documentation comments did not work
@@ -40,12 +40,12 @@
 % 2005-04-01 2.5 * cleanup in make_ini_look_for_functions(): do not insert
 % 	     	   library path in autoload commands
 % 2005-04-07 2.6 * provide add_completion commands (with Make_ini_Add_Completions)
-% 2005-04-25 2.7 * bugfix: list_slang_files() failed for directories without 
+% 2005-04-25 2.7 * bugfix: list_slang_files() failed for directories without
 % 	     	   	   slang files or nonexisting directories.
 % 	     	   	   make_libfun_doc() failed if there was no documentation
 %                * Test for existing tm.sl with #ifexists:
-%                  the function tm_parse() must be defined/declared at 
-%                  evaluation/preparse time of make_ini.sl in order to enable 
+%                  the function tm_parse() must be defined/declared at
+%                  evaluation/preparse time of make_ini.sl in order to enable
 %                  the documentation extract feature.
 % 2005-05-25 2.7.1 * bugfix: andelse -> orelse (report Paul Boekholt)
 % 2005-07-04 2.8   * separated function byte_compile_library()
@@ -54,7 +54,7 @@
 % 	     	     slash from libdir name.
 % 2005-07-15 2.8.3 * critical bugfix-fix: make_ini_look_for_functions(): use
 % 	     	     path_concat(dir, "") to normalize the dir-path.
-% 2005-07-22 2.9   * adapted to home-lib 1.1 
+% 2005-07-22 2.9   * adapted to home-lib 1.1
 % 	     	     (removed reference to Jed_Home_Library and Jed_Site_Library)
 % 2005-07-30 2.9.1 bugfix in update_ini()
 % 2005-11-02 2.9.2 * adapted to libdir 0.9.1 (removed update_site_lib())
@@ -72,10 +72,10 @@
 % 2007-10-01 2.11.1 * optional extensions with #if ( )
 % 2007-10-23 2.12   * documentation update
 % 	     	    * create DFA cache files
-%                   
+% 2008-05-05 2.13  * code cleanup, documentation update
+
 
 % TODO:  * Consider preprocessor options (How?)
-
 
 autoload("get_word", "txtutils");
 autoload("push_array", "sl_utils");
@@ -116,10 +116,10 @@ custom_variable("Make_ini_Verbose", 0);
 %\synopsis{Bytecompile the files with update_ini()}
 %\usage{Int_Type Make_ini_Bytecompile = 1}
 %\description
-% Let \sfun{update_ini} and \sfun{update_home_lib} bytecompile 
+% Let \sfun{update_ini} and \sfun{update_home_lib} bytecompile
 % the files as well.
 % This gives considerable evalutation speedup but might introduce problems.
-%\notes 
+%\notes
 %  Attention: byte-compiling can give problems
 %     * with constructs like #ifdef XWINDOWS
 %     	when xjed and jed are used in parallel
@@ -158,7 +158,7 @@ custom_variable("Make_ini_Bytecompile_Exclusion_List", String_Type[0]);
 %\synopsis{Array of files to exclude from DFA caching}
 %\usage{Int_Type Make_ini_DFA_Exclusion_List = []}
 %\description
-% Exlude these files from DFA highlight cache creation with 
+% Exlude these files from DFA highlight cache creation with
 % \sfun{update_dfa_cache_files}, \sfun{ \sfun{update_ini},
 % and \sfun{update_home_lib}.
 %\seealso{Make_ini_Exclusion_List}
@@ -171,7 +171,7 @@ custom_variable("Make_ini_DFA_Exclusion_List", String_Type[0]);
 %\usage{Int_Type Make_ini_Extract_Documentation = 1}
 %\description
 % Let update_ini() also extract documentation and save in libfuns.txt file.
-%\notes 
+%\notes
 % Documentation extraction requires tm_parse() from the tm.sl mode.
 % If tm_parse() is not defined at evaluation (or byt-compile) time of
 % make_ini.sl, Make_ini_Extract_Documentation will be set to 0.
@@ -222,8 +222,8 @@ static define _get_function_name()
 %\synopsis{Insert initialisation code for a slang file}
 %\usage{Str = make_ini_look_for_functions(file)}
 %\description
-%  Browse file and insert 
-%    either the #<INITIALIZATION> #</INITIALIZATION> block 
+%  Browse file and insert
+%    either the #<INITIALIZATION> #</INITIALIZATION> block
 %    or autoload commands for function definitions
 %  in the current buffer.  The variables \var{Make_ini_Scope} and
 %  \var{Make_ini_Add_Completions} can be used to control which function
@@ -233,7 +233,7 @@ static define _get_function_name()
 %  definitions is done. You must explicitely list the required autoload()
 %  commands! (This way, people not using make_ini can copy the content of the
 %  INITIALIZATION block directly to their .jedrc file.
-%  
+%
 %  The preprocessor directives
 %#v+
 %  #<INITIALIZATION>
@@ -259,7 +259,7 @@ define make_ini_look_for_functions(file)
    erase_buffer(); % paranoia
    () = insert_file(file);
    set_buffer_modified_flag(0);
-   
+
    % if `file' is in the jed library path, remove the library-path from it:
    variable dir, libdirs = strchop(get_jed_library_path, ',' , 0);
    libdirs = libdirs[where(libdirs != ".")]; % filter the current dir
@@ -271,7 +271,7 @@ define make_ini_look_for_functions(file)
              file = file[[strlen(dir):]];
              break;
           }
-        
+
      }
 
    % global comment
@@ -293,8 +293,8 @@ define make_ini_look_for_functions(file)
        }
    % find out if the mode defines/uses a namespace
    bob();
-   if (orelse{bol_fsearch("implements")}  
-        {bol_fsearch("_implements")} 
+   if (orelse{bol_fsearch("implements")}
+        {bol_fsearch("_implements")}
         {bol_fsearch("use_namespace")})
      {
 	named_namespace = 1;
@@ -314,47 +314,47 @@ define make_ini_look_for_functions(file)
 	  }
         str += bufsubstr();
      }
-   else 
+   else
      {
 	% Search function definitions
 	% 1. explicitly public definitions
         while (bol_fsearch("public define "))
           public_funs += _get_function_name() + "\n";
-        
+
 	bob;
 	% 2. "simple" (i.e. unspecified) definitions
         !if (named_namespace)
           while (bol_fsearch("define "))
             simple_funs += _get_function_name() + "\n";
-        
+
         % autoloads
 	switch (Make_ini_Scope)
           { case 0: funs = String_Type[0]; }
           { case 1: funs = strtok(public_funs, "\n"); }
           { case 2: funs = strtok(public_funs+simple_funs, "\n"); }
-        
+
 	if (length(funs))
 	  {
 	     funs = "\"" + funs + "\"";
-	     funs_n_files = 
+	     funs_n_files =
                funs + sprintf(", \"%s\";", str_quote_string(file, "", '\\'));
 	     str += strjoin(funs_n_files, "\n") + "\n"
 	          + sprintf("_autoload(%d);\n", length(funs));
 	  }
-        
+
         % add_completions
 	switch (Make_ini_Add_Completions)
           { case 0: funs = String_Type[0]; }
           { case 1: funs = strtok(public_funs, "\n"); }
           { case 2: funs = strtok(public_funs+simple_funs, "\n"); }
-        
+
 	if (length(funs))
 	  {
 	     funs = "\"" + funs + "\";";
 	     str += "\n" + strjoin(funs, "\n") + "\n"
 		 + sprintf("_add_completion(%d);\n", length(funs));
           }
-        
+
      }
    % cleanup
    delbuf(Parsing_Buffer);
@@ -391,7 +391,7 @@ static define list_slang_files(dir)
 %   place autoload commands in a buffer ini.sl.
 %   After customizing, it can be saved and serve as an initialization
 %   for a slang-library. The libdir mode at jedmodes.sf.net will
-%   automatically evaluate this ini.sl files at startup, making the 
+%   automatically evaluate this ini.sl files at startup, making the
 %   installation of additional modes easy.
 %\seealso{update_ini, Make_ini_Scope, Make_ini_Exclusion_List, Make_ini_Verbose}
 %!%-
@@ -403,8 +403,8 @@ public define make_ini() % ([dir])
    variable dir = ();
 
    variable files = list_slang_files(dir), file;
-   
-   % find old ini file 
+
+   % find old ini file
    () = find_file(path_concat(dir, Ini_File));
    slang_mode();
    bob();
@@ -419,7 +419,7 @@ public define make_ini() % ([dir])
    go_down_1; bol();
    push_mark_eob();
    del_region();
-   
+
    foreach file (files)
      {
 	% show(file, file_type(file), file_status(file));
@@ -436,7 +436,7 @@ public define make_ini() % ([dir])
 %\synopsis{Byte compile all *.sl files in a directory}
 %\usage{ byte_compile_libdir(dir)}
 %\description
-%  Call \sfun{byte_compile_file} on all files returned by 
+%  Call \sfun{byte_compile_file} on all files returned by
 %  \sfun{list_slang_files}(dir).
 %\seealso{byte_compile_file, update_home_lib, Make_ini_Bytecompile_Exclusion_List}
 %!%-
@@ -446,7 +446,7 @@ define byte_compile_libdir(dir)
    foreach file (files)
      {
         % Skip files from the exclusion list
-        if (length(where(path_basename(file) 
+        if (length(where(path_basename(file)
            == Make_ini_Bytecompile_Exclusion_List)))
           continue;
         byte_compile_file(file, 0);
@@ -462,18 +462,18 @@ define byte_compile_libdir(dir)
 %\synopsis{Write tm documentation in dir to "libfuns.txt"}
 %\usage{ make_libfun_doc([dir])}
 %\description
-%  Extract tm documentation for all Slang files in \var{dir}, 
+%  Extract tm documentation for all Slang files in \var{dir},
 %  convert to ascii format and write to file "libfuns.txt".
 %\notes
-%  requires tm.sl (jedmodes.sf.net/mode/tm/) 
-%\seealso{update_ini, Make_ini_Extract_Documentation}
+%  requires tm.sl (jedmodes.sf.net/mode/tm/)
+%\seealso{tm_parse, update_ini, Make_ini_Extract_Documentation}
 %!%-
 public define make_libfun_doc() % ([dir])
 {
    !if (_NARGS)
      read_file_from_mini("Extract tm Documentation from dir:");
    variable dir = ();
-   
+
    % extract tm documentation blocks
    variable docstrings, str, files=list_slang_files(dir);
    !if (length(files))
@@ -482,7 +482,7 @@ public define make_libfun_doc() % ([dir])
    str = strjoin(docstrings, "");
    if (str == "")
      return vmessage("no tm documentation in %s", dir);
-   
+
    () = write_string_to_file(str, path_concat(dir, Tm_Doc_File));
 }
 #endif
@@ -492,11 +492,11 @@ public define make_libfun_doc() % ([dir])
 
 #ifdef HAS_DFA_SYNTAX
 
-% create a DFA cache file for `file` 
-% 
+% create a DFA cache file for `file`
+%
 % The cache file is removed from Jed_Highlight_Cache_Dir and re-created
 % if no matching cache file is found in the Jed_Highlight_Cache_Path
-%\seealso{update_dfa_cache_files} 
+%\seealso{update_dfa_cache_files}
 define make_dfa_cache_file(file)
 {
    variable buf = whatbuf();
@@ -507,17 +507,17 @@ define make_dfa_cache_file(file)
     	delbuf(Parsing_Buffer);
    	sw2buf(buf);
      }
-   
+
    % load relevant part of a file into parsing buffer
    erase_buffer(); % paranoia
-   if (0 >= insert_file_region(file, 
+   if (0 >= insert_file_region(file,
       "%%% DFA_CACHE_BEGIN %%%",
       "%%% DFA_CACHE_END %%%"))
      {
-	% show(file," not found or no '%%% DFA_CACHE' section"); 
+	% show(file," not found or no '%%% DFA_CACHE' section");
 	return;
      }
-   
+
    % Remove and re-create the cache file
    bob ();
    !if (re_fsearch ("[ \t]*dfa_enable_highlight_cache[ \t]*([ \t]*\"\\(.+\\)\""))
@@ -529,12 +529,12 @@ define make_dfa_cache_file(file)
    % show("Cache file", cache_file);
    if (file_status(cache_file) == 1)
 	() = remove(cache_file);
-   
+
    % Check whether dfa cache is enabled and get the name of the dfa table
    eob ();
    !if (re_bsearch ("[ \t]*dfa_set_init_callback[ \t]*([ \t]*&[ \t]*\\([^,]+\\),[ \t]*\\(.+\\))"))
      {
-	% show("no matching callback set in ", file); 
+	% show("no matching callback set in ", file);
 	return;
      }
    variable line = regexp_nth_match(0);
@@ -542,16 +542,16 @@ define make_dfa_cache_file(file)
    variable mode = regexp_nth_match (2);
    if (mode == strtrim(mode, "\""))
      {
-	vmessage("%s: dfa caching needs string-literal in %s", 
+	vmessage("%s: dfa caching needs string-literal in %s",
 	   path_basename(file), line);
 	return;
      }
-   
+
    % Replace the setting of the callback function with a call to it:
    delete_line();
    vinsert("create_syntax_table(%s);\n", mode);
    vinsert("%s(%s);", fun, mode);
-   
+
    % (Re)-create the cache file
    if (file_status(cache_file) == 1)
 	() = remove(cache_file);
@@ -573,7 +573,7 @@ define update_dfa_cache_files() % ([dir])
    variable cache_path = Jed_Highlight_Cache_Path;
    Jed_Highlight_Cache_Dir = dir;
    Jed_Highlight_Cache_Path = dir;
-   
+
    foreach file (files)
      {
         % Skip files from the exclusion list
@@ -592,7 +592,7 @@ define update_dfa_cache_files() % ([dir])
 
 % Front-end functions for ini.sl generation, byte-compiling,
 % and  documentation extraction
-% 
+%
 % DFA cache generation is left out, as it ist susceptible to faults
 % Use update_dfa_cache_files([dir]) if you think it is sure.
 
@@ -604,7 +604,7 @@ define update_dfa_cache_files() % ([dir])
 %  Create or update the ini.sl initialization file with \sfun{make_ini}.
 %  Bytecompile the files with \sfun{byte_compile_libdir}.
 %  Extract online help text (tm documentation) with \sfun{make_libfun_doc}.
-%  
+%
 %  Customise behaviour with the the Make_ini_* custom variables
 %  (hint: try Help>Apropos Make_ini).
 %\seealso{update_home_lib}
@@ -629,7 +629,6 @@ public define update_ini() % (directory=buffer_dirname())
      {
 	flush("byte compiling files in " + dir);
         byte_compile_libdir(dir);
-	byte_compile_file(path_concat(dir, Ini_File), 0);
      }
 #ifexists tm_parse
    % extract the documentation and put in file libfuns.txt
