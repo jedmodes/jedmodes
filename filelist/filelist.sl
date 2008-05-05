@@ -74,6 +74,10 @@
 % 2007-10-23  1.7.7 * no DFA highlight caching
 % 2008-01-21  1.7.8 * fix stack leftovers in filelist_open_file()
 % 	      	    * add JöÃ¶rg Sommer's fix for DFA highlight under UTF-8
+% 2008-05-05  1.7.9 * filelist_list_dir(): do not sort empty array
+% 	      	    * filelist_open_with() bugfix: do not set a default when asking
+% 	      	      for cmd to open, as this prevents opening in Jed.
+% 	      	    * separate function filelist->get_default_cmd(String filename)
 
 
 %
@@ -210,7 +214,9 @@ custom_variable("FileList_max_window_size", 1.0);  % my default is full screen
 %\description
 % Directory, where deleted files are moved to.
 % The default "" means real deleting.
-% KDE users might want to set this to "~/Desktop/Trash"
+% Desktop users might want to set this to "~/local/share/Trash/files".
+% (see the Desktop Trash Can Specification
+%  http://freedesktop.org/wiki/Standards_2ftrash_2dspec)
 % \notes
 %  The value will be expanded with \sfun{expand_filename}.
 %  The \var{Trash_Bin} is checked for existence in \sfun{filelist_delete_tagged},
@@ -235,23 +241,23 @@ if (getenv("DISPLAY") != NULL) % assume X-Windows running
    FileList_Default_Commands[".dvi"]     = "xdvi";
    FileList_Default_Commands[".dvi.gz"]  = "xdvi";
    FileList_Default_Commands[".eps"]     = "gv";
-   FileList_Default_Commands[".gif"]     = "gpicview";
+   FileList_Default_Commands[".gif"]     = "display";
    % FileList_Default_Commands[".gnuplot"] = "gnuplot -persist";
    FileList_Default_Commands[".html"]    = "sensible-browser";
    FileList_Default_Commands[".htm"]     = "sensible-browser";
-   FileList_Default_Commands[".ico"]     = "gpicview";
-   FileList_Default_Commands[".jpg"]     = "gpicview";
-   FileList_Default_Commands[".jpeg"]    = "gpicview";
+   FileList_Default_Commands[".ico"]     = "display";
+   FileList_Default_Commands[".jpg"]     = "display";
+   FileList_Default_Commands[".jpeg"]    = "display";
    FileList_Default_Commands[".lyx"]     = "lyx-remote";
    FileList_Default_Commands[".odt"]     = "ooffice";
-   FileList_Default_Commands[".png"]     = "gpicview";
+   FileList_Default_Commands[".png"]     = "display";
    FileList_Default_Commands[".pdf"]     = "xpdf";
    FileList_Default_Commands[".pdf.gz"]  = "gv";
    FileList_Default_Commands[".ps"]      = "gv";
    FileList_Default_Commands[".ps.gz"]   = "gv";
    FileList_Default_Commands[".sk"]      = "sketch";
    FileList_Default_Commands[".svg"]     = "inkview";
-   FileList_Default_Commands[".xpm"]     = "gpicview";
+   FileList_Default_Commands[".xpm"]     = "display";
 } 
 
 static variable listing = "listing";
@@ -358,7 +364,7 @@ static define filelist_rename_file(line, dest)
      return 2;
 
    if (get_y_or_n(sprintf("Delete %s failed (%s), remove copy? ",
-                           errno_string(errno))) == 1)
+                           file, errno_string(errno))) == 1)
      result = delete_file(dest);
 
    % verror ("cannot delete '%s': %s", strtail(file, 10), errno_string (errno));
@@ -562,9 +568,11 @@ public  define filelist_list_dir() % ([dir], ls_cmd="listdir")
    if (ls_cmd == "listdir")
      {
 	variable files = listdir(dir);
-	files = files[array_sort(files)];
-	% quote spaces and stars
-	% files = array_map(String_Type, &str_quote_string, files, "* ", '\\');
+	if (length(files)) {
+	   files = files[array_sort(files)];
+	   % quote spaces and stars
+	   % files = array_map(String_Type, &str_quote_string, files, "* ", '\\');
+	}
 	insert(strjoin(["..", files], "\n"));
 	do
 	  if (file_status(dir + line_as_string()) == 2)
@@ -738,6 +746,16 @@ public  define filelist_view_file()
    view_mode();
 }
 
+static define get_default_cmd(filename) 
+{
+   variable extension = path_extname(filename);
+   % double extensions:
+   if (extension == ".gz") % some programs can handle gzipped files
+     extension = path_extname(path_sans_extname(filename)) + extension;
+   
+   return FileList_Default_Commands[extension];
+}
+
 %!%+
 %\function{filelist_open_file_with}
 %\synopsis{Open the current file with a shell command}
@@ -752,27 +770,22 @@ public  define filelist_view_file()
 public  define filelist_open_file_with() % (ask = 1)
 {
    variable ask = push_defaults(1, _NARGS);
-   variable line, filename, extension, cmd;
 
-   filename = extract_filename(listing_list_tags(0)[0]);
-   extension = path_extname(filename);
-   % double extensions:
-   if (extension == ".gz") % some programs can handle gzipped files
-     extension = path_extname(path_sans_extname(filename)) + extension;
-
-   cmd = FileList_Default_Commands[extension];
+   variable filename = extract_filename(listing_list_tags(0)[0]);
+   variable cmd = get_default_cmd(filename);
+   
    if (ask)
      cmd = read_mini(sprintf("Open %s with (Leave empty to open in jed):",
-			     filename), cmd, "");
+			     filename), "", cmd);
 
    if (cmd == "")
-     return filelist_open_file();
+      return filelist_open_file();
 
    () = chdir(buffer_dirname());
    if (getenv("DISPLAY") != NULL) % assume X-Windows running
-     () = system(cmd + " " + filename + " &");
+      () = system(cmd + " " + filename + " &");
    else
-     () = run_program(cmd + " " + filename);
+      () = run_program(cmd + " " + filename);
 }
 
 #ifexists grep
