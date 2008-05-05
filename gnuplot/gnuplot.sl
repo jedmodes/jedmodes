@@ -1,4 +1,4 @@
-% Editing mode for the Gnuplot plotting program
+% gnuplot.sl: Editing mode for the Gnuplot plotting program
 %
 % Copyright (c) 2006 Guenter Milde (milde users.sf.net)
 % Released under the terms of the GNU General Public License (ver. 2 or later)
@@ -7,26 +7,33 @@
 %
 %  version    1.0   gnuplot_run: run gnuplot on skripts
 %                   gnuplot_shell: interactive use
-%                   invoce info(gnuplot) as online help
+%                   call info(gnuplot) as online help
 %                   comments with comments.sl
 %  version    1.1   interface for gnuplot online help (on UNIX)
 %  	            keybindings via definekey_reserved
 %  	      1.1.1 gnuplot-help uses view-mode (from bufutils)
-%  2004-05-06 1.1.2 Added doc for custom variables
+%  2004-05-06 1.1.2 documentation for custom variables
 %  	            code cleanup after getting version 1.5 of ishell
 %  2005-11-02 1.1.3 fixed the "public" statements
 %  2006-05-26 1.1.4 fixed autoloads (J. Sommer)
 %  2007-12-19 1.1.5 fixed view_mode() autoload
-%
+%  2008-05-05 1.1.6 * gnuplot_help(): filter spurious output
+%  	      	    * new gnuplot_view(): run gnuplot and open (e.g. *.eps) 
+%  	      	      output file (if it is defined) with default cmd
+%  	      	    * mode menu item to browse HTML doc, 
+%  	      	      (active, if variable Gnuplot_Html_Doc is defined)
 %
 %  TODO
+%  ----
 %  * gnuplot_print
 %     * set Terminal via read_with_completion if prefix_argument given,
 %       otherwise use default/last choice.
-%       Then, invokation from menu can be with asking, via ^P without asking.
+%       Then, invocation from menu can be with asking, via ^P without asking.
 %     * set extension according to terminal
 %  * add some more keywords, sort keywords (basic vs. extensions)
 %
+%  Usage
+%  -----
 %  To use gnuplot mode automatically for gnuplot files put the lines
 %      autoload ("gnuplot_mode", "gnuplot.sl");
 %  and (depending on your use)
@@ -37,22 +44,25 @@
 %
 %  To customize the terminal and output setting for printing,
 %  define the custom variables
+%  
 %     Gnuplot_Print_Terminal,
 %     Gnuplot_Output_Extension.
-%  The actual command called for invocing gnuplot is set by
+%     
+%  The actual command called for calling gnuplot is set by
+%  
 %     Gnuplot_Command
 %
-%  You can change keybindings with the gnuplot_mode_hook.
-%  I recommend:
+%  You can change keybindings with the gnuplot_mode_hook(), e.g.
 %
-% define gnuplot_mode_hook()
-% {
-%    local_setkey ("gnuplot_help",  "^H");  % Help
-%    local_setkey ("gnuplot_print", "^P");  % Print plot
-%    local_setkey ("gnuplot_plot",  "^D");  % Display plot
-% }
+%  define gnuplot_mode_hook()
+%  {
+%     local_setkey ("gnuplot_help",  "^H");  % Help
+%     local_setkey ("gnuplot_print", "^P");  % Print plot
+%     local_setkey ("gnuplot_plot",  "^D");  % Display plot
+%  }
 
-% ---- Requirements ---
+% Requirements 
+% ------------
 
 % from jed's standard library
 require("comments");
@@ -71,7 +81,6 @@ autoload("shell_cmd_on_region", "ishell");
 
 % --- user adjustable settings ------------------------------------
 
-% _debug_info = 1;
 
 % -- Variables
 
@@ -117,7 +126,6 @@ custom_variable("Gnuplot_Html_Doc",
 custom_variable("Gnuplot_Html_Doc", "");
 #endif
 
-     
 
 % ----------------------------------------------------------------------------
 
@@ -179,6 +187,12 @@ define gnuplot_help() %([topic])
    insert("help " + topic + "\n");
 
    shell_cmd_on_region (Gnuplot_Command, 2); % output replaces input
+   
+   % filter needless instructions
+   set_readonly(0);
+   bob();
+   replace("Press return for more: ", "");
+   set_readonly(1);
 
    % do highlighting of keywords
    view_mode();
@@ -212,6 +226,49 @@ define gnuplot_run()
    % pop2buf(cbuf);
 }
 
+% run gnuplot and open output file (if it is defined) with default cmd
+define gnuplot_view()
+{
+   variable quote, outfile = "", cmd = "";
+   
+   push_spot_bob();
+   if (bol_fsearch("set output")) {
+      % search for output file
+      foreach quote (['"', '\'']) {
+	 % show("quote", quote);
+	 if (ffind_char(quote)) {
+	    go_right_1();
+	    push_mark();
+	    () = ffind_char(quote);
+	    outfile = bufsubstr();
+	    break;
+	 }
+      }
+   }
+   % show(outfile);
+   pop_spot();
+   
+   gnuplot_run();
+   
+   if (outfile == "") 
+      return;
+   
+   cmd = filelist->get_default_cmd(outfile);
+   if (cmd == "")
+      cmd = read_mini(sprintf("Open %s with (Leave blank to open in Jed):",
+			      outfile), "", "");
+   if (cmd == "")
+      return find_file(outfile);
+
+      
+      if (getenv("DISPLAY") != NULL) % assume X-Windows running
+      () = system(cmd + " " + outfile + " &");
+   else
+      () = run_program(cmd + " " + outfile);
+
+}
+   
+   
 %!%+
 %\function{gnuplot_shell}
 %\synopsis{open an interactive gnuplot session in the current buffer }
@@ -306,7 +363,7 @@ define gnuplot_plot () % (hardcopy = 0)
 %!%-
 define gnuplot_print()
 {
-   gnuplot_plot (1);
+   gnuplot_plot(1);
 }
 
 %!%+
@@ -438,13 +495,13 @@ static define gnuplot_menu(menu)
 {
    menu_append_item(menu, "&Gnuplot Region/Buffer", "gnuplot_run");
    menu_append_item(menu, "Gnuplot &Shell", "gnuplot_shell");
-   menu_append_item(menu, "&Display Plot", "gnuplot_plot");
+   menu_append_item(menu, "&Display Plot", "gnuplot_view");
    menu_append_item(menu, "&Print Plot", "gnuplot_print");
    menu_append_item(menu, "&New File(defaults)", "gnuplot_get_defaults");
    menu_append_item(menu, "&Strip Defaults", "gnuplot_strip_defaults");
    menu_append_item(menu, "Gnuplot &Help", "gnuplot_help");
    if (Gnuplot_Html_Doc != "")
-      menu_append_item(menu, "&Browse Gnuplot Doc", "html_browse", Gnuplot_Html_Doc);
+      menu_append_item(menu, "&Browse Gnuplot Doc", "browse_url", Gnuplot_Html_Doc);
 }
 
 % --- now define the mode ---------------------------------------------
