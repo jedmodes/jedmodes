@@ -15,10 +15,15 @@
 %                  use mark_word() from txtutils.sl (new dependency!)
 % 		   use private variables instead of static ones
 % 2007-10-23 1.5.1 provide("mouse") as mouse.sl does not do so
-% 2008-02-06 1.6   * fix swapped args to click_in_region() in
+% 2008-02-06 1.6   * fix swapped args to click_in_region()
 % 	     	     in cuamouse_left_down_hook()
 % 	     	   * support for scroll-wheel  
 %		   * button-specific hooks with return values
+% 2008-05-05 1.6.1 * use x_insert_selection() in cuamouse_insert()
+% 	     	     (os.sl defines it, if it does not exist)
+% 	     	   * remove `xclip` workaround, as PRIMARY selection 
+% 	     	     interaction should be ok by now 
+% 	     	     (but see cuamark.sl for CLIPBOARD selection handling).  
 % 	     	   
 % Actions
 % ========
@@ -61,18 +66,20 @@
 % Requirements
 % ------------
 
-() = evalfile("mouse");  % does not have a provide("mouse") line
-provide("mouse");        % mouse.sl fails to do this!
-
 autoload("run_function", "sl_utils");
 autoload("cua_mark", "cuamark");
-autoload("cua_insert_clipboard", "cuamark");
 autoload("mark_word", "txtutils");
 
+() = evalfile("mouse");  % mouse.sl does not have a provide("mouse") line
+provide("mouse");
 provide("cuamouse");
+
+
 
 % Customisation
 % -------------
+
+% The Mouse_Wheel_Scroll_Lines is defined in mouse.sl but not documented:
 
 %!%+
 %\variable{Mouse_Wheel_Scroll_Lines}
@@ -83,27 +90,11 @@ provide("cuamouse");
 %\seealso{mouse_set_default_hook}
 %!%-
 
-% this variable is defined in mouse.sl but not documented
-
-%!%+
-%\variable{CuaMouse_Use_Xclip}
-%\synopsis{Use `xclip` instead of x_copy_region_to_selection()}
-%\usage{Int_Type CuaMouse_Use_Xclip = 0}
-%\description
-%  Currently, a xjed selection doesnot paste into applications using the
-%  QT toolkit (all KDE applications including Klipper, lyx-qt).
-%
-%  This workaround uses the command line tool `xclip` to copy the selected
-%  text to the X selection to overcome this problem. As it introduces a
-%  dependency on `xclip` and some overhead, it is disabled by default.
-%\seealso{copy_region_to_clipboard, x_copy_region_to_selection}
-%!%-
-custom_variable("CuaMouse_Use_Xclip", 0);
 
 % more customisation can be done by overruling the default hooks (see
 % mouse_set_default_hook() and set_buffer_hook()).
 % 
-% To quote the helpf for mouse_set_default_hook()
+% To quote the help for mouse_set_default_hook()
 % 
 %   The meaning of these names should be obvious.  The second parameter,
 %   `fun' must be defined as
@@ -197,45 +188,36 @@ define click_in_region(line, col)
 
 % copy region to system and internal clipboards (The region stays marked)
 %!%+
-%\function{copy_region_to_clipboard}
-%\synopsis{Copy region to x-selection/cutbuffer and internal mouse clipboard}
-%\usage{ copy_region_to_clipboard()}
+%\function{cuamouse->copy_region_to_clipboard}
+%\synopsis{Copy region to x-selection and internal mouse clipboard}
+%\usage{cuamouse->copy_region_to_clipboard()}
 %\description
-%   Copy region to selection/cutbuffer and internal mouse clipboard.
-%
+%   Copy region to selection and internal mouse clipboard.
 %   The region stays marked.
-%\notes
-%   Tries x_copy_region_to_selection() and x_copy_region_to_cutbuffer()
-%   (in this order).
-%
-%   With CuaMouse_Use_Xclip = 1, the region is piped to the `xclip` command
-%   line tool instead. This is a workaround for interaction with applications
-%   using the QT toolkit that refuse to paste the selected text otherwise.
-%\seealso{CuaMouse_Use_Xclip, copy_region, yp_copy_region_as_kill}
+%\seealso{copy_region, yp_copy_region_as_kill}
 %!%-
-public define copy_region_to_clipboard()
+static define copy_region_to_clipboard()
 {
    % no copy if the region is void
    () = dupmark();
    if (bufsubstr() == "")
      return;
+   % copy to PRIMARY x-selection or Windows clipboard
    () = dupmark();
-   if (CuaMouse_Use_Xclip)
-     pipe_region("xclip");
-   else
-     !if (run_function("x_copy_region_to_selection"))
-       () = run_function("x_copy_region_to_cutbuffer");
+   () = run_function("x_copy_region_to_selection");
+   % copy to Jed-internal clipboard
    () = dupmark();
-   Clipboard = bufsubstr ();
+   Clipboard = bufsubstr();
 }
 
-% insert x-selection (or, if (from_jed == 1), Clipboard) at point
+% Insert x-selection (or, if (from_jed == 1), Clipboard) at point
+% wjed will insert the Windows clipboard
 define cuamouse_insert(from_jed)
 {
    if (from_jed)
-     insert(Clipboard);
+      insert(Clipboard);
    else
-     cua_insert_clipboard();
+      x_insert_selection();
 }
 
 % cursor follows mouse, scroll if pointer is outside window.
