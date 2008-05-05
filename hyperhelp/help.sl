@@ -80,6 +80,8 @@
 %   1.9.5 2007-10-18  re-introduce the sprint_variable() autoload
 %   1.9.6 2007-12-20  add JöÃ¶rg Sommer's fix for DFA highlight under UTF-8
 %   	  	      new highlight rules for keyword and headings
+%   1.9.7 2008-05-05  use call_function() instead of runhooks()
+	  	      
 
 % 
 % Usage
@@ -349,12 +351,12 @@ variable Help_History = create_circ(Array_Type, 30, "linear");
 
 define previous_topic()
 {
-   runhooks(push_array(circ_previous(Help_History)));
+   call_function(push_array(circ_previous(Help_History)));
 }
 
 define next_topic()
 {
-   runhooks(push_array(circ_next(Help_History)));
+   call_function(push_array(circ_next(Help_History)));
 }
 #endif
 
@@ -574,9 +576,10 @@ public define help_search() % ([str])
 % Show Key
 % --------
 
-% convert string into array of 1-char strings
-% in contrast to bstring_to_array(), the array elements are String_Type
-% and in UTF-8 can contain several bytes.
+% Convert string into array of 1-char strings.
+% 
+% In contrast to bstring_to_array() or foreach str),  the array elements are
+% of String_Type and in UTF-8 can contain several bytes.
 define string_to_array(str)
 {
    variable i, a = String_Type[strlen(str)];
@@ -1020,7 +1023,7 @@ public define grep_definition() % ([obj])
    if(results == 1)
      {
 	define_blocal_var("FileList_Cleanup", 1);
-	runhooks("filelist_open_file");
+	call_function("filelist_open_file");
 	close_buffer(grep_buf);
      }
    message(sprintf("Grep for \"%s\": %d definition(s) found", obj, results));
