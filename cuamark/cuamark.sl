@@ -11,11 +11,30 @@
 % 2006-07-20 1.2  * bugfix: cua_insert_clipboard() returned a value
 %		  * removed the call to cuamark_hook(): place your 
 %		    customization just after the `require("cuamark");' line.
-%		  * removed CuaCopyToClipboard: bind yp_copy_region() and
+%		  * removed CuaCopyToClipboard: use yp_copy_region() and
 %		    yp_kill_region() if you do not like to copy to the X 
 %		    selection
-% 2007-11-23 1.2.1  cua_insert_clipboard(): make insertion visible by updating
-%		  
+% 2008-05-05 1.3  * X-Clipboard interaction (using xclip) following
+% 	     	    http://www.freedesktop.org/standards/clipboards.txt
+% 	     	  * hack to prevent "inkonsistent key definition error" with
+% 	     	    rxvt-unicode that defines Key_Shift_Ins as "\e2$" but
+% 	     	    uses it internally to paste the CLIPBOARD x-selection
+% 	     	    
+% 
+% TODO
+% ----
+% 
+% * Extend the Shift+navigation marking to wordwise moving via Ctrl-Left/Right.
+%   Problem: with Unix/Linux Shift-Ctrl-Left/Right == Ctrl-Left/Right
+%
+%   Workaround: Currently, "skip_word, bskip_word" are not listed as unmarking
+%   functions -> Start the region using Shift-Left/Right and then extend it
+%   with Ctrl-Left/Right.
+%   
+% * x_insert_selection(): How to make insertion visible without further 
+% 			  keypress or click (generate EVENT)
+% 			  
+% * push marked region to PRIMARY selection (with x_copy_region_to_selection)
 %
 % Mark regions the CUA style
 % --------------------------
@@ -60,7 +79,7 @@
 %   setkey("cua_copy_region",	 "^C");
 %   setkey("cua_yank",		 "^V");
 %   
-% if you do not like to place a copy into the X selection
+% if you do not like to place a copy into the system clipboard
 % or are never using Jed under X-windows:
 % 
 %   setkey("yp_kill_region",  	        Key_Shift_Del);
@@ -72,16 +91,7 @@
 % If you are having problems with Shift-arrow keys under
 % the Linux console, you can use the "console_keys" mode
 % (http://jedmodes.sourceforge.net/mode/console_keys/)
-%
-% TODO
-% ----
-% 
-% Extend the Shift+navigation marking to wordwise moving via Ctrl-Left/Right.
-% Problem: with Unix/Linux Shift-Ctrl-Left/Right == Ctrl-Left/Right
-%
-% Workaround: Currently, "skip_word, bskip_word" are not listed as unmarking
-% functions -> Start the region using Shift-Left/Right and then extend it with
-% Ctrl-Left/Right.
+
 
 require ("keydefs"); % symbolic constants for many function and arrow keys
 
@@ -173,80 +183,116 @@ define cua_mark()
      }
 }
 
-% Copy region to system clipboards (The region stays marked)
-static define copy_to_clipboard()
+% X Clipboard interaction
+% -----------------------
+
+% From xclip's README:
+% 
+%   For a good overview of what selections are about, have a look at 
+%   <http://www.freedesktop.org/standards/clipboards.txt>. Short version:
+%   
+%   * XA_PRIMARY contains the last text you highlighted
+%   * Middle click pastes XA_PRIMARY
+%   * XA_CLIPBOARD contains text explicitly copied with Edit | Copy, Ctrl-C etc.
+%   * Edit | Paste pastes XA_CLIPBOARD
+%   * xclip uses XA_PRIMARY unless you specify otherwise with -selection 
+%   * never ever use CUTBUFFERS, they are obsolete and problematic
+
+% which means on X-Windows (xjed or jed in X-terminal):
+% * cuamark copy/kill/insert should use CLIPBOARD instead of PRIMARY
+%   However, 
+%   * x_copy_region_to_selection() and x_insert_selection() use PRIMARY
+%   * there are no S-Lang functions to work with CLIPBOARD
+
+
+%!%+
+%\function{cua_copy_region_to_clipboard}
+%\synopsis{Copy region to the system clipboard.}
+%\usage{cua_copy_region_to_clipboard()}
+%\description
+%  Copy region to the CLIPBOARD selection in X-Windows 
+%  and to the system clibboard in Windows.
+%  
+%  Allows to paste the content in another application (if that app uses the
+%  system clipboard).
+%\notes
+%  
+%\seealso{x_copy_region_to_selection, cua_insert_clipboard}
+%!%-
+public define cua_copy_region_to_clipboard()
 {
-   () = dupmark();                  % \
-   if (bufsubstr() == "")           %  | no copy if the region is nil
-     return;	      		    % /
-   () = dupmark();
-   if (is_defined("x_copy_region_to_selection"))
-     eval("x_copy_region_to_selection");
-   else if (is_defined("x_copy_region_to_cutbuffer"))
-     eval("x_copy_region_to_cutbuffer");
-   else
-     pop_mark_0;
+#ifdef WIN32
+   x_copy_region_to_cutbuffer();
+#elifdef UNIX
+   () = pipe_region("xclip -selection clipboard");
+#else
+   pop_mark_0();
+#endif
 }
 
 %!%+
 %\function{cua_insert_clipboard}
-%\synopsis{Insert X selection at point}
+%\synopsis{Insert system CLIPBOARD selection at point}
 %\usage{Void cua_insert_clipboard()}
 %\description
-% Insert the content of the X selection at point.
-% Use, if you want to have a keybinding for the "middle click" action.
+% Insert the content of the "clipboard" X selection at point.
+% 
+% Works also for wjed (using \sfun{x_insert_cutbuffer}) and
+% jed in an x-terminal.
 %\notes
-% This function doesnot return the number of characters inserted so it can
+% This function does not return the number of characters inserted so it can
 % be bound to a key easily.
-%\seealso{x_insert_selection, x_insert_cutbuffer}
-%!%-
-define cua_insert_clipboard()
+%
+% The intrinsic \sfun{x_insert_selection} will insert the content of the
+% PRIMARY selection (analogue to a middle click) but only after the next
+% "EVENT" (keypress, -release or mouse click).
+%\seealso{cua_copy_region, cua_kill_region}
+%!%- 
+public define cua_insert_clipboard()
 {
-   variable insert_fun = __get_reference("x_insert_selection");
-   if (insert_fun == NULL)
-     insert_fun = __get_reference("x_insert_cutbuffer");
-   if (insert_fun == NULL)
-     error("cannot insert from X selection");
-   () = @insert_fun();
-   update_sans_update_hook(1);
+#ifdef WIN32
+   x_insert_cutbuffer();
+#else   
+   () = run_shell_cmd("xclip -o -selection clipboard");
+#endif
 }
 
 %!%+
 %\function{cua_kill_region}
-%\synopsis{Kill region (and copy to yp-yankbuffer [and X selection])}
+%\synopsis{Kill region (and copy to yp-yankbuffer and system clipboard)}
 %\usage{Void cua_kill_region()}
 %\description
-%   Kill region. A copy is placed in the yp-yankbuffer.
-%
-%   If \sfun{x_copy_region_to_selection} or \sfun{x_copy_region_to_cutbuffer}
-%   exist, a copy is pushed to the X selection as well.
-%\seealso{yp_kill_region, cua_copy_region, yp_yank}
+%   Kill region. Copies are placed in the yp-yankbuffer and in the system
+%   clipboard.
+%\seealso{yp_kill_region, cua_copy_region, cua_copy_region_to_clipboard}
 %!%-
 define cua_kill_region ()
 {
-   copy_to_clipboard();
+   () = dupmark();
+   cua_copy_region_to_clipboard();
    yp_kill_region();
 }
 
 %!%+
 %\function{cua_copy_region}
-%\synopsis{Copy region to yp-yankbuffer [and X selection])}
+%\synopsis{Copy region to yp-yankbuffer and system clipboard}
 %\usage{Void cua_copy_region()}
 %\description
-%   Copy the region to the yp-yankbuffer.
+%   Copy the region to the yp-yankbuffer and the system clipboard.
 %
 %   If \sfun{x_copy_region_to_selection} or \sfun{x_copy_region_to_cutbuffer}
 %   exist, a copy is pushed to the X selection as well.
-%\seealso{yp_copy_region_as_kill, cua_kill_region, yp_yank}
+%\seealso{yp_copy_region_as_kill, cua_kill_region, cua_copy_region_to_clipboard}
 %!%-
 define cua_copy_region()
 {
-   copy_to_clipboard();
+   () = dupmark();
+   cua_copy_region_to_clipboard();
    yp_copy_region_as_kill;
 }
 
-% % yp_yank wrapper with temporar rebinding of yank-pop keys
-% % --------------------------------------------------------
+% % yp_yank wrapper with temporary rebinding of yank-pop keys
+% % ------------------------------_--------------------------
 % 
 % static define cua_yank_pop_hook(fun); % forward definition
 % static define cua_yank_pop_hook(fun)
@@ -280,7 +326,8 @@ setkey("cua_mark; call(\"page_down\")", Key_Shift_PgDn);
 setkey("cua_mark; bol",                 Key_Shift_Home);
 setkey("cua_mark; eol",                 Key_Shift_End);
 
-setkey("yp_yank",		        Key_Shift_Ins);
+if (Key_Shift_Ins != "\e2$")  % rxvt-unicode: results in inkonsistent keydef error
+   setkey("yp_yank",		        Key_Shift_Ins);
 setkey("cua_kill_region",  	        Key_Shift_Del);
 setkey("cua_copy_region",	        Key_Ctrl_Ins);
 
