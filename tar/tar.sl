@@ -1,6 +1,6 @@
 % File:		tar.sl  -*- mode: SLang -*-
 %
-% $Id: tar.sl,v 1.11 2006/01/19 21:02:09 paul Exp paul $
+% $Id: tar.sl,v 1.12 2008/05/08 17:25:35 paul Exp paul $
 %
 % Copyright (c) 2003-2008 Paul Boekholt
 % Released under the terms of the GNU GPL (version 2 or later).
@@ -236,7 +236,8 @@ private define tar_copy_member ()
    try
      {
 	extract_to_buf(" *tar_copy_buffer*");
-	write_buffer(name);
+	setbuf_info(getbuf_info() | 0x200);
+	()=write_buffer(name);
 	delbuf(whatbuf());
      }
    finally
