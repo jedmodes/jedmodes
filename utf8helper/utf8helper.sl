@@ -53,12 +53,13 @@
 % 		   (called at end of script if evaluated first time).
 % 1.2.5 2008-01-25 remove dependency on datutils.sl and sl_utils.sl
 % 1.2.6 2008-05-05 no more dependencies
-% 		   patches by Paul Boekholt: 
+% 		   patches by Paul Boekholt:
 % 		     reset CASE_SEARCH also after failure,
 % 		     strtrans_utf8_to_latin1("") now works,
-% 		     has_invalid_chars(): initialize return value. 
+% 		     has_invalid_chars(): initialize return value.
+% 1.2.7 2008-05-13 Convert Python (and Emacs) special encoding comment
 
-% TODO: use the iconv module (which is unfortunately undocumented) 
+% TODO: use the iconv module (which is unfortunately undocumented)
 
 % Customisation
 % -------------
@@ -102,7 +103,8 @@ custom_variable("UTF8Helper_Write_Autoconvert", 0);
 % Namespace
 % ---------
 
-provide("utf8helper");
+% provide("utf8helper"); % put at end, to enable the idempotent behaviour of 
+% hook-setting
 implements("utf8helper");
 
 % Functions
@@ -127,6 +129,7 @@ implements("utf8helper");
 public define latin1_to_utf8()
 {
    variable ch, convert_region = is_visible_mark();
+
    if (convert_region)
      narrow_to_region();
    else if (get_blocal_var("encoding", "") == "utf8")
@@ -172,6 +175,17 @@ public define latin1_to_utf8()
 	       }
 	  } while (right(1));
      }
+   % Python code comment pattern: "coding[=:]\s*([-\w.]+)"
+   % aliases: iso-8859-1, iso8859-1, 8859, cp819, latin, latin_1, latin1, L1
+   bob();
+   if (orelse {re_fsearch("coding[:=] *iso-?8859-1")}
+	 {re_fsearch("coding[:=] *8859")}
+	 {re_fsearch("coding[:=] *cp819")} 
+	 {re_fsearch("coding[:=] *latin_?1?")} 
+	 {re_fsearch("coding[:=] *L1?")} 
+      )
+      () = replace_match("coding: utf8", 1);
+
    pop_spot();
    if (convert_region)
      widen_region();
@@ -218,10 +232,10 @@ public define utf8_to_latin1 ()
       CASE_SEARCH = 1;
       try
 	{
-	   while (fsearch_char(194)) % '‚'
+	   while (fsearch_char(194)) % 'Â‚'
 	     del();
 	   bob();
-	   while (fsearch_char(195)) {  % 'ƒ'
+	   while (fsearch_char(195)) {  % 'Âƒ'
 	      del();
 	      ch = what_char();
 	      del();
@@ -233,6 +247,17 @@ public define utf8_to_latin1 ()
 	   CASE_SEARCH = old_case_search;
 	}
    }
+
+   % Python code comment pattern: "coding[=:]\s*([-\w.]+)"
+   % aliases: utf_8, U8, UTF, utf8
+   % we support just the most frequently used:
+   bob();
+   if (orelse {re_fsearch("coding[:=] *utf_?8")}
+	 {re_fsearch("coding[:=] *UTF")}
+	 {re_fsearch("coding[:=] *U8")} 
+      )
+      () = replace_match("coding: utf8", 1);
+
    pop_spot ();
    if (convert_region)
      widen_region();
@@ -287,7 +312,7 @@ public define strtrans_utf8_to_latin1(str)
 % ------------------------------
 
 % From David Goodger in http://www.pycheesecake.org/wiki/ZenOfUnicode:
-% 
+%
 % - The first byte of a non-ASCII character encoded in UTF-8 is
 %   always in the range 0xC0 to 0xFD, and all subsequent bytes are in
 %   the range 0x80 to 0xBF.  The bytes 0xFE and 0xFF are never used.
@@ -306,7 +331,7 @@ static define has_invalid_chars()
 	return result;
      }
    % Jed with latin-* encoding:
-   %  poor mans test: '\194' == '\x82' == 'Â' or '\195' == '\x83' == 'Ã'
+   %  poor mans test: '\194' == '\x82' == 'Ã‚' or '\195' == '\x83' == 'Ãƒ'
    %    	      followed by high-bit character (ch >= 128).
    % While this is a completely valid string sequence in latin-1 encoding,
    % is is highly indicative of utf8 encoded strings.
@@ -325,12 +350,12 @@ static define has_invalid_chars()
 % convert encoding to native encoding (or vice versa)
 static define autoconvert(to_native)
 {
-   % unset readonly flag and file binding, 
+   % unset readonly flag and file binding,
    % so that we can edit without further questions.
    variable file, dir, name, flags;
    (file, dir, name, flags) = getbuf_info();
    setbuf_info("", dir, name, flags & ~0x8);
-   
+
    if (to_native) {
       if (_slang_utf8_ok)
 	 latin1_to_utf8();
@@ -343,46 +368,48 @@ static define autoconvert(to_native)
       else
 	 latin1_to_utf8();
    }
-   
+
    % reset the buffer info
    setbuf_info(file, dir, name, flags);
 }
 
 static define utf8helper_read_hook()
 {
-   variable msg, 
-      do_convert = get_blocal_var("utf8helper_read_autoconvert",
-				  UTF8Helper_Read_Autoconvert);
-   % abort if do_convert == 0 ("do not convert")
-   !if (do_convert)
-     return;
+   variable msg,
+      read_autoconvert = get_blocal_var("utf8helper_read_autoconvert",
+					UTF8Helper_Read_Autoconvert);
+   % show("utf8helper_read_hook() called. read_autoconvert == ", read_autoconvert);
    
+   % abort if read_autoconvert == 0 ("do not convert")
+   !if (read_autoconvert)
+     return;
+
    % Check for out of place encoding - no need to convert if there is no
    % invalid character.
-   
+
    push_spot(); % has_invalid_chars() moves point to first invalid
-   		% char to give the user a chance to examine the situation. 
-   
-   !if (has_invalid_chars()) { 
-      % message("no offending chars"); 
-      do_convert = 0; 
+   		% char to give the user a chance to examine the situation.
+
+   !if (has_invalid_chars()) {
+      % message("no offending chars");
+      read_autoconvert = 0;
    }
-   
+
    % ask user if default is -1
-   if (do_convert == -1) {
+   if (read_autoconvert == -1) {
       update_sans_update_hook(1); % repaint to show "invalid" char
       if (_slang_utf8_ok)
 	 msg = "Buffer contains high-bit chars. Convert to UTF-8";
       else
 	 msg = "Buffer seems to contain UTF-8 chars. Convert to iso-latin-1";
-      do_convert = get_y_or_n(msg);
+      read_autoconvert = get_y_or_n(msg);
       % and store the answer
-      define_blocal_var("utf8helper_read_autoconvert", do_convert);
+      define_blocal_var("utf8helper_read_autoconvert", read_autoconvert);
    }
    pop_spot();
 
    % abort if no invalid chars or user decided to skip autoconversion
-   !if (do_convert)
+   !if (read_autoconvert)
      return;
 
    % convert encoding (to_native = 1)
@@ -390,7 +417,7 @@ static define utf8helper_read_hook()
 
    % mark for re-conversion before writing:
    if (not(blocal_var_exists("utf8helper_write_autoconvert")))
-     define_blocal_var("utf8helper_write_autoconvert", 
+     define_blocal_var("utf8helper_write_autoconvert",
 	UTF8Helper_Write_Autoconvert);
 }
 
@@ -399,48 +426,50 @@ static define utf8helper_write_hook(file)
    % Get autoconvert option:
    % Default is 0, so do not convert if it is not autoconverted
    % TODO: consider the case where the user always wants a definite encoding.
-   variable do_convert = get_blocal_var("utf8helper_write_autoconvert", 0);
+   variable write_autoconvert = get_blocal_var("utf8helper_write_autoconvert", 0);
 
    % ask user if default is -1
-   if (do_convert == -1) {
-      do_convert = get_y_or_n("Re-convert buffer encoding before saving");
+   if (write_autoconvert == -1) {
+      write_autoconvert = get_y_or_n("Re-convert buffer encoding before saving");
       % and store the result
-      define_blocal_var("utf8helper_write_autoconvert", do_convert);
+      define_blocal_var("utf8helper_write_autoconvert", write_autoconvert);
    }
-   if (do_convert)
+   if (write_autoconvert)
       autoconvert(0);
 }
 
 static define utf8helper_restore_hook(file)
 {
-   variable do_convert = get_blocal_var("utf8helper_write_autoconvert", 0);
-   if (do_convert)
+   if (get_blocal_var("utf8helper_write_autoconvert", 0))
       autoconvert(1);
 }
 
-static define register_autoconvert_hooks()
-{
-   if (UTF8Helper_Read_Autoconvert)
-     append_to_hook("_jed_find_file_after_hooks", &utf8helper_read_hook);
-   if (UTF8Helper_Write_Autoconvert)
-     {
-	append_to_hook("_jed_save_buffer_before_hooks", &utf8helper_write_hook);
-	append_to_hook("_jed_save_buffer_after_hooks", &utf8helper_restore_hook);
-     }
-}
-
-% register the autoconvert hooks if 
+% register the autoconvert hooks
+% ------------------------------
+% 
+% If
 % * this file is evaluated the first time and
 % * the custom variables are non-zero
-!if (_featurep("utf8helper"))
-   register_autoconvert_hooks();
+% ::
+
+!if (_featurep("utf8helper")) {
+   if (UTF8Helper_Read_Autoconvert)
+      append_to_hook("_jed_find_file_after_hooks", &utf8helper_read_hook);
+   if (UTF8Helper_Write_Autoconvert) {
+      append_to_hook("_jed_save_buffer_before_hooks", &utf8helper_write_hook);
+      append_to_hook("_jed_save_buffer_after_hooks", &utf8helper_restore_hook);
+   }
+}
+% announce the feature now
+provide("utf8helper");
+
 
 % Joerg Sommer also wrote:
 %   And I've written some functions for UTF-8 features. Maybe they get a menu
 %   entry "Edit->UTF-8 specials".
-%   
+%
 % Suggestion: (place them under Edit>Re&gion Ops, as they act on regions)
-% 
+%
 static define insert_after_char(char)
 {
    narrow_to_region();
@@ -462,4 +491,5 @@ static define underline() { insert_after_char(0x332); }
 static define double_underline() { insert_after_char(0x333); }
 static define overline() { insert_after_char(0x305); }
 static define double_overline() { insert_after_char(0x33f); }
+
 
