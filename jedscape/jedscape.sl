@@ -1,12 +1,22 @@
 % jedscape.sl
 %
-% $Id: jedscape.sl,v 1.11 2008/02/01 18:29:50 paul Exp paul $
+% $Id: jedscape.sl,v 1.12 2008/05/16 18:55:02 paul Exp paul $
 %
 % Copyright (c) 2003-2008 Paul Boekholt.
 % Released under the terms of the GNU GPL (version 2 or later).
 %
 % Mode for browsing the web in JED.
-
+% 
+% This uses the 'w3m -halfdump' command to parse the html, like Emacs-w3m
+% does. To get w3m to output UTF-8 output with this option, you have to set
+% some options: start w3m, press 'o', go down to 'Charset Settings'
+% and set
+% Display charset                                [Unicode (UTF-8)   ]
+% Output halfdump with display charset           (*)YES  ( )NO
+% go down, and press '[OK]'
+% Or you can set these options in ~/.w3m/config:
+% ext_halfdump 1
+% display_charset UTF-8
 provide("jedscape");
 require("curl");
 require("pcre");
@@ -15,6 +25,7 @@ require("bufutils");
 require("view");
 autoload("read_rss_data", "newsflash");
 autoload("sqlited_table", "sqlited");
+autoload("list2array", "datutils");
 
 try
 {
@@ -30,7 +41,6 @@ use_namespace("jedscape");
 
 define jedscape_mode();
 define find_page();
-
 %!%+
 %\variable{Jedscape_Home}
 %\synopsis{the file name of the jedscape home page}
@@ -52,21 +62,6 @@ custom_variable("Jedscape_Home", dircat (Jed_Home_Directory, "jed_home.html"));
 custom_variable("Jedscape_DB", dircat (Jed_Home_Directory, "jedscape_db"));
 
 %!%+
-%\variable{Jedscape_Html_Filter}
-%\synopsis{jedscape HTML filter program}
-%\usage{String_Type Jedscape_Html_Filter = "html2text -nobs -width %d"}
-%\description
-%  The html filter program used by \var{jedscape}. possible values:
-%#v+
-% lynx -force-html -dump -nolist -stdin -width %d
-% w3m -dump -T text/html -cols %d
-% links -dump -no-references
-%#v-
-%\seealso{jedscape}
-%!%-
-custom_variable("Jedscape_Html_Filter", "html2text -nobs -width %d");
-
-%!%+
 %\variable{Jedscape_Emulation}
 %\synopsis{jedscape key bindings scheme}
 %\usage{String_Type Jedscape_Emulation = "w3"}
@@ -79,22 +74,20 @@ custom_variable("Jedscape_Emulation", "w3");
 private variable mode="jedscape";
 
 private variable
-  version="$Revision: 1.11 $",
+  version="$Revision: 1.12 $",
   title="",
-  this_href_mark, last_href_mark,      % check if tags don't overlap
   url_file ="",			       %  /dir/file.html
   url_host="",			       %  http://host
   url_root,			       %  /dir
   href_list, href_begin_marks, href_end_marks,   %  hyperlinks
   href_anchor_list,		       %  part between <a> and </a>
-  href_i,			       %  counter for hrefs
-  anchor_list, anchor_marks, anchor_i,	       %  anchors
+  anchor_marks,	                       %  anchors
   links= struct{ previous, next, up, contents};   %  links in <head>
 
 %{{{ database
 $1 = file_status(Jedscape_DB);
 variable db = sqlite_open(Jedscape_DB);
-!if ($1)
+ifnot ($1)
 {
    sqlite_exec(db, "CREATE TABLE bookmarks (name TEXT PRIMARY KEY, url TEXT)");
    sqlite_exec(db, "CREATE TABLE searchengines (name TEXT PRIMARY KEY, url TEXT)");
@@ -113,165 +106,53 @@ private define bufsubstr_compress()
    strcompress(strtrim(bufsubstr()), " \n");
 }
 
-% Some pages smear their tags out across several lines, JED's regexp
-% search can't handle that.
-private define fix_broken_markup(mark)
-{
-   bob;
-   mark = sprintf("\C%s$"R, mark);
-   while (re_fsearch(mark))
-     {
-	newline();
-	go_right_1();
-	eol();
-	del();
-	trim();
-     }
-   bob();
-}
-
 %{{{ <head>
-
-% this is for extracting the title
-private define extract_tag(tag)
-{
-   bob();
-   !if (fsearch ("</" + tag)) return "";
-   push_mark();
-   ()=bsearch_char('>'); % will not work with nested tags
-   go_right_1();
-   bufsubstr_compress();
-}
-
-private variable link_re = 
-  pcre_compile("(?i)<link.*href ?= ?(['\"])([^'\"]+)\\1.*rel ?= ?(['\"])([^'\"]+)\\3");
-private variable link2_re =
-  pcre_compile("(?i)<link.*rel ?= ?(['\"])([^'\"]+)\\1.*href ?= ?(['\"])([^'\"]+)\\3");
-private define parse_link(link)
-{
-   variable rel, href;
-   if (pcre_exec(link_re, link))
-     pcre_nth_substr(link_re, link, 2), strlow(pcre_nth_substr(link_re, link, 4));
-   else if (pcre_exec(link2_re, link))
-     pcre_nth_substr(link2_re, link, 4), strlow(pcre_nth_substr(link2_re, link, 2));
-   else return;
-   (href, rel) =(); 
-   if (length(where(get_struct_field_names(links) == rel)))
-     set_struct_field(links, rel, href);
-   else if (rel == "home") % Docbook page
-     set_struct_field(links, "contents", href);
-}
-
 % get the header links and title
 private define get_links()
 {
-   bob();
-   push_mark();
-   !if(fsearch("<body"))
-     return pop_mark_1();
-   narrow();
-   bob();
-   while (fsearch("<link"))
+   variable href, rel;
+   for (bob();
+	re_fsearch("<link href=\"\\([^\"]*\\)\" rel=\"\\([^\"]*\\)\"");
+	go_right_1())
      {
-	push_mark();
-	()=fsearch(">");
-	parse_link(bufsubstr_compress());
+	(href, rel) =(regexp_nth_match(1), regexp_nth_match(2)); 
+	if (length(where(get_struct_field_names(links) == rel)))
+	  set_struct_field(links, rel, href);
+	else if (rel == "home") % Docbook page
+	  set_struct_field(links, "contents", href);
      }
-   widen();
-   title = extract_tag("title");
    bob();
+   if (re_fsearch("<title_alt title=\"\\([^\"]*\\)\""))
+     title = str_replace_all(regexp_nth_match(1), char(160), " ");
 }
 
 %}}}
 
-%{{{ hrefs and anchors
-
-private variable href_re =
-  pcre_compile("(?i)<a [^<>]*href ?= ?(['\"]?)([^'\"]+)\\1[^<>]*>(.*)"),
-anchore_re=
-  pcre_compile("(?i)<a .*name ?= ?(['\"]?)([^'\">]+)\\1 ?>(.*)");
-private define markup_this_href()
+%{{{ w3m filtering
+private variable entities = Assoc_Type[Char_Type];
+foreach $1 ([{"nbsp", ' '},
+	     {"gt", '>'},
+	     {"lt", '<'},
+	     {"amp", '&'},
+	     {"quot", '\''},
+	     {"apos", '\''},
+	     {"circ", '^'},
+	     {"tilde", '~'},
+	     {"mdash", '-'}])
 {
-   % get the link
-   push_mark();
-   ()=bsearch("<a");
-   move_user_mark(this_href_mark);
-   if (this_href_mark <= last_href_mark)
-     return pop_mark_1(); % ? skip this one
-   move_user_mark(last_href_mark);
-   exchange_point_and_mark();
-   ()=dupmark();
-   variable href = strcompress(bufsubstr(), " \n");
-   variable target, text;
-   % is it a href?
-   if (pcre_exec(href_re, href))
-     {
-	del_region();
-	(target, text) = pcre_nth_substr(href_re, href, 2), pcre_nth_substr(href_re, href, 3);
-	vinsert("<a href=\"%s\">\\link%d{%s}",
-		target, % not really necessary since html2text will remove it
-		href_i,
-		text);
-	list_append(href_list, strtrim(target), -1);
-	href_anchor_list[text]=strtrim(target);
-	href_i++;
-     }
-   % is it an anchor?
-   else if (pcre_exec(anchore_re, href))
-     {
-	del_region();
-	target = pcre_nth_substr(anchore_re, href, 2);
-	vinsert("<a name=\"%s\">\\anchor%d|%s",
-		target,
-		anchor_i,
-		pcre_nth_substr(anchore_re, href, 3));
-	list_append(anchor_list, target, -1);
-	anchor_i++;
-     }
-   else
-     pop_mark_0();
+   entities[$1[0]] = $1[1];
 }
-private variable jedscape_temp=path_concat(Jed_Home_Directory, "jedscape_temp");
+
+	
+private variable jedscape_temp=path_concat(Jed_Home_Directory, "jedscape_temp.html");
 private define filter_html()
 {
-   variable message, progress;
-   % display a progress indicator
-   USER_BLOCK0
-     {
-	!if (progress mod 50)
-	  {
-	     flush (message);
-	     message += ".";
-	  }
-	progress++;
-     }
-   
    bob();
-   (anchor_list, href_list, href_anchor_list) = ({}, {}, Assoc_Type[String_Type]);
-   href_begin_marks = Mark_Type[0];
-   href_end_marks = Mark_Type[0];
+   (href_list, href_anchor_list) = ({}, Assoc_Type[String_Type]);
+   href_begin_marks = {};
+   href_end_marks = {};
    anchor_marks = Assoc_Type[Mark_Type];
-   (href_i, anchor_i) = (0,0);
-   this_href_mark = create_user_mark();
-   last_href_mark = create_user_mark();
    set_struct_fields(links, NULL, NULL, NULL, NULL);
-   get_links();
-   % fix pages that look like
-   % </a
-   % >
-   fix_broken_markup("</a");
-
-   message = "parsing links"; progress = 0;
-
-   %%% add some markup to links that will be left by html2text
-   while (fsearch("</a>"))
-     {
-	X_USER_BLOCK0;
-	markup_this_href();
-	()=right(1);
-     }
-
-   %%% convert to text
    flush("filtering");
    mark_buffer();
    ()=write_region_to_file(jedscape_temp);
@@ -279,50 +160,55 @@ private define filter_html()
    setbuf("*jedscape*");
    set_readonly(0);
    erase_buffer();
-   ()=run_shell_cmd(strcat(sprintf(Jedscape_Html_Filter,
-				   window_info('w') - 5), " ", jedscape_temp));
+   ()=run_shell_cmd(sprintf("w3m -cols %d -halfdump %s", window_info('w') - 5, jedscape_temp));
    %%% process links
-   href_begin_marks = Mark_Type[href_i];
-   href_end_marks = Mark_Type[href_i];
-   % html2text will break lines at "{", annoyingly it will also break
-   % lines in tables, I can't handle links that run in columns.
-   bob(); fix_broken_markup("\link[0-9]+"R);
-   variable i, line;
-   message = "marking links"; progress = 0;
-   while (re_fsearch("\\link[0-9]+{"R))
-     {
-	X_USER_BLOCK0;
-	deln(5);
-	push_mark();
-	skip_chars("0-9");
-	i=atoi(bufsubstr_delete());
-	del(); % {
-	href_begin_marks[i] = create_user_mark();
-	line = what_line();
-	insert("[[ \e[29m");
-	()=fsearch_char('}');
-	del();
-	insert("\e[0] ]]");
-	href_end_marks[i] = create_user_mark();
-	if (line < what_line())
-	  {
-	     push_spot_bol();
-	     insert("\e[29m");
-	     pop_spot();
-	  }
-     }
-   clear_message();
-   %%% process anchors
+   flush("marking links");
+   get_links();
+   
+   %%% hrefs
    bob();
-   while (re_fsearch("\\anchor[0-9]+|"R))
+   while (re_fsearch("<a [^>]*href=\\([\"']\\)\\([^\"]*\\)\\1[^>]*>"))
      {
-	deln(7);
-	push_mark();
-	skip_chars("0-9");
-	i=atoi(bufsubstr_delete());
-	del();
-	anchor_marks[anchor_list[i]] = create_user_mark();
+	list_append(href_list, str_replace_all(regexp_nth_match(2), "&amp;", "&"));
+	()=replace_match("", 0);
+	
+	list_append(href_begin_marks, create_user_mark());
+	insert("\e[29m");
+	if (re_fsearch("</a>"))
+	  ()=replace_match("\e[0]", 0);
+	else
+	  throw RunTimeError, "missing closing tag";
+	list_append(href_end_marks, create_user_mark());
+	
      }
+   
+   href_begin_marks = list2array(href_begin_marks, Mark_Type);
+   href_end_marks = list2array(href_end_marks, Mark_Type);
+   
+   %%%  anchors
+   for (bob(); re_fsearch("<a id=\\([\"']\\)\\([^\"]*\\)\\1"); go_right_1())
+     {
+	anchor_marks[regexp_nth_match(2)] = create_user_mark();
+     }
+
+   
+   bob();
+   while(re_fsearch("<[^>]*>"))
+     ()=replace_match("", 0);
+   
+   bob();
+   while(re_fsearch("&\([a-z]+\);"R))
+     {
+	if (assoc_key_exists(entities, regexp_nth_match(1)))
+	  ()=replace_match(char(entities[regexp_nth_match(1)]), 0);
+	else
+	  ()=replace_match("?", 0);
+     }
+   bob();
+   while(re_fsearch("&#\([0-9]+\);"R))
+     ()=replace_match(char(atoi(regexp_nth_match(1))), 0);
+
+   clear_message();
 }
 
 %}}}
@@ -363,8 +249,7 @@ define find_page(url)
      }
 
    % texi2html generated pages superfluously add the filename to #links
-   if (file == url_file)
-     if (bufferp("*jedscape*"))
+   if (file == url_file && bufferp("*jedscape*"))
      return sw2buf("*jedscape*"), X_USER_BLOCK0;
    
    setbuf(" jedscape_buffer");
@@ -378,7 +263,7 @@ define find_page(url)
 	  file = sprintf(se[0,0], curl_easy_escape(curl_new(""), term));
      }
 
-   !if (strncmp(file, "http://", 7))
+   ifnot (strncmp(file, "http://", 7))
      {
 	variable c = curl_new (file);
 	curl_setopt(c, CURLOPT_FOLLOWLOCATION, 1);
@@ -394,8 +279,8 @@ define find_page(url)
 	curl_perform (c);
 	variable content_type=curl_get_info(c, CURLINFO_CONTENT_TYPE);
 	file=curl_get_info(c, CURLINFO_EFFECTIVE_URL);
-	!if (strncmp(content_type, "text/xml", 8)
-	     and strncmp(content_type, "application/atom", 16))
+	ifnot (strncmp(content_type, "text/xml", 8)
+	       && strncmp(content_type, "application/atom", 16))
 	  {
 	     if (get_y_or_n(sprintf("Content type=%s. View in newsflash", content_type, url)))
 	       {
@@ -409,9 +294,20 @@ define find_page(url)
 	  {
 	     switch(get_mini_response(sprintf("Content type=%s. (D)isplay (S)ave (C)ancel", content_type)))
 	       {case 's' or case 'S':
-		  variable dest=read_file_from_mini(_("Enter name of file to create:"));
-		  mark_buffer();
-		  ()=write_region_to_file(dest);
+		  variable dest=read_with_completion(_("Enter name of file to create:"),
+						     "", path_concat(getcwd(), path_basename(file)), 'f');
+		  setbuf_info(getbuf_info() | 0x200);
+		  variable state;
+		  auto_compression_mode(0, &state);
+		  try
+		    {
+		       ()=write_buffer(dest);
+		       delbuf(whatbuf());
+		    }
+		  finally
+		    {
+		       auto_compression_mode(state);
+		    }
 	       }
 	       {case 'd' or case 'D':
 		  pop2buf(file);
@@ -479,7 +375,7 @@ private define download(url)
    curl_setopt(c, CURLOPT_FOLLOWLOCATION, 1);
    curl_setopt (c, CURLOPT_WRITEFUNCTION, &download_callback, fp);
    curl_setopt (c, CURLOPT_PROGRESSFUNCTION, &progress_callback, stdout);
-   runhooks("jedscape_curlopt_hook", c, url);
+   runhooks("jedscape_curlopt_hook", c);
    curl_perform (c);
 }
 
@@ -487,13 +383,14 @@ private define download(url)
 
 %{{{ history stack
 
-!if (is_defined ("jedscape_position_type"))
+ifnot (is_defined ("jedscape_position_type"))
 {
    typedef struct
      {
 	hostname,
 	filename,
-	line_number
+	line_number,
+	column
      }
    jedscape_position_type;
 }
@@ -503,7 +400,7 @@ variable jedscape_history = jedscape_position_type[16],
   jedscape_stack_depth = -1,
   forward_stack_depth = 0;
 
-define push_position(host, file, line)
+define push_position(host, file, line, column)
 {
    if (page_is_download) return;
    if (jedscape_stack_depth == 16)
@@ -512,7 +409,7 @@ define push_position(host, file, line)
 	jedscape_history  = jedscape_history [jedscape_history_rotator];
      }
 
-   set_struct_fields (jedscape_history [jedscape_stack_depth], host, file, line);
+   set_struct_fields (jedscape_history [jedscape_stack_depth], host, file, line, column);
 
    ++jedscape_stack_depth;
    forward_stack_depth = 0;
@@ -527,14 +424,15 @@ define goto_stack_position()
    if (file != strcat(url_host, url_file))
      find_page(file);
    goto_line(n);
+   goto_column(pos.column);
 }
 
 define goto_last_position ()
 {
    if (jedscape_stack_depth < 0) return message(_("You are already at the first document"));
-   !if (forward_stack_depth)
+   ifnot (forward_stack_depth)
      {
-	push_position(url_host, url_file, what_line);
+	push_position(url_host, url_file, what_line, what_column());
 	--jedscape_stack_depth;
      }
 
@@ -545,7 +443,7 @@ define goto_last_position ()
 
 define goto_next_position()
 {
-   !if (forward_stack_depth) return message("Can't go forward");
+   ifnot (forward_stack_depth) return message("Can't go forward");
    ++jedscape_stack_depth;
    --forward_stack_depth;
    goto_stack_position;
@@ -567,19 +465,19 @@ public define jedscape_get_url() % url
    variable url;
    if (_NARGS) url = ();
    else url = read_mini("open", "", "");
-   variable last_host, last_file, last_line;
-   (last_host, last_file, last_line) = (url_host, url_file, what_line());
+   variable last_host, last_file, last_line, last_column;
+   (last_host, last_file, last_line, last_column) = (url_host, url_file, what_line, what_column());
    find_page(url);
-   push_position(last_host, last_file, last_line);
+   push_position(last_host, last_file, last_line, last_column);
 }
 
 define open_local()
 {
    variable file=read_file_from_mini ("open local");
-   variable last_host, last_file, last_line;
-   (last_host, last_file, last_line) = (url_host, url_file, what_line());
+   variable last_host, last_file, last_line, last_column;
+   (last_host, last_file, last_line, last_column) = (url_host, url_file, what_line, what_column());
    find_page(file);
-   push_position(last_host, last_file, last_line);
+   push_position(last_host, last_file, last_line, last_column);
 }
    
 %{{{ view history
@@ -612,7 +510,7 @@ define view_history()
 
 define quit()
 {
-   push_position(url_host, url_file, what_line());
+   push_position(url_host, url_file, what_line, what_column());
    url_file="";
    delbuf("*jedscape*");
 }
@@ -624,10 +522,9 @@ define quit()
 define get_href()
 {
    variable place, href;
-   place = create_user_mark();
+   place =  create_user_mark();
    href = wherefirst(href_end_marks >= place);
-   if (href != NULL)
-     if (href_begin_marks[href] <= place)
+   if (href != NULL && href_begin_marks[href] <= place)
      return href_list[href];
    else
      return "";
@@ -635,11 +532,10 @@ define get_href()
 
 define follow_href() % href
 {
-   !if (_NARGS) get_href();
+   ifnot (_NARGS) get_href();
    variable href = ();
-   !if (strlen(href)) return;
-   if (url_host !="")
-     if (not strncmp(href, "//", 2))
+   ifnot (strlen(href)) return;
+   if (url_host !="" && not strncmp(href, "//", 2))
      href = "http:" + href;
    if (is_substr(href, ":"))
      {
@@ -655,7 +551,7 @@ define follow_href() % href
 	  }
 	  { case "file":
 	     href = extract_element(href, 1, ':');
-	     !if (strncmp (href, "//localhost", 11))
+	     ifnot (strncmp (href, "//localhost", 11))
 	       href = href[[11:]];
 	     jedscape_get_url(href);
 	  }
@@ -664,7 +560,7 @@ define follow_href() % href
      }
    if (href[0] == '#')
      {
-	push_position(url_host, url_file, what_line);
+	push_position(url_host, url_file, what_line, what_column());
 	goto_anchor(href[[1:]]);
      }
    else
@@ -676,11 +572,10 @@ define follow_href() % href
 
 define download_href()
 {
-   !if (_NARGS) get_href();
+   ifnot (_NARGS) get_href();
    variable href = ();
-   !if (strlen(href)) return;
-   if (url_host !="")
-     if (not strncmp(href, "//", 2))
+   ifnot (strlen(href)) return;
+   if (url_host !="" && not strncmp(href, "//", 2))
      href = "http:" + href;
    if (is_substr(href, ":"))
      {
@@ -760,14 +655,14 @@ define view_source()
 
 define next_reference()
 {
-   go_right (fsearch("[[ \e[29m"));
+   go_right (fsearch("\e[29m"));
 }
 
 define previous_reference()
 {
-   if (bsearch("\e[0] ]]"))
+   if (bsearch("\e[0]"))
      {
-	go_right(bsearch("[[ \e[29m"));
+	go_right(bsearch("\e[29m"));
      }
 }
 
@@ -820,7 +715,7 @@ private define mouse_2click_hook(line, col, button, shift)
 
 define add_bookmark();
 
-!if (keymap_p(mode))
+ifnot (keymap_p(mode))
   copy_keymap(mode, "view");
 $1 = _stkdepth;
 switch (Jedscape_Emulation)
@@ -829,9 +724,11 @@ switch (Jedscape_Emulation)
    &previous_reference,	Key_Up;
    &follow_href,	Key_Right;
    &goto_last_position,	Key_Left;
+   "page_up",           "b";
    &view_source,	"\\";
    &view_history,	Key_BS;
    "write_buffer",	"p";
+   &view_history,	"V";
 }
 { case "netscape":
    "scroll_down_in_place",	Key_Up;
@@ -861,6 +758,10 @@ switch (Jedscape_Emulation)
 &goto_last_position,	",";
 &goto_next_position,	".";
 &next_reference,	"\t";
+". 5 set_prefix_argument \"scroll_right\" call",         "}";
+". 5 set_prefix_argument \"scroll_left\" call",          "{";
+". 5 set_prefix_argument \"scroll_right\" call",         "[";
+". 5 set_prefix_argument \"scroll_left\" call",          "]";
 "jedscape->follow_link(\"previous\")",	"p";
 "jedscape->follow_link(\"next\")",	"n";
 "jedscape->follow_link(\"up\")",	"u";
@@ -967,10 +868,10 @@ define jedscape_menu(menu)
 %\usage{ jedscape_mode()}
 %\description
 %  Jedscape is a simple web browser in JED.  It requires the curl module
-%  to fetch documents from the web and a filter program to render html
-%  markup.  You can open a document in \var{jedscape_mode} with \var{jedscape}
-%  or \var{jedscape_get_url}.
-%  You can customize \var{jedscape mode} in a jedscape_hook.sl file.
+%  to fetch documents from the web and w3m to render html markup.  You
+%  can open a document in \var{jedscape_mode} with \var{jedscape} or
+%  \var{jedscape_get_url}. You can customize \var{jedscape mode} in a
+%  jedscape_hook.sl file.
 %\seealso{Jedscape_Home, Jedscape_DB, Jedscape_Html_Filter, Jedscape_Emulation}
 %!%-
 define jedscape_mode()
