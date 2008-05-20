@@ -58,6 +58,7 @@
 % 		     strtrans_utf8_to_latin1("") now works,
 % 		     has_invalid_chars(): initialize return value.
 % 1.2.7 2008-05-13 Convert Python (and Emacs) special encoding comment
+% 1.2.8 2008-05-20 Fix encoding comment conversion
 
 % TODO: use the iconv module (which is unfortunately undocumented)
 
@@ -181,8 +182,9 @@ public define latin1_to_utf8()
    if (orelse {re_fsearch("coding[:=] *iso-?8859-1")}
 	 {re_fsearch("coding[:=] *8859")}
 	 {re_fsearch("coding[:=] *cp819")} 
-	 {re_fsearch("coding[:=] *latin_?1?")} 
-	 {re_fsearch("coding[:=] *L1?")} 
+	 {re_fsearch("coding[:=] *latin[-_]?1")} 
+	 {re_fsearch("coding[:=] *latin")} 
+	 {re_fsearch("coding[:=] *L1")} 
       )
       () = replace_match("coding: utf8", 1);
 
