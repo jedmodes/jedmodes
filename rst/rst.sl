@@ -84,7 +84,6 @@
 % 		     and configuring.
 % 2.3.2 2008-05-05 * DFA fix for interpreted text
 % 2.3.3 2008-05-20 * one more DFA tweak
-
 % ===== ========== ============================================================
 % 
 % TODO
@@ -590,7 +589,7 @@ private define inline_rule(pat)
 
 private define setup_dfa_callback(mode)
 {
-   % dfa_enable_highlight_cache("rst.dfa", mode);
+   dfa_enable_highlight_cache("rst.dfa", mode);
    $1 = mode; % used by dfa_rule()
    
    % Character Classes:
