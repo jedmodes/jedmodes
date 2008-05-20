@@ -83,6 +83,7 @@
 % 2.3.1 2008-01-22 * made export_cmds static for better testing
 % 		     and configuring.
 % 2.3.2 2008-05-05 * DFA fix for interpreted text
+% 2.3.3 2008-05-20 * one more DFA tweak
 
 % ===== ========== ============================================================
 % 
@@ -577,13 +578,19 @@ private define dfa_rule(rule, color)
 private define inline_rule(pat)
 {
    variable blank = " \t";
-   variable del = blank; % als tried: = "$blank'\")\]}>\-/:\.,;!\\?"R$;
-   return "$pat[^$blank$pat][^$pat]+($pat[^$del][^$pat]+)*[^$blank$pat]$pat"R$;
+   variable del = blank; % also tried: = "$blank'\")\]}>\-/:\.,;!\\?"R$;
+   % boundaries
+   variable rechts = "$pat[^$blank$pat]"R$;
+   variable links  = "[^$blank$pat]$pat"R$;
+   % content
+   % variable mitte  = "[^$pat]+($pat[^$del][^$pat]+)*"R$;
+   variable mitte = "([^$pat]|($pat[^$del$pat]))+"R$;
+   return "$rechts$mitte$links"R$;
 }
 
 private define setup_dfa_callback(mode)
 {
-   dfa_enable_highlight_cache("rst.dfa", mode);
+   % dfa_enable_highlight_cache("rst.dfa", mode);
    $1 = mode; % used by dfa_rule()
    
    % Character Classes:
@@ -603,6 +610,7 @@ private define setup_dfa_callback(mode)
    variable role_re = ":$label:"$;
    dfa_rule(        inline_rule("`")+role_re, "Qrst_interpreted");
    dfa_rule(role_re+inline_rule("`"), 	      "Qrst_interpreted");
+   % cannot be defined as "Q", as this prevents `link`_ highlight
    dfa_rule(        inline_rule("`"), 	      "rst_interpreted");
    
    % Literal Block marker
@@ -719,8 +727,8 @@ define_syntax ("0-9a-zA-Z", 'w', mode);        % Words
 
 % the backtick is is needed too often to be bound to quoted insert
 definekey("self_insert_cmd", "`", mode);
-% I recommend "°" but this might not be everyones favourite
-% definekey("self_insert_cmd", "°", mode);
+% I recommend "Â°" but this might not be everyones favourite
+% definekey("self_insert_cmd", "Â°", mode);
 % Fallback: _Reserved_Key_Prefix+"`":
 definekey_reserved("quoted_insert", "`", mode); %
 
