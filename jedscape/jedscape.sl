@@ -1,6 +1,6 @@
 % jedscape.sl
 %
-% $Id: jedscape.sl,v 1.12 2008/05/16 18:55:02 paul Exp paul $
+% $Id: jedscape.sl,v 1.13 2008/05/25 10:58:28 paul Exp paul $
 %
 % Copyright (c) 2003-2008 Paul Boekholt.
 % Released under the terms of the GNU GPL (version 2 or later).
@@ -74,7 +74,7 @@ custom_variable("Jedscape_Emulation", "w3");
 private variable mode="jedscape";
 
 private variable
-  version="$Revision: 1.12 $",
+  version="$Revision: 1.13 $",
   title="",
   url_file ="",			       %  /dir/file.html
   url_host="",			       %  http://host
@@ -424,7 +424,7 @@ define goto_stack_position()
    if (file != strcat(url_host, url_file))
      find_page(file);
    goto_line(n);
-   goto_column(pos.column);
+   goto_column_best_try(pos.column);
 }
 
 define goto_last_position ()
