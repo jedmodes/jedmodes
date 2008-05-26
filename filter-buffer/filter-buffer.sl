@@ -15,6 +15,8 @@
 % 2007-12-20 0.4   generic (un)folding of blocks; use PCRE regexps;
 % 	     	   re_fold_buffer()
 % 2008-04-21 0.4.1 do not load unfinished code from pcre-fold project
+% 2008-05-26 0.4.2 move pcre-fold code to pcre-fold.sl
+% 	           add generic hiding/folding functions
 %
 % Usage
 % -----
@@ -67,9 +69,10 @@ autoload("push_defaults", "sl_utils");
 % =========
 
 % PCRE regexp matching
-% --------------------------------
+% --------------------
 
-% Search forward for compiled PCRE regular expression \var{pat}
+
+% Search forward for compiled PCRE regular expression \var{re}
 % (use \sfun{pcre_compile} to compile a pattern)
 % Place point at bol of first matching line
 % Return whether a match is found
@@ -85,22 +88,6 @@ define pcre_fsearch_line(re) {
     } while (down_1());
     pop_mark_1();
     return 0;
-}
-
-% Search forward for PCRE regular expression \var{pat}
-% Place point at begin of the match
-% Return whether a match is found
-% Other than the variant in jedpcre.sl by Paul Boekholt, this function does
-% not find matches across line. OTOH, it works correct with the '^' bol
-% anchor.
-public define pcre_fsearch(pat)
-{
-   variable re = pcre_compile(pat);
-   !if (pcre_fsearch_line(re))
-      return 0;
-   variable match_pos = pcre_nth_match(re, 0);
-   go_right(match_pos[0]);
-   return 1;
 }
 
 % Search backward for compiled PCRE regular expression \var{pat}
@@ -119,6 +106,24 @@ public define pcre_bsearch_line(re) {
     pop_mark_1();
     return 0;
 }
+
+
+% Search forward for PCRE regular expression \var{pat}
+% Place point at begin of the match
+% Return whether a match is found
+% Other than the variant in jedpcre.sl by Paul Boekholt, this function does
+% not find matches across line. OTOH, it works correct with the '^' bol
+% anchor.
+public define pcre_fsearch(pat)
+{
+   variable re = pcre_compile(pat);
+   !if (pcre_fsearch_line(re))
+      return 0;
+   variable match_pos = pcre_nth_match(re, 0);
+   go_right(match_pos[0]);
+   return 1;
+}
+
 
 % Hide and show lines
 % --------------------
@@ -320,31 +325,44 @@ public define set_comments_hidden() % (hide=1)
    set_matching_hidden(hide, pattern);
 }
 
-#stop
+% Generic (un)folding
+% """""""""""""""""""
+% ::
 
-% Work in progress:
-
-% PCRE-Fold
-% -------------
-
-% Fold the buffer according to mode-dependent tokens.
-
-% The token_pcre is an array or a list of regular expressions matching
-% with language "tokens" with increasing verbosity.
-%
-mode_set_mode_info("SLang", "token_pcre",
-		   ["^(public define|custom_variable)",
-		    "^((public )define|(public |custom_)variable)",
-		    "^((public |static )define|"
-		    +"(public |static |custom_)variable)",
-		   ]);
-
-% fold buffer, leaving only lines matching the token regexp for the current
-% mode visible
-public define fold_by_token(level)
+% Hide a sequence of non-hidden lines 
+% or unhide a sequence of hidden lines
+static define set_block_hidden(hide)
 {
-   variable token, tokens = mode_get_mode_info("token_pcre");
-   level = min([level, length(tokens)]);
-   token = tokens[level-1];
-   return level, token;
+   push_spot();
+   skip_hidden_lines_forward(not(hide));
+   push_mark();
+   skip_hidden_lines_backward(not(hide));
+   set_region_hidden(hide);
+   pop_spot();
 }
+
+% Is the point in or above a hidden line?
+% Return value:
+%   2  in a hidden line
+%   1  above hidde line (at end of a line followed by a hidden line)
+static define in_fold()
+{
+   push_spot();
+   EXIT_BLOCK { pop_spot(); }
+   if (is_line_hidden())
+     return 2;
+   !if (right(1))
+     return 0;
+   return is_line_hidden();
+}
+
+% Unhide the next block of hidden lines, if inside or at start of it
+% call newline_and_indent() otherwise.
+public define newline_or_unfold()
+{
+   if (in_fold())
+     set_block_hidden(0);
+   else
+     call("newline_and_indent");
+}
+
