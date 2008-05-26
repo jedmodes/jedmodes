@@ -1,6 +1,6 @@
 % unittest.sl: Framework for testing jed extensions
 %
-% Copyright (c) 2006 G�nter Milde
+% Copyright (c) 2006 Günter Milde
 % Released under the terms of the GNU General Public License (ver. 2 or later)
 %
 % This script needs SLang 2
@@ -22,11 +22,14 @@
 %                  code cleanup, better reporting
 % 0.5.1 2008-01-22 test_files(): better testreport formatting
 % 0.5.2 2008-02-06 removed (direct) dependency on datutils
+% 0.5.3 2008-05-26 gfixes: view_mode() autoload, _Jed_Emulation can be NULL
+% 		   (report Jörg Sommer).
 
 require("sl_utils");  % push_defaults, ...
 autoload("popup_buffer", "bufutils");
 autoload("buffer_dirname", "bufutils");
 autoload("sprint_variable", "sprint_var");
+autoload("view_mode", "view");
 
 implements("unittest");
 
@@ -459,7 +462,7 @@ public define test_files() % (dir="")
    
    % insert jed version and flavour
    variable utf8support = ["", " (utf8)"];
-   testmessage("Jed %s%s, S-Lang %s, Emulation '%s'", 
+   testmessage("Jed %s%s, S-Lang %s, Emulation '%S'", 
 	       _jed_version_string, utf8support[_slang_utf8_ok], 
 	        _slang_version_string, _Jed_Emulation);
 	      
