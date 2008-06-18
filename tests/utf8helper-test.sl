@@ -29,7 +29,6 @@ static define setup()
 {
    % do not autoconvert the test buffers:
    UTF8Helper_Read_Autoconvert = 0;
-   
    variable buf;
    foreach buf (testbufs) {
       % load file
@@ -87,6 +86,22 @@ static define test_utf8_to_latin1()
    test_equal(str, teststrings[0]);
 }
 
+static define test_utf8_to_latin1_reset_CASE_SEARCH()
+{
+   variable old_case_search = CASE_SEARCH;
+   CASE_SEARCH = 0;
+
+   sw2buf(testbufs[1]);
+   set_readonly(1);
+   try {
+      utf8_to_latin1();
+   }
+   catch RunTimeError:
+     { }
+   test_equal(CASE_SEARCH, 0, "should reset CASE_SEARCH");
+   CASE_SEARCH = old_case_search;
+}
+
 % public define strtrans_latin1_to_utf8(str)
 static define test_strtrans_latin1_to_utf8()
 {
@@ -94,11 +109,21 @@ static define test_strtrans_latin1_to_utf8()
    test_equal(strtrans_latin1_to_utf8(teststrings[0]), teststrings[1]);
 }
 
+static define test_strtrans_latin1_to_utf8_empty()
+{
+   test_equal(strtrans_latin1_to_utf8(""), "");
+}
+
 % public define strtrans_utf8_to_latin1(str)
 static define test_strtrans_utf8_to_latin1()
 {
    test_unequal(strtrans_latin1_to_utf8(teststrings[1]), teststrings[1]);
    test_equal(strtrans_utf8_to_latin1(teststrings[1]), teststrings[0]);
+}
+
+static define test_strtrans_utf8_to_latin1_empty()
+{
+   test_equal(strtrans_utf8_to_latin1(""), "");
 }
 
 % scan for non-printable characters in current buffer

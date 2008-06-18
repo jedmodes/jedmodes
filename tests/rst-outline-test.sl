@@ -46,7 +46,7 @@ static define test_heading()
 {
    variable ul_string = string_repeat("+", strlen(teststring));
    
-   rst->heading(ul_string[[0]]);
+   rst->heading("+");
    go_up_1();
    test_equal(ul_string, line_as_string(), 
       "should underline with given character");
@@ -102,7 +102,9 @@ static define test_heading_numeric()
   
 #ifexists list_routines
 
+% extract section title and format for tokenlist
 % static  define extract_heading (nRegexp)
+% 
 static define test_extract_heading()
 {
    variable adornment = string_repeat("+", strlen(teststring));
@@ -115,15 +117,17 @@ static define test_extract_heading()
 }
 static define test_extract_heading_subheading()
 {
-   variable adornment = string_repeat("+", strlen(teststring));
-   insert("\n" + adornment);
+   erase_buffer();
+   insert("section\n");
+   insert("+++++++\n");
+   insert("subsection\n");
+   insert("----------");
    % extract first heading and update level-list
+   bol(); % point is at first matching adornment char when extract_heading is called
    () = rst->extract_heading(0);  
-   insert("\n\n\nsubsection");
-   insert(  "\n----------");
    bol();
    test_equal("  - subsection", rst->extract_heading(0),
-      "should return sub section header");
+      "should return subsection header");
 }
 
 #endif

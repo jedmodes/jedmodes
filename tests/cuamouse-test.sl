@@ -14,9 +14,6 @@ testmessage("\n  I: cuamouse only works with xjed, skipping");
 #stop
 #endif
 
-% test availability of public functions (comment to skip)
-test_true(is_defined("copy_region_to_clipboard"), "public fun copy_region_to_clipboard undefined");
-
 % Fixture
 % -------
 
@@ -106,29 +103,7 @@ static define test_click_in_region_no_region()
    test_equal(click_in_region(2, 5), 0, "no region should return 0");
 }
 
-% copy_region_to_clipboard: library function
-%
-%  SYNOPSIS
-%   Copy region to x-selection/cutbuffer and internal mouse clipboard
-%
-%  USAGE
-%    copy_region_to_clipboard()
-%
-%  DESCRIPTION
-%    Copy region to selection/cutbuffer and internal mouse clipboard.
-%
-%    The region stays marked.
-%
-%  NOTES
-%    Tries x_copy_region_to_selection() and x_copy_region_to_cutbuffer()
-%    (in this order).
-%
-%    With CuaMouse_Use_Xclip = 1, the region is piped to the `xclip` command
-%    line tool instead. This is a workaround for interaction with applications
-%    using the QT toolkit that refuse to paste the selected text otherwise.
-%
-%  SEE ALSO
-%   CuaMouse_Use_Xclip, copy_region, yp_copy_region_as_kill
+% copy_region_to_clipboard: static
 static define test_copy_region_to_clipboard()
 {
    copy_region_to_clipboard();

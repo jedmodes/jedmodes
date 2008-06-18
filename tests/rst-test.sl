@@ -80,13 +80,8 @@ static define test_rst_to_latex_long()
 % public  define rst_to_pdf() % (outfile=path_sans_extname(whatbuf())+".pdf")
 static define test_rst_to_pdf_long()
 {
-   % testmessage("rst2pdf still not working");
-   % return;
-
    variable outfile = path_sans_extname(buffer_filename()) + ".pdf";
-
    rst_to_pdf();
-
    test_true(delete_file(outfile), "should create pdf output");
 }
 

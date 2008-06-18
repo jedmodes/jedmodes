@@ -8,28 +8,34 @@
 % 1.2 2008-01-20
 
 require("unittest");
-require("utf8helper");
 
 % Fixture
 % -------
 
-% Set the _jed_*_hooks
-% """"""""""""""""""""
+require("utf8helper");
 
-% Save defaults
-custom_variable("UTF8Helper_Read_Autoconvert", 0);
-custom_variable("UTF8Helper_Write_Autoconvert", 0);
+% Save default values
 private variable read_autoconvert = UTF8Helper_Read_Autoconvert;
 private variable write_autoconvert = UTF8Helper_Write_Autoconvert;
+% now set to YES
+% UTF8Helper_Read_Autoconvert = 1;
+% UTF8Helper_Write_Autoconvert = 1;
 
-% now set and evaluate:
-UTF8Helper_Read_Autoconvert = 1;
-UTF8Helper_Write_Autoconvert = 1;
+% Set the _jed_*_hooks
+% """"""""""""""""""""
+% make sure the hooks are appended but do not re-append if 
+% already done in utf8helper.sl
 
-!if (read_autoconvert and write_autoconvert)
-   utf8helper->register_autoconvert_hooks();
+!if (read_autoconvert)
+   append_to_hook("_jed_find_file_after_hooks", 
+		  "utf8helper->utf8helper_read_hook");
 
-() = evalfile("utf8helper");
+!if (write_autoconvert) {
+   append_to_hook("_jed_save_buffer_before_hooks", 
+		  "utf8helper->utf8helper_write_hook");
+   append_to_hook("_jed_save_buffer_after_hooks", 
+		  "utf8helper->utf8helper_restore_hook");
+}
 
 
 % Test buffers and strings
@@ -67,7 +73,7 @@ static define teardown()
 % Test functions
 % --------------
 
-static define test_autoconvert()
+static define test_read_autoconvert_0()
 {
    % do not autoconvert the test buffer:
    UTF8Helper_Read_Autoconvert = 0;
@@ -99,7 +105,7 @@ static define test_autoconvert()
 }
 
 
-static define test_read_autoconvert()
+static define test_read_autoconvert_1()
 {
    % do autoconvert the test buffers:
    UTF8Helper_Read_Autoconvert = 1;
