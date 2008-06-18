@@ -23,6 +23,7 @@
 % 2006-03-14  0.6.1  bugfix for zero-length keywords
 % 2006-09-26  0.6.2  bugfix for {multi word keywords} (report Paul Boekholt)
 % 2007-10-18  0.6.3  optional extensions with #if ( )
+% 2008-06-18  0.6.4  use call_function() instead of runhooks()
 %
 % Usage
 % -----
@@ -81,7 +82,7 @@ custom_variable("Dict_Backends", "dict-cli.sl,dict-curl.sl,dict-socket.sl");
    foreach $1 (strchop(Dict_Backends, ',', 0))
      {
 	if (expand_jedlib_file($1) != "")
-	  if (evalfile($1))
+	   if (evalfile(path_sans_extname($1)))
 	    break;
      }
    !if (_featurep("dict-backend"))
@@ -514,7 +515,7 @@ define reverse_lookup()
    else
      database = Dict_Translation_DB;
 
-   runhooks(generator[0], word, database);
+   call_function(generator[0], word, database);
 }
 
 % Thesaurus
