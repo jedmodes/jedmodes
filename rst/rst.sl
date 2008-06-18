@@ -18,7 +18,7 @@
 % ========
 % 
 % .. class:: borderless
-%
+% 
 % ===== ========== ============================================================
 % 1.1   2004-10-18 initial attempt
 % 1.2   2004-12-23 removed dependency on view mode (called by runhooks now)
@@ -81,9 +81,10 @@
 %                  * split outline and section functions to rst-outline.sl,
 %                  * implement J. Sommer's fix for DFA under UTF-8,
 % 2.3.1 2008-01-22 * made export_cmds static for better testing
-% 		     and configuring.
+%                    and configuring.
 % 2.3.2 2008-05-05 * DFA fix for interpreted text
 % 2.3.3 2008-05-20 * one more DFA tweak
+% 2.4   2008-06-18 * line_block()
 % ===== ========== ============================================================
 % 
 % TODO
@@ -91,13 +92,11 @@
 % 
 % * jump from reference to target and back again
 % * "link creation wizard"
-% * line-block: if no visible region, mark paragraph, prefix all lines with "| "
-%               (with prefix argument: remove the "| ")
 % * Look at demo.txt and refine the syntax highlight
 % 
 % Requirements
 % ============
-
+% 
 % extra modes (from http://jedmodes.sf.net/mode/)::
 
 require("structured_text");  % >= 0.5
@@ -114,6 +113,7 @@ autoload("fit_window", "bufutils");
 autoload("run_buffer", "bufutils");
 autoload("insert_markup", "txtutils");   % >= 2.3
 autoload("insert_block_markup", "txtutils");   % >= 2.3
+autoload("mark_paragraph", "txtutils");
 
 
 % Recommendations
@@ -133,7 +133,7 @@ autoload("browse_url", "browse_url");
 
 % Initialization
 % --------------
-
+% 
 % Name and Namespace
 % ===================
 % Namespace "rst" is defined in rst-outline.sl already required by this file::
@@ -465,7 +465,7 @@ static define set_export_cmd(export_type)
 {
    variable cmd_var = export_cmds[export_type]; % variable reference
    @cmd_var = read_mini(strup(export_type)+" export cmd and options:", 
-			"", @cmd_var);
+                        "", @cmd_var);
 }
 
 % Markup
@@ -491,6 +491,23 @@ static define insert_directive(name)
    vinsert(".. %s:: ", name);
 }
 
+% convert a region to a line block, i.e. prepend all lines with "| "
+% uses comment_region on visible region or paragraph
+static define line_block()
+{
+   variable mode, flags;
+   
+   !if (is_visible_mark)
+      mark_paragraph();
+   % switch to special mode to "fool" comment_region:
+   (mode, flags) = what_mode();
+   set_mode("rst-line-block", 0);
+   
+   comment_region();
+   
+   set_mode(mode, flags);      
+}
+   
 
 % Syntax Highlight
 % ================
@@ -608,9 +625,9 @@ private define setup_dfa_callback(mode)
    % interpreted text, maybe with a role
    variable role_re = ":$label:"$;
    dfa_rule(        inline_rule("`")+role_re, "Qrst_interpreted");
-   dfa_rule(role_re+inline_rule("`"), 	      "Qrst_interpreted");
+   dfa_rule(role_re+inline_rule("`"),         "Qrst_interpreted");
    % cannot be defined as "Q", as this prevents `link`_ highlight
-   dfa_rule(        inline_rule("`"), 	      "rst_interpreted");
+   dfa_rule(        inline_rule("`"),         "rst_interpreted");
    
    % Literal Block marker
    dfa_rule("::[$blank]*$"$, "rst_literal");
@@ -793,6 +810,7 @@ static define rst_menu(menu)
    menu_append_item(popup, "&Hrule", &markup, "hrule");
    menu_append_item(popup, "&Directive", &markup, "directive");
    menu_append_item(popup, "&Comment", "comment_region_or_line");
+   menu_append_item(popup, "&Line Block", "rst->line_block");
    % ^CS...  Character styles (<em>, <strong>, <b>, <i>, etc.)
    popup = new_popup(menu, "&Inline Markup");
    menu_append_item(popup, "&Emphasis", &markup, "emphasis");
@@ -887,6 +905,8 @@ static define rst_menu(menu)
 
 % set the comment string
 set_comment_info(mode, ".. ", "", 0);
+% "comment string" for line-block:
+set_comment_info("rst-line-block", "| ", "", 1|4); 
 
 % Modify line_is_blank() from structured_text.sl
 % let section heading underlines separate paragraphs 
