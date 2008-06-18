@@ -60,19 +60,20 @@
 % 	     	   "\\/ " specifies a character class '/'
 % 2006-11-23 1.13.1 bugfix in reload_buffer(): reset "changed on disk" flag
 % 	     	    before erasing buffer (to prevent asking befor edit)
-% 2007-04-18 1.14  new function run_local_function() (used in help.sl)
-% 	     	   example for "Fit Window" menu entry
-% 	     	   TODO: (should this become an INITIALIZATION block?)
-% 2007-05-11 1.15  removed non-standard fun latex_compose() from documentation
-% 		   run_local_function(): try mode-info also with 
-% 		   normalized_modename()
-% 		   use mode_info instead of global var for help_message()
-% 2008-01-11 1.16  reload_buffer(): insert disk version, delete content later
-% 	     	                    preventing an empty buffer after undo(),
-%		   Minor code and doc edits (cleanup).
-% 2008-01-21 1.17  fit_window(): recenter if window contains whole buffer
+% 2007-04-18 1.14   new function run_local_function() (used in help.sl)
+% 	     	    example for "Fit Window" menu entry
+% 	     	    TODO: (should this become an INITIALIZATION block?)
+% 2007-05-11 1.15   removed non-standard fun latex_compose() from documentation
+% 		    run_local_function(): try mode-info also with 
+% 		    normalized_modename()
+% 		    use mode_info instead of global var for help_message()
+% 2008-01-11 1.16   reload_buffer(): insert disk version, delete content later
+% 	     	                     preventing an empty buffer after undo(),
+%		    Minor code and doc edits (cleanup).
+% 2008-01-21 1.17   fit_window(): recenter if window contains whole buffer
 % 2008-05-05 1.17.1 reload_buffer(): backup buffer (if modified and backups
 % 	     	    are not disabled) before re-loading)
+% 2008-06-18 1.18   New function get_local_var()
 
 provide("bufutils");
 
@@ -82,7 +83,7 @@ provide("bufutils");
 % Jed >= 0.99.17.135 for proper working of reload_buffer()
 % but at least Jed >= 0.99.16 (mode_set_mode_info() with arbitrary fields)
 
-% standard (not loaded by default):
+% standard (but not loaded by default):
 require("keydefs"); % symbolic constants for many function and arrow keys
 % jedmodes.sf.net modes:
 autoload("get_blocal", "sl_utils");
@@ -105,37 +106,52 @@ define normalized_modename() % (mode=get_mode_name())
    return strlow (mode);
 }
 
-% Set the mode-dependend string with help (e.g. on keybindings)
-define set_help_message() % (str, mode=get_mode_name())
-{
-   variable str, mode; % optional argument
-   (str, mode) = push_defaults(get_mode_name(), _NARGS-1);
-   mode_set_mode_info(mode, "help_message", str);
-}
-
-% Show a mode-dependend string with help (e.g. on keybindings)
-define help_message()
-{
-   variable str = mode_get_mode_info(get_mode_name(), "help_message");
-   if (str == NULL)
-     str = mode_get_mode_info(normalized_modename(), "help_message");
-   if (str == NULL)
-     str = sprintf("no help available for '%s' mode", get_mode_name());
-   message(str);
-}
-
-% Local hooks  
-% -----------
+% Local variables, functions, and hooks
+% -------------------------------------
 %
-% Tools for the definition and use of mode- or buffer local hooks -- just like
+% Tools for the definition and use of mode- or buffer local settings -- just like
 % the indent_hook or the newline_and_indent_hook jed already provides. Extend
-% this idea to additional hooks that can be set by a mode and used by another.
+% this idea to additional settings that can be set by a mode and used by another.
 % Allows customisation to be split in a "language" mode that provides
 % functionality and an "emulation" mode that does the keybinding.
 %
 % Implementation is done via blocal vars and the mode_*_mode_info functions.
-% The hook can be either a pointer (reference) to a function or the function
+% 
+% A hook can be defined either a pointer (reference) to a function or the function
 % name as string.
+
+
+%!%+
+%\function{get_local_var}
+%\synopsis{Return value of either buffer-local or mode-local variable.}
+%\usage{get_local_var(name, default=NULL)}
+%\description
+%  Return the value of variable/setting \var{name}, either
+%    * buffer-local (blocal) variable \var{name},
+%    * mode-local (\sfun{with mode_get_mode_info}), or
+%    * \var{default} (defaulting to \var{NULL})
+%\notes
+%  The value of a buffer- or mode-local setting is tested against
+%  \var{NULL}, so e.g. a buffer-local variable with value NULL is treated 
+%  like a non-existing blocal variable.
+%\seealso{get_blocal_var, mode_get_mode_info, run_local_function, run_local_hook}
+%!%-
+define get_local_var() % (name, default=NULL)
+{
+   variable name, default;
+   (name, default) = push_defaults( , NULL, _NARGS);
+   variable value = get_blocal_var(name, NULL);
+   if (value == NULL) {
+      value = mode_get_mode_info(name);
+      if (value == NULL) {
+	 value = mode_get_mode_info(normalized_modename(), name);
+	 if (value == NULL) {
+	    value = default;
+	 }
+      }
+   }
+   return value;
+}
 
 %!%+
 %\function{run_local_function}
@@ -151,11 +167,7 @@ define run_local_function() % (fun, [args])
    variable args = __pop_args(_NARGS-1);
    variable fun = ();
 
-   variable lfun = get_blocal(fun);
-   if (lfun == NULL)
-     lfun = mode_get_mode_info(fun);
-   if (lfun == NULL)
-     lfun = mode_get_mode_info(normalized_modename(), fun);
+   variable lfun = get_local_var(fun);
    if (lfun == NULL)
      lfun = sprintf("%s_%s", normalized_modename(), fun);
    return run_function(lfun, __push_args(args));
@@ -216,7 +228,7 @@ define run_blocal_hook() % (hook, [args])
 %  "Run" the current buffer. The actual function performed is defined by
 %  the local "run_buffer_hook" (see \sfun{run_local_hook}).
 %\example
-%  Some modes set the \sfun{run_mode_hook} by themself, for others you can use
+%  Some modes set the "run_buffer_hook" by themself, for others you can use
 %  \sfun{mode_set_mode_info} (since Jed 0.99.17), e.g.
 %#v+
 %   mode_set_mode_info("SLang", "run_buffer_hook", "evalbuffer");
@@ -234,6 +246,23 @@ define run_blocal_hook() % (hook, [args])
 public define run_buffer()
 {
    run_local_hook("run_buffer_hook");
+}
+
+% Set the mode-dependend string with help (e.g. on keybindings)
+define set_help_message() % (str, mode=get_mode_name())
+{
+   variable str, mode; % optional argument
+   (str, mode) = push_defaults(get_mode_name(), _NARGS-1);
+   mode_set_mode_info(mode, "help_message", str);
+}
+
+% Show a mode-dependend string with help (e.g. on keybindings)
+define help_message()
+{
+   variable str = get_local_var("help_message");
+   if (str == NULL)
+     str = sprintf("no help available for '%s' mode", get_mode_name());
+   message(str);
 }
 
 % --- window operations ----------------------------------------------
@@ -430,10 +459,13 @@ define go2buf(buf)
      sw2buf(buf);    % open in current window
 }
 
-% --- "Popup Buffer" -----------------------------------------------------
+% Popup Buffer
+% ------------
 
-custom_variable("Max_Popup_Size", 0.7);          % max size of one popup window
-% TODO: more than 1 popup window in parrallel (i.e. more than 2 open windows)
+custom_variable("Max_Popup_Size", 0.7);       % max size of one popup window
+
+% TODO: do we want support for more than 1 popup window in parrallel 
+% (i.e. more than 2 open windows):
 % custom_variable("Popup_max_popups", 2);        % max number of popup windows
 % custom_variable("Popup_max_total_size", 0.7);  % max size of all popup windows
 
