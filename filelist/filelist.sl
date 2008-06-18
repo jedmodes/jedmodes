@@ -73,11 +73,12 @@
 % 2007-10-04  1.7.6 * no DFA highlight in UTF-8 mode (it's broken)
 % 2007-10-23  1.7.7 * no DFA highlight caching
 % 2008-01-21  1.7.8 * fix stack leftovers in filelist_open_file()
-% 	      	    * add J�örg Sommer's fix for DFA highlight under UTF-8
+% 	      	    * add Jöörg Sommer's fix for DFA highlight under UTF-8
 % 2008-05-05  1.7.9 * filelist_list_dir(): do not sort empty array
 % 	      	    * filelist_open_with() bugfix: do not set a default when asking
 % 	      	      for cmd to open, as this prevents opening in Jed.
 % 	      	    * separate function filelist->get_default_cmd(String filename)
+% 2008-06-18  1.7.10 * use call_function() instead of runhooks()
 
 
 %
@@ -252,7 +253,7 @@ if (getenv("DISPLAY") != NULL) % assume X-Windows running
    FileList_Default_Commands[".odt"]     = "ooffice";
    FileList_Default_Commands[".png"]     = "display";
    FileList_Default_Commands[".pdf"]     = "xpdf";
-   FileList_Default_Commands[".pdf.gz"]  = "gv";
+   FileList_Default_Commands[".pdf.gz"]  = "zxpdf";
    FileList_Default_Commands[".ps"]      = "gv";
    FileList_Default_Commands[".ps.gz"]   = "gv";
    FileList_Default_Commands[".sk"]      = "sketch";
@@ -872,7 +873,7 @@ static define dired_bindings()
    copy_keymap(mode, listing);
    undefinekey("^R", 			      	    mode);
    definekey ("filelist_reread", 	    "^R",   mode);
-   runhooks(FileList_KeyBindings + "_bindings");
+   call_function(FileList_KeyBindings + "_bindings");
 }
 
 % --- the mode dependend menu
