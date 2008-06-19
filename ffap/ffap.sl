@@ -1,8 +1,8 @@
 % ffap.sl
 % 
-% $Id: ffap.sl,v 1.8 2007/12/13 10:46:50 paul Exp paul $
+% $Id: ffap.sl,v 1.9 2008/06/19 16:37:00 paul Exp paul $
 % 
-% Copyright (c) 2003-2007 Paul Boekholt.
+% Copyright (c) 2003-2008 Paul Boekholt.
 % Released under the terms of the GNU GPL (version 2 or later).
 % 
 % Find File At Point, something like Emacs' ffap.  You can use this as a
@@ -159,12 +159,12 @@ private define ffap_find(word)
      return ("", -1);
 
    % exts = add_list_element(exts, path_extname(this_file), ',');
-   file = search_path_for_file(path, word);   %  try file 'as is'
+   file = search_path_for_file(path, word, ',');   %  try file 'as is'
    if (file != NULL)
         return (file, 1);  % found with original extension
    foreach ext (strchop(exts, ',', 0))     %  try with ext
      {
-	file = search_path_for_file(path, word + ext);
+	file = search_path_for_file(path, word + ext, ',');
 	if (file != NULL)
 	  break;
 	if (path_extname(word) == ext)
