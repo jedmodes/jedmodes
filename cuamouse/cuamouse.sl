@@ -24,6 +24,9 @@
 % 	     	   * remove `xclip` workaround, as PRIMARY selection 
 % 	     	     interaction should be ok by now 
 % 	     	     (but see cuamark.sl for CLIPBOARD selection handling).  
+% 2008-06-19 1.6.2 * re-introduce `xclip` workaround for X-selection bug
+% 	     	     as the fix is only complete in 0.99.19
+% 
 % 	     	   
 % Actions
 % ========
@@ -66,11 +69,12 @@
 % Requirements
 % ------------
 
-autoload("run_function", "sl_utils");
 autoload("cua_mark", "cuamark");
 autoload("mark_word", "txtutils");
 
-() = evalfile("mouse");  % mouse.sl does not have a provide("mouse") line
+% mouse.sl does not have a provide("mouse") line
+% require("mouse");
+() = evalfile("mouse");  
 provide("mouse");
 provide("cuamouse");
 
@@ -79,7 +83,7 @@ provide("cuamouse");
 % Customisation
 % -------------
 
-% The Mouse_Wheel_Scroll_Lines is defined in mouse.sl but not documented:
+% Mouse_Wheel_Scroll_Lines is defined in mouse.sl but not documented:
 
 %!%+
 %\variable{Mouse_Wheel_Scroll_Lines}
@@ -90,11 +94,27 @@ provide("cuamouse");
 %\seealso{mouse_set_default_hook}
 %!%-
 
+%!%+
+%\variable{CuaMouse_Use_Xclip}
+%\synopsis{Use `xclip` instead of Jed's X selection interaction functions}
+%\usage{Int_Type CuaMouse_Use_Xclip = 0}
+%\description
+%  Currently, a xjed selection doesnot paste into applications using the
+%  QT toolkit (all KDE applications including Klipper, lyx-qt).
+%
+%  This workaround uses the command line tool `xclip` to copy the selected
+%  text to the X selection and to insert from the X selection. 
+%  
+%  As it introduces a  dependency on `xclip` and some overhead, it is disabled
+%  by default.
+%\seealso{x_copy_region_to_selection, x_insert_selection}
+%!%-
+custom_variable("CuaMouse_Use_Xclip", 0);
 
 % more customisation can be done by overruling the default hooks (see
 % mouse_set_default_hook() and set_buffer_hook()).
 % 
-% To quote the help for mouse_set_default_hook()
+% To quote the helpf for mouse_set_default_hook()
 % 
 %   The meaning of these names should be obvious.  The second parameter,
 %   `fun' must be defined as
@@ -186,17 +206,8 @@ define click_in_region(line, col)
    return 1;
 }
 
-% copy region to system and internal clipboards (The region stays marked)
-%!%+
-%\function{cuamouse->copy_region_to_clipboard}
-%\synopsis{Copy region to x-selection and internal mouse clipboard}
-%\usage{cuamouse->copy_region_to_clipboard()}
-%\description
-%   Copy region to selection and internal mouse clipboard.
-%   The region stays marked.
-%\seealso{copy_region, yp_copy_region_as_kill}
-%!%-
-static define copy_region_to_clipboard()
+% copy region to X-selection and internal clipboard (The region stays marked)
+define copy_region_to_clipboard()
 {
    % no copy if the region is void
    () = dupmark();
@@ -204,7 +215,10 @@ static define copy_region_to_clipboard()
      return;
    % copy to PRIMARY x-selection or Windows clipboard
    () = dupmark();
-   () = run_function("x_copy_region_to_selection");
+   if (CuaMouse_Use_Xclip)
+            pipe_region("xclip");
+   else
+      x_copy_region_to_selection();
    % copy to Jed-internal clipboard
    () = dupmark();
    Clipboard = bufsubstr();
@@ -216,6 +230,8 @@ define cuamouse_insert(from_jed)
 {
    if (from_jed)
       insert(Clipboard);
+   else if (CuaMouse_Use_Xclip)
+      () = run_shell_cmd("xclip -o");
    else
       x_insert_selection();
 }
