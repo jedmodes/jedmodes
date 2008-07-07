@@ -59,7 +59,7 @@
 % 		     has_invalid_chars(): initialize return value.
 % 1.2.7 2008-05-13 Convert Python (and Emacs) special encoding comment
 % 1.2.8 2008-05-20 Fix encoding comment conversion.
-% 1.2.9 2008-07-07 F8Helper_Read_Autoconvert == -2 (warn) setting
+% 1.2.9 2008-07-07 Helper_Read_Autoconvert == -2 (warn) setting
 
 % TODO: use the iconv module (which is unfortunately undocumented)
 
