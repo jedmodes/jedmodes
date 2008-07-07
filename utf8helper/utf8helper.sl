@@ -58,7 +58,8 @@
 % 		     strtrans_utf8_to_latin1("") now works,
 % 		     has_invalid_chars(): initialize return value.
 % 1.2.7 2008-05-13 Convert Python (and Emacs) special encoding comment
-% 1.2.8 2008-05-20 Fix encoding comment conversion
+% 1.2.8 2008-05-20 Fix encoding comment conversion.
+% 1.2.9 2008-07-07 F8Helper_Read_Autoconvert == -2 (warn) setting
 
 % TODO: use the iconv module (which is unfortunately undocumented)
 
@@ -77,9 +78,13 @@
 %    0  -- never
 %    1  -- always
 %   -1  -- ask user if file contains invalid chars
+%   -2  -- warn user if file contains invalid chars
 %\notes
 %  The "native encoding" is utf8 if Jed runs in UTF-8 mode.
 %  It is assumed to be latin1 else.
+%  
+%  If this variable has a non-zero value when utf8helper is evaluated,
+%  a hook is added to _jed_find_file_after_hooks (see Help>Browse Docs>hooks)
 %\seealso{UTF8Helper_Write_Autoconvert, latin1_to_utf8, utf8_to_latin1, _slang_utf8_ok}
 %!%-
 custom_variable("UTF8Helper_Read_Autoconvert", 0);
@@ -97,7 +102,7 @@ custom_variable("UTF8Helper_Read_Autoconvert", 0);
 %    1  -- always
 %   -1  -- ask user
 %
-%\seealso{UTF8Helper_Write_Autoconvert, latin1_to_utf8, utf8_to_latin1}
+%\seealso{UTF8Helper_Read_Autoconvert, latin1_to_utf8, utf8_to_latin1}
 %!%-
 custom_variable("UTF8Helper_Write_Autoconvert", 0);
 
@@ -329,7 +334,7 @@ static define has_invalid_chars()
 	bob();
 	skip_chars("[[:print:][:cntrl:]]");
 	result = not(eobp());
-	bob();
+	% bob();
 	return result;
      }
    % Jed with latin-* encoding:
@@ -389,25 +394,36 @@ static define utf8helper_read_hook()
    % Check for out of place encoding - no need to convert if there is no
    % invalid character.
 
-   push_spot(); % has_invalid_chars() moves point to first invalid
-   		% char to give the user a chance to examine the situation.
+   push_spot(); % has_invalid_chars() moves point to first invalid char 
+                % (should give the user a chance to examine the situation,
+   		%  however, when this hook is called, the file is not visible 
+   		%  yet.)
 
    !if (has_invalid_chars()) {
       % message("no offending chars");
       read_autoconvert = 0;
    }
 
-   % ask user if default is -1
+   % ask user if read_autoconvert is -1, warn if it is -2
    if (read_autoconvert == -1) {
-      update_sans_update_hook(1); % repaint to show "invalid" char
-      if (_slang_utf8_ok)
-	 msg = "Buffer contains high-bit chars. Convert to UTF-8";
-      else
-	 msg = "Buffer seems to contain UTF-8 chars. Convert to iso-latin-1";
-      read_autoconvert = get_y_or_n(msg);
+      % scroll to show "invalid" char 
+      % (does not work, still not shown)
+      recenter (window_info('r') / 2);
+      update_sans_update_hook(1);
+      msg = ["Buffer seems to contain UTF-8 chars. Convert to iso-latin-1",
+	     "Buffer contains high-bit chars. Convert to UTF-8"];
+      read_autoconvert = get_y_or_n(msg[_slang_utf8_ok]);
       % and store the answer
       define_blocal_var("utf8helper_read_autoconvert", read_autoconvert);
    }
+   else if (read_autoconvert == -2) {
+      msg = ["Buffer contains high-bit char",
+	     "Buffer seems to contain UTF-8"];
+      vmessage(msg[_slang_utf8_ok] + " in line %d! (and maybe more)", 
+	       what_line());
+      read_autoconvert = 0;
+   }
+
    pop_spot();
 
    % abort if no invalid chars or user decided to skip autoconversion
