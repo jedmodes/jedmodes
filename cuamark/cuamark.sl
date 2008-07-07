@@ -16,9 +16,8 @@
 %		    selection
 % 2008-05-05 1.3  * X-Clipboard interaction (using xclip) following
 % 	     	    http://www.freedesktop.org/standards/clipboards.txt
-% 	     	  * hack to prevent "inkonsistent key definition error" with
-% 	     	    rxvt-unicode that defines Key_Shift_Ins as "\e2$" but
-% 	     	    uses it internally to paste the CLIPBOARD x-selection
+% 2008-07-07 1.3.1  Bind Shift_Ins to cua_insert_clipboard(),
+% 	     	    Make the xclip-using functions failsave.	     	    
 % 	     	    
 % 
 % TODO
@@ -31,11 +30,6 @@
 %   functions -> Start the region using Shift-Left/Right and then extend it
 %   with Ctrl-Left/Right.
 %   
-% * x_insert_selection(): How to make insertion visible without further 
-% 			  keypress or click (generate EVENT)
-% 			  
-% * push marked region to PRIMARY selection (with x_copy_region_to_selection)
-%
 % Mark regions the CUA style
 % --------------------------
 %
@@ -60,7 +54,7 @@
 %
 %   Shift-<Del> cut region
 %   Ctrl-<Ins>  copy region
-%   Shift-<Ins> inserts the yank_buffer
+%   Shift-<Ins> inserts the systen clipboard (or yank buffer)
 %
 % Usage
 % -----
@@ -72,9 +66,6 @@
 %
 % Some keybinding suggestions:
 %
-%   setkey("pop_spot",             Key_Alt_Up);
-%   setkey("push_spot",	   	 Key_Alt_Down);
-%   setkey("cua_insert_clipboard", Key_Alt_Ins);
 %   setkey("cua_kill_region",  	 "^X");
 %   setkey("cua_copy_region",	 "^C");
 %   setkey("cua_yank",		 "^V");
@@ -84,6 +75,7 @@
 % 
 %   setkey("yp_kill_region",  	        Key_Shift_Del);
 %   setkey("yp_copy_region",	        Key_Ctrl_Ins);
+%   setkey("yp_yank",			Key_Shift_Ins);
 %
 % Notes
 % -----
@@ -93,9 +85,10 @@
 % (http://jedmodes.sourceforge.net/mode/console_keys/)
 
 
-require ("keydefs"); % symbolic constants for many function and arrow keys
+require ("keydefs"); % symbolic constants for "special" keys
 
-% --- Custom Variables ---------------------------------------------------
+% Customization
+% ---------------------------------------------------
 
 
 % Comma separated list of functions that unmark a cua-region (movement functions)
@@ -224,7 +217,10 @@ public define cua_copy_region_to_clipboard()
 #ifdef WIN32
    x_copy_region_to_cutbuffer();
 #elifdef UNIX
-   () = pipe_region("xclip -selection clipboard");
+   try
+     { () = pipe_region("xclip -selection clipboard"); }
+   catch RunTimeError: 
+     { message("xclip not available: can not write to clipboard"); }
 #else
    pop_mark_0();
 #endif
@@ -251,9 +247,10 @@ public define cua_copy_region_to_clipboard()
 public define cua_insert_clipboard()
 {
 #ifdef WIN32
-   x_insert_cutbuffer();
+   () = x_insert_cutbuffer();
 #else   
-   () = run_shell_cmd("xclip -o -selection clipboard");
+   if (run_shell_cmd("xclip -o -selection clipboard")) % failure
+      yp_yank();
 #endif
 }
 
@@ -326,8 +323,7 @@ setkey("cua_mark; call(\"page_down\")", Key_Shift_PgDn);
 setkey("cua_mark; bol",                 Key_Shift_Home);
 setkey("cua_mark; eol",                 Key_Shift_End);
 
-if (Key_Shift_Ins != "\e2$")  % rxvt-unicode: results in inkonsistent keydef error
-   setkey("yp_yank",		        Key_Shift_Ins);
+setkey("cua_insert_clipboard",		Key_Shift_Ins);
 setkey("cua_kill_region",  	        Key_Shift_Del);
 setkey("cua_copy_region",	        Key_Ctrl_Ins);
 
