@@ -1,6 +1,6 @@
 % ispell.sl	-*- mode: SLang; mode: fold -*-
 % 
-% $Id: ispell.sl,v 1.24 2008/01/17 19:34:50 paul Exp $
+% $Id: ispell.sl,v 1.25 2008/07/12 13:56:45 paul Exp paul $
 % 
 % Copyright (c) 2001-2006 Guido Gonzato, John Davis, Paul Boekholt.
 % Released under the terms of the GNU GPL (version 2 or later).
@@ -205,7 +205,7 @@ define ispell_parse_output (is_auto)
      }
    else % there was no '&' so it was a '#'
      {
-	ispell_offset = atoi (extract_element(line, 2, ' '));
+	ispell_offset = atoi (extract_element(line, 3, ' '));
         setbuf (corbuf);
 	erase_buffer();
 	insert ("no suggestions");
