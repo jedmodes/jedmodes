@@ -41,6 +41,9 @@
 % 	            "active links" (i.e. goto given char if click on number)
 % 2008-07-23  2.4.2 better handling of missing NamesList.txt and
 % 	      	    Blocks.txt files
+% 2008-07-29  2.5   Replace Chartable_Blocks_File and Chartable_NameList_File
+% 	      	    with a common Chartable_Unicode_Data_Dir custom var.
+% 	      	    Autogess value for Debian defaults if invalid.
 %
 % TODO: * search for character or table by name
 %       * apropos for character names and table names
@@ -91,6 +94,9 @@ append_to_hook("load_popup_hooks", &ct_load_popup_hook);
 % Requirements
 % ------------
 
+% from slsh library (should be also in the jed library path)
+autoload("glob", "glob");
+
 % modes from http://jedmodes.sf.net
 % require("view");      % readonly-keymap  No longer used
 require("bufutils");  % pop up buffer, rebind, close_buffer...
@@ -114,12 +120,6 @@ custom_variable("ChartableStartChar", 0);
 custom_variable("ChartableNumBase", 10);
 custom_variable("ChartableCharsPerLine", ChartableNumBase);
 custom_variable("ChartableTabSpacing", 5);
-
-custom_variable("Chartable_NamesList_File",
-		path_concat(path_dirname(__FILE__), "NamesList.txt"));
-
-custom_variable("Chartable_Blocks_File",
-		path_concat(path_dirname(__FILE__), "Blocks.txt"));
 
 % Unicode blocks listed in the Edit>Char_Tables popup
 custom_variable("Chartable_Tables", [
@@ -145,33 +145,45 @@ custom_variable("Chartable_Tables", [
 					    "&Musical Symbols"
 					   ]);
 
-% Reset variables if files not found:
 
 %!%+
-%\variable{Chartable_NamesList_File}
-%\synopsis{Unicode Names list}
-%\usage{variable Chartable_NamesList_File = "")}
+%\variable{Chartable_Unicode_Data_Dir}
+%\synopsis{Directory with Unicode data files}
+%\usage{variable Chartable_Unicode_Data_Dir = "~/.unicode")}
 %\description
-%  Full path to a local copy of
-%    http://unicode.org/Public/UNIDATA/NamesList.txt
-%  containing the names and description of all unicode code points.  
-%\seealso{ct_describe_character, Chartable_Blocks_File}
+%  Full path to a directory with local copies of the files
+%  `Blocks.txt' and `NamesList.txt' from 
+%     http://unicode.org/Public/UNIDATA/
+%  containing the names and description of all Unicode blocks and
+%  code points.
+%\notes
+%  On Debian GNU/Linux, these files are provided by the packages perl-modules
+%  (in /usr/share/perl/*/unicore/) or unicode-data (in /usr/share/unicode/).
+%  If specified dir is invalid but not the empty string "", these 
+%  locations are probed during the evaluation of ch_table.sl.
+%\seealso{ch_table, ct_describe_character, ch_table->ct_unicode_block}
 %!%-
-custom_variable("Chartable_NamesList_File",
-		path_concat(path_dirname(__FILE__), "NamesList.txt"));
+custom_variable("Chartable_Unicode_Data_Dir", "~/.unicode");
 
-%!%+
-%\variable{Chartable_Blocks_File}
-%\synopsis{Unicode Blocks list}
-%\usage{variable Chartable_Blocks_File = "")}
-%\description
-%  Full path to a local copy of
-%    http://unicode.org/Public/UNIDATA/Blocks.txt
-%  containing the names and description of all unicode blocks.  
-%\seealso{ch_table, special_chars, Chartable_NamesList_File}
-%!%-
-custom_variable("Chartable_Blocks_File",
-		path_concat(path_dirname(__FILE__), "Blocks.txt"));
+% Check for the unicode data dir from unicode-data and perl-modules
+if (andelse{Chartable_Unicode_Data_Dir != ""}
+    {file_status(Chartable_Unicode_Data_Dir) != 2}) {
+   private variable unidata_dir, unidata_dirs = ["/usr/share/unicode"];
+   % add versioned dir from perl-modules(failsave in case glob() is undefined)
+   try 
+      unidata_dirs = [glob("/usr/share/perl/*/unicore"), unidata_dirs];
+   catch UndefinedNameError:
+     ;
+   
+   foreach unidata_dir (unidata_dirs)
+      if (file_status(unidata_dir) == 2) {
+	 Chartable_Unicode_Data_Dir = unidata_dir;
+	 break;
+      }
+   % show (unidata_dirs, Chartable_Unicode_Data_Dir);
+}
+
+
 
 % Global variables
 % ----------------
@@ -190,6 +202,14 @@ private variable Digits = "0123456789abcdef";
 % in UTF-8 mode this is extended via parse_unicode_block_file() later
 private variable UnicodeBlocks = [{0, 127, "Basic Latin"},
 		 	       	  {128, 255, "High Bit Characters"}];
+
+
+% Unicode data files:
+private variable NamesList = path_concat(Chartable_Unicode_Data_Dir,
+				         "NamesList.txt");
+private variable Blocks = path_concat(Chartable_Unicode_Data_Dir,
+				      "Blocks.txt");
+
 
 % Functions
 % =========
@@ -252,12 +272,10 @@ static define ct_describe_character(ch)
    variable ch_nr = sprintf("%04X", ch);
    variable ch_nr1 = sprintf("%04X", ch+1);
 
-   if (-1 == insert_file_region(Chartable_NamesList_File, ch_nr, ch_nr1))
+   if (-1 == insert_file_region(NamesList, ch_nr, ch_nr1))
       vinsert("No description.\n\n" +
-	      "Set the variable `Chartable_NamesList_File' \n" +
-	      "to the full path of a local copy of\n" +
-	      "http://unicode.org/Public/UNIDATA/NamesList.txt\n" +
-	      "(current value: %s)\n", Chartable_NamesList_File);
+	      "Check the variable `Chartable_Unicode_Data_Dir' \n" +
+	      "(current value: %s)\n", Chartable_Unicode_Data_Dir);
    call("backward_delete_char"); % del last newline
    while (bol, looking_at_char('@')) {
       delete_line();
@@ -782,11 +800,11 @@ public define special_chars()
 
 if (_slang_utf8_ok) {
    try 
-      UnicodeBlocks = parse_unicode_block_file(Chartable_Blocks_File);
+      UnicodeBlocks = parse_unicode_block_file(Blocks);
    catch RunTimeError:
      {
 	vmessage("Failed to open `Chartable_Blocks_File' %s",
-		Chartable_Blocks_File);
+		Blocks);
      }
 }
 % show(UnicodeBlocks);
