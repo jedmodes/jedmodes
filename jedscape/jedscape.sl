@@ -1,6 +1,6 @@
 % jedscape.sl
 %
-% $Id: jedscape.sl,v 1.14 2008/05/25 11:13:05 paul Exp paul $
+% $Id: jedscape.sl,v 1.15 2008/08/16 06:48:02 paul Exp paul $
 %
 % Copyright (c) 2003-2008 Paul Boekholt.
 % Released under the terms of the GNU GPL (version 2 or later).
@@ -74,7 +74,7 @@ custom_variable("Jedscape_Emulation", "w3");
 private variable mode="jedscape";
 
 private variable
-  version="$Revision: 1.14 $",
+  version="$Revision: 1.15 $",
   title="",
   url_file ="",			       %  /dir/file.html
   url_host="",			       %  http://host
@@ -234,7 +234,6 @@ private define write_callback (v, data)
 
 % flag to signal that the history should not be pushed
 private variable page_is_download=0;
-private variable se_re = pcre_compile("([^ ]+?) (.*)");
 
 define find_page(url)
 {
@@ -254,14 +253,6 @@ define find_page(url)
    
    setbuf(" jedscape_buffer");
    erase_buffer();
-   if (pcre_exec(se_re, file))
-     {
-	variable se, term;
-	(se, term) = pcre_nth_substr(se_re, file, 1), pcre_nth_substr(se_re, file, 2);
-	se = sqlite_get_array(db, String_Type, "select url from searchengines where name = ?", se);
-	if (length(se))
-	  file = sprintf(se[0,0], curl_easy_escape(curl_new(""), term));
-     }
 
    ifnot (strncmp(file, "http://", 7))
      {
@@ -450,6 +441,7 @@ define goto_next_position()
 }
 
 %}}}
+private variable se_re = pcre_compile("([^ ]+?) (.*)");
 
 %!%+
 %\function{jedscape_get_url}
@@ -467,6 +459,15 @@ public define jedscape_get_url() % url
    else url = read_mini("open", "", "");
    variable last_host, last_file, last_line, last_column;
    (last_host, last_file, last_line, last_column) = (url_host, url_file, what_line, what_column());
+   if (pcre_exec(se_re, url))
+     {
+	variable se, term;
+	(se, term) = pcre_nth_substr(se_re, url, 1), pcre_nth_substr(se_re, url, 2);
+	se = sqlite_get_array(db, String_Type, "select url from searchengines where name = ?", se);
+	if (length(se))
+	  url = sprintf(se[0,0], curl_easy_escape(curl_new(""), term));
+     }
+
    find_page(url);
    push_position(last_host, last_file, last_line, last_column);
 }
