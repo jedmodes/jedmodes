@@ -1,7 +1,7 @@
 % folding-keypad-bindings.sl: Numpad Keybindings for Folding Mode
 % ===============================================================
 % 
-% Copyright (c) 2007 G�nter Milde
+% Copyright © 2007 Günter Milde
 % Released under the terms of the GNU General Public License (ver. 2 or later)
 % 
 % Versions
