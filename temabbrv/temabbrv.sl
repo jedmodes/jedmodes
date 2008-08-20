@@ -184,7 +184,7 @@ static define expand_include_file(incfile, fromfile)
    }
    else if (not is_substr(incfile, "/"))
    {
-      incfile = search_path_for_file(TEMABBRV_TEMPLATE_DIRS, incfile);
+      incfile = search_path_for_file(TEMABBRV_TEMPLATE_DIRS, incfile, ',');
    }
    
    if (incfile == NULL) return NULL;
