@@ -28,6 +28,9 @@
 %% should be available in po_mode by typing '?'.
 %%
 %% $Log: po_mode.sl,v $
+%% Revision 1.2  2005/12/05 08:13:10  milde
+%% added <INITIALIZATION> block
+%%
 %% Revision 1.8  2005/11/10 09:15:25  mojo
 %% - A substantial (4x!) speedup in wordlist_lookup_all (), 
 %%   courtesy of Paul Boekholt.
@@ -185,8 +188,7 @@ public define po_mode();
 static define prg_found_in_path (file)
 {
    variable path = getenv ("PATH");
-   path = str_replace_all (path, ":", ",");
-   return search_path_for_file (path, file);
+   return search_path_for_file (path, file, ':');
 }
 
 static define write_tmp_buffer (file)
