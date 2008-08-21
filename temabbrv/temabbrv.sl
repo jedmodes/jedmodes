@@ -245,7 +245,8 @@ static define tem_load_mode_template (mode)
    if (TEMABBRV_TEMPLATE_DIRS == NULL) 
       TEMABBRV_TEMPLATE_DIRS = tem_default_search_path();
 
-   file = search_path_for_file(TEMABBRV_TEMPLATE_DIRS, strlow(mode) + ".tem");
+   file = search_path_for_file(TEMABBRV_TEMPLATE_DIRS, 
+			       strlow(mode) + ".tem", ',');
    if (file == NULL) return;
    
    loadedfiles_this_mode = "";
@@ -270,7 +271,8 @@ static define tem_load_mode_template (mode)
       TEMABBRV_TEMPLATE_DIRS = tem_default_search_path();
 
    % ! This includes only the first file found
-   % file = search_path_for_file(TEMABBRV_TEMPLATE_DIRS, strlow(mode) + ".tem");
+   % file = search_path_for_file(TEMABBRV_TEMPLATE_DIRS, 
+   % 	    			 strlow(mode) + ".tem", ',');
    % if (file == NULL) return;
       
    % ! This way I can include all files
