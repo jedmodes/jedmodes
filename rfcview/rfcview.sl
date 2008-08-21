@@ -1,7 +1,7 @@
 % rfcview.sl	-*- mode: Slang; mode: Fold -*-
 % RFC viewer
 % 
-% $Id: rfcview.sl,v 1.5 2008/01/27 15:35:19 paul Exp paul $
+% $Id: rfcview.sl,v 1.6 2008/08/21 18:50:46 paul Exp paul $
 % Keywords: docs
 %
 % Copyright (c) 2003-2008 Paul Boekholt.
@@ -19,7 +19,9 @@ provide("rfcview");
 require("view");
 implements("rfcview");
 
+% A comma separated list of directories to search for RFC's
 custom_variable ("Rfc_Path", "/usr/doc/rfc");
+% Location of the RFC index file
 custom_variable ("Rfc_Index", "/usr/doc/rfc/rfc-index.txt.gz");
 
 variable mode = "rfcview";
@@ -56,10 +58,9 @@ define find_rfc(rfc)
    % if there are three digits, prepend a 0
    if (strlen(rfc) == 3) rfc = "0" + rfc;
    variable buf = whatbuf, 
-     file = search_path_for_file(Rfc_Path, sprintf("rfc%s.txt.gz", rfc));
+     file = search_path_for_file(Rfc_Path, sprintf("rfc%s.txt.gz", rfc), ',');
    if (file == NULL)
-     file = search_path_for_file
-     (Rfc_Path, sprintf("rfc%s.txt.gz", strtrim_beg(rfc, "0")));
+     file = search_path_for_file(Rfc_Path, sprintf("rfc%s.txt.gz", strtrim_beg(rfc, "0")), ',');
    if (file == NULL)
      throw RunTimeError, "file not found";
    ()=read_file(file);
