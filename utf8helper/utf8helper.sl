@@ -57,9 +57,12 @@
 % 		     reset CASE_SEARCH also after failure,
 % 		     strtrans_utf8_to_latin1("") now works,
 % 		     has_invalid_chars(): initialize return value.
-% 1.2.7 2008-05-13 Convert Python (and Emacs) special encoding comment
+% 1.2.7 2008-05-13 Convert Python (and Emacs) special encoding comment.
 % 1.2.8 2008-05-20 Fix encoding comment conversion.
-% 1.2.9 2008-07-07 Helper_Read_Autoconvert == -2 (warn) setting
+% 1.2.9 2008-08-25 name has_invalid_chars() -> utf8helper_find_invalid_char()
+% 		   and make it public,
+% 		   UTF8Helper_Read_Autoconvert == -2 (warn) setting
+% 		   
 
 % TODO: use the iconv module (which is unfortunately undocumented)
 
@@ -92,7 +95,7 @@ custom_variable("UTF8Helper_Read_Autoconvert", 0);
 %!%+
 %\variable{UTF8Helper_Write_Autoconvert}
 %\synopsis{Reconvert file to original encoding before writing?}
-%\usage{variable UTF8Helper_Read_Autoconvert = 0}
+%\usage{variable UTF8Helper_Write_Autoconvert = 0}
 %\description
 %  Should a file be reconverted in a "_jed_save_buffer_before_hooks" hook,
 %  if it was auto-converted after reading?
@@ -324,14 +327,25 @@ public define strtrans_utf8_to_latin1(str)
 %   always in the range 0xC0 to 0xFD, and all subsequent bytes are in
 %   the range 0x80 to 0xBF.  The bytes 0xFE and 0xFF are never used.
 
-% scan for non-printable characters in current buffer
-% leaves the point at the first invalid char or bob
-static define has_invalid_chars()
+%!%+
+%\function{utf8helper_find_invalid_char}
+%\synopsis{Check for non-printable characters in current buffer}
+%\usage{utf8helper_find_invalid_char()}
+%\description
+% Check the current buffer for "invalid" (wrong encoded) characters.
+% 
+% Can be used to test if a file is valid UTF8 (in utf8-mode) or
+% if it is (most likely) UTF8 encoded when Jed is not in utf8-mode.
+% 
+% Leaves the point at the first "invalid" char or bob.
+%\seealso{latin1_to_utf8, utf8_to_latin1, _slang_utf8_ok}
+%!%-
+public define utf8helper_find_invalid_char()
 {
    variable ch, result = 0;
    if (_slang_utf8_ok)
      {
-	bob();
+	% bob();
 	skip_chars("[[:print:][:cntrl:]]");
 	result = not(eobp());
 	% bob();
@@ -387,29 +401,23 @@ static define utf8helper_read_hook()
 					UTF8Helper_Read_Autoconvert);
    % show("utf8helper_read_hook() called. read_autoconvert == ", read_autoconvert);
    
-   % abort if read_autoconvert == 0 ("do not convert")
+   % read_autoconvert == 0 means "do not convert":
    !if (read_autoconvert)
      return;
 
    % Check for out of place encoding - no need to convert if there is no
    % invalid character.
 
-   push_spot(); % has_invalid_chars() moves point to first invalid char 
-                % (should give the user a chance to examine the situation,
-   		%  however, when this hook is called, the file is not visible 
-   		%  yet.)
+   % utf8helper_find_invalid_char() moves point to first invalid char 
+   push_spot_bob(); 
 
-   !if (has_invalid_chars()) {
+   !if (utf8helper_find_invalid_char()) {
       % message("no offending chars");
       read_autoconvert = 0;
    }
 
    % ask user if read_autoconvert is -1, warn if it is -2
    if (read_autoconvert == -1) {
-      % scroll to show "invalid" char 
-      % (does not work, still not shown)
-      recenter (window_info('r') / 2);
-      update_sans_update_hook(1);
       msg = ["Buffer seems to contain UTF-8 chars. Convert to iso-latin-1",
 	     "Buffer contains high-bit chars. Convert to UTF-8"];
       read_autoconvert = get_y_or_n(msg[_slang_utf8_ok]);
@@ -417,8 +425,8 @@ static define utf8helper_read_hook()
       define_blocal_var("utf8helper_read_autoconvert", read_autoconvert);
    }
    else if (read_autoconvert == -2) {
-      msg = ["Buffer contains high-bit char",
-	     "Buffer seems to contain UTF-8"];
+      msg = ["Buffer seems to contain UTF-8 char",
+	     "Buffer contains high-bit char"];
       vmessage(msg[_slang_utf8_ok] + " in line %d! (and maybe more)", 
 	       what_line());
       read_autoconvert = 0;
