@@ -1,6 +1,6 @@
 % ruby.sl
 % 
-% $Id: ruby.sl,v 1.13 2008/03/07 18:55:33 boekholt Exp $
+% $Id: ruby.sl,v 1.14 2008/04/18 15:19:56 boekholt Exp $
 % 
 % Copyright (c) ca.
 %  2000 Shugo Maeda
@@ -71,7 +71,7 @@ private define looking_at_block_end ()
 
 private variable block_start_re=
   pcre_compile("^(?:(?:begin|case|class|def|else( if)?|elsif|ensure|for|if|module|rescue"
-	       + "|unless|until|when|while)\b(?!.*\bend$))|(?:(?:\bdo|{|\|) *$)"R);
+	       + "|unless|until|when|while)\b(?!.*\bend$))|(?:(?:(?:\bdo|{)(?: *\|.*\|)?) *$)"R);
 
 
 private define ruby_calculate_indent()
@@ -286,7 +286,7 @@ private define last_line()
 private define search_heredoc_end(indent, end)
 {
    if (strlen(indent))
-     return re_fsearch(sprintf("\\c^ *%s$", end));
+     return re_fsearch(sprintf("\\c^[ \t]*%s$", end));
    return re_fsearch(sprintf("\\c^%s$", end));
 }
 
