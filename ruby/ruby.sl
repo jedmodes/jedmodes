@@ -125,11 +125,10 @@ private define ruby_calculate_indent()
 		  else if (looking_at_char('('))
 		    {
 		       par_level++;
-		       if (par_level == 1) return what_column() + 1;
 		    }
 	       }
 	     bskip_chars("^()\n");
-	     if (bolp() and (par_level == 0))
+	     if (bolp())
 	       {
 		  skip_white();
 		  indent = what_column();
@@ -143,7 +142,7 @@ private define ruby_calculate_indent()
 	exchange_point_and_mark();
 
 	return indent + extra_indent
-	  + ruby_indent_level * pcre_exec(block_start_re, bufsubstr());
+	  + ruby_indent_level * (par_level + pcre_exec(block_start_re, bufsubstr()));
      }
    finally
      {
