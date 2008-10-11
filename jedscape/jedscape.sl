@@ -1,6 +1,6 @@
 % jedscape.sl
 %
-% $Id: jedscape.sl,v 1.15 2008/08/16 06:48:02 paul Exp paul $
+% $Id: jedscape.sl,v 1.16 2008/10/11 14:17:47 paul Exp paul $
 %
 % Copyright (c) 2003-2008 Paul Boekholt.
 % Released under the terms of the GNU GPL (version 2 or later).
@@ -74,7 +74,7 @@ custom_variable("Jedscape_Emulation", "w3");
 private variable mode="jedscape";
 
 private variable
-  version="$Revision: 1.15 $",
+  version="$Revision: 1.16 $",
   title="",
   url_file ="",			       %  /dir/file.html
   url_host="",			       %  http://host
@@ -232,15 +232,12 @@ private define write_callback (v, data)
    return 0;
 }
 
-% flag to signal that the history should not be pushed
-private variable page_is_download=0;
-
+private define push_position();
 define find_page(url)
 {
    variable file, anchor, v="";
    file=extract_element  (url, 0, '#');
    anchor=extract_element  (url, 1, '#');
-   page_is_download=0;
    USER_BLOCK0
      {
 	if (anchor != NULL)
@@ -270,16 +267,14 @@ define find_page(url)
 	curl_perform (c);
 	variable content_type=curl_get_info(c, CURLINFO_CONTENT_TYPE);
 	file=curl_get_info(c, CURLINFO_EFFECTIVE_URL);
-	ifnot (strncmp(content_type, "text/xml", 8)
-	       && strncmp(content_type, "application/atom", 16))
+	if ((not strncmp(content_type, "text/xml", 8)
+	     || not strncmp(content_type, "application/atom", 16))
+	    && get_y_or_n(sprintf("Content type=%s. View in newsflash", content_type, url)))
 	  {
-	     if (get_y_or_n(sprintf("Content type=%s. View in newsflash", content_type, url)))
-	       {
-		  mark_buffer();
-		  variable contents = bufsubstr();
-		  read_rss_data(url, contents);
-		  return;
-	       }
+	     mark_buffer();
+	     variable contents = bufsubstr();
+	     read_rss_data(url, contents);
+	     return;
 	  }
 	if(strncmp(content_type, "text/html", 9))
 	  {
@@ -305,7 +300,6 @@ define find_page(url)
 		  erase_buffer();
 		  insbuf(" jedscape_buffer");
 	       }
-	     page_is_download=1;
 	     return;
 	  }
 	variable separator = is_substr(file[[7:]], "/");
@@ -337,6 +331,8 @@ define find_page(url)
    jedscape_mode();
    bob();
    set_status_line(sprintf ("Jedscape: %s %%p", title), 0);
+   if (qualifier_exists("last_position")) 
+     push_position(qualifier("last_position"));
    X_USER_BLOCK0;
 }
 
@@ -386,27 +382,36 @@ ifnot (is_defined ("jedscape_position_type"))
    jedscape_position_type;
 }
 
+private define create_position(hostname, filename, line_number, column)
+{
+   variable p = @jedscape_position_type;
+   p.hostname = hostname;
+   p.filename = filename;
+   p.line_number = line_number;
+   p.column = column;
+   return p;
+}
+
 variable jedscape_history = jedscape_position_type[16],
   jedscape_history_rotator = [[1:15],0],
   jedscape_stack_depth = -1,
   forward_stack_depth = 0;
 
-define push_position(host, file, line, column)
+private define push_position(position)
 {
-   if (page_is_download) return;
    if (jedscape_stack_depth == 16)
      {
         --jedscape_stack_depth;
 	jedscape_history  = jedscape_history [jedscape_history_rotator];
      }
 
-   set_struct_fields (jedscape_history [jedscape_stack_depth], host, file, line, column);
+   jedscape_history [jedscape_stack_depth] = position;
 
    ++jedscape_stack_depth;
    forward_stack_depth = 0;
 }
 
-define goto_stack_position()
+private define goto_stack_position()
 {
    variable pos, file, n;
    pos = jedscape_history [jedscape_stack_depth];
@@ -418,12 +423,12 @@ define goto_stack_position()
    ()=goto_column_best_try(pos.column);
 }
 
-define goto_last_position ()
+private define goto_last_position ()
 {
    if (jedscape_stack_depth < 0) return message(_("You are already at the first document"));
    ifnot (forward_stack_depth)
      {
-	push_position(url_host, url_file, what_line, what_column());
+	push_position(create_position(url_host, url_file, what_line, what_column()));
 	--jedscape_stack_depth;
      }
 
@@ -432,7 +437,7 @@ define goto_last_position ()
    goto_stack_position;
 }
 
-define goto_next_position()
+private define goto_next_position()
 {
    ifnot (forward_stack_depth) return message("Can't go forward");
    ++jedscape_stack_depth;
@@ -468,8 +473,7 @@ public define jedscape_get_url() % url
 	  url = sprintf(se[0,0], curl_easy_escape(curl_new(""), term));
      }
 
-   find_page(url);
-   push_position(last_host, last_file, last_line, last_column);
+   find_page(url; last_position = create_position(last_host, last_file, last_line, last_column));
 }
 
 define open_local()
@@ -477,8 +481,7 @@ define open_local()
    variable file=read_file_from_mini ("open local");
    variable last_host, last_file, last_line, last_column;
    (last_host, last_file, last_line, last_column) = (url_host, url_file, what_line, what_column());
-   find_page(file);
-   push_position(last_host, last_file, last_line, last_column);
+   find_page(file; last_position = create_position(last_host, last_file, last_line, last_column));
 }
    
 %{{{ view history
@@ -511,7 +514,7 @@ define view_history()
 
 define quit()
 {
-   push_position(url_host, url_file, what_line, what_column());
+   push_position(create_position(url_host, url_file, what_line, what_column()));
    url_file="";
    delbuf("*jedscape*");
 }
@@ -561,7 +564,7 @@ define follow_href() % href
      }
    if (href[0] == '#')
      {
-	push_position(url_host, url_file, what_line, what_column());
+	push_position(create_position(url_host, url_file, what_line, what_column()));
 	goto_anchor(href[[1:]]);
      }
    else
@@ -686,7 +689,7 @@ private define mouse_hook(line, col, button, shift)
      { case 1:  
 	variable place, this_href;
 	place = create_user_mark();
-	this_href = wherefirst(href_begin_marks <= place and href_end_marks >= place);
+	this_href = wherefirst(href_begin_marks <= place <= href_end_marks);
 	if (NULL != this_href) 
 	  {
 	     if (mouse_href == this_href)
