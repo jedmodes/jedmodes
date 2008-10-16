@@ -1,6 +1,6 @@
 % hyperman.sl
 %
-% $Id: hyperman.sl,v 1.32 2008/02/24 08:58:12 paul Exp paul $
+% $Id: hyperman.sl,v 1.33 2008/10/16 19:34:46 paul Exp paul $
 % Keywords: help, hypermedia, unix
 %
 % Copyright (c) 2000-2008 JED, Paul Boekholt, Günter Milde
@@ -83,7 +83,7 @@ define purge_escapes(str)
    if(pcre_exec(escape_re, str))
      {
 	variable m = pcre_nth_match(escape_re, 0);
-	str = substr(str, 1, m[0]) + purge_escapes(substr(str, m[1]+1, -1));
+	str = str[[0:m[0]-1]] + purge_escapes(str[[m[1]:]]);
      }
    return str;
 }
@@ -290,10 +290,10 @@ public define man_goto_section ()
    variable names = section_list[*,0], lines = section_list[*,1];
    variable section = read_with_completion
      (strjoin(names, ","), "Go to section", "SEE ALSO", "", 's');
-   names = where(section == names);
-   if (length(names))
+   variable n = wherefirst(section == names);
+   if (n != NULL)
      {
-	goto_line(atoi(lines[names[0]]));
+	goto_line(atoi(lines[n]));
 	recenter(1);
      }
 }
