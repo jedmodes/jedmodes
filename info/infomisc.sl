@@ -10,7 +10,7 @@ public define info_search ()
    err_str = "String not found.";
    
    str = read_mini("Re-Search:", LAST_SEARCH, Null_String);
-   !if (strlen(str)) return;
+   ifnot (strlen(str)) return;
    save_search_string(str);
    widen(); go_right_1 (); 
    if (re_fsearch(str)) 
@@ -35,7 +35,7 @@ public define info_search ()
    variable is_later=0;
    foreach file (indirect.files)
      {
-	!if (is_later)
+	ifnot (is_later)
 	  {
 	     if (file == extract_filename(this_file))
 	       is_later = 1;
@@ -66,7 +66,7 @@ public define info_search ()
 	  }
 	else
 #endif
-	  !if (search_file(ifile, str, 1))
+	  ifnot (search_file(ifile, str, 1))
 	  {
 	     continue;
 	  }
@@ -93,7 +93,7 @@ private variable index = NULL;
 public define info_index_next()
 {
    if (index==NULL) throw RunTimeError, "do an index search first";
-   !if (length(index.matches)) throw RunTimeError, "no matches";
+   ifnot (length(index.matches)) throw RunTimeError, "no matches";
    if (index.file != info_extract_pointer("File"))
      info_find_node(sprintf("(%s)Top",index.file));
    info_find_node(index.matches[index.index]);
@@ -122,7 +122,7 @@ public define info_index()		       %  [topic]
      {
 	sw2buf("*Info*");
      }
-   !if (_NARGS)
+   ifnot (_NARGS)
      read_mini("index: ", "", "");
    variable s = ();
    wline = window_line();
@@ -133,7 +133,7 @@ public define info_index()		       %  [topic]
    variable e;
    try (e)
      {     
-	!if(re_fsearch("^* .*[Ii]ndex:"))
+	ifnot(re_fsearch("^* .*[Ii]ndex:"))
 	  throw RunTimeError, "no index";
 	info_keep_history = 0;
 	follow_menu;
@@ -144,12 +144,11 @@ public define info_index()		       %  [topic]
 	  }
 	forever
 	  {
-	     !if(fsearch(s))
+	     ifnot(fsearch(s))
 	       {
-		  !if(have_index) break;
+		  ifnot(have_index) break;
 		  next_node = info_extract_pointer("Next");
-		  if (next_node != NULL)
-		    if(is_substr(next_node, "Index"))
+		  if (next_node != NULL && is_substr(next_node, "Index"))
 		    {
 		       info_find_node(next_node);
 		       continue;
@@ -163,13 +162,10 @@ public define info_index()		       %  [topic]
 	     this_match = strtrim_end(bufsubstr, " \t.");
 	     this_match = extract_element(this_match, 0, '.');
 	     eol;
-	     if (strlen(this_match))
+	     if (strlen(this_match) && not assoc_key_exists(matches, this_match))
 	       {
-		  !if(assoc_key_exists(matches, this_match))
-		    {
-		       matches[this_match]=1;
-		       list_append(index.matches, this_match);
-		    }
+		  matches[this_match]=1;
+		  list_append(index.matches, this_match);
 	       }
 	  }
 	index.index = 0;

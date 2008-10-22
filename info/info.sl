@@ -1,7 +1,7 @@
 % info.sl      -*- mode: SLang; mode: fold -*-
 % Info reader for JED
 %
-% $Id: info.sl,v 1.13 2007/01/28 12:37:34 paul Exp paul $
+% $Id: info.sl,v 1.14 2008/10/22 18:22:40 paul Exp paul $
 % Keywords: help
 % 
 % Copyright (c) 2000-2007 JED, Paul Boekholt
@@ -105,7 +105,7 @@ define info_make_file_name (file)
 	dirfile = df_low;
 	X_USER_BLOCK0;
 	
-	!if (strlen(dir))
+	ifnot (strlen(dir))
 	  {
 	     throw RunTimeError, "Info file not found: " + file;
 	  }
@@ -184,7 +184,7 @@ define info_find_node_this_file (the_node)
    widen(); bob();
    forever
      {
-	!if (re_fsearch(sprintf("\\c^File:.*Node: ?%s[,\t]", str_quote_string 
+	ifnot (re_fsearch(sprintf("\\c^File:.*Node: ?%s[,\t]", str_quote_string 
 				(the_node, "\\^$[]*.+?", '\\'))))
 	  {
 	     % dont give up, maybe this is a split file
@@ -195,7 +195,7 @@ define info_find_node_this_file (the_node)
 	  }
 	go_up_1();
 	bol();
-	!if (looking_at_char(0x1F))
+	ifnot (looking_at_char(0x1F))
 	  {
 	     go_down_1 ();
 	     eol();
@@ -213,7 +213,7 @@ define make_indirect()
    bob ();
    ()=bol_fsearch("Indirect:");
    push_mark();
-   !if (info_search_marker(1)) eob();
+   ifnot (info_search_marker(1)) eob();
    narrow();
    variable re=pcre_compile("^(.*): ([\\d]+)");
    variable entry, i=0;
@@ -303,7 +303,7 @@ define info_narrow()
 
 % stack for last position 
 
-!if (is_defined ("Info_Position_Type"))
+ifnot (is_defined ("Info_Position_Type"))
 {
    typedef struct
      {
@@ -341,7 +341,7 @@ variable info_keep_history = 1;
 define info_record_position ()
 {
    if (whatbuf() != "*Info*") return;
-   !if (info_keep_history) return;
+   ifnot (info_keep_history) return;
    widen();
    
    info_push_position(Info_This_Filename, indirect, what_line());
@@ -353,14 +353,14 @@ define goto_stack_position()
    variable pos = Info_Position_Stack [Info_Stack_Depth];
    indirect = pos.indirect;
   
-   if ((pos.filename == Info_This_Filename) and bufferp("*Info*"))
+   if ((pos.filename == Info_This_Filename) && bufferp("*Info*"))
      {
         widen();
         goto_line(pos.line_number); bol();
         info_narrow();
         return;
      }
-   !if (strlen(pos.filename)) return;
+   ifnot (strlen(pos.filename)) return;
    info_find_file(pos.filename);
    goto_line(pos.line_number); bol();
    info_narrow();
@@ -377,7 +377,7 @@ define pop_position()
 define goto_last_position ()
 {
    if (Info_Stack_Depth <= 0) return;
-   !if (Forward_Stack_Depth)
+   ifnot (Forward_Stack_Depth)
      {
    	info_record_position;
    	--Info_Stack_Depth;
@@ -389,7 +389,7 @@ define goto_last_position ()
 % move forward again
 define goto_next_position()
 {
-   !if (Forward_Stack_Depth) return;
+   ifnot (Forward_Stack_Depth) return;
    ++Info_Stack_Depth;
    --Forward_Stack_Depth;
    if (Info_Stack_Depth == 16) return;
@@ -415,21 +415,21 @@ public define info_find_node(node)
    try
      {
 	% if it looks like (file)node, extract file, node
-	if (is_substr(node, "(") == 1)
-	  if (n = is_substr(node, ")"), n)
-	  if (file = substr(node, 2, n - 2), 
-	      node = substr(node, n+1, strlen(node)),
-	      file != current_filename)
+	if (is_substr(node, "(") == 1
+	    && (n = is_substr(node, ")"), n)
+	    && (file = substr(node, 2, n - 2), 
+		node = substr(node, n+1, strlen(node)),
+		file != current_filename))
 	  {
 	     indirect = NULL;
 	     info_find_file(file);
 	  }
 	node = strtrim (node);
-	!if (strlen(node)) node = "Top";
+	ifnot (strlen(node)) node = "Top";
 	widen();
 	variable mark = create_user_mark();
 	bob ();
-	!if (info_search_marker(1)) 
+	ifnot (info_search_marker(1)) 
 	  throw RunTimeError, "Marker not found.";
 	go_down_1 ();
 	if (looking_at("Indirect:"), goto_user_mark(mark))
@@ -454,12 +454,12 @@ public define info_find_node(node)
 define info_find_menu(save)
 {
    push_spot_bob ();
-   !if (re_fsearch("^\\c\\* Menu:"))
+   ifnot (re_fsearch("^\\c\\* Menu:"))
      {
 	pop_spot();
 	throw RunTimeError, "Node has no menu.";
      } 
-   !if (save) 
+   ifnot (save) 
      {
 	pop_spot();
 	return;
@@ -476,7 +476,7 @@ define next_xref ()
    push_mark (); go_right_1 ();
    for (; fsearch_char('*'); skip_chars("*"))
      {
-	if ((bolp() and looking_at ("* ")) or re_looking_at("\\C\\*note"))
+	if ((bolp() && looking_at ("* ")) || re_looking_at("\\C\\*note"))
 	  {
 	     if (re_looking_at("\\C^* menu")) continue;
 	     exchange_point_and_mark();
@@ -494,7 +494,7 @@ define prev_xref ()
    push_mark (); go_left_1 ();
    for (; bsearch_char('*'); bskip_chars("*"))
      {
-	if ((bolp() and looking_at ("* ")) or re_looking_at("\\C\\*note"))
+	if ((bolp() && looking_at ("* ")) || re_looking_at("\\C\\*note"))
 	  {
 	     if (re_looking_at("\\C^* menu")) continue;
 	     exchange_point_and_mark();
@@ -513,7 +513,7 @@ define follow_current_xref ()
    
    push_spot();
   
-   !if (fsearch_char (':'))
+   ifnot (fsearch_char (':'))
      {
 	pop_spot();
 	throw RunTimeError, "Corrupt File?";
@@ -552,7 +552,7 @@ define follow_current_xref ()
 % follow the menu item on this line. We are at bol.
 define follow_menu()
 {
-   !if (ffind_char(':')) throw RunTimeError, "Corrupt File?";
+   ifnot (ffind_char(':')) throw RunTimeError, "Corrupt File?";
 
    if (looking_at("::"))
      {
@@ -580,7 +580,7 @@ define follow_menu()
 define get_menu_items()
 {
    push_spot_bob();
-   !if (re_fsearch("^\\c\\* Menu:"))
+   ifnot (re_fsearch("^\\c\\* Menu:"))
      return pop_spot, NULL;
    eol();
    variable n = 0;
@@ -615,7 +615,7 @@ define menu ()
 
    node = read_string_with_completion("Menu item:", node, items);
    info_find_menu (1);
-   !if (bol_fsearch(sprintf("* %s:", node))) throw RunTimeError, "Menu Item not found.";
+   ifnot (bol_fsearch(sprintf("* %s:", node))) throw RunTimeError, "Menu Item not found.";
    follow_menu();
 }
 
@@ -675,7 +675,7 @@ define info_extract_pointer()
 define info_up ()
 {   
    variable upnode = info_extract_pointer("Up");
-   if(upnode == NULL or upnode == "(dir)")
+   if(upnode == NULL || upnode == "(dir)")
      find_dir ();
    else
      {
@@ -746,7 +746,7 @@ define add_bookmark()
 }
   
 $2 = "Infomap";
-!if (keymap_p($2))
+ifnot (keymap_p($2))
 {
    make_keymap($2);
    $1 = _stkdepth;
@@ -911,7 +911,7 @@ private define start_info_reader ()
    if (bufferp(ibuf)) return sw2buf(ibuf);
    if (Info_Stack_Depth) 
      pop_position ();
-   !if (bufferp(ibuf)) find_dir();
+   ifnot (bufferp(ibuf)) find_dir();
    sw2buf(ibuf);
    onewindow();
    run_mode_hooks ("info_mode_hook");
@@ -952,14 +952,14 @@ define follow_reference ()
    variable ref;
    
    push_spot_bob();
-   !if (fsearch("*Note"), pop_spot())
-     error("No cross references.");
+   ifnot (fsearch("*Note"), pop_spot())
+     throw RunTimeError, "No cross references.";
   
    ref = read_mini("Follow *Note", Null_String, Null_String);
    push_spot_bob ();
    forever
      {
-	!if (fsearch("*Note"))
+	ifnot (fsearch("*Note"))
 	  {
 	     pop_spot();
 	     throw RunTimeError, "Bad reference.";
@@ -984,14 +984,14 @@ define follow_reference ()
 define menu_number ()
 {
    variable n = LAST_CHAR;
-   if ((n < '1') or (n > '9')) return beep();
+   if ((n < '1') || (n > '9')) return beep();
    n -= '0';
   
    info_find_menu(1);
 
    while (n)
      { 
-	!if (bol_fsearch("* ")) return beep();
+	ifnot (bol_fsearch("* ")) return beep();
 	if (ffind(":")) --n; else eol();
      }
    bol();
@@ -1006,8 +1006,8 @@ define menu_number ()
 define up()
 {   
    variable upnode = info_extract_pointer("Up");
-   if(upnode == NULL or upnode == "(dir)" or upnode == "Top")
-     error("this is the end");
+   if(upnode == NULL || upnode == "(dir)" || upnode == "Top")
+     throw RunTimeError, "this is the end";
    else
      info_find_node(upnode);
 }
@@ -1039,7 +1039,7 @@ define forward_node()
 .  "Node" info_extract_pointer ".*Index$" 1 string_match
 .    { "this is the end" message return } if
 .  bob "^\\c\\* Menu:" re_fsearch 
-.    { next_up return } !if
+.    { next_up return } ifnot
 .  eol "* " bol_fsearch pop
 .  follow_menu
 }
