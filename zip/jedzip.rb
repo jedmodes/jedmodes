@@ -1,6 +1,6 @@
 # jedzip.rb
 # 
-# $Id: jedzip.rb,v 1.2 2008/10/25 11:23:58 paul Exp paul $
+# $Id: jedzip.rb,v 1.3 2008/10/27 17:05:21 paul Exp paul $
 # 
 # Copyright (c) 2008 Paul Boekholt.
 # Released under the terms of the GNU GPL (version 2 or later).
@@ -11,12 +11,11 @@ SLang.import_namespace "listing", "Listing"
 class Zip::Jed < Zip::ZipFile
   include SLang
   include SLang::Listing
-  @@buf = SLang.whatbuf
   def list
     set_readonly 0
     begin
       erase_buffer
-      each{|f| insert(f.to_s + "\n")}
+      entries.sort.each{|f| insert(f.to_s + "\n")}
       set_buffer_modified_flag 0
       bob
     ensure
