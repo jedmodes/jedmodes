@@ -23,7 +23,8 @@
 %                'T' Requires a terminal - use run_program
 %
 %
-% MOD   WILD-CARDS      COMMANDS
+
+  % MOD   WILD-CARDS      COMMANDS
 % ---  ------------
 
 % ...any more?
@@ -85,12 +86,12 @@
 . "b"   "*.pm"		 "pod2text"
 % python - if the directory is writable, pydoc bytecompiles the file?
 . "b"	"*.py"		 "pydoc"
-. "b"	"*.sl"		 "sl2tm %s|tm2txt"
+. "f"	"*.sl"		 "tm_view(\"%s\")"
 % documents
 . "b"	"*.ms"		 "groff -Tascii -ms"
 . "b"	"*.man"		 "unix_man (\"-l %s\")"
-. "f"	"*.info.gz"	 ". \"(%s)\" info_find_node info_mode"
-. "f"	"*.info"	 ". \"(%s)\" info_find_node info_mode"
+. "f"	"*.info.gz"	 ". \"(%s)\" info_find_node info_reader"
+. "f"	"*.info"	 ". \"(%s)\" info_find_node info_reader"
 . "f"	"*.[1-9][tTxX]"	 "unix_man (\"-l %s\")"
 . "f"	"*.[1-9nlpo]"	 "unix_man (\"-l %s\")"
 . "b"	"*.doc"		 "antiword"
