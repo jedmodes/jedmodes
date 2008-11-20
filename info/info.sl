@@ -1,10 +1,10 @@
 % info.sl      -*- mode: SLang; mode: fold -*-
 % Info reader for JED
 %
-% $Id: info.sl,v 1.14 2008/10/22 18:22:40 paul Exp paul $
+% $Id: info.sl,v 1.15 2008/11/20 16:26:36 paul Exp paul $
 % Keywords: help
 % 
-% Copyright (c) 2000-2007 JED, Paul Boekholt
+% Copyright (c) 2000-2008 JED, Paul Boekholt
 % Released under the terms of the GNU GPL (version 2 or later).
 
 
@@ -15,6 +15,7 @@ _autoload("info_search", "infomisc",
 	  4);
 require("pcre");
 provide("info");
+
 implements("info");
 variable Info_This_Filename = Null_String;
 variable Info_This_Filedir = Null_String;
@@ -425,17 +426,36 @@ public define info_find_node(node)
 	     info_find_file(file);
 	  }
 	node = strtrim (node);
-	ifnot (strlen(node)) node = "Top";
 	widen();
 	variable mark = create_user_mark();
 	bob ();
 	ifnot (info_search_marker(1)) 
 	  throw RunTimeError, "Marker not found.";
 	go_down_1 ();
-	if (looking_at("Indirect:"), goto_user_mark(mark))
-	  info_find_node_split_file(node);
+	USER_BLOCK0
+	  {
+	     if (looking_at("Indirect:"), goto_user_mark(mark))
+	       info_find_node_split_file(node);
+	     else
+	       info_find_node_this_file(node);
+	  }
+	if (strlen(node))
+	  {
+	     X_USER_BLOCK0;
+	  }
 	else
-	  info_find_node_this_file(node);
+	  {
+	     node = "Top";
+	     try
+	       {
+		  X_USER_BLOCK0;
+	       }
+	     catch RunTimeError:
+	       {
+		  node="top";
+		  X_USER_BLOCK0;
+	       }
+	  }
 	sw2buf("*Info*");
      }
    catch AnyError:
@@ -444,7 +464,7 @@ public define info_find_node(node)
    	sw2buf("*Info*");
    	info_reader ();
    	pop_position();
-   	throw RunTimeError, "node not found";
+   	throw;
      }
 }
 
@@ -604,8 +624,7 @@ define menu ()
    variable items = get_menu_items();
    
    bol ();
-   if (looking_at("* "))
-     if (ffind(":"))
+   if (looking_at("* ") && ffind(":"))
      {
 	push_mark();
 	bol(); go_right(2);
