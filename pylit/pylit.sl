@@ -1,6 +1,6 @@
 % pylit.sl: Helper functions for literal programming with PyLit
 %
-% Copyright (c) 2006 Günter Milde
+% Copyright (c) 2006 GÃ¼nter Milde
 % Released under the terms of the GNU General Public License (ver. 2 or later)
 %
 % Versions:
@@ -97,7 +97,7 @@ public define pylit_check()
    if (file_time_compare(file, outfile) >= 0)
      return; % buffer-file is newer or same age (e.g. both nonexistant)
 
-   if (get_y_or_n(path_basename(outfile) + " is more recent. Load it instead?"))
+   if (get_y_or_n(path_basename(outfile)+" is more recent. Load it instead"))
      pylit_switch_to_output(outfile);
 }
 
