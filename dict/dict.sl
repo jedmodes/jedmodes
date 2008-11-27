@@ -1,7 +1,7 @@
 % dict.sl
 % A dict client.
 %
-% $Id: dict.sl,v 1.8 2008/03/15 06:07:21 paul Exp paul $
+% $Id: dict.sl,v 1.9 2008/11/27 17:24:30 paul Exp paul $
 %
 % Copyright (c) 2005-2008 Paul Boekholt.
 % Released under the terms of the GNU GPL (version 2 or later).
@@ -30,8 +30,7 @@ $0 =_stkdepth;
 "dict->previous", "p";
 "dict->next", "f";
 "dict->previous", "b";
-"dict", "s";
-"dict_lookup", "d";
+"dict", "d";
 "dict->back", "l";
 "dict_match", "m";
 loop((_stkdepth() - $0)/2)
@@ -278,7 +277,7 @@ define strategy_popup(menu)
 
 define dict_menu(menu)
 {
-   menu_append_item(menu, "search", "dict");
+   menu_append_item(menu, "define", "dict");
    menu_append_item(menu, "match", "dict_match");
    menu_append_popup(menu, "&database");
    menu_set_select_popup_callback(menu + ".&database", &database_popup);
@@ -338,8 +337,7 @@ define follow_link()
    variable pos, re=pcre_compile("\e\\[[0-9]+\\]");
    while (pcre_exec(re, word))
      {
-	pos = pcre_nth_match(re, 0);
-	word = substr(word, 1, pos[0]) + substr(word, pos[1] + 1, -1);
+	word = str_replace_all(word, pcre_nth_substr(re, word, 0), "");
      }
    search(db, strcompress(word, " \r\n"));
 }
@@ -361,8 +359,7 @@ define dict_close_buffer(buf)
 % the protocol defined in RFC 2229.
 %  \var{q} close the dictionary buffer
 %  \var{h} display this help information
-%  \var{s} ask for a new word to search
-%  \var{d} search the word at point
+%  \var{d} ask for a new word to look up
 %  \var{n}, \var{f}, \var{Tab} place point to the next link
 %  \var{p}, \var{b}, \var{S-Tab} place point to the prev link
 %  \var{Return} follow link
@@ -448,8 +445,6 @@ define query(q)
      }
    else 
      insert(line);
-   % define_blocal_var("encoding", "utf8");
-   % utf8_to_latin1();
    bob();
    while(re_fsearch("^[^{]+}")) % escape-sequence coloring does not span lines
      {
