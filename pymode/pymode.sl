@@ -56,7 +56,7 @@
 %       - py_line_starts_block(), py_line_starts_subblock(), py_endblock_cmd():
 %         fix false positives with lines starting with e.g. "passport" 
 %         (words that start with a keyword). (modified patch by Peter Bengtson
-%          and Jörg Sommer)
+%          and JÃ¶rg Sommer)
 %       - use indent_hook instead of binding the TAB key
 %       - various small twiddles
 %       - use comments.sl instead of special commenting functions
@@ -98,6 +98,9 @@
 %                  - set_highlight_scheme() function and mode menu entry
 %                  - Python_Use_DFA custom variable
 %                  - cleanup and fix of DFA rules
+% 2.2   2008-12-12 - Special modes for Python help and Python output,
+% 		   - new mode-menu item "Fold by indentation",
+%                  - added autoload for view_mode() (report P. Bengtson)
 
 % TODO
 % ----
@@ -109,7 +112,8 @@
 %     line-by-line basis.  Jed will call this hook prior to wrapping a
 %     line, and if it returns a non-zero value, the line will be
 %     wrapped.  See lib/slmode.sl for an example of its use.
-
+%
+% Wrapping of code: wrap point is ", " behind a "("
 
 provide("pymode");
 
@@ -136,6 +140,7 @@ autoload("string_get_match", "strutils");
 autoload("str_re_replace_all", "strutils");
 autoload("get_word", "txtutils");
 autoload("bget_word", "txtutils");
+autoload("view_mode", "view");
 
 implements("python");
 private variable mode = "python";
@@ -1062,6 +1067,48 @@ static define electric_delim(ch)
 % Run python code
 % ---------------
 
+% search back for a Python error message and return file and line number
+% return "" and 0 if no error found.
+static define parse_error_message()
+{
+   variable file = "", line = 0;
+   variable error_regexp = "^ *File \"\\([^\"]+\\)\", line \\(\\d+\\).*";
+   if (re_bsearch(error_regexp) != 0) {
+      file = regexp_nth_match(1);
+      line = integer(regexp_nth_match(2));
+   }
+   return file, line;
+}
+
+% Search the current buffer backwards for a Python error message, 
+% open the source file and goto line
+static define goto_error_source()
+{
+   variable file, line;
+   eol(); % ... to let the backward search find an error at the current line
+   (file, line) = parse_error_message();
+   if (file_status(file)) {
+      () = find_file(file);
+      goto_line(line);
+   }
+}
+
+% mode for python output
+% Return tries to open the file where an error occured
+% no need for own keymap, as newline_indent_hook is re-mapped
+% TODO: "traditional" compiler output bindings?
+public  define python_output_mode()
+{
+   view_mode();
+   set_mode("python-output", 0);
+   % navigating
+   set_buffer_hook("newline_indent_hook", "python->goto_error_source");
+   define_blocal_var("context_help_hook", "python_context_help_hook");
+   if (is_defined("help_2click_hook"))
+     set_buffer_hook( "mouse_2click", "help_2click_hook");
+}
+
+
 %!%+
 %\function{py_exec}
 %\synopsis{Run python on current region or buffer}
@@ -1075,9 +1122,9 @@ static define electric_delim(ch)
 public  define py_exec() % (cmd="python")
 {
    variable cmd = push_defaults("python", _NARGS);
-   variable buf = whatbuf(), outbuf = sprintf("*%s output*", cmd);
-   variable error_regexp = "^  File \"\\([^\"]+\\)\", line \\(\\d+\\).*";
-   variable file, line, start_line = 1, py_source = buffer_filename();
+   variable buf = whatbuf(), py_source = buffer_filename();
+   variable outbuf = sprintf("*%s output*", cmd);
+   variable exception_file, line, start_line = 1;
    
    % remove old output buffer
    if (bufferp(outbuf))
@@ -1106,19 +1153,18 @@ public  define py_exec() % (cmd="python")
      
    %  Check for error message
    eob();
-   while (re_bsearch(error_regexp) != 0) {
-      %  Make sure error occurred in the file we were executing
-      file = regexp_nth_match(1);
-      line = integer(regexp_nth_match(2));
-      if (file == py_source)
-		{
-		   %  Move to line in source that generated the error
-		   pop2buf(buf);
-		   goto_line(line + start_line - 1);
-		   return;
-		}
+   do {
+      (exception_file, line) = parse_error_message();
    }
+   while (exception_file != py_source and line != 0);
+      
    pop2buf(buf);
+   
+   %  Move to line in source that generated the error
+   if (exception_file == py_source)
+     {
+	goto_line(line + start_line - 1);
+     }
 }
 
 % output filter for use with ishell-mode
@@ -1136,6 +1182,7 @@ static define python_output_filter(str)
 public define python_shell()
 {
    define_blocal_var("Ishell_output_filter", &python_output_filter);
+   define_blocal_var("Ishell_Wait", 10);  % wait up to 1 s/line for response
    ishell_mode("python");
    ishell_set_output_placement("l"); % log in separate-buffer
 }
@@ -1201,6 +1248,19 @@ static define get_import_lines()
    return import_lines;
 }
 
+% mode for python help output
+% no need for own keymap, as newline_indent_hook is re-mapped to bind Return
+public  define python_help_mode()
+{
+   view_mode();
+   set_mode("python-help", 0);
+   % navigating
+   set_buffer_hook("newline_indent_hook", "python_context_help_hook");
+   define_blocal_var("context_help_hook", "python_context_help_hook");
+   if (is_defined("help_2click_hook"))
+     set_buffer_hook( "mouse_2click", "help_2click_hook");
+}
+
 %!%+
 %\function{py_help}
 %\synopsis{Run python's help feature on topic}
@@ -1263,12 +1323,7 @@ public define py_help() %(topic=NULL)
    do_shell_cmd(help_cmd);
    
    fit_window(get_blocal("is_popup", 0));
-   view_mode();
-   % navigating
-   set_buffer_hook("newline_indent_hook", "python_context_help_hook");
-   define_blocal_var("context_help_hook", "python_context_help_hook");
-   if (is_defined("help_2click_hook"))
-     set_buffer_hook( "mouse_2click", "help_2click_hook");
+   python_help_mode();
 }
 
 % context help:
@@ -1421,13 +1476,34 @@ static define set_highlight_scheme()
    else
       Python_Use_DFA = not(Python_Use_DFA);
    variable schemes = ["DFA", "traditional"];
-   if (Python_Use_DFA)
-      enable_dfa_syntax_for_mode(mode);
-   else
-      disable_dfa_syntax_for_mode("python");
+   mode_set_mode_info (mode, "use_dfa_syntax", Python_Use_DFA);
    use_syntax_table("python"); % activate the DFA/non-DFA syntax
    vmessage("using %s highlight scheme", schemes[not(Python_Use_DFA)]);
 }
+
+% Folding
+% -------
+% 
+% by indention
+% ~~~~~~~~~~~~
+% 
+% On 21.04.08, John E. Davis wrote:
+% > > Is there a possibility to autmatic fold any Python file, like many of 
+% > > the Python-IDE's do ?
+% 
+% > You might try using the set_selective_display function, which is bound
+% > to "Ctrl-X $" in emacs mode.  This will allow you to hide any lines
+% > indented beyond the column containing the cursor.
+% 
+% TODO: also hide comments if "#" at bol but comment indented?
+% 
+% by pcre pattern
+% ~~~~~~~~~~~~~~~
+% see pcre-fold.sl
+% 
+% by rst-section
+% ~~~~~~~~~~~~~~
+% see rst-fold.sl
 
 
 % Keybindings
@@ -1438,6 +1514,8 @@ static define set_highlight_scheme()
 
 definekey_reserved("py_shift_right", ">", mode);
 definekey_reserved("py_shift_left", "<", mode);
+definekey_reserved("set_selective_display", "f", mode);
+
 definekey_reserved("py_exec", "^C", mode);    % Execute buffer, or region if defined
 
 definekey("python->py_backspace_key", Key_BS, mode);
@@ -1463,6 +1541,8 @@ static define python_menu(menu)
    menu_append_item(menu, "&Untab buffer", "py_untab");
    menu_append_item(menu, "&Toggle syntax highlight scheme", 
 		    	  "python->set_highlight_scheme");
+   menu_append_separator(menu);
+   menu_append_item(menu, "&Fold by indentation", "set_selective_display");
    menu_append_separator(menu);
    menu_append_item(menu, "&Run Buffer", &run_local_hook, "run_buffer_hook");
    menu_append_item(menu, "Python &Shell", "python_shell");
