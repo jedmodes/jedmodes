@@ -1,6 +1,6 @@
 % sqlited.sl
 % 
-% $Id: sqlited.sl,v 1.4 2007/12/23 10:56:37 paul Exp paul $
+% $Id: sqlited.sl,v 1.5 2008/12/14 13:16:30 paul Exp paul $
 %
 % Copyright (c) 2006,2007 Paul Boekholt.
 % Released under the terms of the GNU GPL (version 2 or later).
@@ -84,7 +84,7 @@ private define index()
    else sqlited(filename, db);
 }
    
-!if (keymap_p(mode))
+ifnot (keymap_p(mode))
   copy_keymap(mode, "listing");
 
 definekey(&delete_tagged, "x", mode);
@@ -157,7 +157,7 @@ public define sqlited_table(db, filename, tablename)
 {
    variable table;
    table = sqlite_get_table(db, sprintf("select _ROWID_, * from '%s'", tablename));
-   !if (length(table)) return message("table is empty");
+   ifnot (length(table)) return message("table is empty");
    popup_view_or_table(db, filename, table, tablename, "l");
    sqlite_table_mode();
 }
@@ -174,7 +174,7 @@ public define sqlited_view(db, filename, tablename)
 {
    variable table;
    table = sqlite_get_table(db, sprintf("select * from '%s'", tablename));
-   !if (length(table)) return message("view is empty");
+   ifnot (length(table)) return message("view is empty");
    popup_view_or_table(db, filename, table, tablename, "");
    view_mode();
 }
@@ -265,7 +265,7 @@ private define sqlite_run()
    catch SqliteError:
      {
 	sqlite_exec(db, "rollback");
-	throw SqliteError, e.message;
+	throw;
      }
    sqlite_exec(db, "commit");
    vmessage("%d rows affected", sqlite_changes(db));
@@ -280,7 +280,7 @@ private define sqlite_query()
    variable db = get_blocal_var("db");
    variable query = read_mini("query", "", "");
    variable table = sqlite_get_table(db, query);
-   !if(length(table)) return message("no matching records");
+   ifnot(length(table)) return message("no matching records");
    popup_buffer("*sqlite result*");
    set_readonly(0);
    erase_buffer();
@@ -305,12 +305,12 @@ private define edit_view()
 {
    variable db = get_blocal_var("db"), type, table;
    (type, table) = str_split(line_as_string(), 9);
-   if (type != "view:   " and type != "trigger:")
+   if (type != "view:   " && type != "trigger:")
      throw RunTimeError, "not looking at a view or trigger";
    pop2buf(sprintf("*sqlite:%s/%s*", path_basename(get_blocal_var("filename"), table)));
    erase_buffer();
    if (type == "view:  ")
-   vinsert("drop view '%s';\n", table);
+     vinsert("drop view '%s';\n", table);
    else
      vinsert("drop trigger '%s';\n", table);
    insert(sqlite_get_row(db, "select sql from sqlite_master where name = ?", table));
@@ -328,17 +328,17 @@ private define drop_table()
    (type, table)= str_split(line_as_string(), 9);
    if (type == "table:  ")
      {
-	!if (get_y_or_n(sprintf("really drop table %s", table))) return;
+	ifnot (get_y_or_n(sprintf("really drop table %s", table))) return;
 	sqlite_exec(db, sprintf("drop table '%s'", table));
      }
    else if (type == "view:   ")
      {
-	!if (get_y_or_n(sprintf("really drop view %s", table))) return;
+	ifnot (get_y_or_n(sprintf("really drop view %s", table))) return;
 	sqlite_exec(db, sprintf("drop view '%s'", table));
      }
    else if (type == "trigger:")
      {
-	!if (get_y_or_n(sprintf("really drop trigger %s", table))) return;
+	ifnot (get_y_or_n(sprintf("really drop trigger %s", table))) return;
 	sqlite_exec(db, sprintf("drop trigger '%s'", table));
      }
    else throw RunTimeError, "not looking at a view or table";
@@ -395,8 +395,8 @@ private define read_index()
    set_readonly(1);
 }
 
-!if (keymap_p("sqlite_index"))
-    copy_keymap("sqlite_index", "view");
+ifnot (keymap_p("sqlite_index"))
+  copy_keymap("sqlite_index", "view");
 definekey(&sqlite_command, "c", "sqlite_index");
 definekey(&edit_view, "e", "sqlite_index");
 definekey(&sqlite_query, "?", "sqlite_index");
