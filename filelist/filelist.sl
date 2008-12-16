@@ -73,16 +73,22 @@
 % 2007-10-04  1.7.6 * no DFA highlight in UTF-8 mode (it's broken)
 % 2007-10-23  1.7.7 * no DFA highlight caching
 % 2008-01-21  1.7.8 * fix stack leftovers in filelist_open_file()
-% 	      	    * add Jöörg Sommer's fix for DFA highlight under UTF-8
+% 	      	    * add Jörg Sommer's fix for DFA highlight under UTF-8
 % 2008-05-05  1.7.9 * filelist_list_dir(): do not sort empty array
 % 	      	    * filelist_open_with() bugfix: do not set a default when asking
 % 	      	      for cmd to open, as this prevents opening in Jed.
 % 	      	    * separate function filelist->get_default_cmd(String filename)
-% 2008-06-18  1.7.10 * use call_function() instead of runhooks()
+% 2008-06-18  1.7.10  use call_function() instead of runhooks()
+% 2008-12-16  1.8   * use `trash` cli for deleting (if available and set)
 
 
-%
-% TODO: * more bindings of actions: filelist_cua_bindings
+% TODO
+% ----
+% 	* write a trash.sl mode (based on the `trash` Python utility
+% 	  and the FreeDesktop.org Trash Specification e.g. at
+%	  http://www.ramendik.ru/docs/trashspec.html)
+% 	
+% 	* more bindings of actions: filelist_cua_bindings
 %       * copy from filelist to filelist ...
 %         ^C copy : cua_copy_region und copy_tagged (in separaten buffer)
 %         ^X kill:  yp_kill_region und kill_tagged    ""   ""        ""
@@ -96,7 +102,6 @@
 %         FileList_Default_Commands
 %         hint: `mimedb -a` returns default app for a file
 %               `xdg-open` opens an URL with default app (opendesktop.org)
-%               
 
 %
 % Usage
@@ -105,7 +110,7 @@
 % * Place filelist.sl and required files in your library path.
 %
 % * Use filelist_list_dir() to open a directory in the "jed-file-manager"
-%
+% 
 % * To make file finding functions list the directory contents
 %   if called with a directory path as argument (instead of reporting an
 %   error), copy the content of the INITALIZATION block below 
@@ -135,8 +140,6 @@ append_to_hook("_jed_find_file_before_hooks", &filelist_find_file_hook);
 % Requirements
 % ------------
 
-% S-Lang 2
-
 % extensions from http://jedmodes.sf.net/
 require("listing");  % the listing widget, depends on datutils, view, bufutils
 require("bufutils");
@@ -147,7 +150,15 @@ autoload("string_get_match", "strutils");
 autoload("filelist_do_rename_regexp", "filelistmsc");
 #endif
 
-% name and namespace
+% Recommended for Trash-can compliance: http://www.andreafrancia.it/trash/
+%   An interface to the FreeDesktop.org Trash Specification (used by
+%   KDE and XFCE) provided via the `trash` CLI 
+%   (used if found on the system PATH).
+
+
+
+% Name and namespace
+% ------------------
 provide("filelist");
 implements("filelist");
 variable mode = "filelist";
@@ -211,20 +222,29 @@ custom_variable("FileList_max_window_size", 1.0);  % my default is full screen
 %!%+
 %\variable{FileList_Trash_Bin}
 %\synopsis{Trash bin for files deleted in \sfun{filelist_mode}}
-%\usage{String_Type FileList_Trash_Bin = ""}
+%\usage{String_Type FileList_Trash_Bin = "trash-cli"}
 %\description
-% Directory, where deleted files are moved to.
-% The default "" means real deleting.
-% Desktop users might want to set this to "~/local/share/Trash/files".
-% (see the Desktop Trash Can Specification
-%  http://freedesktop.org/wiki/Standards_2ftrash_2dspec)
+% Directory, where deleted files are moved to or the special string
+% "trash-cli" (to call the `trash` command line utility).
+% The empty string "" means real deleting.
 % \notes
-%  The value will be expanded with \sfun{expand_filename}.
-%  The \var{Trash_Bin} is checked for existence in \sfun{filelist_delete_tagged},
+%  Desktop users might want to set this to "trash-cli" or 
+%  "~/local/share/Trash/files" (see the Desktop Trash Can Specification
+%  http://freedesktop.org/wiki/Standards_2ftrash_2dspec).
+%  
+%  A path value will be expanded with \sfun{expand_filename}.
+%  It is checked for existence in \sfun{filelist_delete_tagged}.
 %\seealso{filelist_mode, filelist_delete_tagged}
 %!%-
-custom_variable("FileList_Trash_Bin", "");
-if (FileList_Trash_Bin != "")
+custom_variable("FileList_Trash_Bin", "~/local/share/Trash/files");
+
+% Check and expand:
+if (andelse{FileList_Trash_Bin == "trash-cli"} 
+      {search_path_for_file(getenv("PATH"), "trash", ':') == NULL}) 
+   % trash CLI not available, try Trash dir:
+   FileList_Trash_Bin = "~/.local/share/Trash/files";
+
+if (wherefirst(FileList_Trash_Bin == ["", "trash-cli"]) == NULL)
    FileList_Trash_Bin = expand_filename(FileList_Trash_Bin);
 
 % --- Static Variables ----------------------------------------------------
@@ -269,7 +289,7 @@ static variable Dir_Sep = path_concat("a", "")[[1:]];  % path separator
 
 % ------ Function definitions -------------------------------------------
 
-public  define filelist_mode(); % forward definition
+public define filelist_mode(); % forward definition
 
 % truncate a string to the n last characters (prepending "..." if n >= 4)
 static define strtail(str, n)
@@ -381,7 +401,7 @@ static define filelist_rename_file(line, dest)
 %  Ask in the minibuffer for the destination
 %\seealso{filelist_mode, FileList_Action_Scope}
 %!%-
-public  define filelist_rename_tagged()
+public define filelist_rename_tagged()
 {
    () = chdir(buffer_dirname());
    variable dest = read_with_completion("Move/Rename file(s) to:", "", "", 'f');
@@ -420,7 +440,7 @@ static define filelist_copy_file(line, dest)
 %  Ask in the minibuffer for the destination
 %\seealso{filelist_mode, FileList_Action_Scope}
 %!%-
-public  define filelist_copy_tagged()
+public define filelist_copy_tagged()
 {
    () = chdir(buffer_dirname());
    variable dest = read_with_completion("Copy file(s) to:", "", "", 'f');
@@ -437,7 +457,7 @@ public  define filelist_copy_tagged()
 %  Ask the user for the name.
 %\seealso{filelist_mode}
 %!%-
-public  define filelist_make_directory()
+public define filelist_make_directory()
 {
    () = chdir(buffer_dirname());
    variable dest = read_with_completion("Create the directory:", "", "", 'f');
@@ -446,26 +466,50 @@ public  define filelist_make_directory()
    help_message();
 }
 
-% Delete file
+% Delete file whose path is given on `line'
+% 
+% Depending on the value of FileList_Trash_Bin, the file or dir is either
+%  a) put to the trash bin via `trash`
+%  b) copied to the trash folder
+%  c) deleted immediately
+% The user is asked for confirmation first.
 static define filelist_delete_file(line)
 {
    variable file = extract_filename(line);
    if (listing->get_confirmation("Delete " + file) != 1)
      return 0;
-   % copy to Trash Bin
-   if (strlen(FileList_Trash_Bin))
-       return filelist_rename_file(line, FileList_Trash_Bin);
+   
+   % a) use the `trash` cli:
+   if (FileList_Trash_Bin == "trash-cli") {
+      if (system("trash " + file) == 0) % success
+	 return 2; % (deleted)
+   }
+   % b) copy to Trash Bin:
+   else if (strlen(FileList_Trash_Bin)) {
+      try {
+	 return filelist_rename_file(line, FileList_Trash_Bin);
+      }
+      catch RunTimeError: {
+	 % Check Trash Bin directory for existence and offer re-setting
+	 if (file_status(FileList_Trash_Bin)!=2)
+	    FileList_Trash_Bin =
+	    read_with_completion("Trash Bin (leave empty for real delete)",
+				 "", FileList_Trash_Bin, 'f');
+      }
+   }
+   % c) delete immediately
    % delete directory
-   if (file_status(file) == 2)
-     if (rmdir(file) == 0) % successfully removed dir
-       return 2;
-   % delete normal file
-   if (delete_file(file) != 0) % success
-     return 2;
-   if (get_y_or_n(sprintf("Delete failed %s, continue? ",
-                           errno_string(errno))) != 1)
-     verror("Delete failed %s", errno_string(errno));
-   return 1;
+   else if (file_status(file) == 2) {
+      if (rmdir(file) == 0) % successfully removed dir
+	 return 2;
+      % delete normal file
+      if (delete_file(file) != 0) % success
+	 return 2;
+      if (get_y_or_n(sprintf("Delete failed %s, continue? ",
+			     errno_string(errno))) != 1)
+	 verror("Delete failed %s", errno_string(errno));
+   }
+   return 1; % (not deleted)
 }
 
 %!%+
@@ -479,14 +523,8 @@ static define filelist_delete_file(line)
 %  deleted if they are empty.
 %\seealso{filelist_mode, filelist_rename_tagged, FileList_Action_Scope}
 %!%-
-public  define filelist_delete_tagged()
+public define filelist_delete_tagged()
 {
-   % check Trash Bin for existence
-   while (andelse{FileList_Trash_Bin!=""}{file_status(FileList_Trash_Bin)!=2})
-        FileList_Trash_Bin =
-          read_with_completion("Trash Bin (leave empty for real delete)",
-             "", FileList_Trash_Bin, 'f');
-
    () = chdir(buffer_dirname());
    listing_map(FileList_Action_Scope, &filelist_delete_file);
    help_message();
@@ -524,7 +562,7 @@ public define filelist_do_tar()
 %  update the view.
 %\seealso{filelist_mode}
 %!%-
-public  define filelist_reread()
+public define filelist_reread()
 {
    variable line = what_line();
    () = run_function(push_array(get_blocal("generating_function")));
@@ -544,7 +582,7 @@ public  define filelist_reread()
 %  of issuing an error.
 %\seealso{filelist_mode, FileList_Cleanup, listdir}
 %!%-
-public  define filelist_list_dir() % ([dir], ls_cmd="listdir")
+public define filelist_list_dir() % ([dir], ls_cmd="listdir")
 {
    % get optional arguments
    variable dir, ls_cmd;
@@ -605,7 +643,7 @@ public  define filelist_list_dir() % ([dir], ls_cmd="listdir")
 %  directories.
 %\seealso{filelist_mode}
 %!%-
-public  define filelist_list_base_dir()
+public define filelist_list_base_dir()
 {
    variable filename = extract_filename(line_as_string());
    filelist_list_dir(path_dirname(filename));
@@ -682,7 +720,7 @@ private define _open_file(filename, line_no)
 %   "delimiter"         (Char_Type, default == NULL, meaning 'whitespace')
 %\seealso{filelist_mode, FileList_Cleanup}
 %!%-
-public  define filelist_open_file() % (scope=0, close=FileList_Cleanup)
+public define filelist_open_file() % (scope=0, close=FileList_Cleanup)
 {
    variable scope, close;
    (scope, close) = push_defaults(0,
@@ -708,7 +746,7 @@ public  define filelist_open_file() % (scope=0, close=FileList_Cleanup)
    () = array_map(Int_Type, &_open_file, filenames, line_numbers);
 }
 
-public  define filelist_open_in_otherwindow()
+public define filelist_open_in_otherwindow()
 {
    % open file on current line, don't close current buffer
    filelist_open_file(0, 0);
@@ -727,7 +765,7 @@ public  define filelist_open_in_otherwindow()
 %  in JED.
 %\seealso{filelist_mode}
 %!%-
-public  define filelist_open_tagged()
+public define filelist_open_tagged()
 {
    filelist_open_file(FileList_Action_Scope);
 }
@@ -740,7 +778,7 @@ public  define filelist_open_tagged()
 %  Open the file in \sfun{view_mode} (readonly).
 %\seealso{filelist_mode, view_mode}
 %!%-
-public  define filelist_view_file()
+public define filelist_view_file()
 {
    filelist_open_file(FileList_Action_Scope, 0);
    set_readonly(1);
@@ -768,7 +806,7 @@ static define get_default_cmd(filename)
 % If \var{ask} = 0, use default without asking.
 %\seealso{filelist_mode, filelist_open_file, system, run_program}
 %!%-
-public  define filelist_open_file_with() % (ask = 1)
+public define filelist_open_file_with() % (ask = 1)
 {
    variable ask = push_defaults(1, _NARGS);
 
@@ -802,7 +840,7 @@ public  define filelist_open_file_with() % (ask = 1)
 %  the time of evaluation or preparsing of filelist.sl
 %\seealso{grep, filelist_mode}
 %!%-
-public  define filelist_do_grep()
+public define filelist_do_grep()
 {
    grep( , list_tagged_files(FileList_Action_Scope, 1));
 }
@@ -901,7 +939,7 @@ static define filelist_menu(menu)
    menu_insert_separator("&Edit Listing", menu);
 }
 
-public  define filelist_mouse_2click_hook (line, col, but, shift)
+static define filelist_mouse_2click_hook (line, col, but, shift)
 {
    filelist_open_file();
    return 1;  % stay in window
