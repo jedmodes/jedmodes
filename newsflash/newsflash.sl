@@ -1,6 +1,6 @@
 % newsflash.sl
 % 
-% $Id: newsflash.sl,v 1.6 2008/04/05 07:35:12 paul Exp paul $
+% $Id: newsflash.sl,v 1.8 2008/12/16 18:52:09 paul Exp paul $
 %
 % Copyright (c) 2006-2008 Paul Boekholt.
 % Released under the terms of the GNU GPL (version 2 or later).
@@ -12,6 +12,7 @@ require("curl");
 require("expat");
 require("pcre");
 require("sqlite");
+require("strutils");
 require("view");
 autoload("jedscape_get_url", "jedscape");
 autoload("browse_url", "browse_url");
@@ -200,10 +201,7 @@ define startElement(p, name, atts) {
 	       p.userdata.cdataref = &p.userdata.item.link;
 	  }
 	  {
-	     % summary and content are for Atom feeds
-	     % presumably they are different things, but I can't find many
-	     % Atom feeds to test this on.
-	   case "description" or case "summary" or case "content":
+	   case "description"  or case "content": % or case "summary"
 	     p.userdata.cdataref = &p.userdata.item.description;
 	  }
 	  {
@@ -329,52 +327,38 @@ define store_feed(feed, items)
 %{{{ rss mode
 %{{{ html tagsoup cleaner
 
-define remove_tags()
+private variable entities = Assoc_Type[Char_Type];
+foreach $1 ([{"nbsp", ' '},
+	     {"gt", '>'},
+	     {"lt", '<'},
+	     {"amp", '&'},
+	     {"quot", '\''},
+	     {"apos", '\''},
+	     {"circ", '^'},
+	     {"tilde", '~'},
+	     {"mdash", '-'}])
 {
-   mark_buffer();
-   variable str = bufsubstr();
-   variable re;
-   if (_slang_utf8_ok)
-     re = pcre_compile("<[^>]+>", PCRE_UTF8);
-   else
-     re = pcre_compile("<[^>]+>");
-   bob();
-   variable pos = 0, match_pos, match_len;
-   while (pcre_exec(re, str, pos))
-     {
-	match_pos = pcre_nth_match(re, 0);
-	match_len = match_pos[1] - match_pos[0];
-	go_right(match_pos[0] - pos);
-	deln(match_len);
-	pos = match_pos[1];
-     }
-}
-
-define characterdata_handler(p, t)
-{
-   p.userdata += t;
+   entities[$1[0]] = $1[1];
 }
 
 define clean_tagsoup()
 {
    mark_buffer();
-   variable item = bufsubstr();
-   variable p = xml_new();
-   p.userdata = "";
-   p.characterdatahandler = &characterdata_handler;
-   try
+   variable newstr = str_re_replace_all(bufsubstr(), "<[^>]+>", "");
+   mark_buffer();
+   del_region();
+   insert(newstr);
+   bob();
+   while(re_fsearch("&\([a-z]+\);"R))
      {
-	xml_parse(p, "<!DOCTYPE html PUBLIC \"-//W3C//DTD XHTML 1.0 Strict//EN\" \"http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd\">", 0);
-	xml_parse(p, "<html>", 0);
-	xml_parse(p, item, 0);
-	xml_parse(p, "</html>", 1);
-	erase_buffer();
-	insert(p.userdata);
+	if (assoc_key_exists(entities, regexp_nth_match(1)))
+	  ()=replace_match(char(entities[regexp_nth_match(1)]), 0);
+	else
+	  ()=replace_match("?", 0);
      }
-   catch ExpatError:
-     {
-	remove_tags();
-     }
+   bob();
+   while(re_fsearch("&#\([0-9]+\);"R))
+     ()=replace_match(char(atoi(regexp_nth_match(1))), 0);
 }
 
 %}}}
@@ -438,8 +422,6 @@ define get_item()
    
    if (u.cleanlevel & 1)
      {
-	replace("<p>", "\n");
-	replace("</p>", "");
 	clean_tagsoup();
 	bob();
      }
