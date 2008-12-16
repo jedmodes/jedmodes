@@ -85,6 +85,8 @@
 % 2.3.2 2008-05-05 * DFA fix for interpreted text
 % 2.3.3 2008-05-20 * one more DFA tweak
 % 2.4   2008-06-18 * line_block()
+% 2.4.1 2008-12-16 * chdir() in rst_export(),
+% 		     as style-sheets are searched relative to the pwd
 % ===== ========== ============================================================
 % 
 % TODO
@@ -337,6 +339,7 @@ static define rst_export() % (format, outfile=get_outfile(format))
    cmd = strjoin([cmd, buffer_filename(), outfile], " ");
 
    save_buffer();
+   () = chdir(buffer_dirname()); % style-sheets are found relative to the pwd
    flush("exporting to " + format);
    popup_buffer("*rst export output*");
    set_readonly(0);
