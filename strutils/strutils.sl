@@ -1,6 +1,6 @@
 % Utilities for processing of strings
 %
-% Copyright (c) 2005 Guenter Milde (milde users.sf.net)
+% Copyright (c) 2005 Günter Milde (milde@users.sf.net)
 % Released under the terms of the GNU General Public License (ver. 2 or later)
 %
 % Version     0.9 first public version
@@ -26,6 +26,7 @@
 % 2007-05-25  1.6.1 optimized str_re_replace() by Paul Boekholt
 % 2008-01-04  1.6.2 docu fix in strsplit(), max_n not functional yet
 %                   bugfix for n_max=0 in str_re_replace()
+% 2008-12-16  1.6.3 bugfix: regexp search uses byte semantics (P. Boekholt)
 %
 % (projects for further functions in projects/str_utils.sl)
 
@@ -37,27 +38,31 @@ provide("strutils");
 %!%+
 %\function{string_nth_match}
 %\synopsis{Return the (nth) substring of the last call to string_match}
-%\usage{ string_nth_match(str, n)}
+%\usage{String = string_nth_match(str, n)}
 %\description
 %  After matching a string against a regular expression with
-%  string_match(), string_nth_match can be used to extract the
-%  exact match.
+%  \sfun{string_match}, \sfun{string_nth_match} can be used to extract
+%  the exact match.
 %
 %  By convention, \var{nth} equal to zero means the entire match.
 %  Otherwise, \var{nth} must be an integer with a value 1 through 9,
 %  and refers to the set of characters matched by the \var{nth} regular
 %  expression enclosed by the pairs \var{\(, \)}.
 %\notes
-%  There was an alias string_get_last_match() for this function
-%  in earlier versions of bufutils.sl
+%  Calls \sfun{substr} on \var{str} using the (adapted) result of
+%  \sfun{string_match_nth} as offsets.
 %\seealso{string_match, string_match_nth, string_get_match, str_re_replace}
 %!%-
 define string_nth_match(str, n)
 {
    variable pos, len;
-   ERROR_BLOCK { _clear_error(); pop; return ""; }
-   (pos, len) = string_match_nth(n);
-   return substr(str, pos+1, len);
+   try {
+      (pos, len) = string_match_nth(n);
+   }
+   catch RunTimeError: {
+      return "";
+   }
+   return substrbytes(str, pos+1, len);
 }
 
 %!%+
@@ -105,14 +110,14 @@ define str_re_replace(str, pattern, rep, max_n)
 {
    variable n, pos = 1, next_pos, len, outstr=String_Type[1],
      match, backref, x_rep;
-   
+
    % do replacements one-by-one, caching results in array
    for(n = 0; n < max_n; n++)
      {
         % add 100 elements to cache if it is full
         !if (n mod 100)
           outstr = [outstr, String_Type[100]];
-        % Match against a regular expression `pattern' later than `pos'
+        % Match against regexp `pattern' starting at `pos'
         !if (string_match(str, pattern, pos))
           break;
         % get the backref, i.e. the part matching pattern in \( \)
@@ -123,11 +128,11 @@ define str_re_replace(str, pattern, rep, max_n)
         (next_pos, len) = string_match_nth(0);
         next_pos++;
         % cache the string-part with replacement in an array
-        outstr[n] = strcat(substr(str, pos, next_pos - pos), x_rep);
+        outstr[n] = strcat(substrbytes(str, pos, next_pos - pos), x_rep);
         % advance position
         pos = next_pos + len;
      }
-   outstr[n] = substr(str, pos, -1);
+   outstr[n] = substrbytes(str, pos, -1);
    return (strjoin(outstr[[:n]], ""), n);
 }
 
@@ -319,7 +324,6 @@ define strbreak() % (str, wrap=WRAP, delim=' ')
 %       }
 %  }
 %#v-
-%
 %\notes
 %  This may err for fast typing on slow terminals.
 %\seealso{getkey, ungetkey, input_pending, buffer_keystring}
@@ -344,7 +348,7 @@ define get_keystring()
 %\usage{strsplit(str, sep, max_n=0)}
 %\description
 %  Return a list of the words in the string \var{str}, using \var{sep} as the
-%  delimiter string.  
+%  delimiter string.
 %\seealso{strchop, strtok, strreplace, is_substr}
 %!%-
 define strsplit() % (str, sep, max_n=0)
@@ -379,4 +383,3 @@ define strsplit() % (str, sep, max_n=0)
    %  strsplit("1, 2, 3,5, 4  5. 6", ", ", -1) == ["1, 2, 3,5", "4  5. 6"]
    %#v-
 }
-
