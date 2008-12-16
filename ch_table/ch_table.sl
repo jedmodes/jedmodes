@@ -48,6 +48,8 @@
 % 	      	    New public functions ct_list_unicode_blocks(), 
 % 	      	    ct_find_unicode_character, ct_list_unicode_characters(),
 % 	      	    and describe_character()
+% 2008-12-16  2.5.2 Trim Edit>Char_Table menu
+% 	      	    (use "List Unicode Blocks" for not so often needed blocks).
 % 	      	    
 %
 % TODO: * apropos for character names and table names
@@ -128,26 +130,26 @@ custom_variable("ChartableTabSpacing", 5);
 
 % Unicode blocks listed in the Edit>Char_Tables popup
 custom_variable("Chartable_Tables", [
-					    "&Basic Latin",
+					    % "Basic &Latin",
 					    "Latin-&1 Supplement",
-					    "Latin Extended-A",
-					    "Latin Extended-B",
-					    "&IPA Extensions",
+					    % "Latin Extended-A",
+					    % "Latin Extended-B",
+					    % "&IPA Extensions",
 					    "&Greek and Coptic",
 					    "C&yrillic",
-					    "&Hebrew",
+					    % "&Hebrew",
 					    "General &Punctuation",
 					    "&Superscripts and Subscripts",
-					    "&Currency Symbols",
+					    % "&Currency Symbols",
 					    "&Arrows",
 					    "&Mathematical Operators",
 					    "Miscellaneous &Technical",
-					    "Box &Drawing",
-					    "&Block Elements",
+					    % "Box &Drawing",
+					    % "&Block Elements",
 					    "&Geometric Shapes",
 					    "Miscellaneous &Symbols",
-					    "Dingbats",
-					    "&Musical Symbols"
+					    % "Dingbats",
+					    % "&Musical Symbols"
 					   ]);
 
 
@@ -590,6 +592,9 @@ static define ct_menu_callback(menu)
       % show(entry);
       menu_append_item(menu, entry, &ct_unicode_block, block_nr);
    }
+      menu_append_separator(menu);
+      menu_append_item(menu, "List Unicode &Blocks", "ct_list_unicode_blocks");
+      menu_append_item(menu, "&Find Character", "ct_find_unicode_character");
 }
 
 private define ch_table_menu(menu)
