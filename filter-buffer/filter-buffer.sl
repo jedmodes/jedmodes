@@ -17,6 +17,7 @@
 % 2008-04-21 0.4.1 do not load unfinished code from pcre-fold project
 % 2008-05-26 0.4.2 move pcre-fold code to pcre-fold.sl
 % 	           add generic hiding/folding functions
+% 2008-12-16 0.4.3 Fix pcre_fsearch() for utf8 multibyte chars (P. Boekholt)
 %
 % Usage
 % -----
@@ -55,6 +56,8 @@ append_to_hook ("load_popup_hooks", &filter_buffer_load_popup_hook);
 _autoload(4);
 #</INITIALIZATION>
 
+provide("filter-buffer");
+
 % Requirements
 % ------------
 
@@ -64,6 +67,7 @@ autoload("get_comment_info", "comments");
 
 % modes from http://jedmodes.sf.net/
 autoload("push_defaults", "sl_utils");
+
 
 % Functions
 % =========
@@ -112,7 +116,7 @@ public define pcre_bsearch_line(re) {
 % Place point at begin of the match
 % Return whether a match is found
 % Other than the variant in jedpcre.sl by Paul Boekholt, this function does
-% not find matches across line. OTOH, it works correct with the '^' bol
+% not find matches across lines. OTOH, it works correct with the '^' bol
 % anchor.
 public define pcre_fsearch(pat)
 {
@@ -120,10 +124,26 @@ public define pcre_fsearch(pat)
    !if (pcre_fsearch_line(re))
       return 0;
    variable match_pos = pcre_nth_match(re, 0);
+
+% On 14.12.08, Paul Boekholt wrote:
+% > I've noticed that pcre_nth_match also returns byte offsets, even in utf-8
+% > mode. This means that the pcre_fsearch function in jedpcre.sl did not work
+% > right in utf-8 mode. Since there's no good way to fix this, I had to remove
+% > the function. I just noticed you have a pcre_fsearch defined in
+% > filter-buffer.sl. I guess that creates a name conflict, but that's resolved
+% > now. Your version also has this problem, but not as severe as mine had. I
+% > think you can fix it using a scheme
+% > pcre_nth_match -> (byte offset) -> substrbytes -> (string) -> strlen
+% > -> (character offset) -> go_right.
+
+   % convert byte position to char position:
+   variable line = line_as_string(); bol();
+   variable prefix_str = substrbytes(line, 1, match_pos[0]);
+   match_pos[0] = strlen(prefix_str);
+   % Move to start of match (don't use goto_column() to count for TABs).
    go_right(match_pos[0]);
    return 1;
 }
-
 
 % Hide and show lines
 % --------------------
@@ -329,7 +349,7 @@ public define set_comments_hidden() % (hide=1)
 % """""""""""""""""""
 % ::
 
-% Hide a sequence of non-hidden lines 
+% Hide a sequence of non-hidden lines
 % or unhide a sequence of hidden lines
 static define set_block_hidden(hide)
 {
@@ -365,4 +385,3 @@ public define newline_or_unfold()
    else
      call("newline_and_indent");
 }
-
