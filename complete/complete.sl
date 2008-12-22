@@ -1,9 +1,12 @@
+#<perl>
+=pod
+  ;
+#</perl>
 % complete.sl
 % 
-% $Id: complete.sl,v 1.1 2004/07/01 19:37:17 paul Exp paul $
-% Keywords: abbrev, tools
+% $Id: complete.sl,v 1.2 2008/12/22 15:49:22 paul Exp paul $
 %
-% Copyright (c) 2004 Paul Boekholt.
+% Copyright (c) 2004-2008 Paul Boekholt.
 % Released under the terms of the GNU GPL (version 2 or later).
 % 
 % This defines a function called "complete" that runs the blocal hook
@@ -26,24 +29,84 @@
 % define php_mode_hook()
 % {
 %    define_blocal_var("Word_Chars", "a-zA-Z_0-9");
+%    local_setkey("complete_word", "\e\t");
 %    define_blocal_var("complete_hook", "complete_from_file");
 % }
-% setkey("complete", "\e\t");
 % 
 % To do partial completion, press M-tab.  To cycle through completions,
 % press M-tab again.
-%   
-% You don't need this for completing in S-Lang, use sltabc.sl for that.
+% 
+% For S-Lang, run this script as
+% jed-script complete.sl
+% to make a completions file.
+% 
+% For Perl, run Perl on this file to get a completions file:
+% perl complete.sl
+% To add functions from additional modules, add them as extra parameters,
+% appending the export tags like in perl's -M option (see perlrun):
+% perl complete.sl 'CGI=:standard' 'Debian::DictionariesCommon=:all'
+
+if (__argv[0] == path_basename(__FILE__))
+{
+   ()=find_file(dircat(Jed_Home_Directory, "slang_words"));
+   erase_buffer();
+   variable words = _apropos("Global", "...", 15);
+   variable word;
+   foreach word (words[array_sort(words)])
+     {
+	insert(word);
+	newline();
+     }
+   save_buffer();
+   exit(0);
+}
+require("txtutils");
+
+private variable context = NULL;
+
 
 % find the completions of WORD in FILE
 % The file should be sorted!
+private define before_key_hook();
+
+private define before_key_hook (fun)
+{
+   if (typeof (fun) == Ref_Type) fun = "&";
+   ifnot (is_substr (fun, "complete_word"))
+     {
+	if (context.n) pop_mark_0();
+	remove_from_hook ("_jed_before_key_hooks", &before_key_hook);
+	context = NULL;
+     }
+}
+
+private define next_completion()
+{
+   if (context.n) del_region();
+   if (context.n == context.n_completions) 
+     {
+	remove_from_hook ("_jed_before_key_hooks", &before_key_hook);
+	context = NULL;
+	flush("no more completions");
+     }
+   else
+     {
+	push_mark();
+	insert(substr(context.completions[context.n], context.i, -1));
+	flush (strjoin(context.completions[[context.n:]], "  "));
+	context.n++;
+     }
+}
+
 define complete_from_file() % (word [file])
 {
    variable word, file;
    (word, file) = push_defaults(,, _NARGS);
-   if (word == NULL) return message("no word"); % shouldn't happen
+   if (context != NULL) return next_completion();
+   
+   if (word == NULL || word == "") return message("no word"); % shouldn't happen
    if (file == NULL) file = dircat(Jed_Home_Directory, strlow
-				   (sprintf("%s_words", what_mode, pop)));
+				   (sprintf("%s_words", what_mode(), pop)));
    if (1 != file_status(file)) return message ("no completions file");
    
    variable n_completions, len = strlen(word);
@@ -53,60 +116,85 @@ define complete_from_file() % (word [file])
      {case 0: return message ("no completions");}
      {case 50: return _pop_n(50);} % we can't do a partial completion
      {case 1: variable completion = strtrim();
-	insert (completion[[len:]]);
+	insert (substr(completion, len+1, -1));
 	return;};
 
    variable completions = __pop_args(n_completions);
    completions = array_map(String_Type, &strtrim, [__push_args(completions)]);
 
-   variable first_completion, last_completion, i;
+   variable first_completion, last_completion, i, n = 0;
    first_completion = completions[0];
    last_completion = completions[-1];
-   _for (len, strlen (first_completion), 1)
+   _for i (len, strlen(first_completion), 1)
      {
-   	i=();
-   	if (first_completion[i] != last_completion[i])
-   	  break;
+     	if (strncmp(first_completion, last_completion, i))
+     	  break;
      }
-   insert (first_completion[[len:i-1]]);
+   then
+     {
+     	i++;
+     }
+   insert (substr(first_completion, len+1, i - len - 1));
    message (strjoin(completions, "  "));
    
-   variable this_fun = CURRENT_KBD_COMMAND,
-   fun_type, fun, n = 0;
-   variable sd = _stkdepth;
-
-   % if C-g pressed, undo.
-   ERROR_BLOCK
-     {
-	if (n) del_region;
-	return;
-     }
-   forever
-     {
-	if (n == n_completions) 
-	  {
-	     pop_mark_0;
-	     return message("no more completions");
-	  }
-	update_sans_update_hook(1);
-	(fun_type, fun) = get_key_binding();
-	if(fun != this_fun)
-	  break;
-	if (n) del_region;
-	push_mark;
-	insert(completions[n][[i:]]);
-	message (strjoin(completions[[n:]], "  "));
-	n++;
-     }
-   if (n) pop_mark_0;
-   if(fun_type) call(fun); else eval(fun);
+   context = struct { completions, n_completions, n, i };
+   set_struct_fields(context, completions, n_completions, n, i);
+   add_to_hook ("_jed_before_key_hooks", &before_key_hook);
 }
 
 define complete_word()
 {
-   variable word = bget_word();
-   !if(strlen(word)) return message("nothing to complete");
+   variable word = get_word();
+   ifnot (strlen(word)) return message("nothing to complete");
    run_blocal_hook("complete_hook", word);
 }
 
 provide("complete");
+
+#<perl>
+=cut
+use strict;
+
+# adapted from perl.sl
+sub find_keywords {
+	local @ARGV = "perldoc -u perlfunc|";
+	while (<>) { last if /^=head2\s+Alphabetical/ }	# cue up
+	
+	my %kw = map { $_ => 1 }
+	(
+		# language elements + carp
+		qw(
+			else elsif foreach unless until while
+			carp cluck croak confess
+		),
+		# keywords
+		map { /^=item\s+([a-z\d]+)/ } <>,
+	);
+	return \%kw;
+}
+
+sub find_module_symbols {
+	my ($kw, $module) = @_;
+	my $fh;
+	my ($module_sans_tags)=split(/[ =]/, $module);
+	my @command = ( "perl",
+		"-M" . $module,	
+		"-e",
+		'map {print "$_\n" if *$_{CODE} } keys %main::'. $module_sans_tags . '::'
+	);
+	
+	my $fh;
+	open($fh, "-|") or exec @command;
+	while (<$fh>) {
+		chomp;
+		next if length($_) < 4;
+		next if /^_/ or not /[a-z]/;
+		$kw->{$_} = 1;
+	}
+}
+my $kw = find_keywords;
+while (my $module = shift @ARGV) {
+	find_module_symbols($kw, $module);
+}
+map {print "$_\n" if length > 3 } sort keys %$kw;
+#</perl>
