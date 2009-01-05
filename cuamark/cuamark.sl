@@ -16,7 +16,7 @@
 %		    selection
 % 2008-05-05 1.3  * X-Clipboard interaction (using xclip) following
 % 	     	    http://www.freedesktop.org/standards/clipboards.txt
-% 2008-07-07 1.3.1  Bind Shift_Ins to cua_insert_clipboard(),
+% 2009-01-05 1.3.1  Bind Shift_Ins to cua_insert_clipboard(),
 % 	     	    Make the xclip-using functions failsave.	     	    
 % 	     	    
 % 
