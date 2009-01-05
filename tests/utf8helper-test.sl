@@ -128,16 +128,18 @@ static define test_strtrans_utf8_to_latin1_empty()
 
 % scan for non-printable characters in current buffer
 % static define has_invalid_chars()
-static define test_has_invalid_chars()
+static define test_find_invalid_char()
 {
    sw2buf(testbufs[not(_slang_utf8_ok)]); % testbuffer in other encoding
-   test_true(utf8helper->has_invalid_chars());
+   bob();
+   test_true(utf8helper_find_invalid_char());
 }
 
-static define test_has_invalid_chars_false()
+static define test_has_invalid_char_false()
 {
    sw2buf(testbufs[_slang_utf8_ok]); % testbuffer in native encoding
-   test_equal(0, utf8helper->has_invalid_chars());
+   bob();
+   test_equal(0, utf8helper_find_invalid_char());
 }
 
 #stop 
