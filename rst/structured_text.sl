@@ -26,6 +26,7 @@
 %                     UTF-8 multi-byte chars in Text_List_Patterns.
 %                     (jed-extra bug #431418, Joerg Sommer)
 % 2007-09-21  0.6.1 * fix Text_List_Patterns
+% 2009-01-05  0.6.2 * add heading underline to paragraph separators
 
 % Usage
 % -----
@@ -58,9 +59,16 @@ custom_variable("Text_List_Patterns",
    {"^[0-9]+\\.[ \t]+",  %  enumeration
     %"^[a-z]+\\)[ \t]+", %  alpha enumeration (many false positives)
     "^[a-z]\\)[ \t]+",   %  alpha enumeration (just one small letter)
-    "^[-*+][ \t]+",      %  itemize (bullet list)
-    "^:[a-zA-Z]+:[ \t]+" %  field list (ReST syntax)
+    "^[-*+|][ \t]+",     %  itemize (bullet list) + line blocks
+    "^:.+:[ \t]+",       %  field list (ReST syntax)
+    "^\\.\\. "		 %  comment (ReST syntax)
     });
+
+
+private variable uchars = "*=-~\-\"'`^:+#<>_"R;
+private variable blank = " \t";
+private variable Underline_Regexp = "^\([$uchars]\)\1+[$blank]*$"R$;
+
 
 % Functions
 % ---------
@@ -101,8 +109,12 @@ define line_is_list()
 %\usage{ line_is_blank()}
 %\description
 %  This is the same as the default is_paragraph_separator test.
-%  Leaves the editing point at first non-white space.
-%\seealso{line_is_list}
+%  Leaves the editing point at first non-white space or eol.
+%\notes
+%  rst-outline.sl overwrites this definition with one including a test for 
+%  section title underlines, as these separate paragraphs analogue to blank
+%  lines.
+%\seealso{line_is_list, st_is_paragraph_separator}
 %!%-
 define line_is_blank()
 {
@@ -110,7 +122,6 @@ define line_is_blank()
    return eolp();
 }
 
-%
 %!%+
 %\function{st_is_paragraph_separator}
 %\synopsis{paragraph separator hook for structured text}
@@ -128,7 +139,8 @@ define line_is_blank()
 define st_is_paragraph_separator()
 {
    % show("line", what_line, "calling st_is_paragraph_separator");
-   return orelse{line_is_blank()}{line_is_list()>0};
+   return orelse{line_is_blank()}{line_is_list()>0}
+     {re_looking_at(Underline_Regexp)};
    % attention: there is a segfault if the paragraph_separator_hook returns
    % values higher than 1!
 }
