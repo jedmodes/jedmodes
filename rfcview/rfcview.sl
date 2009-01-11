@@ -1,10 +1,10 @@
 % rfcview.sl	-*- mode: Slang; mode: Fold -*-
 % RFC viewer
 % 
-% $Id: rfcview.sl,v 1.6 2008/08/21 18:50:46 paul Exp paul $
+% $Id: rfcview.sl,v 1.7 2009/01/11 09:26:44 paul Exp paul $
 % Keywords: docs
 %
-% Copyright (c) 2003-2008 Paul Boekholt.
+% Copyright (c) 2003-2009 Paul Boekholt.
 % Released under the terms of the GNU GPL (version 2 or later).
 % 
 % Not as pretty as Emacs' rfcview, but more features.
@@ -16,15 +16,13 @@
 %  of regexps.
 
 provide("rfcview");
+require("curl");
 require("view");
-implements("rfcview");
 
 % A comma separated list of directories to search for RFC's
 custom_variable ("Rfc_Path", "/usr/doc/rfc");
-% Location of the RFC index file
-custom_variable ("Rfc_Index", "/usr/doc/rfc/rfc-index.txt.gz");
 
-variable mode = "rfcview";
+private variable mode = "rfcview";
 
 
 %{{{ syntax table
@@ -46,25 +44,61 @@ enable_dfa_syntax_for_mode(mode);
 #endif
 
 %}}}
+%{{{ rfc fetcher
+
+private define write_callback (v, data)
+{
+   insert(data);
+   return 0;
+}
+
+private define get_rfc(rfc)
+{
+   rfc = strtrim_beg(rfc, "0");
+   variable c = curl_new (sprintf("ftp://ftp@ftp.ietf.org/rfc/rfc%s.txt",
+				  rfc));
+   ()=read_file(sprintf("%s/rfc%s.txt",
+			extract_element(Rfc_Path, 0, ','),
+			rfc));
+   variable v;
+   curl_setopt(c, CURLOPT_WRITEFUNCTION, &write_callback, &v);
+   curl_perform (c);
+   save_buffer();
+}
+   
+%}}}
 
 %{{{ find rfc by number
-% todo:
-% try different compression extensions (cf. info_find_file)
-% wget rfc's from the net
 public define rfc_mode();
 
-define find_rfc(rfc)
+private define open_rfc(rfc)
+{
+   variable file;
+   foreach file ([sprintf("rfc%s.txt", rfc),
+		 sprintf("rfc%s.txt.gz", rfc),
+		 sprintf("rfc%s.txt", strtrim_beg(rfc, "0")),
+		 sprintf("rfc%s.txt.gz", strtrim_beg(rfc, "0"))])
+     {
+	file = search_path_for_file(Rfc_Path, file, ',');
+	if (file != NULL)
+	  {
+	     ()=read_file(file);
+	     break;
+	  }
+     }
+   then
+     {
+	get_rfc(rfc);
+     }
+   return whatbuf();
+}
+
+private define find_rfc(rfc)
 { 
    % if there are three digits, prepend a 0
    if (strlen(rfc) == 3) rfc = "0" + rfc;
-   variable buf = whatbuf, 
-     file = search_path_for_file(Rfc_Path, sprintf("rfc%s.txt.gz", rfc), ',');
-   if (file == NULL)
-     file = search_path_for_file(Rfc_Path, sprintf("rfc%s.txt.gz", strtrim_beg(rfc, "0")), ',');
-   if (file == NULL)
-     throw RunTimeError, "file not found";
-   ()=read_file(file);
-   pop2buf(whatbuf);
+   variable buf = whatbuf();
+   pop2buf(open_rfc(rfc));
    rfc_mode;
    pop2buf(buf);
 }
@@ -74,9 +108,9 @@ define find_rfc(rfc)
 %{{{ index
 
 % get RFC from rfc-index
-define get_rfc_from_index()
+private define get_rfc_from_index()
 {
-   !if (re_bsearch("^[0-9]")) throw RunTimeError, "not looking at rfc";
+   ifnot (re_bsearch("^[0-9]")) throw RunTimeError, "not looking at rfc";
    push_mark;
    skip_chars("0-9");
    find_rfc(bufsubstr);
@@ -87,14 +121,14 @@ define get_rfc_from_index()
 %{{{ outline
 #ifdef HAS_LINE_ATTR
 
-define hide_body()
+private define hide_body()
 {
    set_matching_hidden(0, "^[0-9]");
    message("a: show all  s: show section  d: hide section");
 }
 
 % (un)hide a section, unhide the first line
-define hide_section(hide)
+private define hide_show_section(hide)
 {
    push_spot;
    eol;
@@ -102,7 +136,7 @@ define hide_section(hide)
      {
 	pop_spot;
      }
-   !if(re_bsearch("^[0-9]")) return;
+   ifnot(re_bsearch("^[0-9]")) return;
    variable first_mark = create_user_mark;
    push_mark;
    go_down_1;
@@ -112,20 +146,30 @@ define hide_section(hide)
    set_line_hidden(0);
 }
 
-variable last_pattern = "";
+private define hide_section()
+{
+   hide_show_section(1);
+}
+
+private define show_section()
+{
+   hide_show_section(0);
+}
+
+private variable last_pattern = "";
 
 % rolo for a pattern, or a | separated list of patterns, in the index or
 % in the rfc, if its section headers begin with a number
-define rolo()
+private define rolo()
 {
    variable pattern, subpattern;
-   !if (_NARGS) read_mini("pattern to rolo for", "", last_pattern);
+   ifnot (_NARGS) read_mini("pattern to rolo for", "", last_pattern);
    pattern = ();
    if (pattern == "") return set_buffer_hidden(0);
    last_pattern = pattern;
 
    push_spot_bob;
-   !if (re_fsearch("^[0-9]")) 
+   ifnot (re_fsearch("^[0-9]")) 
      return pop_spot, message ("no section separators");
    push_spot;
    push_mark_eob;
@@ -136,7 +180,7 @@ define rolo()
 	while (re_fsearch(subpattern))
 	  {
 	     set_line_hidden(0);
-	     hide_section(0);
+	     show_section();
 	     skip_hidden_lines_forward(0);
 	  }
      }
@@ -150,7 +194,7 @@ define rolo()
 
 %{{{ follow RFC link
 
-define follow_rfc()
+private define follow_rfc()
 { 
    bskip_chars("0-9");
    bskip_white;
@@ -167,7 +211,7 @@ define follow_rfc()
 %{{{ ToC
 
 % from toc or index window, scroll other window
-define scroll_other(cmd)
+private define scroll_other(cmd)
 {
    variable buf = whatbuf;
    otherwindow;
@@ -181,17 +225,25 @@ define scroll_other(cmd)
      }
 }
 
+private define scroll_other_down()
+{
+   scroll_other("page_down");
+}
+
+private define scroll_other_up()
+{
+   scroll_other("page_up");
+}
+
 % go to a page from the ToC
-define goto_page()
+private define goto_page()
 {
    variable pages = get_blocal_var("pages"), mark, buf = whatbuf;
    eol;
    push_mark;
    bskip_chars("0-9");
    variable page = bufsubstr;
-   if (andelse
-       { strlen(page) }
-	 { assoc_key_exists(pages, page)})
+   if (strlen(page) && assoc_key_exists(pages, page))
      {
 	mark = pages[page];
 	pop2buf(user_mark_buffer(mark));
@@ -202,7 +254,7 @@ define goto_page()
 }
 
 % kill other buffer
-define rfc_close_buffer_hook(buf)
+private define rfc_close_buffer_hook(buf)
 {
    variable obuf = get_blocal_var("otherbuffer");
    if (bufferp(obuf))
@@ -213,7 +265,7 @@ define rfc_close_buffer_hook(buf)
 
 %{{{ show bibliographic reference
 
-define show_reference(l,c,b,s)
+private define show_reference(l,c,b,s)
 {
    variable ref, ref_mark, first_line, lines = 10;
    push_spot;
@@ -222,16 +274,14 @@ define show_reference(l,c,b,s)
 	pop_spot;
 	1;
      }
-   !if (bfind_char('[')) return;
+   ifnot (bfind_char('[')) return;
    push_mark;
-   !if (ffind_char(']'))
+   ifnot (ffind_char(']'))
      return pop_mark_0;
    go_right_1;
    ref = bufsubstr;
    eob;
-   !if (andelse
-       { re_bsearch("^[0-9.]*[ \t]*references") }
-	 { fsearch(ref) })
+   ifnot (re_bsearch("^[0-9.]*[ \t]*references") && fsearch(ref))
      return;
    ref_mark = create_user_mark;
    goto_spot;
@@ -313,15 +363,15 @@ public define rfc_mode()
 
    % try to find the table of contents
    bob;
-   !if (fsearch("table of contents"))
+   ifnot (fsearch("table of contents"))
      return;
    push_mark;
-   !if (re_fsearch("^[ \t]*\\(1[.0-9]*\\)"))
+   ifnot (re_fsearch("^[ \t]*\\(1[.0-9]*\\)"))
      return pop_mark_0, bob;
    % try to find end of ToC
    body = regexp_nth_match(1);
    eol;
-   !if (bol_fsearch(body))
+   ifnot (bol_fsearch(body))
      return pop_mark_0, bob;
    go_left_1;
    toc = bufsubstr;
@@ -345,7 +395,7 @@ public define rfc_mode()
 %}}}
 
 %{{{ keymaps
-!if (keymap_p("rfcview"))
+ifnot (keymap_p("rfcview"))
   copy_keymap("rfcview", "view");
 
 $1= _stkdepth;
@@ -360,29 +410,29 @@ $1= _stkdepth;
 ". \"Enter: follow link  n: next section  p: previous section  ? search sections\" message", "h";
 
 #ifdef HAS_LINE_ATTR
-"rfcview->rolo", "?";
+&rolo, "?";
 % outline-like bindings
-"rfcview->hide_body", "t";
+&hide_body, "t";
 "set_buffer_hidden(0)", "a";
-"rfcview->hide_section(0)", "s";
-"rfcview->hide_section(1)", "d";
+&hide_section, "d";
+&show_section, "s";
 #endif
 
 loop ((_stkdepth - $1) /2)
   definekey ("rfcview");
 
 % keymap for ToC and index
-!if (keymap_p("rfc_toc"))
+ifnot (keymap_p("rfc_toc"))
   copy_keymap("rfc_toc", "rfcview");
-definekey("rfcview->scroll_other(\"page_down\")", " ", "rfc_toc");
-definekey("rfcview->scroll_other(\"page_up\")", Key_BS, "rfc_toc");
+definekey(&scroll_other_down, " ", "rfc_toc");
+definekey(&scroll_other_up, Key_BS, "rfc_toc");
 
 %}}}
 
 public define rfcview()
 {
-   () = find_file(Rfc_Index);
-   rfc_mode;
+   sw2buf(open_rfc("-index"));
+   rfc_mode();
    use_keymap("rfc_toc");
 }
 
