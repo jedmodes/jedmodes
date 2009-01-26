@@ -1,6 +1,6 @@
 % rst-test.sl:  Test rst.sl
 %
-% Copyright (c) 2006 Günter Milde
+% Copyright (c) 2006 GÃ¼nter Milde
 % Released under the terms of the GNU General Public License (ver. 2 or later)
 %
 % Versions:
@@ -78,7 +78,8 @@ static define test_rst_to_latex_long()
 }
 
 % public  define rst_to_pdf() % (outfile=path_sans_extname(whatbuf())+".pdf")
-static define test_rst_to_pdf_long()
+% Needs a non-standard addition, therefore disabled in automatic testing
+static define test_rst_to_pdf_interactive()
 {
    variable outfile = path_sans_extname(buffer_filename()) + ".pdf";
    rst_to_pdf();
