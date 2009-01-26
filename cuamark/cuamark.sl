@@ -9,27 +9,28 @@
 %            1.0    added support for Dave Kuhlhard's yank_repop command
 %            1.1  * removed the require("yankpop"), (autoloads in site.sl)
 % 2006-07-20 1.2  * bugfix: cua_insert_clipboard() returned a value
-%		  * removed the call to cuamark_hook(): place your 
+%		  * removed the call to cuamark_hook(): place your
 %		    customization just after the `require("cuamark");' line.
 %		  * removed CuaCopyToClipboard: use yp_copy_region() and
-%		    yp_kill_region() if you do not like to copy to the X 
+%		    yp_kill_region() if you do not like to copy to the X
 %		    selection
 % 2008-05-05 1.3  * X-Clipboard interaction (using xclip) following
 % 	     	    http://www.freedesktop.org/standards/clipboards.txt
 % 2009-01-05 1.3.1  Bind Shift_Ins to cua_insert_clipboard(),
-% 	     	    Make the xclip-using functions failsave.	     	    
-% 	     	    
-% 
+% 	     	    Make the xclip-using functions failsave.
+% 2009-01-26 .3.2  Work around rxvt-unicode bug (Debian bug #446444)
+%
+%
 % TODO
 % ----
-% 
+%
 % * Extend the Shift+navigation marking to wordwise moving via Ctrl-Left/Right.
 %   Problem: with Unix/Linux Shift-Ctrl-Left/Right == Ctrl-Left/Right
 %
 %   Workaround: Currently, "skip_word, bskip_word" are not listed as unmarking
 %   functions -> Start the region using Shift-Left/Right and then extend it
 %   with Ctrl-Left/Right.
-%   
+%
 % Mark regions the CUA style
 % --------------------------
 %
@@ -58,7 +59,7 @@
 %
 % Usage
 % -----
-% 
+%
 % Insert a line
 %   require("cuamark")
 % into your .jedrc/jed.rc file. Optionally customize using custom variables
@@ -69,26 +70,36 @@
 %   setkey("cua_kill_region",  	 "^X");
 %   setkey("cua_copy_region",	 "^C");
 %   setkey("cua_yank",		 "^V");
-%   
+%
 % if you do not like to place a copy into the system clipboard
 % or are never using Jed under X-windows:
-% 
+%
 %   setkey("yp_kill_region",  	        Key_Shift_Del);
 %   setkey("yp_copy_region",	        Key_Ctrl_Ins);
 %   setkey("yp_yank",			Key_Shift_Ins);
 %
 % Notes
 % -----
-% 
+%
 % If you are having problems with Shift-arrow keys under
 % the Linux console, you can use the "console_keys" mode
 % (http://jedmodes.sourceforge.net/mode/console_keys/)
 
 
+% Requirements
+% ------------
+
 require ("keydefs"); % symbolic constants for "special" keys
 
+% Workaround for rxvt-unicode bug (Debian bug #446444) resulting in
+% inkonsistent keydef error
+#ifndef XWINDOWS
+if (Key_Shift_Ins == "\e2$")
+   Key_Shift_Ins = "\e[2$";
+#endif
+
 % Customization
-% ---------------------------------------------------
+% -------------
 
 
 % Comma separated list of functions that unmark a cua-region (movement functions)
@@ -180,20 +191,20 @@ define cua_mark()
 % -----------------------
 
 % From xclip's README:
-% 
-%   For a good overview of what selections are about, have a look at 
+%
+%   For a good overview of what selections are about, have a look at
 %   <http://www.freedesktop.org/standards/clipboards.txt>. Short version:
-%   
+%
 %   * XA_PRIMARY contains the last text you highlighted
 %   * Middle click pastes XA_PRIMARY
 %   * XA_CLIPBOARD contains text explicitly copied with Edit | Copy, Ctrl-C etc.
 %   * Edit | Paste pastes XA_CLIPBOARD
-%   * xclip uses XA_PRIMARY unless you specify otherwise with -selection 
+%   * xclip uses XA_PRIMARY unless you specify otherwise with -selection
 %   * never ever use CUTBUFFERS, they are obsolete and problematic
 
 % which means on X-Windows (xjed or jed in X-terminal):
 % * cuamark copy/kill/insert should use CLIPBOARD instead of PRIMARY
-%   However, 
+%   However,
 %   * x_copy_region_to_selection() and x_insert_selection() use PRIMARY
 %   * there are no S-Lang functions to work with CLIPBOARD
 
@@ -203,13 +214,13 @@ define cua_mark()
 %\synopsis{Copy region to the system clipboard.}
 %\usage{cua_copy_region_to_clipboard()}
 %\description
-%  Copy region to the CLIPBOARD selection in X-Windows 
+%  Copy region to the CLIPBOARD selection in X-Windows
 %  and to the system clibboard in Windows.
-%  
+%
 %  Allows to paste the content in another application (if that app uses the
 %  system clipboard).
 %\notes
-%  
+%
 %\seealso{x_copy_region_to_selection, cua_insert_clipboard}
 %!%-
 public define cua_copy_region_to_clipboard()
@@ -219,7 +230,7 @@ public define cua_copy_region_to_clipboard()
 #elifdef UNIX
    try
      { () = pipe_region("xclip -selection clipboard"); }
-   catch RunTimeError: 
+   catch RunTimeError:
      { message("xclip not available: can not write to clipboard"); }
 #else
    pop_mark_0();
@@ -232,7 +243,7 @@ public define cua_copy_region_to_clipboard()
 %\usage{Void cua_insert_clipboard()}
 %\description
 % Insert the content of the "clipboard" X selection at point.
-% 
+%
 % Works also for wjed (using \sfun{x_insert_cutbuffer}) and
 % jed in an x-terminal.
 %\notes
@@ -243,12 +254,12 @@ public define cua_copy_region_to_clipboard()
 % PRIMARY selection (analogue to a middle click) but only after the next
 % "EVENT" (keypress, -release or mouse click).
 %\seealso{cua_copy_region, cua_kill_region}
-%!%- 
+%!%-
 public define cua_insert_clipboard()
 {
 #ifdef WIN32
    () = x_insert_cutbuffer();
-#else   
+#else
    if (run_shell_cmd("xclip -o -selection clipboard")) % failure
       yp_yank();
 #endif
@@ -290,7 +301,7 @@ define cua_copy_region()
 
 % % yp_yank wrapper with temporary rebinding of yank-pop keys
 % % ------------------------------_--------------------------
-% 
+%
 % static define cua_yank_pop_hook(fun); % forward definition
 % static define cua_yank_pop_hook(fun)
 % {
@@ -299,10 +310,10 @@ define cua_copy_region()
 %    %   set_prefix_argument(1);
 %    % yp_yank_pop();
 %    show(LASTKEY, char(LAST_CHAR), CURRENT_KBD_COMMAND, LAST_KBD_COMMAND);
-%    
+%
 %    remove_from_hook("_jed_before_key_hooks", &cua_yank_pop_hook);
 % }
-% 
+%
 % % yank from yankpop kill-buffer-ring and temporarily rebind yank-pop keys
 % define cua_yank()
 % {
