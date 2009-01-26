@@ -45,9 +45,9 @@
 % 2.2.2 2007-10-04 no DFA highlight in UTF-8 mode (broken for multi-byte chars)
 % 		   enable it with enable_dfa_syntax_for_mode("Diff");
 % 2.2.3 2007-10-23 switch on highlight caching
-% 2.3   2007-12-20  standard color-name "trailing_whitespace"
-% 		   implement J�örg Sommer's fix for DFA highlight under UTF-8
-%                 
+% 2.3   2007-12-20 standard color-name "trailing_whitespace"
+% 		   implement Jörg Sommer's fix for DFA highlight under UTF-8
+% 2.3.1 2009-01-26 don't hightlight whitespace in first (diff's ±) column
 %
 % Usage
 % -----
@@ -105,6 +105,11 @@ require("treemode"); % bundled with diffmode
 #if (expand_jedlib_file("walk.sl") != "")
 require("walk");
 #endif
+
+#if (expand_jedlib_file("bufutils.sl") != "")
+autoload("bufsubfile", "bufutils.sl");
+#endif
+
 %}}}
 
 % Customizable settings
@@ -560,8 +565,10 @@ create_syntax_table(mode);
 dfa_define_highlight_rule("^diff .*",      "diff_cmd",     mode);
 dfa_define_highlight_rule("^\+\+\+ .*"R,   "diff_newfile", mode);
 dfa_define_highlight_rule("^--- .*",       "diff_oldfile", mode);
-dfa_define_highlight_rule("^\\+.*[^ \t]",  "diff_added",   mode);
-dfa_define_highlight_rule("^-.*[^ \t]",    "diff_deleted", mode);
+% + or - eventually followed by something ending in non-whitespace:
+dfa_define_highlight_rule("^\\+(.*[^ \t])?",  "diff_added",   mode);
+dfa_define_highlight_rule("^-(.*[^ \t])?",    "diff_deleted", mode);
+%
 dfa_define_highlight_rule("^Only .*",      "diff_junk",    mode);
 dfa_define_highlight_rule("^Binary .*",    "diff_junk",    mode);
 dfa_define_highlight_rule("^@@ .*",        "diff_block",   mode);
@@ -569,6 +576,7 @@ dfa_define_highlight_rule("^@@ .*",        "diff_block",   mode);
 dfa_define_highlight_rule("^> .*",         "diff_added",   mode);
 dfa_define_highlight_rule("^< .*",         "diff_deleted", mode);
 % trailing whitespace
+dfa_define_highlight_rule("^ $",           "Qnormal",   mode); % not in the first column
 dfa_define_highlight_rule("[ \t]+$",       "Qtrailing_whitespace",   mode);
 % render non-ASCII chars as normal to fix a bug with high-bit chars in UTF-8
 dfa_define_highlight_rule("[^ -~]+", "normal", mode);
@@ -723,7 +731,9 @@ public define diff_init_menu(menu)
 	menu_append_separator(menu);
 	menu_append_item(menu, "&mark block",      "diff_mark_block", 0);
 	menu_append_item(menu, "&Mark file block", "diff_mark_file", 0);
+#ifexists bufsubfile
 	menu_append_item(menu, "&Apply block",     "diff_apply_block");
+#endif   
 	menu_append_item(menu, "&Delete Block",    "diff_remove_block", 1);
 	menu_append_separator(menu);
 	menu_append_item(menu, "Goto &old file", "diff_jump_to", 0);
@@ -734,6 +744,7 @@ public define diff_init_menu(menu)
 	menu_append_item(menu, "Re&Write all headers",  "diff_redo_file");
 	menu_append_item(menu, "Delete &junk lines",  "diff_remove_junk_lines");
 	menu_append_item(menu, "&Rerun diff",  "diff_rerun");
+	menu_append_item(menu, "Rerun re&versed",  "diff_rerun_reversed");
 }
 
 %%%%}}}
@@ -1006,9 +1017,21 @@ define diff_dir_files(dir1, dir2)
 %%%% Re-run the diff command %{{{
 define diff_rerun()
 {
-   variable oldfile = diff_get_source_file_name(0);
-   variable newfile = diff_get_source_file_name(1);
+   variable line = what_line(),
+   	    oldfile = diff_get_source_file_name(0),
+   	    newfile = diff_get_source_file_name(1);
    diff(oldfile, newfile);
+   goto_line(line);
+}
+
+% swap the order of the diffed files
+define diff_rerun_reversed()
+{
+   variable line = what_line(),
+   	    oldfile = diff_get_source_file_name(0),
+   	    newfile = diff_get_source_file_name(1);
+   diff(newfile, oldfile);
+   goto_line(line);
 }
 %%%%}}}
 
