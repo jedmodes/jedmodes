@@ -6,8 +6,9 @@
 % 
 % Versions
 % ========
-% 0.1 2008-03-10  First evaluation version. Keybindings and behaviour are
-%                 subject to change after "road testing".
+% 0.1   2008-03-10  First evaluation version. Keybindings and behaviour are
+%                   subject to change after "road testing".
+% 0.1.1 2009-01-26  Fix syntax error in test code
 % 
 % Usage
 % =====
@@ -82,8 +83,12 @@ _autoload("fold_whole_buffer", "folding",
 % Auxiliary functions
 % -------------------
 % ::
-  
+
+% variable Test;
 # ifexists Test
+
+autoload("pcre_fsearch", "filter_buffer");
+
 % get (or guess) the current fold-level
 private define get_fold_level()
 {
@@ -93,7 +98,7 @@ private define get_fold_level()
 
    push_spot_bob();
    while (pcre_fsearch(sprintf("(%s|%s)", 
-                               fold_start_pattern, fold_end_pattern))) {
+                               fold_start, fold_end))) {
       if (is_line_hidden()) 
          continue;
       go_down_1();
@@ -101,7 +106,7 @@ private define get_fold_level()
          skip_hidden_lines_forward(1);
          continue;
       } 
-      if ffind(fold_start)
+      if (ffind(fold_start))
          level++;
       else
          max_level = nint(_max(max_level, level));
