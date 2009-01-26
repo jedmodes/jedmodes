@@ -62,7 +62,7 @@
 % 1.2.9 2008-08-25 name has_invalid_chars() -> utf8helper_find_invalid_char()
 % 		   and make it public,
 % 		   UTF8Helper_Read_Autoconvert == -2 (warn) setting
-% 		   
+% 1.2.10 2009-01-26 Convert LaTeX inputenc options
 
 % TODO: use the iconv module (which is unfortunately undocumented)
 
@@ -184,6 +184,12 @@ public define latin1_to_utf8()
 	       }
 	  } while (right(1));
      }
+   % LaTeX inputenc pattern:
+   bob();
+   % replace("\\usepackage[latin1]{inputenc}",
+   % 	   "\\usepackage[utf8]{inputenc}");
+   if (re_fsearch("\(\\usepackage ?\[.*\)latin1\(.*\] ?{inputenc}\)"R))
+        () = replace_match("\1utf8\2"R, 0);
    % Python code comment pattern: "coding[=:]\s*([-\w.]+)"
    % aliases: iso-8859-1, iso8859-1, 8859, cp819, latin, latin_1, latin1, L1
    bob();
@@ -195,7 +201,6 @@ public define latin1_to_utf8()
 	 {re_fsearch("coding[:=] *L1")} 
       )
       () = replace_match("coding: utf8", 1);
-
    pop_spot();
    if (convert_region)
      widen_region();
@@ -258,16 +263,20 @@ public define utf8_to_latin1 ()
 	}
    }
 
+   bob();
+   % LaTeX inputenc pattern:
+   % replace("\\usepackage[utf8]{inputenc}",
+   % 	   "\\usepackage[latin1]{inputenc}");
+   if (re_fsearch("\(\\usepackage ?\[.*\)utf8\(.*\] ?{inputenc}\)"R))
+        () = replace_match("\1latin1\2"R, 0);
    % Python code comment pattern: "coding[=:]\s*([-\w.]+)"
    % aliases: utf_8, U8, UTF, utf8
    % we support just the most frequently used:
-   bob();
    if (orelse {re_fsearch("coding[:=] *utf_?8")}
 	 {re_fsearch("coding[:=] *UTF")}
 	 {re_fsearch("coding[:=] *U8")} 
       )
       () = replace_match("coding: utf8", 1);
-
    pop_spot ();
    if (convert_region)
      widen_region();
@@ -490,6 +499,7 @@ static define utf8helper_restore_hook(file)
 provide("utf8helper");
 
 
+
 % Joerg Sommer also wrote:
 %   And I've written some functions for UTF-8 features. Maybe they get a menu
 %   entry "Edit->UTF-8 specials".
@@ -518,4 +528,20 @@ static define double_underline() { insert_after_char(0x333); }
 static define overline() { insert_after_char(0x305); }
 static define double_overline() { insert_after_char(0x33f); }
 
+% the menu:
+static define utf8helper_load_popup_hook(menubar)
+{
+   menu_insert_item(4, "Global.&Edit.Re&gion Ops", 
+		    "&O Double Overline", "utf8helper->double_overline");
+   menu_insert_item(4, "Global.&Edit.Re&gion Ops", 
+		    "&o Overline", "utf8helper->overline");
+   menu_insert_item(4, "Global.&Edit.Re&gion Ops", 
+		    "&= Double Underline", "utf8helper->double_underline");
+   menu_insert_item(4, "Global.&Edit.Re&gion Ops", 
+		    "&- Underline", "utf8helper->underline");
+   menu_insert_item(4, "Global.&Edit.Re&gion Ops", 
+		    "&x Stroke", "utf8helper->stroke");
+}
 
+if (_slang_utf8_ok) 
+   append_to_hook("load_popup_hooks", &utf8helper_load_popup_hook);
