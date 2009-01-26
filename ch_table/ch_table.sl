@@ -50,6 +50,7 @@
 % 	      	    and describe_character()
 % 2008-12-16  2.5.2 Trim Edit>Char_Table menu
 % 	      	    (use "List Unicode Blocks" for not so often needed blocks).
+% 2009-01-26  2.5.3 Better Fallback if Unicode Data files are missing
 % 	      	    
 %
 % TODO: * apropos for character names and table names
@@ -166,7 +167,7 @@ custom_variable("Chartable_Tables", [
 %\notes
 %  On Debian GNU/Linux, these files are provided by the packages perl-modules
 %  (in /usr/share/perl/*/unicore/) or unicode-data (in /usr/share/unicode/).
-%  If specified dir is invalid but not the empty string "", these 
+%  If the specified dir is invalid but not the empty string "", these 
 %  locations are probed during the evaluation of ch_table.sl.
 %\seealso{ch_table, ct_describe_character, ch_table->ct_unicode_block}
 %!%-
@@ -210,7 +211,7 @@ private variable hex = "[0-9A-F]";  % regexp for hexadecimal digit
 % List of unicode blocks
 % in UTF-8 mode this is extended via parse_unicode_block_file() later
 private variable UnicodeBlocks = [{0, 127, "Basic Latin"},
-		 	       	  {128, 255, "High Bit Characters"}];
+		 	       	  {128, 255, "Latin-1 Supplement"}];
 
 % Unicode data files:
 private variable NamesList_File = path_concat(Chartable_Unicode_Data_Dir,
@@ -283,7 +284,7 @@ static define ct_describe_character(ch)
    if (-1 == insert_file_region(NamesList_File, ch_nr, ch_nr1))
       vinsert("No description.\n\n" +
 	      "Check the variable `Chartable_Unicode_Data_Dir' \n" +
-	      "(current value: %s)\n", Chartable_Unicode_Data_Dir);
+	      "(current value: \"%s\")\n", Chartable_Unicode_Data_Dir);
    call("backward_delete_char"); % del last newline
    while (bol, looking_at_char('@')) {
       delete_line();
@@ -758,7 +759,7 @@ static define ct_mouse_2click_hook(line, col, but, shift)
 %\description
 % Display characters in the range \var{min} ... \var{max}
 % in a table with indizes indicating the "char-value".
-%\seealso{special_chars, digraph_cmd}
+%\seealso{special_chars, digraph_cmd, Chartable_Unicode_Data_Dir}
 %!%-
 public define ch_table() % (min = ChartableStartChar, max=255)
 {
@@ -945,12 +946,9 @@ public define ct_find_unicode_character()
 % --------------
 
 if (_slang_utf8_ok) {
-   try 
+   if (file_status(Blocks_File) == 1)
       UnicodeBlocks = parse_unicode_block_file(Blocks_File);
-   catch RunTimeError:
-     {
-	vmessage("Failed to open `Chartable_Blocks_File' %s",
-		Blocks_File);
-     }
+   else
+      vmessage("Failed to open `Chartable_Blocks_File' %s", Blocks_File);
 }
 % show(UnicodeBlocks);
