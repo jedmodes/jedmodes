@@ -22,14 +22,18 @@
 %                  code cleanup, better reporting
 % 0.5.1 2008-01-22 test_files(): better testreport formatting
 % 0.5.2 2008-02-06 removed (direct) dependency on datutils
-% 0.5.3 2008-05-26 gfixes: view_mode() autoload, _Jed_Emulation can be NULL
+% 0.5.3 2008-05-26 fixes: view_mode() autoload, _Jed_Emulation can be NULL
 % 		   (report Jörg Sommer).
+% 0.6   2009-01-27 new optional argument "report" to test_files(),
+% 		   test_files_and_exit() appends testreports separately
 
 require("sl_utils");  % push_defaults, ...
 autoload("popup_buffer", "bufutils");
 autoload("buffer_dirname", "bufutils");
 autoload("sprint_variable", "sprint_var");
 autoload("view_mode", "view");
+
+provide("unittest");
 
 implements("unittest");
 
@@ -177,7 +181,7 @@ public  define test_true() % (a, comment="")
 
    if (a)
      return;
-   testmessage("\n  E: '%s' is not true. %s", sprint_variable(a), comment);
+   testmessage("\n  E: '%S' is not true. %s", a, comment);
    Error_Count++;
 }
 
@@ -361,7 +365,7 @@ public define test_file(file)
    % Reset the error count with every compilation unit
    Error_Count = 0; 
 
-   % Evaluate the file/buffer in its own namespace
+   % Evaluate the file/buffer in its own namespace ("_<filename-sans-ext>")
    testmessage("\n %s: ", path_basename(file));
    try (err)
      () = evalfile(file, namespace);
@@ -430,20 +434,20 @@ public define test_files();
 %!%+
 %\function{test_files}
 %\synopsis{Evaluate test-scripts in \var{dir}}
-%\usage{test_files(dir="")}
+%\usage{test_files(dir="", report=0)}
 %\description
 %  * Evaluate directory-wide fixture script setup.sl if it exists
 %  * Run \slfun{test_file} on all files in \var{dir} that match the given
 %    basename pattern (globbing) or the regexp \var{Unittest_File_Pattern} 
 %  * Evaluate directory-wide fixture script teardown.sl if it exists
 %\notes
-% TODO: % gobbing of dirname part.
+% TODO: % globbing of dirname part.
 %\seealso{test_file, test_buffer, test_function, Unittest_File_Pattern}
 %!%-
-public define test_files() % (dir="")
+public define test_files() % (dir="", report=0)
 {
-   variable path = push_defaults("", _NARGS);
-   
+   variable path, report;
+   (path, report) = push_defaults("", 0, _NARGS);
    variable dir = path_concat(buffer_dirname(), path_dirname(path));
    variable pattern = path_basename(path);
    variable files = listdir(dir);
@@ -451,7 +455,13 @@ public define test_files() % (dir="")
    variable teardown_file = path_concat(dir, "teardown.sl");
    variable file, match, no_of_errors = 0, no_of_files;
    variable time_struct = localtime(_time);
+   variable buf = whatbuf();
    
+   % mark position in reportbuf
+   sw2buf(reportbuf);
+   push_mark();
+   sw2buf(buf);
+
    % insert time stamp
    testmessage("\n%d-%02d-%02d %02d:%02d ", 
       time_struct.tm_year+1900,
@@ -500,8 +510,19 @@ public define test_files() % (dir="")
    foreach file (files)
      {
         switch (file_status(file))
-          { case 1: test_file(file); no_of_errors += Error_Count;}
-          { case 2: no_of_errors += test_files(path_concat(file, ""));}
+          { case 1: 
+		test_file(file); 
+		no_of_errors += Error_Count;
+		if (report) {
+		   popup_buffer(reportbuf);
+		   eob();
+		   () = append_region_to_file(Unittest_Reportfile);
+		   push_mark();
+		}
+	  }
+          { case 2: % directory: recurse
+	     no_of_errors += test_files(path_concat(file, "", report));
+	  }
      }
    testmessage("\n%d file%s|dir%s, %d error%s\n", no_of_files, plural, plural,
       no_of_errors, plurals[no_of_errors!=1]);
@@ -510,6 +531,7 @@ public define test_files() % (dir="")
      evalfile(teardown_file);
 
    popup_buffer(reportbuf);
+   pop_mark(0);
    view_mode();
    return no_of_errors;
 }
@@ -517,15 +539,8 @@ public define test_files() % (dir="")
 public define test_files_and_exit()
 {
    variable args = __pop_list(_NARGS), no_of_errors;
-   
-   no_of_errors = test_files(__push_list(args));
-   % append report buffer to report file
-   sw2buf(reportbuf);
-   mark_buffer();
-   () = append_region_to_file(Unittest_Reportfile);
-
-   exit(no_of_errors);
+   % test files writing report
+   no_of_errors = test_files(__push_list(args), 1);
+      exit(no_of_errors);
 }
-
-provide("unittest");
 
