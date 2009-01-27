@@ -3,7 +3,7 @@
 % $Id$
 % Keywords: WWW, processes, unix
 %
-% Copyright (c) 2003 Paul Boekholt, Günter Milde.
+% Copyright (c) 2003 Paul Boekholt, GÃ¼nter Milde.
 % Released under the terms of the GNU GPL (version 2 or later).
 % 
 % Functions for display of web pages from within JED. 
@@ -21,6 +21,13 @@
 % 1.2.1 2005-11-18 correct bugfix in find_program() (changed order of redirections)
 % 1.3   2006-05-23 dropped implementing of a named namespace
 % 1.3.1 2006-05-26 documentation update, added curl to list of download commands
+%                  added missing autoloads (J. Sommer)
+% 1.4   2009-01-27 added "www-browser" to Browse_Url_Browser defaults list
+%                  code cleanup in find_program()
+%                  
+% TODO: use the curl module 
+% There is code for downloading functions using the curl module in
+% http://ruptured-duck.com/jed-users/msg01757.html
 
 % _debug_info=1;
 
@@ -58,16 +65,13 @@ provide("browse_url");
 %!%-
 static define find_program(programs)
 {
-   variable program, file;
-   foreach (strchop(programs, ',', 0))
-     {
-	program=(strtrim());
-	% show(program, extract_element(program, 0, ' '));
-	!if(system(sprintf("which %s > /dev/null 2>&1",
-			   extract_element(program, 0, ' '))) 
-	    )
-	  return program;
-     }
+   variable program;
+   foreach program (strtok(programs, ",")) {
+      program = strtrim(program);
+      program = extract_element(program, 0, ' ');
+      !if(system(sprintf("which %s > /dev/null 2>&1", program)))
+	 return program;
+   }
    return "";
 }
 
@@ -81,10 +85,14 @@ static define find_program(programs)
 %\variable{Browse_Url_Browser}
 %\synopsis{Text-mode browser}
 %\description
-%   Text mode browser called from browse_url
+%  Text mode browser called from browse_url
+%\note
+%  On Debian, www-browser is a symlink to the preferred browser on the
+%  system.
 %\seealso{browse_url, Browse_Url_Viewer}
 %!%-
-custom_variable("Browse_Url_Browser", find_program("links, lynx, w3m"));
+custom_variable("Browse_Url_Browser", 
+   find_program("www-browser, links, lynx, w3m"));
 
 %!%+
 %\variable{Browse_Url_Download_Cmd}
@@ -123,11 +131,11 @@ custom_variable("Browse_Url_Viewer", Browse_Url_Browser + " -dump");
 %  * Browsers, that understand the -remote option could be "reused"
 %    with gnome-moz-remote. It can be configured to open any browser 
 %    and (other than netscape-remote) fires up a browser
-%    if none is open (as does galeon -x).
+%    if none is open (as does galeon -x) or firefox.
 %\seealso{browse_url, browse_url_x, Browse_Url_Browser}
 %!%-
 custom_variable("Browse_Url_X_Browser", 
-   find_program("galeon -x, gnome-moz-remote, opera, dillo, mozilla, netscape"));
+   find_program("firefox, galeon -x, gnome-moz-remote, opera, dillo, mozilla, netscape"));
 
 
 % ------------------- Functions ------------------------------
@@ -136,7 +144,7 @@ custom_variable("Browse_Url_X_Browser",
 %!%+
 %\function{find_url}
 %\synopsis{Find a file by URL}
-%\usage{ find_url(url=read_mini, cmd = Browse_Url_Download_Cmd)}
+%\usage{ find_url(url="", cmd = Browse_Url_Download_Cmd)}
 %\description
 %   Fetch a file from the web and put in a buffer as-is. Needs a 
 %   helper application like wget or lynx to do the actual work.
@@ -145,7 +153,7 @@ custom_variable("Browse_Url_X_Browser",
 %   custom variable Browse_Url_Download_Cmd.
 %\seealso{view_url, find_file, Browse_Url_Download_Cmd}
 %!%-
-public define find_url() %(url=read_mini, cmd = Browse_Url_Download_Cmd)
+public define find_url() %(url="", cmd = Browse_Url_Download_Cmd)
 {
    variable status, url, cmd;
    (url, cmd) = push_defaults(, Browse_Url_Download_Cmd, _NARGS);
@@ -153,7 +161,7 @@ public define find_url() %(url=read_mini, cmd = Browse_Url_Download_Cmd)
      url = read_mini("url: ", "", "");
 
    popup_buffer(url);
-   erase_buffer;
+   erase_buffer();
    flush(sprintf("calling %s %s", cmd, url));
    status = run_shell_cmd(sprintf("%s %s", cmd, url));
    if (status)
@@ -162,13 +170,13 @@ public define find_url() %(url=read_mini, cmd = Browse_Url_Download_Cmd)
 	verror("%s returned %d, %s", cmd, status, errno_string(status));
      }
    set_buffer_modified_flag(0);
-   bob;
+   bob();
 }
 
 %!%+
 %\function{view_url}
 %\synopsis{View an ASCII rendering of a URL}
-%\usage{ view_url(String url=read_mini, String cmd= Browse_Url_Viewer)}
+%\usage{ view_url(String url="", String cmd= Browse_Url_Viewer)}
 %\description
 %   View the ASCII-rendering of a URL in a buffer.
 %   Depends on a suitable helper app
@@ -177,7 +185,7 @@ public define find_url() %(url=read_mini, cmd = Browse_Url_Download_Cmd)
 %   custom variable Browse_Url_Viewer
 %\seealso{find_url, Browse_Url_Viewer}
 %!%-
-public define view_url() %(url=read_mini, cmd= Browse_Url_Viewer)
+public define view_url() %(url="", cmd= Browse_Url_Viewer)
 {
    variable status, url, cmd;
    (url, cmd) = push_defaults(, Browse_Url_Viewer, _NARGS);
@@ -232,14 +240,14 @@ public  define browse_url_x() %(url, cmd=Browse_Url_X_Browser)
 %!%+
 %\function{browse_url}
 %\synopsis{Open the url in a browser}
-%\usage{ browse_url() %(url=read_mini, cmd=Browse_Url_Browser)}
+%\usage{ browse_url() %(url="", cmd=Browse_Url_Browser)}
 %\description
 % Open the url in a browser (default Browse_Url_Browser/Browse_Url_X_Browser)
 % Without X-windows running, jed is suspended as long as the browser runs,
 % otherwise run the browser as background process in a separate window.
 %\seealso{browse_url_x, view_url, find_url, Browse_Url_Browser}
 %!%-
-public define browse_url() %(url=read_mini, cmd=Browse_Url_Browser)
+public define browse_url() %(url="", cmd=Browse_Url_Browser)
 {
    variable status, url, cmd;
    (url, cmd) = push_defaults(, Browse_Url_Browser, _NARGS);
