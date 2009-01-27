@@ -531,7 +531,12 @@ public define test_files() % (dir="", report=0)
      evalfile(teardown_file);
 
    popup_buffer(reportbuf);
-   pop_mark(0);
+   if (report) {
+      eob();
+      () = append_region_to_file(Unittest_Reportfile);
+   } 
+   else 
+      pop_mark(0);
    view_mode();
    return no_of_errors;
 }
