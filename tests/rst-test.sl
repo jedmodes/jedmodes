@@ -1,6 +1,6 @@
 % rst-test.sl:  Test rst.sl
 %
-% Copyright (c) 2006 Günter Milde
+% Copyright © 2006 Günter Milde
 % Released under the terms of the GNU General Public License (ver. 2 or later)
 %
 % Versions:

@@ -1,6 +1,6 @@
 % test-css1.sl:  Test css1.sl
 % 
-% Copyright (c) 2006 Günter Milde
+% Copyright Â© 2006 Günter Milde
 % Released under the terms of the GNU General Public License (ver. 2 or later)
 %
 % Versions:

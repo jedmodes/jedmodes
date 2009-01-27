@@ -1,6 +1,6 @@
 % structured_text-test.sl:  Test structured_text.sl
 % 
-% Copyright (c) 2006 G�nter Milde
+% Copyright © 2006 Günter Milde
 % Released under the terms of the GNU General Public License (ver. 2 or later)
 %
 % Versions:
@@ -245,6 +245,3 @@ static define test_structured_text_hook()
 {
    structured_text_hook();
 }
-
-sw2buf("*test report*");
-view_mode();

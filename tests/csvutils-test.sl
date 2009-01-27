@@ -1,6 +1,6 @@
 % csvutils-test.sl:  Test csvutils.sl Test csvutils.sl
 % 
-% Copyright (c) 2006 G�nter Milde
+% Copyright © 2006 Günter Milde
 % Released under the terms of the GNU General Public License (ver. 2 or later)
 %
 % Versions:
@@ -276,6 +276,3 @@ static define test_list2table()
    test_equal(table[0,*], testtable[*,0]);
    test_equal(table[1,*], testtable[*,1]);
 }
-
-sw2buf("*test report*");
-view_mode();

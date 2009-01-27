@@ -1,6 +1,6 @@
 % test-cuamark.sl:  Test cuamark.sl
 % 
-% Copyright (c) 2006 G�nter Milde
+% Copyright © 2006 Günter Milde
 % Released under the terms of the GNU General Public License (ver. 2 or later)
 %
 % Versions:
@@ -8,7 +8,6 @@
 % 0.2 2007-12-07  transformed from procedural script to test-functions
 
 require("unittest");
-
 
 % Fixture
 % -------
@@ -172,6 +171,3 @@ static define test_cua_copy_region()
    mark_buffer();
    test_equal(bufsubstr(), teststring);
 }
-   
-sw2buf("*test report*");
-view_mode();

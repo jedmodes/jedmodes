@@ -1,6 +1,6 @@
 % test-dict-cli.sl:  Test dict-cli.sl
 % 
-% Copyright (c) 2006 G�nter Milde
+% Copyright © 2006 Günter Milde
 % Released under the terms of the GNU General Public License (ver. 2 or later)
 %
 % Versions:
@@ -44,6 +44,3 @@ erase_buffer();
 test_function("dict_show", what, host);
 test_last_result();
 erase_buffer();
-
-sw2buf("*test report*");
-view_mode();

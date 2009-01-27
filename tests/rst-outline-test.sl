@@ -1,6 +1,6 @@
 % rst-outline-test.sl:  Test rst-outline.sl
 % 
-% Copyright (c) 2007 G�nter Milde
+% Copyright © 2007 Günter Milde
 % Released under the terms of the GNU General Public License (ver. 2 or later)
 
 % Usage
@@ -321,6 +321,3 @@ static define test_rst_outline_bindings()
 {
    rst->rst_outline_bindings();
 }
-
-sw2buf("*test report*");
-view_mode();

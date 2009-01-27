@@ -1,6 +1,6 @@
 %  utf8helper-test.sl:  Test utf8helper.sl
 % 
-% Copyright (c) 2006 Guenter Milde
+% Copyright © 2006 Guenter Milde
 % Released under the terms of the GNU General Public License (ver. 2 or later)
 %
 % Versions:

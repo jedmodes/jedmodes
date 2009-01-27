@@ -1,7 +1,6 @@
-% Test ishell.sl
-% ishell.sl: Interactive shell mode (based on ashell.sl by J. E. Davis)
+% Test ishell.sl: Interactive shell mode (based on ashell.sl by J. E. Davis)
 
-% Copyright (c) 2007 G�nter Milde
+% Copyright © 2007 Günter Milde
 % Released under the terms of the GNU General Public License (ver. 2 or later)
 
 % Versions
@@ -99,7 +98,7 @@ static define test_ishell()
 static define test_terminal()
 {
    % terminal();       % doesnot close!
-   terminal("logout");
+   terminal("exit");
 }
 
 

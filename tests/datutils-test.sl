@@ -1,6 +1,6 @@
 % Test the functions in datutils.sl  Test datutils.sl
 % 
-% Copyright (c) 2006 G�nter Milde
+% Copyright © 2006 Günter Milde
 % Released under the terms of the GNU General Public License (ver. 2 or later)
 %
 % Versions:
@@ -481,6 +481,3 @@ static define test_list_inject()
 {
    list_inject();
 }
-
-sw2buf("*test report*");
-view_mode();

@@ -327,6 +327,3 @@ static define test_strsplit()
 {
    strsplit(str, sep, max_n=0);
 }
-
-sw2buf("*test report*");
-view_mode();
