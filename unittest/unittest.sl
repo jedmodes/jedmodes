@@ -26,7 +26,8 @@
 % 		   (report Jörg Sommer).
 % 0.6   2009-01-27 new optional argument "report" to test_files(),
 % 		   test_files_and_exit() appends testreports separately,
-%                  expand Unittest_Reportfile to absolute path.
+%                  expand Unittest_Reportfile to absolute path,
+%                  warn if a test changes the cwd.
 
 require("sl_utils");  % push_defaults, ...
 autoload("popup_buffer", "bufutils");
@@ -355,7 +356,7 @@ public  define test_last_result() % args
 %!%-
 public define test_file(file)
 {
-   variable err, testfuns, testfun, skips, skipped_tests;
+   variable err, testfuns, testfun, skips, skipped_tests, cwd=getcwd();
    variable namespace = "_" + path_sans_extname(path_basename(file));
    namespace = str_replace_all(namespace, "-", "_");
    variable old_namespace = current_namespace();
@@ -411,6 +412,9 @@ public define test_file(file)
    
    % Cleanup and sum up
    call_function(namespace+"->mode_teardown");
+   
+   if (cwd != getcwd())
+      testmessage("\n Warning: current working dir changed to %s", getcwd());
    
    if (Error_Count)
      testmessage("\n ");
