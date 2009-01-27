@@ -87,6 +87,7 @@
 % 2.4   2008-06-18 * line_block()
 % 2.4.1 2008-12-16 * chdir() in rst_export(),
 % 		     as style-sheets are searched relative to the pwd
+% 2.4.2 2009-01-27 * reset cwd after rst_export()
 % ===== ========== ============================================================
 % 
 % TODO
@@ -319,7 +320,7 @@ private define get_outfile(format)
 % export the buffer/region to outfile using export_cmds[]
 static define rst_export() % (format, outfile=get_outfile(format))
 {
-   variable format, outfile;
+   variable format, outfile, cwd=getcwd();
    (format, outfile) = push_defaults( , , _NARGS);
 
    if (format == NULL)
@@ -359,6 +360,7 @@ static define rst_export() % (format, outfile=get_outfile(format))
       filelist_mode();
 #endif
      }
+   chdir(cwd);
 
    message("exported to " + outfile);
 }
