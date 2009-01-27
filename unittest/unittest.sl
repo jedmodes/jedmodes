@@ -25,7 +25,8 @@
 % 0.5.3 2008-05-26 fixes: view_mode() autoload, _Jed_Emulation can be NULL
 % 		   (report Jörg Sommer).
 % 0.6   2009-01-27 new optional argument "report" to test_files(),
-% 		   test_files_and_exit() appends testreports separately
+% 		   test_files_and_exit() appends testreports separately,
+%                  expand Unittest_Reportfile to absolute path.
 
 require("sl_utils");  % push_defaults, ...
 autoload("popup_buffer", "bufutils");
@@ -41,6 +42,10 @@ implements("unittest");
 % -------------
 
 custom_variable("Unittest_Reportfile", "testreport.txt");
+
+% expand now, so that changes of the cwd during the tests do not 
+% lead to different expansions.
+Unittest_Reportfile = expand_filename(Unittest_Reportfile);
 
 % The regexp pattern for test-file detection
 % % Test or test as word in a file with ".sl" extension
