@@ -1,29 +1,33 @@
 % print.sl --- a printing mode for jed ---% print.sl
 % 
-% Copyright (c) 2005 Günter Milde
+% Copyright (c) 2005 GÃ¼nter Milde
 % Released under the terms of the GNU General Public License (ver. 2 or later)
 % 
-% very basic still, but allows to send the buffer content to the printer 
+% very basic, but allows to send the buffer content to the printer 
 % with a key shortcut or menu item.
 % 
-% Version 1.0
-% Version 1.1 no autoload with make_ini() to avoid conflicts with other print modes
+% Versions
+% 
+% 2004-11-15  0.1   first published version
+% 2005-11-21  0.2   no autoload with make_ini() 
+%             	    to avoid conflicts with other print modes
+% 2009-01-30  0.3   rename to simpleprint.sl, as there is another print.sl
+% 	      	    coming with slsh
 %
-% I use it with:
+% Usage
+% -----
 % 
-% autoload("print_buffer", "print.sl");
-% setkey ("print_buffer", "^P");
-% setkey ("print_buffer",	          Key_F9);
+% Example::
 % 
-% define print_popup_hook (menubar)
-% {
-%  menu_insert_separator (6, "Global.&File");
-%  menu_insert_item (7, "Global.&File", "&Print Buffer", "print_buffer");
-% }
-% append_to_hook ("load_popup_hooks", &print_popup_hook);
+%  autoload("print_buffer", "print.sl");
+%  setkey("print_buffer", "^P");
+%  setkey("print_buffer",	          Key_F9);
 % 
-% Please send your feedback!
-
+%  define print_popup_hook(menubar) {
+%    menu_insert_separator(6, "Global.&File");
+%    menu_insert_item(7, "Global.&File", "&Print Buffer", "print_buffer");
+%  }
+%  append_to_hook ("load_popup_hooks", &print_popup_hook);
 
 
 %!%+
