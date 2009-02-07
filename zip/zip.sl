@@ -1,8 +1,8 @@
 % zip.sl
 % 
-% $Id: zip.sl,v 1.2 2008/10/25 11:23:58 paul Exp paul $
+% $Id: zip.sl,v 1.3 2009/02/07 11:16:52 paul Exp paul $
 % 
-% Copyright (c) 2008 Paul Boekholt.
+% Copyright (c) 2008,2009 Paul Boekholt.
 % Released under the terms of the GNU GPL (version 2 or later).
 % 
 % This is a mode for browsing zip archives similar to dired or filelist.
@@ -148,6 +148,7 @@ public define zip () % [ filename ]
    erase_buffer();
    define_blocal_var("Zip", zip);
    setbuf_info(path_basename(zipfile), path_dirname(zipfile),buffer,8);
+   setbuf_info(getbuf_info() & ~4);
    () = zip.list();
    zip_mode();
 }
