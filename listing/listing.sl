@@ -1,10 +1,10 @@
 % listing.sl: A list widget for modes like dired, grep, locate, ...
 %
-% Copyright (c) 2006 Dino Sangoi, Günter Milde
+% Copyright Â© 2006 Dino Sangoi, GÃ¼nter Milde
 % Released under the terms of the GNU General Public License (ver. 2 or later)
 %
 % Version    0.1   Dino Sangoi   first version
-% 	     0.9   Günter Milde
+% 	     0.9   GÃ¼nter Milde
 %                  * "outsourcing" of the linklist datatype
 %                  * Tags list is now buffer-local
 %            0.9.1 * Tags list implemented as array
@@ -29,6 +29,7 @@
 % 2007-04-17 3.1   * removed the dired-style Key_BS binding (tag&up) as this
 % 	     	     overrides the default (page_up) of the basic "view" mode
 % 2007-04-19 3.1.1 * added a "Save Listing" entry to the mode menu
+% 2009-02-16 3.1.2 * code cleanup
 %
 % TODO:  * Shift-Click tags from point to Mousepoint
 %          may be also: right-drag tags lines
@@ -42,7 +43,6 @@
 require("keydefs"); % symbolic constants for many function and arrow keys
 % extensions from http://jedmodes.sf.net/
 require("view"); % readonly-keymap depends on bufutils.sl
-autoload("array", "datutils");
 autoload("list_concat", "datutils");  % >= 2.1
 autoload("push_defaults", "sl_utils");
 
@@ -146,9 +146,8 @@ static define line_is_tagged()
    variable line = what_line();
 
    push_spot();   % remember position
-   foreach(get_blocal_var("Tags"))
+   foreach tag_mark (get_blocal_var("Tags"))
      {
-	tag_mark = ();
 	goto_user_mark(tag_mark); % only way to find out mark.line
 	if (line == what_line())
 	  {
@@ -372,7 +371,7 @@ public  define listing_list_tags() % (scope=2, untag=0)
    variable scope, untag;
    (scope, untag) = push_defaults(2, 0, _NARGS);
 
-   return array(listing_map(scope, &null_fun, untag));
+   return [listing_map(scope, &null_fun, untag)];
 }
 
 % ---- The listing mode ----------------------------------------------------
@@ -405,7 +404,7 @@ definekey("listing->tag(2); go_down_1", Key_Shift_Down, mode); % CUA style
 definekey("listing->tag(2); go_up_1",   Key_Shift_Up,   mode); % CUA style
 
 % --- the mode dependend menu
-static define listing_menu (menu)
+static define listing_menu(menu)
 {
    menu_append_item(menu, "&Tag/Untag",      "listing->tag(2)");
    menu_append_item(menu, "Tag &All", 	     "listing->tag_all(1)");
@@ -414,19 +413,20 @@ static define listing_menu (menu)
    menu_append_item(menu, "&Untag Matching", "listing->tag_matching(0)");
    menu_append_item(menu, "&Invert Tags",    "listing->tag_all(2)");
    menu_append_item(menu, "&Edit Listing",   "listing->edit");
-   menu_append_item(menu, "&Save Listing",   "save_buffer_as");
+   % menu_append_item(menu, "&Save Listing",   "save_buffer_as");
+   menu_append_item(menu, "&Quit",           "close_buffer");
 }
 
 public define listing_mode()
 {
-   set_buffer_modified_flag (0); % so delbuf doesnot ask whether to save
+   set_buffer_modified_flag (0); % so delbuf does not ask whether to save
    set_readonly(1);
    set_mode(mode, 0);
    use_keymap(mode);
    mode_set_mode_info(mode, "init_mode_menu", &listing_menu);
    % TODO set_buffer_hook("mouse_2click", &listing_mouse_2click_hook);
    define_blocal_var("Current_Line", create_line_mark(ListingSelectColor));
-   define_blocal_var("Tags", {}); % array of tagged lines
+   define_blocal_var("Tags", {}); % list of tagged lines
    set_buffer_hook("update_hook", &listing_update_hook); % mark current line
    run_mode_hooks(mode+"_mode_hook");
 }
