@@ -2,7 +2,7 @@
 % 
 % Hypertext help browser as drop-in replacement for the standard help.sl
 %
-% Copyright (c) 2006 Guenter Milde (milde users.sf.net)
+% Copyright © 2006 Günter Milde (milde users.sf.net)
 % Released under the terms of the GNU General Public License (ver. 2 or later)
 %
 % Versions
@@ -69,7 +69,7 @@
 %   	  	      append Jed_Doc_Files to doc_files instead of overwriting
 %   	  	      keybindings can now also be references, adapt showkey()
 %   	  	      sort inherited and new keys in describe_bindings()
-%		      (J�rg Sommer)
+%		      (Jörg Sommer)
 %   1.9   2007-04-19  edited help_string, removed use of prompt_for_argument()
 %   	  	      fix in help_search(), handle "namespace->object" notation
 %   1.9.1 2007-05-31  bugfix in where_is(), removed spurious line
@@ -78,7 +78,7 @@
 %   1.9.4 2007-10-15  re-enable DFA highlight, as it is rather unlikely that
 %   	  	      help text contains multibyte chars (hint P. Boekholt) 
 %   1.9.5 2007-10-18  re-introduce the sprint_variable() autoload
-%   1.9.6 2007-12-20  add J�örg Sommer's fix for DFA highlight under UTF-8
+%   1.9.6 2007-12-20  add Jöörg Sommer's fix for DFA highlight under UTF-8
 %   	  	      new highlight rules for keyword and headings
 %   1.9.7 2008-05-05  use call_function() instead of runhooks()
 	  	      
