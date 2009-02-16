@@ -1,7 +1,7 @@
 % Diagnostic functions for SLang programmers
 % show the value of variables (nice for debugging)
 % 
-% Copyright (c) 2006 G�nter Milde
+% Copyright © 2006 Günter Milde (milde users.sf.net)
 % Released under the terms of the GNU General Public License (ver. 2 or later)
 % 
 % Version 1.0 2003-07-09  * first public version
