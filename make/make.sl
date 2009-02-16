@@ -7,6 +7,7 @@
 %
 %  2005-11-11 define_highlight_rule -> dfa_define_highlight_rule  
 %             (implemented dpatch by Rafael Laboissiere)
+%  2009-02-16 documentation update.
 % 
 % $Id: make.sl,v 1.14 2000/12/30 01:04:50 rocher Exp $
 %
@@ -20,18 +21,25 @@
 %
 %		autoload ("make_mode", "make");
 %
-%	somewhere in your startup file. Actually it is not possible to
-%	automatically start make_mode with the command line
-%
-%		$ jed Makefile
-%
-%	unless you put a line like
-%
-%		# -*- make -*-
-%
-%	near the beginning of your Makefile. Alternatively, you can read and
-%	follow the instructions given in 'doc/txt/hooks.txt'.
-%
+%       somewhere in your startup file. 
+%       
+%       To set the mode automatically, have a look at the custom var
+%       `Mode_Hook_Pointer' and the function mode_hook() and write e.g.:
+%       		
+%       % set modes based on filename or more complicated patterns
+%       private variable old_Mode_Hook_Pointer = Mode_Hook_Pointer;
+%       static define set_modes_hook(ext)
+%       {
+%          switch (path_basename(buffer_filename()))
+%            { case ".pycmailrc":  python_mode(); return 1; }
+%            { case "Makefile":    make_mode();   return 1; }
+%          % chain mode-hook pointers
+%          if (@old_Mode_Hook_Pointer(ext)) return;
+%          return(0);
+%       }
+%       Mode_Hook_Pointer = &set_modes_hook;
+
+%	
 % AUTHOR
 %	Francesc Rocher (f.rocher@computer.org)
 %       Feel free to send comments, suggestions or improvements.
