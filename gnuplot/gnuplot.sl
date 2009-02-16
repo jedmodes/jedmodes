@@ -17,11 +17,13 @@
 %  2005-11-02 1.1.3 fixed the "public" statements
 %  2006-05-26 1.1.4 fixed autoloads (J. Sommer)
 %  2007-12-19 1.1.5 fixed view_mode() autoload
-%  2008-05-05 1.1.6 * gnuplot_help(): filter spurious output
-%  	      	    * new gnuplot_view(): run gnuplot and open (e.g. *.eps) 
-%  	      	      output file (if it is defined) with default cmd
-%  	      	    * mode menu item to browse HTML doc, 
-%  	      	      (active, if variable Gnuplot_Html_Doc is defined)
+%  2008-05-05 1.1.6 gnuplot_help(): filter spurious output,
+%  	      	    new gnuplot_view(): run gnuplot and open output file
+%  	      	    with default cmd (if it is defined),
+%  	      	    mode menu item to browse HTML doc,
+%  	      	    (active, if variable Gnuplot_Html_Doc is defined)
+%  2009-02-16 1.1.7 clearer names for mode menu entries,
+%  	      	    gnuplot_view: If no output file defined, call gnuplot_plot.
 %
 %  TODO
 %  ----
@@ -44,12 +46,12 @@
 %
 %  To customize the terminal and output setting for printing,
 %  define the custom variables
-%  
+%
 %     Gnuplot_Print_Terminal,
 %     Gnuplot_Output_Extension.
-%     
+%
 %  The actual command called for calling gnuplot is set by
-%  
+%
 %     Gnuplot_Command
 %
 %  You can change keybindings with the gnuplot_mode_hook(), e.g.
@@ -61,7 +63,7 @@
 %     local_setkey ("gnuplot_plot",  "^D");  % Display plot
 %  }
 
-% Requirements 
+% Requirements
 % ------------
 
 % from jed's standard library
@@ -92,7 +94,7 @@ autoload("shell_cmd_on_region", "ishell");
 %  The terminal option handed to gnuplot by the gnuplot_print command.
 %  The default value will print an eps file suited for inlcusion in a
 %  LaTeX document.
-%\seealso{gnuplot_mode, gnuplot_run, Gnuplot_Output_Extension}
+%\seealso{gnuplot_mode, gnuplot_print, Gnuplot_Output_Extension}
 %!%-
 custom_variable("Gnuplot_Print_Terminal",  "postscript eps enhanced");
 
@@ -103,7 +105,7 @@ custom_variable("Gnuplot_Print_Terminal",  "postscript eps enhanced");
 %\description
 %  When gnuplot prints to a file, the default filename is the buffer-files
 %  basename + "." + Gnuplot_Output_Extension.
-%\seealso{gnuplot_print, Gnuplot_Print_Terminal, gnuplot_mode}
+%\seealso{gnuplot_mode, gnuplot_print, Gnuplot_Print_Terminal}
 %!%-
 custom_variable("Gnuplot_Output_Extension", ".eps");
 
@@ -120,7 +122,7 @@ custom_variable("Gnuplot_Command", "gnuplot -persist");
 % Location of Gnuplot Html documentation source.
 % The default is valid for the gnuplot-doc package of Debian GNU/Linux
 #if (file_status("/usr/share/doc/gnuplot-doc/gnuplot.html/index.html"))
-custom_variable("Gnuplot_Html_Doc", 
+custom_variable("Gnuplot_Html_Doc",
 		"/usr/share/doc/gnuplot-doc/gnuplot.html/index.html");
 #else
 custom_variable("Gnuplot_Html_Doc", "");
@@ -187,7 +189,7 @@ define gnuplot_help() %([topic])
    insert("help " + topic + "\n");
 
    shell_cmd_on_region (Gnuplot_Command, 2); % output replaces input
-   
+
    % filter needless instructions
    set_readonly(0);
    bob();
@@ -226,49 +228,6 @@ define gnuplot_run()
    % pop2buf(cbuf);
 }
 
-% run gnuplot and open output file (if it is defined) with default cmd
-define gnuplot_view()
-{
-   variable quote, outfile = "", cmd = "";
-   
-   push_spot_bob();
-   if (bol_fsearch("set output")) {
-      % search for output file
-      foreach quote (['"', '\'']) {
-	 % show("quote", quote);
-	 if (ffind_char(quote)) {
-	    go_right_1();
-	    push_mark();
-	    () = ffind_char(quote);
-	    outfile = bufsubstr();
-	    break;
-	 }
-      }
-   }
-   % show(outfile);
-   pop_spot();
-   
-   gnuplot_run();
-   
-   if (outfile == "") 
-      return;
-   
-   cmd = filelist->get_default_cmd(outfile);
-   if (cmd == "")
-      cmd = read_mini(sprintf("Open %s with (Leave blank to open in Jed):",
-			      outfile), "", "");
-   if (cmd == "")
-      return find_file(outfile);
-
-      
-      if (getenv("DISPLAY") != NULL) % assume X-Windows running
-      () = system(cmd + " " + outfile + " &");
-   else
-      () = run_program(cmd + " " + outfile);
-
-}
-   
-   
 %!%+
 %\function{gnuplot_shell}
 %\synopsis{open an interactive gnuplot session in the current buffer }
@@ -348,18 +307,74 @@ define gnuplot_plot () % (hardcopy = 0)
      flush ("Plot written to " + output_name);
 }
 
+
+%!%+
+%\function{gnuplot_view}
+%\synopsis{Run gnuplot and open output file}
+%\usage{gnuplot_view()}
+%\description
+% Run gnuplot and open output file (if it is defined) with the a default
+% command taken from \var{filelist->FileList_Default_Commands} or asked
+% for in the minibuffer.
+% If there is no output file defined, call gnuplot_plot().
+%\notes
+%\seealso{gnuplot_mode, gnuplot_run, gnuplot_plot}
+%!%-
+define gnuplot_view()
+{
+   variable quote, outfile = "", cmd = "";
+
+   % search output file definition
+   push_spot_bob();
+   if (bol_fsearch("set output")) {
+      foreach quote (['"', '\'']) {
+	 % show("quote", quote);
+	 if (ffind_char(quote)) {
+	    go_right_1();
+	    push_mark();
+	    () = ffind_char(quote);
+	    outfile = bufsubstr();
+	    break;
+	 }
+      }
+   }
+   pop_spot();
+   % show(outfile);
+
+   % if there is no outfile define, display with default terminal
+   if (outfile == "") {
+      gnuplot_plot();
+      return;
+   }
+
+   % run gnuplot and open the outfile with default viewer:
+   gnuplot_run();
+   if (is_defined("filelist->get_default_cmd"))
+      cmd = call_function("filelist->get_default_cmd", outfile);
+   if (cmd == "")
+      cmd = read_mini(sprintf("Open %s with (Leave blank to open in Jed):",
+			      outfile), "", "");
+   if (cmd == "")
+      return find_file(outfile);
+
+   if (getenv("DISPLAY") != NULL) % assume X-Windows running
+      () = system(cmd + " " + outfile + " &");
+   else
+      () = run_program(cmd + " " + outfile);
+
+}
+
 %!%+
 %\function{gnuplot_print}
-%\synopsis{Prints a gnuplot skript}
+%\synopsis{Prints a gnuplot skript to a file)}
 %\usage{Void gnuplot_print()}
 %\description
-% Run the buffer/region. The terminal is set to
-% "Gnuplot_Print_Terminal", the output file has the same
-% basename as the skript and the extension "Gnuplot_Output_Extension",
-% overriding the values in the skript.
-% If you want other output options either change these variables or set
-% terminal and output in the skript and use \sfun{gnuplot_run}.
-%\seealso{gnuplot_mode, gnuplot_run, gnuplot_plot, Gnuplot_Print_Terminal, Gnuplot_Output_Extension}
+% Run the buffer/region. The terminal is set to \var{Gnuplot_Print_Terminal},
+% the output file has the same basename as the skript and the extension
+% "Gnuplot_Output_Extension", overriding the values in the skript. If you
+% want other output options either change these variables or set terminal and
+% output in the skript and use \sfun{gnuplot_run}.
+%\seealso{gnuplot_run, gnuplot_plot, Gnuplot_Print_Terminal, Gnuplot_Output_Extension}
 %!%-
 define gnuplot_print()
 {
@@ -495,8 +510,9 @@ static define gnuplot_menu(menu)
 {
    menu_append_item(menu, "&Gnuplot Region/Buffer", "gnuplot_run");
    menu_append_item(menu, "Gnuplot &Shell", "gnuplot_shell");
-   menu_append_item(menu, "&Display Plot", "gnuplot_view");
-   menu_append_item(menu, "&Print Plot", "gnuplot_print");
+   menu_append_item(menu, "&View", "gnuplot_view");
+   menu_append_item(menu, sprintf("&Print to %s", Gnuplot_Print_Terminal),
+		    	  "gnuplot_print");
    menu_append_item(menu, "&New File(defaults)", "gnuplot_get_defaults");
    menu_append_item(menu, "&Strip Defaults", "gnuplot_strip_defaults");
    menu_append_item(menu, "Gnuplot &Help", "gnuplot_help");
