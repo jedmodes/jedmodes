@@ -19,10 +19,10 @@
 % 2007-06-03 1.4   convert iso-latin1 <-> UTF-8 if not in UTF-8 mode.
 % 2007-09-20 1.4.1 reset blocal var "encoding" with buffer re-use,
 % 	     	   use List for blocal var "generating_function"
-% UNP	     1.5   * ding(): an empty string arg triggers an interactive 
-% 	     	     request for a word the same way as no optional arg does.
-% 	     	   * custom var Ding_Case_Search
-% 	     	   * failsave formatting
+% 2009-02-16 1.5   ding(): an empty string arg triggers an interactive
+% 	     	   request for a word the same way as no optional arg does,
+% 	     	   custom var Ding_Case_Search,
+% 	     	   failsave formatting.
 %
 % Usage
 % -----
@@ -281,7 +281,7 @@ public define ding() % ([word], direction=Ding_Direction)
      {case 1: pattern = sep + ".*" + word;}
      {case 2: pattern = word;}
 
-   lookup_cmd = strjoin([lookup_cmd, "\""+pattern+"\"", file], " ");
+   lookup_cmd = sprintf("%s '%s' %s", lookup_cmd, pattern, file);
 
    % Prepare the output buffer
    popup_buffer(Dingbuf);
