@@ -1,9 +1,9 @@
 % datutils.sl: convenience functions for several Data_Types
-% 
+%
 % Copyright (c) 2006 Guenter Milde (milde users.sf.net)
 % Released under the terms of the GNU General Public License (ver. 2 or later)
 %
-% VERSIONS 
+% VERSIONS
 % 1.0   first public release
 % 1.1   new functions pop2array, array, null_fun, array_repeat,
 %       array_fill_missing
@@ -19,19 +19,21 @@
 % 1.2.3 added provide("datutils");
 % 2.0   2006-06-22 added list functions, full tm documentation
 % 2.1   2006-10-04 added list_concat()
-% 2.2   2006-11-27 removed array_reverse(): it is not used anywhere and 
-% 		   conflicts with the internal SLang function of the same 
+% 2.2   2006-11-27 removed array_reverse(): it is not used anywhere and
+% 		   conflicts with the internal SLang function of the same
 % 		   name (activated by default in Jed >= 0.99.19-51)
 % 2.2.1 2007-02-06 new function list_inject(),
 % 		   new versions of assoc_get_key() and array_sum() (JED)
-% 2.2.2 2007-10-18 fix array_value_exists() for Any_Type arrays		   
-% 		   documentation update 
+% 2.2.2 2007-10-18 fix array_value_exists() for Any_Type arrays
+% 		   documentation update
+% 2.2.3 UPUB       fallback defs of __push_list(), __pop_list()
+% 		   deprecated push_list(), pop2list(),
+% 		   favour literal constructs for array<->list conversion
 
 _autoload(
    "push_defaults", "sl_utils",
    "push_array", "sl_utils",
    2);
-
 
 % --- Array functions ------------------------------------------
 
@@ -57,22 +59,23 @@ static define typeof_ref(ref)
 % If \var{type} is not given, autodetermine it (fall back to \var{Any_Type}
 % if the element types differ).
 %\notes
-% Attention: dont use \sfun{pop2array} in a function call with optional
+% Attention: never use \sfun{pop2array} in a function call with optional
 % arguments , i.e. not
 %#v+
 %  show(pop2array())
 %#v-
 % but
 %#v+
-%  $1 = pop2array(); 
+%  $1 = pop2array();
 %  show($1);
 %#v-
 %\seealso{array, pop2list, push_array}
 %!%-
 define pop2array() % (N=_stkdepth, [type])
 {
-   variable n=_stkdepth(), type;
-   (n, type) = push_defaults(n, Any_Type, _NARGS);
+   variable n, type;
+   (n, type) = push_defaults(_stkdepth(), Any_Type, _NARGS);
+
    variable i, a = type[n];
    for (i=n-1; i>=0; i--)
 	a[i] = ();
@@ -94,15 +97,11 @@ define pop2array() % (N=_stkdepth, [type])
 %  The type is autodetermined (defaulting to \var{Any_Type}
 %  if the element types differ).
 %\notes
-% If you know the datatype of the arguments, you can save resources pushing
-% the arguments first and using \sfun{pop2array} with the datatype argument.
+%  If you are sure that all arguments are of the same type (or want to
+%  throw an error, if not), you can replace
+%  the call to \sfun{array} with a literal construct like e.g.
 %#v+
-%    (arg1, ...., argN);
-%    a = pop2array(N, datatype)
-%#v-
-% instead of (the simpler)
-%#v+
-%    a = array(arg1, ...., argN);
+%    variable a = [__push_list(liste)];
 %#v-
 %\seealso{pop2array, push_array, list2array}
 %!%-
@@ -117,8 +116,8 @@ define array() %([args])
 %\usage{Array = array_append(a, b)}
 %\description
 % \sfun{array_append} provides a means to use 1d-arrays like lists. It
-% concatenates \var{a} and \var{b}. 
-%  
+% concatenates \var{a} and \var{b}.
+%
 % The arguments may be of any type and will be converted to Array_Type (if
 % the not already are) before the concatenation.
 %\example
@@ -131,9 +130,9 @@ define array() %([args])
 %#v-
 %\notes
 % Deprecated. This function might disappear in later versions of datutils!
-% 
+%
 % Since SLang 1.16, the effect can be savely achieved by the
-% syntax: 
+% syntax:
 %  [1,2]          == [1,2]
 %  [1, [2,3,4]]   == [1,2,3,4]
 %  [[1,2], [3,4]] == [1,2,3,4]
@@ -192,7 +191,6 @@ define array_delete(a, n)
    return a[i];
 }
 
-
 %!%+
 %\function{array_max}
 %\synopsis{Return the maximal value of an array}
@@ -247,7 +245,6 @@ define array_sum(a)
 #endif
 }
 
-
 %!%+
 %\function{array_product}
 %\synopsis{Return the product of the array elements}
@@ -267,13 +264,12 @@ define array_product(a)
    return product;
 }
 
-
 %!%+
 %\function{array_value_exists}
 %\synopsis{Return the number of occurences of \var{value} in array \var{a}}
 %\usage{Integer_Type array_value_exists(a, value)}
 %\description
-%  Count, how many times \var{value} is present in array \var{a}. 
+%  Count, how many times \var{value} is present in array \var{a}.
 %  For normal arrays, this is equal to
 %#v+
 %    length(where(a == value))
@@ -295,7 +291,7 @@ define array_value_exists(a, value)
 	     if (value == NULL)
 	       i++;
 	  }
-	else 
+	else
 	  {
 	     if (_eqs(@element, value))
 	       i++;
@@ -320,7 +316,6 @@ define array_repeat(a, n)
      aa[[i:i+len_a-1]] = a;
    return aa;
 }
-
 
 %!%+
 %\function{array_transpose}
@@ -350,8 +345,8 @@ define array_transpose(a)
 %\synopsis{Return the number of occurences of \var{value} in \var{ass}}
 %\usage{Integer_Type assoc_value_exists(Assoc_Type ass, value)}
 %\description
-%  Count, how many times \var{value} is present in the associative 
-%  array \var{ass}. 
+%  Count, how many times \var{value} is present in the associative
+%  array \var{ass}.
 %\seealso{array_value_exists, assoc_key_exists, assoc_get_key, assoc_get_values}
 %!%-
 define assoc_value_exists(ass, value)
@@ -359,13 +354,12 @@ define assoc_value_exists(ass, value)
    array_value_exists(assoc_get_values(ass), value);
 }
 
-
 %!%+
 %\function{assoc_get_key}
 %\synopsis{Return the key of a value of an Associative Array}
 %\usage{String_Type key = assoc_get_key(ass, value)}
 %\description
-%  Reverse the usual lookup of an hash table (associative array). 
+%  Reverse the usual lookup of an hash table (associative array).
 %  Return the first key whose value is equal to \var{value}.
 %\notes
 %  Of course, this function is far slower than the corresponding ass[key].
@@ -381,61 +375,24 @@ define assoc_get_key(ass, value)
 
 % --- List functions -------------------------------------------
 
-
-
 % The list type is new in SLang2
 #ifexists List_Type
-%!%+
-%\function{push_list}
-%\synopsis{Push the list elements on the stack}
-%\usage{push_list(List_Type lst)}
-%\description
-%  Push all elements of a list to the stack. 
-%  Very convenient for converting a list to an argument list.
-%\example
-%#v+
-%  variable args = {"foo ", "bar ", "uffe "};
-%  variable str = strjoin(push_list(args));
-%#v-
-%\seealso{pop2list, push_array}
-%!%-
-define push_list(lst)
+
+% since S-Lang 2.1.0, there are the intrinsic functions __push_list() and
+% __pop_list()
+
+# if (_slang_version < 20100)
+
+% push list to stack
+define __push_list(lst)
 {
    foreach (lst)
      ();
 }
 
-%!%+
-%\function{pop2list}
-%\synopsis{Return list with N topmost stack-items}
-%\usage{List_Type lst = pop2list(N=_stkdepth)}
-%\description
-% Return a list that consists of the N topmost stack elements. The default
-% is to return all elements currently on the stack.
-% The top element becomes lst[N-1].
-%\example
-% Together with \sfun{push_list}, this is a convenient way to manipulate or
-% pass on an argument list. Compared to \sfun{__pop_args}/\sfun{__push_args}, 
-% it has the advantage that the args are easily accessible via the normal
-% index syntax and list functions:
-%#v+
-%  define silly() % ([args])
-%  {
-%     variable args = pop2list(_NARGS);
-%     list_append(args, "42", -1);
-%     args[1] = 3;
-%     show(push_list(args));
-%  }      
-%#v-
-%\notes
-% Attention: dont use \sfun{pop2list} in a function call with optional
-% arguments.
-%\seealso{push_list, _stkdepth}
-%!%-
-define pop2list() % (N=_stkdepth)
+% pop N items from stack to a list
+define __pop_list(N)
 {
-   variable N = push_defaults(_stkdepth, _NARGS);
-   
    variable object, list = {};
    loop (N)
      {
@@ -445,53 +402,94 @@ define pop2list() % (N=_stkdepth)
    return list;
 }
 
+#endif
+
+%!%+
+%\function{push_list}
+%\synopsis{Push the list elements on the stack}
+%\usage{push_list(List_Type lst)}
+%\description
+%  Obsoleted. Use intrinsic function \sfun{__push_list}.
+%\example
+%#v+
+%  variable args = {"foo ", "bar ", "uffe "};
+%  variable str = strjoin(__push_list(args));
+%#v-
+%\seealso{__push_list, __pop_list, push_array}
+%!%-
+define push_list(lst)
+{
+   __push_list(lst);
+}
+
+%!%+
+%\function{pop2list}
+%\synopsis{Return list with N topmost stack-items}
+%\usage{List_Type lst = pop2list(N=_stkdepth)}
+%\description
+% Obsoleted. Use the intrinsic function \sfun{__pop_list} instead.
+%
+% To return all elements currently on the stack, use __pop_list(_stkdepth)
+% instead of pop_list().
+%\notes
+% Attention: do not use \sfun{pop2list} in a function call with optional
+% arguments.
+%\seealso{__pop_list, __push_list, _stkdepth}
+%!%-
+define pop2list() % (N=_stkdepth)
+{
+  variable N = push_defaults(_stkdepth, _NARGS);
+   return __pop_list(N);
+}
+
 %!%+
 %\function{list2array}
 %\synopsis{Convert a list to an array}
-%\usage{Array_Type list2array(list, [DataType_Type type])}
+%\usage{Array_Type list2array(list, [type])}
 %\description
 %  Return an array containing the list elements.
-%  
-%  The type of the array elements is either given by the optional \var{type}
-%  argument (speeds up the conversion) or auto-determined. If the list
-%  contains elements of different type, Any_Type is used as container.
+%
+%  If the list contains elements of different type, Any_Type is used as
+%  container.
 %\example
 %  \sfun{list2array} enables the use of lists in places that require an
-%  array, e.g.:
+%  array with specific data type, e.g.:
 %#v+
-%  message(strjoin(list2array({"hello", "world"}, String_Type), " "));
-%  23 + list2array({1, 2, 3}) == [24, 25, 26]
+%    charlist = {68, 69, 70+2}
+%    return array_to_bstring(list2array(charlist, UChar_Type));
 %#v-
-%\seealso{array, array2list, push_list, pop2list, pop2array}
+%\seealso{__push_list, __pop_list, pop2array}
 %!%-
 define list2array(list) % (list, [type])
 {
-   if (_NARGS < 2)
-     return array(push_list(list));
-   
+   if (_NARGS < 2) {
+      % auto-determine the data type
+      try
+	 return [__push_list(list)];
+      catch TypeMismatchError:
+         return array(__push_list(list));
+   }
+   % use the provided data type
    variable type = list;
    list = ();
-   push_list(list);
+   __push_list(list);
    return pop2array(length(list), type);
 }
-
 
 %!%+
 %\function{array2list}
 %\synopsis{Convert an array to a list}
 %\usage{List_Type array2list(a)}
 %\description
-%  Return a list of the  elements of \var{a}.
-%\example
+%  Deprecated. The same conversion can be achieved by:
 %#v+
-%  array2list([1, 2, 3]) == {1, 2, 3}
+%  variable list = {push_array(a)};
 %#v-
-%\seealso{list2array, push_array, pop2list}
+%\seealso{list2array, push_array, __pop_list}
 %!%-
 define array2list(a)
 {
-   push_array(a);
-   return pop2list();
+   return {push_array(a)};
 }
 
 %!%+
@@ -506,7 +504,7 @@ define array2list(a)
 %  l1 == {1, 2, 3, 4, 5, 6, 7};
 %#v-
 %\notes
-%  As this function uses a foreach loop, \var{l2} can also be an 
+%  As this function uses a foreach loop, \var{l2} can also be an
 %  \var{Array_Type} object.
 %\seealso{list_append, list_insert}
 %!%-
@@ -516,7 +514,6 @@ define list_concat(l1, l2)
    foreach element (l2)
      list_append(l1, element, -1);
 }
-
 
 %!%+
 %\function{list_inject}
@@ -543,6 +540,5 @@ define list_inject(l1, l2, i)
 }
 
 #endif
-
 
 provide("datutils");
