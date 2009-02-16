@@ -1,6 +1,6 @@
 % libdir.sl: Support for library directories with jed extensions
 %
-% Copyright (c) 2005 G�nter Milde and released under the terms
+% Copyright © 2005 Günter Milde and released under the terms
 % of the GNU General Public License (version 2 or later).
 %
 % Versions
@@ -57,7 +57,7 @@ provide("libdir");
 %\example
 % The following lines in jed.rc
 %#v+
-%  require("libdir", "/FULL_PATH_TO/libdir.sl");
+%  () = evalfile("/FULL_PATH_TO/libdir.sl");
 %  add_libdir("usr/local/jed/lib/", 0));  % do not initialize
 %  add_libdir(path_concat(Jed_Home_Directory, "lib"));
 %#v-
