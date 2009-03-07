@@ -1,6 +1,6 @@
 % hyperman.sl
 %
-% $Id: hyperman.sl,v 1.33 2008/10/16 19:34:46 paul Exp paul $
+% $Id: hyperman.sl,v 1.34 2009/03/07 17:22:17 paul Exp paul $
 % Keywords: help, hypermedia, unix
 %
 % Copyright (c) 2000-2008 JED, Paul Boekholt, Günter Milde
@@ -350,7 +350,7 @@ static define man(subj)
 #ifdef OS2
    man_cmd = sprintf("man %s 2> nul", subj);
 #else
-   man_cmd = sprintf("MANWIDTH=%d man %s 2> /dev/null", SCREEN_WIDTH, subj);
+   man_cmd = sprintf("MAN_KEEP_FORMATTING=1 MANWIDTH=%d man %s 2> /dev/null", SCREEN_WIDTH, subj);
 #endif
    variable return_status = run_shell_cmd (man_cmd);
    if (return_status && bobp() && eobp())
