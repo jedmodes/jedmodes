@@ -1,16 +1,16 @@
 % ispell.sl	-*- mode: SLang; mode: fold -*-
 % 
-% $Id: ispell.sl,v 1.25 2008/07/12 13:56:45 paul Exp paul $
+% $Id: ispell.sl,v 1.26 2009/03/14 15:21:29 paul Exp paul $
 % 
-% Copyright (c) 2001-2006 Guido Gonzato, John Davis, Paul Boekholt.
+% Copyright (c) 2001-2009 Guido Gonzato, John Davis, Paul Boekholt.
 % Released under the terms of the GNU GPL (version 2 or later).
 % 
-% Thanks to Günter Milde.
+% Thanks to GÃ¼nter Milde.
 provide("ispell");
 require("ispell_common");
 require("bufutils");
 use_namespace("ispell");
-!if (is_defined("ispell_process"))
+ifnot (is_defined("ispell_process"))
   public variable ispell_process = -1;
 static variable buf, obuf, num_win;
 static variable ibuf = " *ispell*", corbuf = "*corrections*";
@@ -135,9 +135,9 @@ define get_ispell_command(word, key_array, corrections)
 	if (corrections != NULL)
 	  {
 	     if (num == '')  return corrections[0];
-	     n = where (key_array == num);
-	     if (length(n))
-	       return corrections[n[0]];
+	     n = wherefirst (key_array == num);
+	     if (n != NULL)
+	       return corrections[n];
 	  }
      }
 }
@@ -172,14 +172,13 @@ define ispell_parse_output (is_auto)
 
    if (bolp and eolp)
      {
-        !if (is_auto)
+        ifnot (is_auto)
           message ("Correct");
         return;
      }
    
    variable line = line_as_string;
    
-     
    if (line[0] == '&')
      {
 	ispell_offset = atoi (strtok (line, " :")[3]);
@@ -205,7 +204,7 @@ define ispell_parse_output (is_auto)
      }
    else % there was no '&' so it was a '#'
      {
-	ispell_offset = atoi (extract_element(line, 3, ' '));
+	ispell_offset = atoi (extract_element(line, 2, ' '));
         setbuf (corbuf);
 	erase_buffer();
 	insert ("no suggestions");
@@ -260,8 +259,7 @@ define ispell_parse_output (is_auto)
    sw2buf(old_buf);
    pop2buf(buf);
    if (num_win == 1) onewindow();
-   if (typeof(new_word) == Integer_Type)
-     if (new_word == -1)
+   if (typeof(new_word) == Integer_Type && new_word == -1)
      return pop_mark_0;
    if (new_word != NULL)
      {  
@@ -375,7 +373,7 @@ public define ispell_region()
 	       {
 		  if (@ispell_hook)
 		    ispell_line;
-		  !if (down_1) break;
+		  ifnot (down_1) break;
 		  skip_chars("\n");
 	       }
 	  }
@@ -384,7 +382,7 @@ public define ispell_region()
 	     forever
 	       {
 		  ispell_line;
-		  !if (down_1) break;
+		  ifnot (down_1) break;
 		  skip_chars("\n");
 	       }
 	  }

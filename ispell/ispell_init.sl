@@ -1,6 +1,6 @@
 % ispell_init.sl	-*- mode: SLang; mode: fold -*-
 %
-% $Id: ispell_init.sl,v 1.14 2007/09/29 18:50:46 paul Exp paul $
+% $Id: ispell_init.sl,v 1.15 2009/03/14 15:21:29 paul Exp paul $
 %
 % Copyright (c) 2003-2007 Paul Boekholt.
 % Released under the terms of the GNU GPL (version 2 or later).
@@ -9,8 +9,6 @@
 % You may evaluate this on starting JED. 
 require("sl_utils");
 provide ("ispell_init");
-
-variable ispell_version = "ispell.sl 2.0";
 
 %{{{ autoloads
 
@@ -33,12 +31,15 @@ _add_completion("ispell_change_dictionary",
 %{{{ custom variables
 
 % Your spell program.  This could be ispell or aspell.
-!if (is_defined("Ispell_Program_Name"))
+ifnot (is_defined("Ispell_Program_Name"))
 {
    variable Ispell_Program_Name;
-   if (orelse {1 == file_status("/usr/bin/aspell")}
-       {1 == file_status("/usr/local/bin/aspell")})
+   if (1 == file_status("/usr/bin/aspell")
+       || 1 == file_status("/usr/local/bin/aspell"))
      Ispell_Program_Name = "aspell";
+   else if (1 == file_status("/usr/bin/hunspell")
+       || 1 == file_status("/usr/local/bin/hunspell"))
+     Ispell_Program_Name = "hunspell";
    else
      Ispell_Program_Name = "ispell";
 }
@@ -49,62 +50,66 @@ custom_variable("Ispell_Dictionary", "default");
 %}}}
 %{{{ public variables
 
+typedef struct { hash_name, letters, otherchars, extchar, options } Ispell_Dictionary_Type;
 
-variable Ispell_Hash_Name = Assoc_Type [String_Type, "default"];
-variable Ispell_Letters = Assoc_Type[String_Type, "A-Za-z"];
-variable Ispell_OtherChars = Assoc_Type [String_Type, "'"];
-variable Ispell_Extchar = Assoc_Type [String_Type, ""];
-variable Ispell_Options = Assoc_Type [String_Type, ""];
+private define make_ispell_dictionary() 
+{
+   variable name, hash, letters, otherchars, opts;
+   (name, hash, letters, otherchars, opts)
+     = push_defaults ( , , "", "", "", _NARGS);
+   if (hash == NULL)
+     hash = name;
+   variable language = @Ispell_Dictionary_Type;
+   set_struct_fields(language,
+		     hash,
+		     strcat ("a-zA-Z",letters),
+		     otherchars,
+		     strtrim_beg (qualifier("ext_chr", ""), "~"),
+		     opts);
+   return language;
+}
+
+variable Ispell_Languages = Assoc_Type[Ispell_Dictionary_Type];
 variable Ispell_Wordlist = Assoc_Type [String_Type,"/usr/share/dict/words"];
 
 public define ispell_add_dictionary() % (name, hash=name, letters = a-z etc.,
   % otherchars = "'", extchr = "", opts = "")
 {
-   variable name, hash, letters, otherchars, extchr, opts;
-   (name, hash, letters, otherchars, extchr, opts)
-     = push_defaults ( , , , , , , _NARGS);
-   if (hash != NULL)
-     Ispell_Hash_Name [name] = hash;
+   variable args = __pop_list(_NARGS - 1);
+   variable name = ();
+   variable extchar;
+   if (length(args) >= 4)
+     extchar = list_pop(args, 4);
    else
-     Ispell_Hash_Name [name] = name;
-   if (letters != NULL)
-     Ispell_Letters [name] = strcat ("a-zA-Z", letters);
-   if (otherchars != NULL)
-     Ispell_OtherChars [name] = otherchars;
-   if (extchr != NULL)
-     % Get rid of "~" char at beginning
-     Ispell_Extchar [name] = strtrim_beg (extchr, "~");
-   if (opts != NULL)
-     Ispell_Options [name] = opts;
+     extchar = "";
+   Ispell_Languages [name] = make_ispell_dictionary(name, __push_list(args); ext_char=extchar);
 }
 
 ispell_add_dictionary ("default");
 
-variable Aspell_Hash_Name = Assoc_Type [String_Type, "default"];
-variable Aspell_Letters = Assoc_Type[String_Type, "A-Za-z"];
-variable Aspell_OtherChars = Assoc_Type [String_Type, "'"];
-variable Aspell_Options = Assoc_Type [String_Type, ""];
-variable Aspell_Wordlist = Assoc_Type [String_Type,"/usr/share/dict/words"];
+variable Aspell_Languages = Assoc_Type[Ispell_Dictionary_Type];
 
 public define aspell_add_dictionary() % (name, hash=name, letters = a-z etc.,
   % otherchars = "'", opts = "")
 {
-   variable name, hash, letters, otherchars, opts;
-   (name, hash, letters, otherchars, opts)
-     = push_defaults ( , , , , , _NARGS);
-   if (hash != NULL)
-     Aspell_Hash_Name [name] = hash;
-   else
-     Aspell_Hash_Name [name] = name;
-   if (letters != NULL)
-     Aspell_Letters [name] = strcat ("a-zA-Z", letters);
-   if (otherchars != NULL)
-     Aspell_OtherChars [name] = otherchars;
-   if (opts != NULL)
-     Aspell_Options [name] = opts;
+   variable args = __pop_list(_NARGS - 1);
+   variable name = ();
+   Aspell_Languages [name] = make_ispell_dictionary(name, __push_list(args));
 }
 
 aspell_add_dictionary ("default");
+
+variable Hunspell_Languages = Assoc_Type[Ispell_Dictionary_Type];
+
+public define hunspell_add_dictionary() % (name, hash=name, letters = a-z etc.,
+  % otherchars = "'", opts = "")
+{
+   variable args = __pop_list(_NARGS - 1);
+   variable name = ();
+   Hunspell_Languages [name] = make_ispell_dictionary(name, __push_list(args));
+}
+
+hunspell_add_dictionary ("default");
 
 % This will set up the dictionaries on your system, if you are a Debian Unstable user.
 custom_variable("Ispell_Cache_File", "/var/cache/dictionaries-common/jed-ispell-dicts.sl");

@@ -1,6 +1,6 @@
 % ispell_common.sl
 %
-% $Id: ispell_common.sl,v 1.18 2007/09/29 18:50:46 paul Exp paul $
+% $Id: ispell_common.sl,v 1.19 2009/03/14 15:21:29 paul Exp paul $
 % 
 % Copyright (c) 2003-2007 Paul Boekholt.
 % Released under the terms of the GNU GPL (version 2 or later).
@@ -37,42 +37,28 @@ define kill_flyspell();
 private define make_ispell_command()
 {
    variable ispell_options = "";
-   if (Ispell_Program_Name == "ispell")
-     {
-	ispell_letters = Ispell_Letters [ispell_current_dictionary];
-	ispell_otherchars =  Ispell_OtherChars [ispell_current_dictionary];
-	ispell_wordlist =  Ispell_Wordlist [ispell_current_dictionary];
+   variable hash;
+   switch(strtok(Ispell_Program_Name)[0])
+     { case "ispell"  : hash = Ispell_Languages; }
+     { case "aspell"  : hash = Aspell_Languages; }
+     { case "hunspell": hash = Hunspell_Languages; }
+     { throw RunTimeError, "spell program should be ispell, aspell or hunspell"; }
+   variable language = hash[ispell_current_dictionary];
+   ispell_letters = language.letters;
+   ispell_otherchars = language.otherchars;
+   
+   ispell_wordlist =  Ispell_Wordlist [ispell_current_dictionary];
 	
-	if (ispell_current_dictionary != "default")
-	  ispell_options += " -d " + Ispell_Hash_Name[ispell_current_dictionary];
+   if (ispell_current_dictionary != "default")
+     ispell_options += " -d " + language.hash_name;
+   if (language.extchar != "")
+     ispell_options += " -T " + language.extchar;
 	
-	if (Ispell_Extchar [ispell_current_dictionary] != "")
-	  ispell_options += " -T " + Ispell_Extchar [ispell_current_dictionary];
-	
-	% extra options come last
-	ispell_options += " " + Ispell_Options [ispell_current_dictionary];
-	
-	ispell_wordchars = ispell_otherchars+ispell_letters;
-	ispell_non_letters = "^" + ispell_letters;
-     }
-   else if (Ispell_Program_Name == "aspell")
-     {
-	ispell_letters = Aspell_Letters [ispell_current_dictionary];
-	ispell_otherchars =  Aspell_OtherChars [ispell_current_dictionary];
-	ispell_wordlist =  Aspell_Wordlist [ispell_current_dictionary];
-	
-	if (ispell_current_dictionary != "default")
-	  ispell_options += " -d " + Aspell_Hash_Name[ispell_current_dictionary];
-	
-	% extra options come last
-	ispell_options += " " + Aspell_Options [ispell_current_dictionary];
-	
-	ispell_wordchars = ispell_otherchars+ispell_letters;
-	ispell_non_letters = "^" + ispell_letters;
-	
-     }
-   else
-     throw RunTimeError, "spell program should be ispell or aspell";
+   % extra options come last
+   ispell_options += " " + language.options;
+   
+   ispell_wordchars = ispell_otherchars+ispell_letters;
+   ispell_non_letters = "^" + ispell_letters;
    
    % we don't set a '-[thn]' option here because an ispell/flyspell
    % process may work on different buffers, and probably doesn't need it
@@ -104,10 +90,10 @@ private define ispell_change_current_dictionary(new_language)
 %{{{ get dictionaries
 private define dictionaries()
 {
-   if (Ispell_Program_Name == "aspell")
-     return assoc_get_keys(Aspell_Hash_Name);
-   else
-     return assoc_get_keys(Ispell_Hash_Name);
+   switch(strtok(Ispell_Program_Name)[0])
+     { case "ispell"  : return assoc_get_keys(Ispell_Languages); }
+     { case "aspell"  : return assoc_get_keys(Aspell_Languages); }
+     { case "hunspell": return assoc_get_keys(Hunspell_Languages); }
 }
 
 %}}}

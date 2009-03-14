@@ -1,10 +1,4 @@
 ispell mode
-* news
-** 2.0
-- Added aspell_add_dictionary() function.  If you used the previous version
-  with aspell, you have to replace any ispell_add_dictionary() calls with
-  aspell_add_dictionary(), and remove the fifth "extchr" argument.
-- We now use aspell by default if it is installed.
 * installation
 Simply put it all in your load path, add
 require ("ispell_init");
@@ -12,7 +6,7 @@ to your .jedrc, and any keybindings you want.  And set up your dictionaries.
 * dictionaries
 On Debian the dictionaries should be automatically initialised by the
 dictionaries-common package.  On other systems, use
-ispell_add_dictionary() and aspell_add_dictionary().
+ispell_add_dictionary(), aspell_add_dictionary() or hunspell_add_dictionary().
   
 hash_name: the name by which ispell knows the language (a .hash file in
   /usr/lib/ispell)
@@ -38,7 +32,6 @@ wordlist: just needed for ispell_complete, it would be annoying to have to
   set the language for ispell AND a wordlist for completions.  For Debian
   users, this one is not automatically filled in.
 
-I have ispell 3.1.20 and aspell 0.60.4.
 * ispell and utf-8
 For checking utf-8, it's recommended to use aspell.  Ispell.sl does not work
 with ispell in utf-8 mode, though flyspell.sl should.
