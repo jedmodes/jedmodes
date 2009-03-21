@@ -1,6 +1,6 @@
 % jedscape.sl
 %
-% $Id: jedscape.sl,v 1.16 2008/10/11 14:17:47 paul Exp paul $
+% $Id: jedscape.sl,v 1.17 2009/03/21 16:23:56 paul Exp paul $
 %
 % Copyright (c) 2003-2008 Paul Boekholt.
 % Released under the terms of the GNU GPL (version 2 or later).
@@ -74,7 +74,7 @@ custom_variable("Jedscape_Emulation", "w3");
 private variable mode="jedscape";
 
 private variable
-  version="$Revision: 1.16 $",
+  version="$Revision: 1.17 $",
   title="",
   url_file ="",			       %  /dir/file.html
   url_host="",			       %  http://host
@@ -338,9 +338,12 @@ define find_page(url)
 
 %{{{ file download
 
-private define download_callback (fp, str)
+private define download_callback (fp, data)
 {
-   return fputs (str, fp);
+   variable len = bstrlen (data);
+   if (len != fwrite (data, fp))
+     return -1;
+   return 0;
 }
 
 private define progress_callback (fp, dltotal, dlnow, ultotal, ulnow)
