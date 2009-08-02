@@ -1,6 +1,6 @@
 % jedscape.sl
 %
-% $Id: jedscape.sl,v 1.17 2009/03/21 16:23:56 paul Exp paul $
+% $Id: jedscape.sl,v 1.18 2009/08/02 16:13:34 paul Exp paul $
 %
 % Copyright (c) 2003-2008 Paul Boekholt.
 % Released under the terms of the GNU GPL (version 2 or later).
@@ -38,6 +38,7 @@ catch OpenError:
 }
 use_namespace("jedscape");
 
+private variable reference_marker=sprintf("\e[%dm", color_number("keyword1"));
 
 define jedscape_mode();
 define find_page();
@@ -74,7 +75,7 @@ custom_variable("Jedscape_Emulation", "w3");
 private variable mode="jedscape";
 
 private variable
-  version="$Revision: 1.17 $",
+  version="$Revision: 1.18 $",
   title="",
   url_file ="",			       %  /dir/file.html
   url_host="",			       %  http://host
@@ -173,7 +174,7 @@ private define filter_html()
 	()=replace_match("", 0);
 	
 	list_append(href_begin_marks, create_user_mark());
-	insert("\e[29m");
+	insert(reference_marker);
 	if (re_fsearch("</a>"))
 	  ()=replace_match("\e[0]", 0);
 	else
@@ -662,14 +663,14 @@ define view_source()
 
 define next_reference()
 {
-   go_right (fsearch("\e[29m"));
+   go_right (fsearch(reference_marker));
 }
 
 define previous_reference()
 {
    if (bsearch("\e[0]"))
      {
-	go_right(bsearch("\e[29m"));
+	go_right(bsearch(reference_marker));
      }
 }
 
