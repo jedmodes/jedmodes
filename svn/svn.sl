@@ -3,8 +3,8 @@
 % 
 % :Date:      $Date: 2008/02/19 13:26:01 $
 % :Version:   $Revision: 1.24 $
-% :Copyright: (c) 2003,2006 Juho Snellman
-%                 2007      Guenter Milde
+% :Copyright: © 2003,2006 Juho Snellman
+%               2007      Günter Milde
 %
 % (Standard MIT/X11 license follows)
 % 
@@ -116,7 +116,8 @@
 %   ----------------------------   ---------------   
 %   SVN_executable                 "svn"
 %   CVS_executable                 "cvs"
-%   SVN_set_reserved_keybindings   0
+%   GIT_executable		   "git"
+%   VC_set_reserved_keybindings   0
 %
 % See the definition below or 'Help>Describe Variable' for details.
 %    
@@ -175,6 +176,10 @@
 % 	     * re-open instead of reload buffers to avoid 
 % 	       "file changed on disk" questions
 % 2008-05-05 * Use -u option for SVN status (show externally updated files)
+% 2009-08-31 * Add GIT support,
+% 	     * rename SVN_set_reserved_keybindings to VC_*,
+% 	     * add display filter(s) to mode menu
+% 	     * BUGFIX: "subtract file" removed the local copy with SVN!
 % 	     
 %                           
 % TODO
@@ -241,19 +246,29 @@ custom_variable("SVN_executable", "svn");
 %!%-
 custom_variable("CVS_executable", "cvs");
 
-% command string for the svk version control system
+% command string for the SVK version control system
 custom_variable("SVK_executable", "svk");
 
-% root of the local svk version control system repository
+% root of the local SVK version control system repository
 custom_variable("SVK_root", expand_filename("~/.svk"));
 if (file_status(SVK_root) != 2 and getenv("SVKROOT") != NULL)
     SVK_root = getenv("SVKROOT");
 
+%!%+
+%\variable{GIT_executable}
+%\synopsis{The location of the GIT executable}
+%\usage{variable GIT_executable = "git"}
+%\description
+%  Name or path to the GIT command line client
+%\seealso{vc_list_dir, vc_diff_buffer}
+%!%-
+custom_variable("GIT_executable", "git");
+
 
 %!%+
-%\variable{SVN_set_reserved_keybindings}
+%\variable{VC_set_reserved_keybindings}
 %\synopsis{Set up reserved keybindings for SVN actions in the Global map?}
-%\usage{variable SVN_set_reserved_keybindings = 1}
+%\usage{variable VC_set_reserved_keybindings = 0}
 %\description
 % By default, the initialization routines set up Global keybindings,
 % using the reserved prefix (defaults to C-c). Setting this
@@ -264,7 +279,7 @@ if (file_status(SVK_root) != 2 and getenv("SVKROOT") != NULL)
 % the SVN functions are accessible via the "File>Version Control" menu popup.
 %\seealso{vc_list_dir, vc_diff_dir}
 %!%-
-custom_variable("SVN_set_reserved_keybindings", 0);
+custom_variable("VC_set_reserved_keybindings", 0);
 
 private variable diff_buffer = "*VC diff*";
 private variable dirlist_buffer = "*VC directory list*";
@@ -302,10 +317,12 @@ private define set_buffer_dirname(dir)
 
 % Re-open file \var{file}.
 % 
-% In contrast to reload_buffer(), reopen_file() takes a (full) filename as argument.
+% In contrast to reload_buffer(), reopen_file() takes a (full) filename as
+% argument.
 % 
 % To prevent questions about changed versions on disk, it avoids switching
-% to the buffer. Also, it closes the buffer and re-loads the file with find_file(). 
+% to the buffer. Also, it closes the buffer and re-loads the file with
+% find_file(). 
 % 
 % Does nothing if file is up-to-date or not attached to any buffer.
 static define reopen_file(file)
@@ -370,6 +387,8 @@ private define get_vc_system(dir)
      return "svn";
    if (file_status(path_concat(dir, "CVS")) == 2)
      return "cvs";
+   if (0 == system(sprintf("cd %s; git log -1", dir)))
+      return "git";
    if (is_svk_dir(dir))
      return "svk";
    % <Add other version control systems here>
@@ -399,6 +418,10 @@ private define require_buffer_file_in_vc() { %{{{
      }
      { case "svk": % there is no quick-check under svk, just try
 	file_under_vc = 1; 
+     }
+     { case "git": % where is a list of git return values?
+	file_under_vc = 
+	   (shell_command(GIT_executable +" status " + file) != 256);
      }
    !if (file_under_vc) {
       if (get_y_or_n("File " + file + " not found in VC entries. Add it?"))
@@ -432,6 +455,7 @@ define do_vc(args, dir, use_message_buf, signal_error) %{{{
      { case "cvs": executable = CVS_executable; }
      { case "svn": executable = SVN_executable; }
      { case "svk": executable = SVK_executable; }
+     { case "git": executable = GIT_executable; }
    
    % Quote arguments and join to command string
    args = array_map(String_Type, &escape_arg, args);
@@ -525,6 +549,7 @@ static define vc_commit_finish()
    go_left_1();
    variable msg = bufsubstr();
    set_buffer_modified_flag(0);
+   msg = str_quote_string(msg, "\\'", '\\');
    % show(msg);
    
    % now commit to VC
@@ -877,6 +902,7 @@ private define dirlist_extract_filename() %{{{
    flag_cols["cvs"] = 1; 
    flag_cols["svn"] = 19; 
    flag_cols["svk"] = 3; 
+   flag_cols["git"] = 3;
 
    % get number of leading info columns for used VC system
    flag_cols = flag_cols[get_vc_system(dir)];
@@ -1090,7 +1116,7 @@ public define vc_subtract_selected() %{{{
      { case "svn": 
 	   tmpfile = make_tmp_file(dir+file);
 	   () = rename_file(file, tmpfile);
-	   do_vc(["remove", "--force", file], dir, 1, 1); 
+	   do_vc(["remove", "--force", "--keep-local", file], dir, 1, 1); 
 	   () = rename_file(tmpfile, file);
      }
      { case "svk": 
@@ -1248,6 +1274,12 @@ public define vc_menu_callback(menu) { %{{{
 }
 %}}}
 
+#ifexists set_matching_hidden
+static define hide_unknown_files() 
+{
+   set_matching_hidden(1, "^\?"R);
+}
+
 static define vc_list_menu_callback(menu) { %{{{
    menu_append_item(menu, "&add file", "vc_add_selected");
    menu_append_item(menu, "&commit file", "vc_commit_selected");
@@ -1259,6 +1291,8 @@ static define vc_list_menu_callback(menu) { %{{{
    
    menu_append_separator(menu);
    
+   if (is_defined("svn->hide_unknown_files"))
+      menu_append_item(menu, "&hide unknown files", "svn->hide_unknown_files");
    menu_append_item(menu, "&toggle Mark", "svn->toggle_marked");
    menu_append_item(menu, "Unmark all", "vc_unmark_all");
    menu_append_separator(menu);
@@ -1324,7 +1358,7 @@ variable kmap = "svn-list";
 }
 %}}}
 
-if (SVN_set_reserved_keybindings) {
+if (VC_set_reserved_keybindings) {
    keymap_init();
 }
 %}}}
@@ -1336,7 +1370,7 @@ if (SVN_set_reserved_keybindings) {
 
 private variable log_mode = "vc-log";
 % >> User Survey: Which key should close this buffer and trigger the commit?
-% > _Reserved_Key_Prefix + c      % J�rg Sommer
+% > _Reserved_Key_Prefix + c      % Jörg Sommer
 % > Key_Esc or ^W	       	  % Joachim Schmitz
 % 
 % IMO, Key_Esc is not suited as it is usually an "abort" key
