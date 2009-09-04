@@ -48,6 +48,7 @@
 % 2.3   2007-12-20 standard color-name "trailing_whitespace"
 % 		   implement Jörg Sommer's fix for DFA highlight under UTF-8
 % 2.3.1 2009-01-26 don't hightlight whitespace in first (diff's ±) column
+% 2.3.2 2009-09-04 prepend buffer_dir to relative source file paths
 %
 % Usage
 % -----
@@ -486,18 +487,20 @@ define diff_remove_file()
 % Get path of source file (If 'new' is true, new file, else old file.
 define diff_get_source_file_name(new)
 {
-   variable marker, endcol, name;
+   variable marker, endcol, name, dir;
    if (new)
      marker = "+++ ";
    else
      marker = "--- ";
-   push_spot(); % save current position
+   push_spot();
    diff_top_of_file();
    () = bol_fsearch(marker);
-   name = line_as_string();
-   endcol = is_substr(name, "\t") - 2;
-   name = name[[4:endcol]];
-   pop_spot(); % restore point position
+   name = line_as_string()[[4:]]; % trim leading marker
+   name = strtrim(strtok(name, "\t")[0]); % trim trailing date
+   pop_spot();
+   % prepend buffer dir to relative path names
+   ( , dir, , ) = getbuf_info();
+   name = path_concat(dir, name);
    !if (file_status(name) == 1)
      name = read_with_completion("Please adjust path:", "", name, 'f');
    return name;
