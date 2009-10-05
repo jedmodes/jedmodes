@@ -38,7 +38,7 @@
 % 	      	    bugfix: extract_line_no gave error with filenames like
 % 	      	    	    00debian.sl.
 % 2005-05-13  1.3.1 filelist_open_file_with() now checks whether the file is
-%                   a directory and (calls filelist_list_dir in this case)
+%                   a directory and calls filelist_list_dir in this case.
 %                   Thus, a directory ".lyx" will not be opened as a lyx file
 % 2005-06-01  1.4   extract_filename() now uses whitespace as default delimiter
 % 2005-11-08  1.4.1 changed _implements() to implements()
@@ -59,10 +59,10 @@
 % 	      	      - "smart" fit_window() for files openend from filelist
 % 	      	      - localise `FileList_Cleanup' with blocal var
 % 	      	        and optional argument `close'
-% 	      	      - return to the filelist, if a buffer 
+% 	      	      - return to the filelist, if a buffer
 % 	      	        opened from there is closed with close_buffer()
 % 	      	    * filelist_open_in_otherwindow() (request by Lechee Lai)
-% 	      	      open file, return focus to filelist 
+% 	      	      open file, return focus to filelist
 % 	      	    * highlight rule for directories listed with `ls -l`
 % 	      	    * locate(): dont't close list if going to a directory
 % 2007-04-23  1.7.2 * filelist_view_file(): never close calling filelist
@@ -80,6 +80,8 @@
 % 	      	    * separate function filelist->get_default_cmd(String filename)
 % 2008-06-18  1.7.10  use call_function() instead of runhooks()
 % 2008-12-16  1.8   * use `trash` cli for deleting (if available and set)
+% 2009-10-05  1.8.1 * bugfix: pass name of calling buffer to _open_file()
+% 	      	      as it may be already closed.
 
 
 % TODO
@@ -87,7 +89,7 @@
 % 	* write a trash.sl mode (based on the `trash` Python utility
 % 	  and the FreeDesktop.org Trash Specification e.g. at
 %	  http://www.ramendik.ru/docs/trashspec.html)
-% 	
+%
 % 	* more bindings of actions: filelist_cua_bindings
 %       * copy from filelist to filelist ...
 %         ^C copy : cua_copy_region und copy_tagged (in separaten buffer)
@@ -110,10 +112,10 @@
 % * Place filelist.sl and required files in your library path.
 %
 % * Use filelist_list_dir() to open a directory in the "jed-file-manager"
-% 
+%
 % * To make file finding functions list the directory contents
 %   if called with a directory path as argument (instead of reporting an
-%   error), copy the content of the INITALIZATION block below 
+%   error), copy the content of the INITALIZATION block below
 %   (without the preprocessor #<INITALIZATION> lines) into your
 %   .jedrc (or jed.rc) (or use the "make_ini" and "home-lib" modes from
 %   jedmodes.sf.net)
@@ -152,7 +154,7 @@ autoload("filelist_do_rename_regexp", "filelistmsc");
 
 % Recommended for Trash-can compliance: http://www.andreafrancia.it/trash/
 %   An interface to the FreeDesktop.org Trash Specification (used by
-%   KDE and XFCE) provided via the `trash` CLI 
+%   KDE and XFCE) provided via the `trash` CLI
 %   (used if found on the system PATH).
 
 
@@ -163,7 +165,8 @@ provide("filelist");
 implements("filelist");
 variable mode = "filelist";
 
-% --- Custom Variables ----------------------------------------------------
+% Custom Variables 
+% ----------------
 
 %!%+
 %\variable{FileList_Action_Scope}
@@ -228,10 +231,10 @@ custom_variable("FileList_max_window_size", 1.0);  % my default is full screen
 % "trash-cli" (to call the `trash` command line utility).
 % The empty string "" means real deleting.
 % \notes
-%  Desktop users might want to set this to "trash-cli" or 
+%  Desktop users might want to set this to "trash-cli" or
 %  "~/local/share/Trash/files" (see the Desktop Trash Can Specification
 %  http://freedesktop.org/wiki/Standards_2ftrash_2dspec).
-%  
+%
 %  A path value will be expanded with \sfun{expand_filename}.
 %  It is checked for existence in \sfun{filelist_delete_tagged}.
 %\seealso{filelist_mode, filelist_delete_tagged}
@@ -239,8 +242,8 @@ custom_variable("FileList_max_window_size", 1.0);  % my default is full screen
 custom_variable("FileList_Trash_Bin", "~/local/share/Trash/files");
 
 % Check and expand:
-if (andelse{FileList_Trash_Bin == "trash-cli"} 
-      {search_path_for_file(getenv("PATH"), "trash", ':') == NULL}) 
+if (andelse{FileList_Trash_Bin == "trash-cli"}
+      {search_path_for_file(getenv("PATH"), "trash", ':') == NULL})
    % trash CLI not available, try Trash dir:
    FileList_Trash_Bin = "~/.local/share/Trash/files";
 
@@ -262,10 +265,12 @@ if (getenv("DISPLAY") != NULL) % assume X-Windows running
    FileList_Default_Commands[".dvi"]     = "xdvi";
    FileList_Default_Commands[".dvi.gz"]  = "xdvi";
    FileList_Default_Commands[".eps"]     = "gv";
+   FileList_Default_Commands[".gnumeric"]     = "gnumeric";
    FileList_Default_Commands[".gif"]     = "display";
    % FileList_Default_Commands[".gnuplot"] = "gnuplot -persist";
-   FileList_Default_Commands[".html"]    = "sensible-browser";
-   FileList_Default_Commands[".htm"]     = "sensible-browser";
+   FileList_Default_Commands[".html"]    = "firefox";
+   FileList_Default_Commands[".xhtml"]   = "firefox";
+   FileList_Default_Commands[".htm"]     = "firefox";
    FileList_Default_Commands[".ico"]     = "display";
    FileList_Default_Commands[".jpg"]     = "display";
    FileList_Default_Commands[".jpeg"]    = "display";
@@ -277,9 +282,9 @@ if (getenv("DISPLAY") != NULL) % assume X-Windows running
    FileList_Default_Commands[".ps"]      = "gv";
    FileList_Default_Commands[".ps.gz"]   = "gv";
    FileList_Default_Commands[".sk"]      = "sketch";
-   FileList_Default_Commands[".svg"]     = "inkview";
+   FileList_Default_Commands[".svg"]     = "inkscape";
    FileList_Default_Commands[".xpm"]     = "display";
-} 
+}
 
 static variable listing = "listing";
 static variable FileListBuffer = "*file-listing*";
@@ -467,7 +472,7 @@ public define filelist_make_directory()
 }
 
 % Delete file whose path is given on `line'
-% 
+%
 % Depending on the value of FileList_Trash_Bin, the file or dir is either
 %  a) put to the trash bin via `trash`
 %  b) copied to the trash folder
@@ -478,7 +483,7 @@ static define filelist_delete_file(line)
    variable file = extract_filename(line);
    if (listing->get_confirmation("Delete " + file) != 1)
      return 0;
-   
+
    % a) use the `trash` cli:
    if (FileList_Trash_Bin == "trash-cli") {
       if (system("trash " + file) == 0) % success
@@ -584,12 +589,9 @@ public define filelist_reread()
 %!%-
 public define filelist_list_dir() % ([dir], ls_cmd="listdir")
 {
-   % get optional arguments
+   % get arguments
    variable dir, ls_cmd;
    (dir, ls_cmd) = push_defaults( , "listdir", _NARGS);
-
-   variable calling_dir = buffer_dirname();
-
    if (dir == NULL)
      dir = read_with_completion("Open directory:", "", "", 'f');
    % make sure there is a trailing directory separator
@@ -598,6 +600,7 @@ public define filelist_list_dir() % ([dir], ls_cmd="listdir")
    dir = expand_filename(path_concat(buffer_dirname(), dir));
    if (file_status(dir) != 2)
      error(dir + " is not a directory");
+
    % create (or reuse) the buffer
    popup_buffer(dir, FileList_max_window_size);
    setbuf_info("", dir, dir, 0);
@@ -624,9 +627,6 @@ public define filelist_list_dir() % ([dir], ls_cmd="listdir")
 	% write_table([[8,[0:7],[9:length($1)-1]],*])
      }
    bob;
-   % set point to the previous directory (when going up or using navigate_back)
-   (calling_dir, ) = strreplace (calling_dir, buffer_dirname(), "", 1);
-   () = fsearch(calling_dir);
 
    define_blocal_var("generating_function", [_function_name, dir]);
    fit_window(get_blocal("is_popup", 0));
@@ -655,9 +655,9 @@ static define filelist_close_buffer_hook(buf)
 {
    !if (buffer_visible(buf))
      return;
-   
+
    variable calling_buf = get_blocal("calling_buf", "");
-     
+
    if (bufferp(calling_buf))
      {
 	go2buf(calling_buf);
@@ -668,42 +668,49 @@ static define filelist_close_buffer_hook(buf)
 
 % open file|directory|tar-archive, goto line number
 % return success
-private define _open_file(filename, line_no)
+private define _open_file(filename, line_no, calling_buf)
 {
-   variable newbuf, buf = whatbuf(), fit = (get_blocal("is_popup", 0) != 0);
-   
-   ERROR_BLOCK { return 0; }
-   
-   if (file_status(filename) == 2)        % directory
-     filelist_list_dir(filename);
+   variable newbuf, fit = (get_blocal("is_popup", 0) != 0);
+
+   try {
+      % directory
+      if (file_status(filename) == 2) {
+	 filelist_list_dir(filename);
+	 % set point to the previous directory (when going up)
+	 variable last_dir = path_basename(strtrim_end(calling_buf, Dir_Sep));
+	 () = fsearch(last_dir + Dir_Sep);
+      }
+      % tar archive
 #ifexists check_for_tar
-   else if (check_for_tar(filename)) % tar archive
-     tar(filename, 0);               % open in tar-mode, read-write
+      else if (check_for_tar(filename))
+	 tar(filename, 0);               % open in tar-mode, read-write
 #endif
-   else
-     {
-	% open file in second window
-	() = find_file(filename);
-	newbuf = whatbuf();
-	% save return data in blocal variables
-	define_blocal_var("close_buffer_hook", &filelist_close_buffer_hook);
-	define_blocal_var("calling_buf", buf);
-	% fit window (eventually closing the filelists window)
-	if (fit)
-	  {
-	     fit_window(FileList_max_window_size);
-	     % Shrink the filelist buffer, if there is excess space
-	     if (nwindows > 1)
-	       {
-		  pop2buf(buf);
-		  fit_window(window_info('r'));
-		  pop2buf(newbuf);
-	       }
-	  }
-     }
-   if (line_no)                      % line_no == 0 means don't goto line
-     goto_line(line_no);
-   return 1;
+      % normal file
+      else {
+	 % open file in second window
+	 () = find_file(filename);
+	 newbuf = whatbuf();
+	 % save return data in blocal variables
+	 define_blocal_var("close_buffer_hook", &filelist_close_buffer_hook);
+	 define_blocal_var("calling_buf", calling_buf);
+	 % fit window (eventually closing the filelists window)
+	 if (fit)
+	   {
+	      fit_window(FileList_max_window_size);
+	      % Shrink the filelist buffer, if there is excess space
+	      if (nwindows > 1)
+		{
+		   pop2buf(calling_buf);
+		   fit_window(window_info('r'));
+		   pop2buf(newbuf);
+		}
+	   }
+      }
+      if (line_no)                      % line_no == 0 means don't goto line
+	 goto_line(line_no);
+      return 1;
+   }
+   catch AnyError: return 0;
 }
 
 %!%+
@@ -735,6 +742,8 @@ public define filelist_open_file() % (scope=0, close=FileList_Cleanup)
    variable line_numbers = array_map(Int_Type, &extract_line_no, lines);
 
    % close the calling buffer (see also FileList_Cleanup)
+   % (Do this before opening the new one to keep Navigation_List in
+   % correct order).
    switch (close)
      % case 0: do not close calling buffer
      { case 1:
@@ -742,8 +751,8 @@ public define filelist_open_file() % (scope=0, close=FileList_Cleanup)
 	  close_buffer(buf);
      }
      { case 2: close_buffer(buf);}
-
-   () = array_map(Int_Type, &_open_file, filenames, line_numbers);
+   
+   () = array_map(Int_Type, &_open_file, filenames, line_numbers, buf);
 }
 
 public define filelist_open_in_otherwindow()
@@ -785,13 +794,13 @@ public define filelist_view_file()
    view_mode();
 }
 
-static define get_default_cmd(filename) 
+static define get_default_cmd(filename)
 {
    variable extension = path_extname(filename);
    % double extensions:
    if (extension == ".gz") % some programs can handle gzipped files
      extension = path_extname(path_sans_extname(filename)) + extension;
-   
+
    return FileList_Default_Commands[extension];
 }
 
@@ -806,13 +815,13 @@ static define get_default_cmd(filename)
 % If \var{ask} = 0, use default without asking.
 %\seealso{filelist_mode, filelist_open_file, system, run_program}
 %!%-
-public define filelist_open_file_with() % (ask = 1)
+public define filelist_open_file_with() % (ask=1)
 {
    variable ask = push_defaults(1, _NARGS);
 
    variable filename = extract_filename(listing_list_tags(0)[0]);
    variable cmd = get_default_cmd(filename);
-   
+
    if (ask)
      cmd = read_mini(sprintf("Open %s with (Leave empty to open in jed):",
 			     filename), "", cmd);
@@ -826,6 +835,36 @@ public define filelist_open_file_with() % (ask = 1)
    else
       () = run_program(cmd + " " + filename);
 }
+
+
+#ifexists ffap
+public define ffap_with() % (ask=1)
+{
+   variable ask = push_defaults(1, _NARGS);
+
+   % Simple scheme to separate a path or URL from context
+   % will not work for filenames|URLs with spaces or "strange" characters.
+   variable filename = get_word("-a-zA-z_.0-9~/+:?=&\\");
+   filename = strtrim_end(filename, ".+:?");
+   if (filename == "")
+      return;
+   
+   variable cmd = get_default_cmd(filename);
+
+   if (ask)
+     cmd = read_mini(sprintf("Open %s with (Leave empty to open in jed):",
+			     filename), "", cmd);
+   
+   if (cmd == "")
+      return ffap();
+   
+   () = chdir(buffer_dirname());
+   if (getenv("DISPLAY") != NULL) % assume X-Windows running
+      () = system(cmd + " " + filename + " &");
+   else
+      () = run_program(cmd + " " + filename);
+}
+#endif
 
 #ifexists grep
 %!%+
@@ -857,7 +896,7 @@ create_syntax_table(mode);
 dfa_define_highlight_rule(".*" + Dir_Sep + "$", "keyword", mode);
 dfa_define_highlight_rule("^d[\\-r][\\-w]x.*$", "keyword", mode); % with "ls -l"
 % backup copies
-dfa_define_highlight_rule(".*~$", "comment", mode); 
+dfa_define_highlight_rule(".*~$", "comment", mode);
 % Bugfix for high-bit chars in UTF-8
 % render every char outside the range of printable ASCII chars as normal
 dfa_define_highlight_rule("[^ -~]+", "normal", mode);
