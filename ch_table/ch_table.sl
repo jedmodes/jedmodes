@@ -45,13 +45,14 @@
 % 	      	    with a common Chartable_Unicode_Data_Dir custom var.
 % 	      	    Autogess value (with Debian defaults) if invalid.
 % 2008-11-06  2.5.1 Highlight NamesList.txt,
-% 	      	    New public functions ct_list_unicode_blocks(), 
+% 	      	    New public functions ct_list_unicode_blocks(),
 % 	      	    ct_find_unicode_character, ct_list_unicode_characters(),
 % 	      	    and describe_character()
 % 2008-12-16  2.5.2 Trim Edit>Char_Table menu
 % 	      	    (use "List Unicode Blocks" for not so often needed blocks).
 % 2009-01-26  2.5.3 Better Fallback if Unicode Data files are missing
-% 	      	    
+% 2009-10-05  2.5.4 Insert to original buf after search with "find character".
+%
 %
 % TODO: * apropos for character names and table names
 %       * make combining characters visible (tricky)
@@ -86,7 +87,7 @@ static define ct_load_popup_hook(menubar)
    variable pos = "&Key Macros", menu = "Global.&Edit";
    if (_slang_utf8_ok) {
       menu_insert_popup(pos, menu, "Char &Table");
-      menu_set_select_popup_callback(menu+".Char &Table", 
+      menu_set_select_popup_callback(menu+".Char &Table",
 				     &ch_table->ct_menu_callback);
    } else {
       menu_insert_item(pos, menu, "Char &Table", "special_chars");
@@ -160,14 +161,14 @@ custom_variable("Chartable_Tables", [
 %\usage{variable Chartable_Unicode_Data_Dir = "~/.unicode")}
 %\description
 %  Full path to a directory with local copies of the files
-%  `Blocks.txt' and `NamesList.txt' from 
+%  `Blocks.txt' and `NamesList.txt' from
 %     http://unicode.org/Public/UNIDATA/
 %  containing the names and description of all Unicode blocks and
 %  code points.
 %\notes
 %  On Debian GNU/Linux, these files are provided by the packages perl-modules
 %  (in /usr/share/perl/*/unicore/) or unicode-data (in /usr/share/unicode/).
-%  If the specified dir is invalid but not the empty string "", these 
+%  If the specified dir is invalid but not the empty string "", these
 %  locations are probed during the evaluation of ch_table.sl.
 %\seealso{ch_table, ct_describe_character, ch_table->ct_unicode_block}
 %!%-
@@ -178,11 +179,11 @@ if (andelse{Chartable_Unicode_Data_Dir != ""}
     {file_status(Chartable_Unicode_Data_Dir) != 2}) {
    private variable unidata_dir, unidata_dirs = ["/usr/share/unicode"];
    % add versioned dir from perl-modules(failsave in case glob() is undefined)
-   try 
+   try
       unidata_dirs = [glob("/usr/share/perl/*/unicore"), unidata_dirs];
    catch UndefinedNameError:
      ;
-   
+
    foreach unidata_dir (unidata_dirs)
       if (file_status(unidata_dir) == 2) {
 	 Chartable_Unicode_Data_Dir = unidata_dir;
@@ -463,8 +464,10 @@ static define ct_goto_char() % ([ch])
 {
    !if (bufferp("*ch_table*"))
       ct_unicode_block(1);
-   else if (whatbuf() != "*ch_table*")
-      popup_buffer("*ch_table*");
+   else if (whatbuf() != "*ch_table*") {
+      sw2buf("*ch_table*");
+      % popup_buffer();
+   }
    variable max_ch = UnicodeBlocks[-1][1];
    !if (_NARGS) {
       variable msg = sprintf("Goto char (0 ... %s, base: %d): ",
@@ -890,6 +893,9 @@ public define ct_list_unicode_blocks()
 % go to Unicode character described at current line(s)
 static define ct_goto_listed_char()
 {
+   variable buf = whatbuf();
+   variable calling_buf = get_blocal_var("calling_buf", "");
+   
    push_spot();
    % Go to the number
    eol();  % alternative: if(bolp) go_left_1();
@@ -901,8 +907,12 @@ static define ct_goto_listed_char()
    pop_spot();
    % Jump to given character
    % show(nr, word);
-   if (is_nr)
+   if (is_nr) {
       ct_goto_char(nr);
+      if (get_blocal_var("calling_buf", "") == buf)
+	 set_blocal_var(calling_buf, "calling_buf");
+      delbuf(buf);
+   }
 }
 
 %!%+
@@ -910,9 +920,9 @@ static define ct_goto_listed_char()
 %\synopsis{Open description file for Unicode characters}
 %\usage{ct_list_unicode_characters()}
 %\description
-%  Open the NamesList.txt file in a buffer 
-%  (so that the common search and filter operations work). 
-% 
+%  Open the NamesList.txt file in a buffer
+%  (so that the common search and filter operations work).
+%
 %  Pressing enter will go to the described character in the char-table.
 %  Clicking on a reference will jump to the referenced character.
 %\seealso{ch_table, ct_find_unicode_character, ct_list_unicode_blocks}
@@ -920,6 +930,10 @@ static define ct_goto_listed_char()
 %!%-
 public define ct_list_unicode_characters()
 {
+   !if (bufferp("*ch_table*"))
+      ct_unicode_block(1);
+   if (whatbuf() == "*ch_table*")
+      otherwindow();
    popup_buffer("*Unicode Character Names*");
    if (bobp() and eobp()) {
       () = insert_file(NamesList_File);
@@ -940,7 +954,7 @@ public define ct_find_unicode_character()
    bol_fsearch("0000");
    isearch_forward();
 }
-   
+
 
 % Initialization
 % --------------
