@@ -26,7 +26,7 @@
 % 		   new versions of assoc_get_key() and array_sum() (JED)
 % 2.2.2 2007-10-18 fix array_value_exists() for Any_Type arrays
 % 		   documentation update
-% 2.2.3 UPUB       fallback defs of __push_list(), __pop_list()
+% 2.2.3 2009-10-05 fallback defs of __push_list(), __pop_list()
 % 		   deprecated push_list(), pop2list(),
 % 		   favour literal constructs for array<->list conversion
 
@@ -378,20 +378,22 @@ define assoc_get_key(ass, value)
 % The list type is new in SLang2
 #ifexists List_Type
 
-% since S-Lang 2.1.0, there are the intrinsic functions __push_list() and
-% __pop_list()
-
+% since S-Lang 2.1.0, there are the intrinsic functions
+% __push_list() and __pop_list()
 # if (_slang_version < 20100)
 
+
 % push list to stack
-define __push_list(lst)
+ define __push_list(lst)
+% "define" line indent to prevent auto-indexing with make-ini()
 {
    foreach (lst)
      ();
 }
 
 % pop N items from stack to a list
-define __pop_list(N)
+ define __pop_list(N)
+% "define" line indent to prevent auto-indexing with make-ini()
 {
    variable object, list = {};
    loop (N)
@@ -415,7 +417,7 @@ define __pop_list(N)
 %  variable args = {"foo ", "bar ", "uffe "};
 %  variable str = strjoin(__push_list(args));
 %#v-
-%\seealso{__push_list, __pop_list, push_array}
+%\seealso{push_array}
 %!%-
 define push_list(lst)
 {
