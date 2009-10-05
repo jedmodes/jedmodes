@@ -74,6 +74,7 @@
 % 2008-05-05 1.17.1 reload_buffer(): backup buffer (if modified and backups
 % 	     	    are not disabled) before re-loading)
 % 2008-06-18 1.18   New function get_local_var()
+% 2009-10-05 1.19   New function reopen_file()
 
 provide("bufutils");
 
@@ -755,6 +756,40 @@ public define reload_buffer()
    goto_line(line);
    goto_column_best_try(col);
    set_buffer_modified_flag(0);
+}
+
+%!%+
+%\function{reopen_file}
+%\synopsis{Re-open file \var{file}.}
+%\usage{reopen_file(file)}
+%\description
+% In contrast to \sfun{reload_buffer}, \sfun{reopen_file} takes a 
+% (full) filename as argument.
+% 
+% To prevent questions about changed versions on disk, it avoids switching
+% to the buffer. Instead, it closes the buffer and re-loads the file with
+% find_file(). 
+% 
+% Does nothing if file is up-to-date or not attached to any buffer.
+%\seealso{}
+%!%-
+define reopen_file(file)
+{
+   % Put the list of buffers in an array instead of looping over
+   % buffer_list(). This way leftovers after a `break` or `return` are 
+   % automatically removed from the stack.
+   variable buffers = [buffer_list(), pop];    
+   variable buf, dir, f, flags;
+   foreach buf (buffers) {
+      (f, dir, ,flags) = getbuf_info(buf);
+      if (dir + f == file and  flags & 4) { % file that changed on disk
+	 delbuf(buf);
+	 () = find_file(file);
+	 % try to restore the point position from the recent files cache
+	 call_function("recent_file_goto_point");   
+	 break;
+      }
+   }
 }
 
 % ------- Write the region to a file and return its name. -----------------
