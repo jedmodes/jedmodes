@@ -49,6 +49,7 @@
 % 		   implement Jörg Sommer's fix for DFA highlight under UTF-8
 % 2.3.1 2009-01-26 don't hightlight whitespace in first (diff's ±) column
 % 2.3.2 2009-09-04 prepend buffer_dir to relative source file paths
+% 2.3.3 2009-10-05 fix autoloads (requires bufutils)
 %
 % Usage
 % -----
@@ -100,6 +101,8 @@
 % S-Lang 2	     % "raw string literal"R
 require("keydefs");  % standard mode, not loaded by default
 require("treemode"); % bundled with diffmode
+autoload("bufsubfile", "bufutils.sl");
+autoload("close_buffer", "bufutils");
 
 % Use walk.sl (for returning to buffers) if it is found in the library path
 % Alternatively, http://jedmodes.sf.net/mode/navigate can be used for this.
@@ -107,9 +110,6 @@ require("treemode"); % bundled with diffmode
 require("walk");
 #endif
 
-#if (expand_jedlib_file("bufutils.sl") != "")
-autoload("bufsubfile", "bufutils.sl");
-#endif
 
 %}}}
 
