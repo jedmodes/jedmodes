@@ -1,12 +1,13 @@
 % tmtools.sl: Some semi-automatic tm style documentation generation.
 %
-% Copyright (c) 2005 Dino Leonardo Sangoi, Günter Milde
+% Copyright (c) 2005 Dino Leonardo Sangoi, Guenter Milde (milde users.sf.net)
 % Released under the terms of the GNU General Public License (ver. 2 or later)
 % 
 %             0.1 first public release (as part of mode/tm)
 % 2006-01-24  0.2 bugfix: missing autoload for bget_word()
 % 2006-02-03  0.3 bugfix: wrong source file name for string_nth_match()
 % 2006-05-26  0.3.1 fixed autoloads (J. Sommer)
+% 2009-10-05  0.3.2 bugfix: return instead of break outside loop
 % 
 % _debug_info=1;
 
@@ -29,7 +30,7 @@ autoload("c_top_of_function", "cmisc");
 private variable word_chars = "A-Za-z0-9_";
 
 % valid tm attributes (subset understood by tm2ascii() in tm.sl)
-static variable tm_attributes = "var, em";
+static variable tm_attributes = "var,em,sfun";
 
 static define tm_make_var_doc()
 {
@@ -95,7 +96,7 @@ public define tm_make_doc()
    down_1(); % dont't jump to last fun, if in first line of function
    c_top_of_function(); % goes to first opening {
    !if (re_bsearch("[]\\)\\}\\;\\>\\\"]"))
-     break;
+     return;
    if (what_char != ')')
      return;
    right(1); % leave on Stack
@@ -115,7 +116,7 @@ public define tm_make_doc()
 	(name_with_args, ) =  strreplace(name_with_args, "define ", "", 1);
 	% uncomment the next line, if you like to insert Void by default
 	% (name_with_args, ) =  strreplace(name_with_args, "define ", "Void ", 1);
-	% optional arguments
+	% optional arguments written as foo() % (bar=1, zaff=0)
 	(name_with_args, ) =  strreplace(name_with_args, "() % ", "", 1);
      }
 	
@@ -167,11 +168,9 @@ public define tm_make_doc()
 %!%-
 public define tm_set_attr() % ([attr])
 {
-   variable attr;
-   if (_NARGS)
-     attr = ();
-   else
-     attr = read_string_with_completion ("Attribute", "var", tm_attributes);
+   !if (_NARGS)
+     read_string_with_completion ("Attribute", "var", tm_attributes);
+   variable attr = ();
    insert_markup(sprintf("\\%s{", attr), "}");
 }
 
