@@ -27,6 +27,7 @@
 % 2008-01-04  1.6.2 docu fix in strsplit(), max_n not functional yet
 %                   bugfix for n_max=0 in str_re_replace()
 % 2008-12-16  1.6.3 bugfix: regexp search uses byte semantics (P. Boekholt)
+% 2009-10-05  1.7   new: str_unicode_escape().
 %
 % (projects for further functions in projects/str_utils.sl)
 
@@ -180,6 +181,32 @@ public define str_re_replace_by_line(str, pattern, rep)
    lines = array_map(String_Type, &str_re_replace_all, lines, pattern, rep);
    return strjoin(lines, "\n");
 }
+
+
+%!%+
+%\function{str_unicode_escape}
+%\synopsis{Convert escape sequence "\uHHHH" to the S-Lang syntax}
+%\usage{str_unicode_escape(str)}
+%\description
+%  Many programs use the escape sequence "\uHHHH" for a Unicode character
+%  with the hexadecimal number 0xHHHH. Therefore, some drag-and-drop of 
+%  text from another application might result in strings like
+%  "the program\u2019s \u201cweb-like\u201d structure".
+%  
+%  The corresponding S-Lang syntax is "\x{HHHH}". This function returns
+%  a string where all occurences of "\uHHHH" are converted to the S-Lang
+%  equivalent. No conversion to unicode characters takes place unless the
+%  result is interpreted as a string literal by S-Lang.
+%\seealso{str_re_replace_all}
+%!%-
+public define str_unicode_escape(str)
+{
+   str = str_re_replace_all(str, 
+			    "\\u\([0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F]\)"R,
+			    "\x{\1}"R);
+   return str;
+}
+   
 
 %!%+
 %\function{strcap}
