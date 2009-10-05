@@ -178,8 +178,9 @@
 % 2008-05-05 * Use -u option for SVN status (show externally updated files)
 % 2009-08-31 * Add GIT support,
 % 	     * rename SVN_set_reserved_keybindings to VC_*,
-% 	     * add display filter(s) to mode menu
+% 	     * add display filter(s) to mode menu,
 % 	     * BUGFIX: "subtract file" removed the local copy with SVN!
+% 2009-10-05 * Moved reopen_file() to bufutils.sl.
 % 	     
 %                           
 % TODO
@@ -208,7 +209,7 @@ append_to_hook("load_popup_hooks", &vc_load_popup_hook);
 % ============
 
 % from  http://jedmodes.sourceforge.net/
-autoload("reload_buffer", "bufutils");
+autoload("reopen_file", "bufutils");
 autoload("popup_buffer", "bufutils");
 autoload("buffer_dirname", "bufutils");
 autoload("close_buffer", "bufutils");
@@ -313,38 +314,6 @@ private define set_buffer_dirname(dir)
    variable file, name, flags;
    (file, , name, flags) = getbuf_info();
    setbuf_info(file, dir, name, flags);
-}
-
-% Re-open file \var{file}.
-% 
-% In contrast to reload_buffer(), reopen_file() takes a (full) filename as
-% argument.
-% 
-% To prevent questions about changed versions on disk, it avoids switching
-% to the buffer. Also, it closes the buffer and re-loads the file with
-% find_file(). 
-% 
-% Does nothing if file is up-to-date or not attached to any buffer.
-static define reopen_file(file)
-{
-   % Put the list of buffers in an array instead of looping over
-   % buffer_list(). This way leftovers after a `break` or `return` are 
-   % automatically removed from the stack.
-   variable buffers = [buffer_list(), pop];    
-   variable buf, dir, f, flags;
-   foreach buf (buffers)
-     {
-	(f, dir, ,flags) = getbuf_info(buf);
-	if (dir + f == file
-	    and  flags & 4 % changed one disk
-	   ) {
-	   delbuf(buf);
-	   () = find_file(file);
-	   % try to restore the point position from the recent files cache
-	   call_function("recent_file_goto_point");   
-	   break;
-	}
-     }
 }
 
 % Executing version control commands
