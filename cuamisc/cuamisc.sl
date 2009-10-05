@@ -29,6 +29,7 @@
 % 2007-05-14 1.6.2 * removed ``add_completion("cua_save_as")``
 % 	     	   * new fun jbol() (by Joerg Sommer)
 % 2007-10-23 1.6.3 * new fun cua_replace_cmd()
+% 2009-10-05 1.6.4 * documentation update for cua_escape_handler()
 
 provide ("cuamisc");
 
@@ -240,9 +241,9 @@ define cua_escape_cmd()
 %  With ALT_CHAR = 27, the Alt  key can be used as Meta-key as usual (i.e.
 %  press both ALT + <some-key>  to get the equivalent of the ESC <some-key>
 %  key sequence.
-%\seealso{cua_escape_cmd, cua_one_press_escape}
+%\seealso{cua_escape_cmd, cua_one_press_escape, Key_Esc}
 %!%-
-define cua_escape_handler ()
+define cua_escape_handler()
 {
    if (input_pending(0))
      ungetkey (27);
