@@ -181,6 +181,7 @@
 % 	     * add display filter(s) to mode menu,
 % 	     * BUGFIX: "subtract file" removed the local copy with SVN!
 % 2009-10-05 * Moved reopen_file() to bufutils.sl.
+% 2009-10-05 * fixed autoloads
 % 	     
 %                           
 % TODO
@@ -216,6 +217,7 @@ autoload("close_buffer", "bufutils");
 autoload("fit_window", "bufutils");
 autoload("strread_file", "bufutils");
 autoload("push_array", "sl_utils");
+autoload("run_function", "sl_utils");
 autoload("get_line", "txtutils");       % >= 2.7
 autoload("re_replace", "txtutils");       % >= 2.7
 require("x-keydefs");              % symbolic keyvars, including Key_Esc
