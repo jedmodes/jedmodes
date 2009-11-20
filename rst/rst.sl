@@ -86,8 +86,9 @@
 % 2.3.3 2008-05-20 * one more DFA tweak
 % 2.4   2008-06-18 * line_block()
 % 2.4.1 2008-12-16 * chdir() in rst_export(),
-% 		     as style-sheets are searched relative to the pwd
-% 2.4.2 2009-01-27 * reset cwd after rst_export()
+% 		     as style-sheets are searched relative to the pwd.
+% 2.4.2 2009-01-27 * reset cwd after rst_export(),
+% 2.4.3 2009-10-05 * use reopen_file() in rst_view() (don't ask before reload)
 % ===== ========== ============================================================
 % 
 % TODO
@@ -114,6 +115,7 @@ autoload("buffer_dirname", "bufutils");
 autoload("close_buffer", "bufutils");
 autoload("fit_window", "bufutils");
 autoload("run_buffer", "bufutils");
+autoload("reopen_file", "bufutils"); % >= 1.19
 autoload("insert_markup", "txtutils");   % >= 2.3
 autoload("insert_block_markup", "txtutils");   % >= 2.3
 autoload("mark_paragraph", "txtutils");
@@ -418,6 +420,7 @@ static define rst_view() % (format, outfile=get_outfile(format), viewer)
    % open outfile with viewer (or in a new buffer, if viewer is empty string)
    if (viewer == "")
      {
+	reopen_file(outfile);
         () = find_file(outfile);
         return;
      }
@@ -718,8 +721,12 @@ private define setup_dfa_callback(mode)
           dfa_rule($2, "rst_line");
        }
 
+   % Special Unicode characters 
+   dfa_rule(" ", "Qtrailing_whitespace"); % no-break space
+   dfa_rule("­", "Qtrailing_whitespace"); % soft hyphen
+
    % render non-ASCII chars as normal to fix a bug with high-bit chars in UTF-8
-   dfa_define_highlight_rule("[^ -~]+", "normal", mode);
+   dfa_rule("[^ -~]+", "normal");
    
    dfa_build_highlight_table(mode);
 }

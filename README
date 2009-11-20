@@ -16,6 +16,8 @@ If not stated otherwise in the individual file, all modes at Jedmodes are
 copyrighted by their respective creator and released under the 
 *GNU General Public License* (`GPL`_) 
 
+__ http://www.gnu.org/philosophy/free-sw.html
+
 No Warranty
 -----------
 
@@ -24,7 +26,6 @@ WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
 or FITNESS FOR A PARTICULAR PURPOSE.  See the `GPL`_
 for more details.
 
-__ http://www.gnu.org/philosophy/free-sw.html
 .. _GPL:  http://www.gnu.org/copyleft/gpl.html
 
 
@@ -59,11 +60,9 @@ The `libdir`_ and `make_ini`_ modes provide an jed extension framework.
 Contact
 -------
 
-Mail hints, bug reports, praise and ideas to
+Mail hints, bug reports, praise and ideas to jed-users@jedsoft.org or
+direcly to the mode's authors.
 
-   jedmodes-users@lists.sourceforge.net
+Günter Milde
 
-
-Have fun
-
-G Milde
+last change 2009-01-05

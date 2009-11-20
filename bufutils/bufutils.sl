@@ -75,6 +75,7 @@
 % 	     	    are not disabled) before re-loading)
 % 2008-06-18 1.18   New function get_local_var()
 % 2009-10-05 1.19   New function reopen_file()
+% 2009-11-20 1.20   Care for the changed require() behaviour in Jed 0.99.19
 
 provide("bufutils");
 
@@ -85,7 +86,12 @@ provide("bufutils");
 % but at least Jed >= 0.99.16 (mode_set_mode_info() with arbitrary fields)
 
 % standard (but not loaded by default):
-require("keydefs"); % symbolic constants for many function and arrow keys
+#if (_jed_version < 9919)
+  require("keydefs"); % symbolic constants for many function and arrow keys
+#else
+  require("keydefs", "Global");
+#endif
+
 % jedmodes.sf.net modes:
 autoload("get_blocal", "sl_utils");
 autoload("push_defaults", "sl_utils");

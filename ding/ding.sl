@@ -23,6 +23,7 @@
 % 	     	   request for a word the same way as no optional arg does,
 % 	     	   custom var Ding_Case_Search,
 % 	     	   failsave formatting.
+% 2009-11-20 2.5.5 Care for the changed require() behaviour in Jed 0.99.19
 %
 % Usage
 % -----
@@ -57,6 +58,17 @@
 %
 % * the grep command (with support for the -w argument, e.g. GNU grep)
 
+% Since jed 0.99.19, require (now provided by slsh) loads into the 
+% the current non-anonymous namespace if no namespace arg is used.
+#if (_jed_version < 9919)
+privat define require(feature) {
+  require(feature, "Global");
+}
+#endif
+
+% standard mode not loaded by default
+require("keydefs"); % symbolic constants for many function and arrow keys
+
 % extensions from http://jedmodes.sf.net/
 require("view");     % readonly-keymap
 require("sl_utils"); % basic stuff
@@ -68,8 +80,6 @@ autoload("get_table", "csvutils");
 autoload("insert_table", "csvutils");
 autoload("strtrans_latin1_to_utf8", "utf8helper");
 autoload("utf8_to_latin1", "utf8helper");
-% standard mode not loaded by default
-require("keydefs"); % symbolic constants for many function and arrow keys
 
 % Customisation
 % -------------

@@ -24,6 +24,7 @@
 %  	      	    (active, if variable Gnuplot_Html_Doc is defined)
 %  2009-02-16 1.1.7 clearer names for mode menu entries,
 %  	      	    gnuplot_view: If no output file defined, call gnuplot_plot.
+%  2009-11-20 1.1.8 Care for the changed require() behaviour in Jed 0.99.19
 %
 %  TODO
 %  ----
@@ -65,6 +66,14 @@
 
 % Requirements
 % ------------
+
+% Since jed 0.99.19, require (now provided by slsh) loads into the 
+% the current non-anonymous namespace if no namespace arg is used.
+#if (_jed_version < 9919)
+privat define require(feature) {
+  require(feature, "Global");
+}
+#endif
 
 % from jed's standard library
 require("comments");

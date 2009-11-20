@@ -82,6 +82,7 @@
 % 2008-12-16  1.8   * use `trash` cli for deleting (if available and set)
 % 2009-10-05  1.8.1 * bugfix: pass name of calling buffer to _open_file()
 % 	      	      as it may be already closed.
+% 2009-11-20  1.8.2 * Care for the changed require() behaviour in Jed 0.99.19
 
 
 % TODO
@@ -141,6 +142,14 @@ append_to_hook("_jed_find_file_before_hooks", &filelist_find_file_hook);
 
 % Requirements
 % ------------
+
+% Since jed 0.99.19, require (now provided by slsh) loads into the 
+% the current non-anonymous namespace if no namespace arg is used.
+#if (_jed_version < 9919)
+privat define require(feature) {
+  require(feature, "Global");
+}
+#endif
 
 % extensions from http://jedmodes.sf.net/
 require("listing");  % the listing widget, depends on datutils, view, bufutils

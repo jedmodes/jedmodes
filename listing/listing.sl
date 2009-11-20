@@ -30,6 +30,7 @@
 % 	     	     overrides the default (page_up) of the basic "view" mode
 % 2007-04-19 3.1.1 * added a "Save Listing" entry to the mode menu
 % 2009-02-16 3.1.2 * code cleanup
+% 2009-11-20 3.1.3 * Care for the changed require() behaviour in Jed 0.99.19
 %
 % TODO:  * Shift-Click tags from point to Mousepoint
 %          may be also: right-drag tags lines
@@ -38,9 +39,19 @@
 % Requirements 
 % ------------
 
+% Since jed 0.99.19, require (now provided by slsh) loads into the 
+% the current non-anonymous namespace if no namespace arg is used.
+#if (_jed_version < 9919)
+privat define require(feature) {
+  require(feature, "Global");
+}
+#endif
+
 % S-Lang >= 2.0 (introduces the List_Type datatype)
+
 % from jed's standard library
 require("keydefs"); % symbolic constants for many function and arrow keys
+
 % extensions from http://jedmodes.sf.net/
 require("view"); % readonly-keymap depends on bufutils.sl
 autoload("list_concat", "datutils");  % >= 2.1
