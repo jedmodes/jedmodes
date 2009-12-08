@@ -1,7 +1,10 @@
-% rst-outline.sl: Outline with `reStructured Text` section markup 
-% ===============================================================
-% Copyright (c) 2007 G�nter Milde
+% rst-outline.sl: Outline with `reStructuredText` section markup 
+% ==============================================================
+% 
+% Copyright (c) 2007 Günter Milde
 % Released under the terms of the GNU General Public License (ver. 2 or later)
+% 
+% .. contents:: 
 % 
 % Usage
 % -----
@@ -16,11 +19,16 @@
 % 
 % Versions
 % --------
+% 
+% .. class:: borderless
+% 
+% ===== ========== ==========================================================
 % 0.1   2007-11-20 * split from rst.sl
 %                  * allow for overline chars
 % 0.1.1 2008-01-16 * bugfix in heading()
-% 		     (for numerical arg without existing adornments)
-% 0.1.2 2008-01-22 * KP keybindings require x-keydefs
+%                    (for numerical arg without existing adornments)
+% 0.1.2 2008-01-22 * bugfix: KP keybindings require x-keydefs
+% ===== ========== ==========================================================
 % 
 % Requirements
 % ------------
@@ -32,7 +40,11 @@ require("comments");
 % extra modes (from http://jedmodes.sf.net/mode/)::
 
 autoload("string_repeat", "strutils");
+#if (_jed_version > 9918)
+require("x-keydefs", "Global");
+#else
 require("x-keydefs");
+#endif
 
 % Navigation buffer (navigable table of contents) with
 % http://jedmodes.sf.net/mode/tokenlist ::
@@ -75,22 +87,28 @@ custom_variable("Rst_Underline_Chars", "*=-~\"'`^:+#<>_");
 
 private variable Last_Adornment = "=";
 private variable blank = " \t";
-private variable uchars = str_replace_all(Rst_Underline_Chars, "-", "\\-");
+private variable uchars = str_replace_all(Rst_Underline_Chars, "-", "\-"R);
 static variable Underline_Regexp = "^\([$uchars]\)\1+[$blank]*$"R$;
 % static variable Underline_PcRegexp = "^([$uchars])\1+$blank*$"R$;
-
-% Auxiliary functions
-% ~~~~~~~~~~~~~~~~~~~
-% ::
 
 % String of sorted adornment codes, e.g. "** * = - ~ _"
 % An adornment code is a 2-char string with "<overline ch><underline ch>"
 % Used and amended with section_level()
 % (re)set from existing section titles with update_adornments()
+% ::
+
 private variable adornments = "";
 
+% Functions
+% =========
+%   
+% Auxiliary functions
+% -------------------
+% 
+%   
 % Return the length of the line (excluding whitespace).
-% auxiliary fun for is_heading_underline() and heading():
+% auxiliary fun for is_heading_underline() and heading()::
+  
 private define get_line_len()
 {
    eol(); bskip_white();
@@ -99,7 +117,8 @@ private define get_line_len()
 }
 
 % Go down exactly n lines, appending newlines if reaching end of buffer.
-% Point is left at bol.
+% Point is left at bol. ::
+  
 static define go_down_exactly(n)
 {
    loop (n - down(n))
@@ -174,11 +193,15 @@ static define has_overline()
 % Point must be at bol of underline and will stay there.
 private define what_adornment()
 {
+   !if (re_looking_at(Underline_Regexp))
+      return "  ";
    if (has_overline())
      return string_repeat(char(what_char()), 2);
    else
      return " " + char(what_char());
 }
+
+static define bsearch_heading(); % forward declaration
 
 % Return level of section heading adorned with `adornment'
 % (starting with level 1 == H1)
@@ -188,6 +211,12 @@ static define section_level(adornment)
    variable i = is_substr(adornments, adornment);
    if (i)
      return (i+1)/2;
+   if (adornment == "  " or adornment == " \n") {
+      push_spot();
+      i = bsearch_heading() + 1; % maximal allowed level
+      pop_spot();
+      return i+1; % one more than max-level
+   }
    adornments += adornment;
    return strlen(adornments)/2;
 }
@@ -276,7 +305,7 @@ private define get_adornment_code(level)
    foreach ch (ads) {
       adornment = char(ch);
       !if (is_substr(adornments, adornment)) {
-	 return adornment;
+         return adornment;
       }
    }
 }
@@ -284,7 +313,7 @@ private define get_adornment_code(level)
 
 
 % Navigation
-% ~~~~~~~~~~
+% ----------
 % ::
 
 % Go to the next section title.
@@ -368,7 +397,7 @@ static define mark_section()
 }
 
 % Editing
-% ~~~~~~~
+% -------
 % ::
 
 %!%+
@@ -428,12 +457,15 @@ static define heading() % ([level])
    if (typeof(level) == Integer_Type) { 
       % check if level is allowed
       if (level < 1)
-	 verror("Top level is 1. Level %d must be >= 1", level);
-      if (level > l_max)
-	 verror("Level %d outside of allowed levels for this heading [1,%d]", 
-		level, l_max);
-      % Get adornment code for given level 
-      adornment = get_adornment_code(level);
+         verror("Level %d not supported. Top level is 1.", level);
+      else if (level > l_max) 
+        {
+           vmessage("Level %d not supported at this place (not in [1,%d])", 
+                    level, l_max);
+           adornment = "";
+        } 
+      else 
+         adornment = get_adornment_code(level);
    }
    else
       adornment = strtrim(level);
@@ -457,6 +489,11 @@ static define heading() % ([level])
    % Delete underline
    if (re_looking_at(Underline_Regexp))
      delete_line();
+   % Abort if there is nothing new to insert
+   if (strtrim(adornment) == "") {
+      go_down_1();
+      return;
+   }
    % Get the title length
    go_up_1();
    variable len = get_line_len(); % point is left at bol
@@ -473,13 +510,19 @@ static define heading() % ([level])
 % increase (or decrease) section level by `n'
 static define promote_heading(n)
 {
-   % get current level, add n
    update_adornments();
-   go_down(2);
-   variable level = bsearch_heading() + n;
+   % move point to bol of adornment line
+   bol();
+   !if (re_looking_at(Underline_Regexp))
+      go_down_exactly(1);
+   % get current level, add n
+   variable level = section_level(what_adornment()) + n;
+   go_up_1();
    if (level < 1)
       error("Cannot promote above top-level");
+   % change adornment
    heading(level);
+   go_up(2);
 }
 
 % Rewrite heading adornments to follow the level-ordering given in a sample
@@ -560,19 +603,32 @@ public  define rst_list_routines_setup(opt)
 % =======
 % ::
 
-% hide section content and headings with a level above max_level
-%
-% * use with narrow() to fold a sub-tree
-% * use with max_level=0 to unfold (show all lines)
+% Fold whole buffer
+% 
+% Hide section content and headings with a level above max_level
+% 
+%   0: unfold (show all lines)
+%   n: hide section headings with level > n
+%   
+% * use with narrow() to fold a sub-tree (or see fold_section())
 % * a prefix argument will override \var{max_level}
 static define fold_buffer(max_level)
 {
    max_level = prefix_argument(max_level);
    push_spot();
+   
    % Undo previous hiding
    mark_buffer();
    set_region_hidden(0);
+
+   % Abort now, if we want to unfold
+   if (max_level == 0) {
+      pop_spot();
+      return;
+   }
+   
    update_adornments();
+   
    % Start: place point below first heading
    % (we cannot use next_heading() as this skips heading in line)
    bob();
@@ -580,8 +636,8 @@ static define fold_buffer(max_level)
      go_down_1();
    else
      eob;
-   % Set section content hidden, 
-   % Leave headings and underlines with a level below max-level visible
+   % Set section content hidden but
+   % leave headings and underlines with a level below max-level visible
    while (not(eobp()))
      {
         push_mark();
@@ -594,11 +650,71 @@ static define fold_buffer(max_level)
    pop_spot();
 }
 
+% Find out up to which level headings are hidden
+% Return:
+% 
+%   n<0   -n levels of headings in document, none hidden
+%   0     no hidden lines
+%   n>0   headings with level > n are hidden
+%       
+% Leaves the point at first hidden heading or last non-hidden heading
+private define get_fold_level()
+{
+   variable level, max_level=0;
+   bob();
+   do {
+      level = fsearch_heading();
+      if (level and is_line_hidden())
+         return level-1;
+      max_level = int(_max(max_level, level));
+   }
+   while (level != 0);
+   % no hidden heading
+   % test for hidden content lines
+   bob();
+   skip_hidden_lines_forward(0);
+   if (is_line_hidden())
+      return -max_level;
+   else
+      return 0;
+}
+
+% Increment buffer fold by `increment':
+%   increment > 0: increase fold-level (hide more headings)
+%   increment < 0: decrease fold-level (show more headings)
+% Calls rst->fold_buffer() and hence hides all section content.
+% 
+% * If the minimal fold level (1) is reached, decrementing is without effect.
+% * If all headings are already visible, incrementing unhides section content.
+% * If the buffer has no hidden lines, decrementing hides section content.
+static define fold_buffer_incr(increment)
+{
+   push_spot();
+   variable level = get_fold_level();
+   variable new_level = level + increment;
+   % Special cases:
+   % no hidden lines or no hidden headings: increase unhides all lines
+   if (level <= 0 and increment > 0)
+      new_level = 0;
+   % no hidden headings: decrease hides lowest level headings
+   else if (level < 0 and increment < 0)
+      new_level = increment - level;
+   % no hidden lines: decrease hides section content
+   else if (level == 0 and increment < 0)
+      new_level = 1000;
+   % minimal fold level: always show at least main headings
+   else if (new_level < 1)
+      new_level = 1;
+   vmessage("Fold_level: %d, New level: %d", level, new_level);
+   fold_buffer(new_level);
+   pop_spot();
+}
+
 % Fold current section
-% (Un)Hide section content. Toggle, if \var{max_level} is negative.
-% Point must be in section heading or underline.
+% (Un)Hide section content. 
 % (Un)hide also sub-headings below max_level.
 % max_level is relative to section level:
+%   -n: toggle folding
 %    0: unfold (show content)
 %    1: hide all sub-headings
 %    n: show n-1 levels of sub-headings
@@ -608,6 +724,7 @@ static define fold_section(max_level)
    % goto top of section
    go_down(2);
    previous_heading();
+   % Toggle, if \var{max_level} is negative.
    if (max_level < 0)
      {
         $1 = down(2);
@@ -629,9 +746,9 @@ static define fold_section(max_level)
 %   
 % Emacs outline mode bindings
 % ---------------------------
-% ::
+% 
+% emulate emacs outline bindings::
 
-% emulate emacs outline bindings
 static define emacs_outline_bindings() % (pre = _Reserved_Key_Prefix)
 {
    variable pre = push_defaults(_Reserved_Key_Prefix, _NARGS);
@@ -722,17 +839,22 @@ static define emacs_outline_bindings() % (pre = _Reserved_Key_Prefix)
 % ~~~~~~~~~~~~~~~~~~
 % 
 % Using M-up, M-down, M-left, and M-right, you can easily move entries
-% around:
+% around
 % 
-% |                            move up
-% |                               ^
-% |      (level up)   promote  <- + ->  demote (level down)
-% |                               v
-% |                           move down
-%       
-% ::
+% .. parsed-literal::
+% 
+%                           move up
+%                              ^
+%     (level up)   promote  <- + ->  demote (level down)
+%                              v
+%                          move down
+% 
+% TODO: add Alt-Cursor bindings::
 
-}
+   % local_setkey("rst->move_section_up", Key_Alt_Up);
+   % ...
+}  % end of emacs_outline_bindings()
+       
  
 % Emacs fold mode bindings
 % ------------------------
@@ -748,22 +870,92 @@ static define emacs_outline_bindings() % (pre = _Reserved_Key_Prefix)
 % :^Cf:  fold_search_forward
 % :^Cb:  fold_search_backward
 % 
+% Emacs outline mode bindings
+% ---------------------------
+% 
+% Entry: a heading and its body
+% Subtree: entry and those below it
+% 
+% outline-minor-mode-prefix: key prefix for Outline minor mode
+% 
+% outline-regexp: the regexp that matches a heading; if one uses the default
+% value for `outline-level` (the function that computes the depth of the
+% heading based on the match), the length of the match determines the depth
+% of the heading and its topic, unless there exists an overriding value in
+% `outline-heading-alist`.
+% 
+% :C-c C-n/p: move to next/previous heading line, irrespective of scope
+% :C-c C-f/b: move to next/previous heading line at same level
+% :C-c C-u: move up a level
+% :C-c C-t: like zM in Vim; show collapsed structure of headings of currently
+%          showing entries, nothing more
+% :C-c C-a: like zR in Vim; show everything
+% :C-c C-d: hides everything below the current header including its body
+% :C-c C-s: show everything below current level, inclusive
+% :C-c C-l: reduce everything below current level to collapsed headings, if
+%          currently showing -- like C-c C-t in microcosm
+% :C-c C-k: show all headings below current level 
+%          there is a subtle difference from the previous command in that 
+%          this one shows and the other hides, arriving at more or less 
+%          the same end. (Open bodies will remain open with this command.)
+% :C-c C-i: show immediate subheadings (those directly below current level)
+% :C-c C-c: hide entry
+% :C-c C-e: show entry
+% :C-c C-q: hide everything except the top N levels of heading lines (use C-u)
+% :C-c C-o: hide other (everything but this and the headings of the parents)
+% :C-c C-@: mark current subtree
+% 
+% from ttp://frontier.userland.com/tutorial/writingInOutlines
+% Outliner Basics
+% 
+% To create a new line, hit the Return key. (On Windows, that's the main Enter
+% key, not the keypad Enter key.)
+% 
+% To toggle between editing a line and selecting a line, use the keypad Enter
+% key. (On Windows, you can also use F2.)
+% 
+% To collapse and expand a line that has subordinate lines, double-click its
+% triangle, or use the + and - keys on the keypad.
+% 
+% To move a line to the right, you can drag it with the mouse (grab the triangle
+% to drag it), use the Tab key, or use ctrl-R. (That's cmd-R on Macintosh --
+% read cmd when you see ctrl.)
+% 
+% To move a line to the left, you can drag it, use shift-Tab, or ctrl-L.
+% 
+% To move a line up, drag it or use ctrl-U.
+% 
+% To move a line down, drag it or use ctrl-D.
+% 
+% To move the cursor up and down in an outline, use the arrow keys while in
+% selection mode. The left and right arrow keys treat the outline as if it's
+% flat, the up and down arrow keys move within the current level.
+% 
+% To delete a line, select it and hit the Delete key, or choose the Clear
+% command from the Edit menu.
+% 
+% For more outliner commands check out the Outliner menu in Frontier's menubar.
+%                                                   
+% 
+% 
 % Numerical Keypad bindings
 % -------------------------
 % ::
 
 static define rst_outline_bindings()
 {
-   local_setkey("rst->bskip_section",         Key_KP_9);  % Bild ^
-   local_setkey("rst->previous_heading",      Key_KP_8);  % ^
-   local_setkey("rst->promote_heading(-1)",   Key_KP_4);  % < promote
-   local_setkey("rst->mark_section",          Key_KP_5);  % .
-   local_setkey("rst->promote_heading(1)",    Key_KP_6);  % > demote
-   local_setkey("rst->next_heading",          Key_KP_2);  % v
-   local_setkey("rst->skip_section",          Key_KP_3);  % Bild v
-   % local_setkey("rst->promote_heading(1)",  Key_KP_Add);      % + demote
-   % local_setkey("rst->promote_heading(-1)", Key_KP_Subtract); % - promote
-   local_setkey("rst->fold_section(-1)",      Key_KP_Enter); % no subheadings
-   % local_setkey("rst->fold_section(-2)",    Key_KP_Enter);   % prime subheadings
-   % local_setkey("rst->fold_section(-10)",   Key_KP_Enter);  % all subheadings
+   local_setkey("rst->bskip_section",         Key_KP_9);  % Bild ↑
+   local_setkey("rst->previous_heading",      Key_KP_8);  %   ↑
+   local_setkey("rst->promote_heading(-1)",   Key_KP_4);  % ←       promote
+   % local_setkey("rst->hide_other",          Key_KP_5);  %   -
+   local_setkey("rst->promote_heading(1)",    Key_KP_6);  %     →   demote
+   local_setkey("rst->next_heading",          Key_KP_2);  %   ↓
+   local_setkey("rst->skip_section",          Key_KP_3);  % Bild ↓
+   % Fold section
+   local_setkey("rst->fold_section(-1)",      Key_KP_Enter); % toggle section fold
+   % Fold buffer
+   local_setkey("rst->fold_buffer_incr(1)",   Key_KP_Add);  
+   local_setkey("rst->fold_buffer_incr(-1)",  Key_KP_Subtract);  
+   % local_setkey("rst->fold_buffer(100)",      Key_KP_Delete); % fold
+   % local_setkey("rst->fold_buffer(0)",        Key_KP_0);      % unfold
 }

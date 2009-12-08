@@ -1,24 +1,24 @@
 % rst.sl: Mode for reStructured Text
 % **********************************
-% 
+%
 % Copyright (c) 2004, 2006 Guenter Milde (milde users.sf.net)
 % Released under the terms of the GNU General Public License (ver. 2 or later)
-% 
+%
 % ReStructuredText_ (from Python docutils_) is a revision of Structured
 % Text, a simple markup language that can be translated to Html and LaTeX (and
 % more, if someone writes a converter).
 % This mode turns Jed into an IDE for reStructured Text.
-% 
+%
 % .. _ReStructuredText: http://docutils.sourceforge.net/docs/rst/quickref.html
 % .. _docutils:         http://docutils.sourceforge.net/
-% 
+%
 % .. contents::
-% 
+%
 % Versions
 % ========
-% 
+%
 % .. class:: borderless
-% 
+%
 % ===== ========== ============================================================
 % 1.1   2004-10-18 initial attempt
 % 1.2   2004-12-23 removed dependency on view mode (called by runhooks now)
@@ -89,23 +89,28 @@
 % 		     as style-sheets are searched relative to the pwd.
 % 2.4.2 2009-01-27 * reset cwd after rst_export(),
 % 2.4.3 2009-10-05 * use reopen_file() in rst_view() (don't ask before reload)
+% 2.4.4 2009-12-09 are for the changed require() behaviour in Jed 0.99.19
 % ===== ========== ============================================================
-% 
+%
 % TODO
 % ====
-% 
+%
 % * jump from reference to target and back again
 % * "link creation wizard"
 % * Look at demo.txt and refine the syntax highlight
-% 
+%
 % Requirements
 % ============
-% 
-% extra modes (from http://jedmodes.sf.net/mode/)::
+%
+% from http://jedmodes.sf.net/mode/::
 
+#if (_jed_version > 9918)
+require("structured_text", "Global");  % >= 0.5
+require("rst-outline", "Global");      % outline with rst section markup
+#else
 require("structured_text");  % >= 0.5
 require("rst-outline");      % outline with rst section markup
-
+#endif
 autoload("push_defaults", "sl_utils");
 autoload("push_array", "sl_utils");
 autoload("prompt_for_argument", "sl_utils");
@@ -123,7 +128,7 @@ autoload("mark_paragraph", "txtutils");
 
 % Recommendations
 % ===============
-% 
+%
 % Jump to the error locations from output buffer::
 
 #if (expand_jedlib_file("filelist.sl") != "")
@@ -138,7 +143,7 @@ autoload("browse_url", "browse_url");
 
 % Initialization
 % --------------
-% 
+%
 % Name and Namespace
 % ===================
 % Namespace "rst" is defined in rst-outline.sl already required by this file::
@@ -244,19 +249,19 @@ custom_variable("Rst_Pdf_Viewer", "xpdf");
 % ::
 
 % defined since Jed 0-99.18
-custom_color("bold",             get_color("error"));     
-custom_color("italic",           get_color("operator"));    
+custom_color("bold",             get_color("error"));
+custom_color("italic",           get_color("operator"));
 custom_color("url",              get_color("keyword"));
 custom_color("underline",        get_color("delimiter"));
 % local extensions
 custom_color("rst_literal",      get_color("bold"));
-custom_color("rst_interpreted",  get_color("string"));    
-custom_color("rst_substitution", get_color("preprocess"));  
+custom_color("rst_interpreted",  get_color("string"));
+custom_color("rst_substitution", get_color("preprocess"));
 custom_color("rst_list_marker",  get_color("number")); % operator?
-custom_color("rst_line",         get_color("underline"));   
-custom_color("rst_reference",    get_color("keyword"));   
-custom_color("rst_target",       get_color("keyword1"));   
-custom_color("rst_directive",    get_color("keyword2"));  
+custom_color("rst_line",         get_color("underline"));
+custom_color("rst_reference",    get_color("keyword"));
+custom_color("rst_target",       get_color("keyword1"));
+custom_color("rst_directive",    get_color("keyword2"));
 
 % Internal Variables
 % ------------------
@@ -307,7 +312,7 @@ Markup_Tags["substitution"]       = [".. |", "|"];
 
 % Functions
 % =========
-% 
+%
 % Export
 % ------
 % ::
@@ -472,7 +477,7 @@ static define command_help(cmd)
 static define set_export_cmd(export_type)
 {
    variable cmd_var = export_cmds[export_type]; % variable reference
-   @cmd_var = read_mini(strup(export_type)+" export cmd and options:", 
+   @cmd_var = read_mini(strup(export_type)+" export cmd and options:",
                         "", @cmd_var);
 }
 
@@ -504,18 +509,18 @@ static define insert_directive(name)
 static define line_block()
 {
    variable mode, flags;
-   
+
    !if (is_visible_mark)
       mark_paragraph();
    % switch to special mode to "fool" comment_region:
    (mode, flags) = what_mode();
    set_mode("rst-line-block", 0);
-   
+
    comment_region();
-   
-   set_mode(mode, flags);      
+
+   set_mode(mode, flags);
 }
-   
+
 
 % Syntax Highlight
 % ================
@@ -537,23 +542,23 @@ set_syntax_flags (mode, 0);
 %%% DFA_CACHE_BEGIN %%%
 
 % Inline Markup
-% 
+%
 % The rules for inline markup are stated in quickref.html. They cannot be
 % easily and fully translated to DFA syntax, as
-% 
+%
 %  * in JED, DFA patterns do not cross lines
 %  * excluding visible patterns outside the to-be-highlighted region via
 %    e.g. [^a-z] will erroneously color allowed chars.
 %  * also, [-abc.] must be written [\\-abc\\.]
-% 
+%
 % Therefore only a subset of inline markup will be highlighted correctly.
-% 
+%
 % Felix Wiemann recommendet in a mail at Docutils-users:
-% 
+%
 %   You can have a look at docutils/parsers/rst/states.py.  It contains all
 %   the regular expressions needed to parse reStructuredText, even though
 %   they may not be in the format in which you need them.
-% 
+%
 % ::
 
 private define dfa_rule(rule, color)
@@ -563,10 +568,10 @@ private define dfa_rule(rule, color)
 
 % Inline markup start-string and end-string recognition rules
 % -----------------------------------------------------------
-% 
+%
 % If any of the conditions are not met, the start-string or end-string
 % will not be recognized or processed.
-% 
+%
 % 1. start-strings must start a text block or be immediately
 %    preceded by whitespace or one of: ' " ( [ { < - / :
 % 2. start-strings must be immediately followed by non-whitespace.
@@ -581,24 +586,24 @@ private define dfa_rule(rule, color)
 % 7. An unescaped backslash preceding a start-string or end-string will
 %    disable markup recognition, except for the end-string of inline literals.
 %    See Escaping Mechanism above for details.
-%    
+%
 % Return a regexp pattern for inline markup with string `s`.
 % Due to limitations in Jed's DFA syntax, only a part of the algorithm can
 % be reproduced:
-%    
-% * 1 and 5 not implemented: 
-%    
+%
+% * 1 and 5 not implemented:
+%
 %   * matching char would be highlighted
 %   * start|end of line or white (^|[ \t]) and ($|[ \t]) seems not to work
-%    
+%
 % * 2 and 3 extended: must not be followed by char of the start- end string
 %   so **strong emphasis** is not highlit as *emphasis*
 % * 6 OK
 % * 7 only implemented for end-string (cf. 1, 4, and 5).
-% 
+%
 % Multi-line inline-markup will not be highlighted!
 % ::
-  
+
 private define inline_rule(pat)
 {
    variable blank = " \t";
@@ -616,14 +621,14 @@ private define setup_dfa_callback(mode)
 {
    dfa_enable_highlight_cache("rst.dfa", mode);
    $1 = mode; % used by dfa_rule()
-   
+
    % Character Classes:
    variable blank = " \t";     % white space
    variable alpha = "a-zA-Z";     % alphabetic characters
    variable alnum = "a-zA-Z0-9";     % alphanumeric characters
    %  simple reference names (alphanumeric + internal [.-_])
-   variable label = "[$alnum]+([\.\-_][$alnum]+)*"R$; 
-   
+   variable label = "[$alnum]+([\.\-_][$alnum]+)*"R$;
+
    % Inline Markup
    dfa_rule(inline_rule("\*"R), "Qitalic");
    dfa_rule(inline_rule("\|"R), "Qrst_substitution");
@@ -636,7 +641,7 @@ private define setup_dfa_callback(mode)
    dfa_rule(role_re+inline_rule("`"),         "Qrst_interpreted");
    % cannot be defined as "Q", as this prevents `link`_ highlight
    dfa_rule(        inline_rule("`"),         "rst_interpreted");
-   
+
    % Literal Block marker
    dfa_rule("::[$blank]*$"$, "rst_literal");
    % Doctest Block marker
@@ -693,7 +698,7 @@ private define setup_dfa_callback(mode)
    % dfa_rule("^[$blank]*$option(, $option)*(  +|$$)"R$, "rst_list_marker");
    %  definition list
    % doesnot work as jed's DFA regexps span only one line
-   
+
    % Line Block and Table VLines
    %  false positives (any `` | ``), as otherwise table vlines would not work
    dfa_rule("[$blank]\|[$blank]"R$, "rst_line");
@@ -721,13 +726,13 @@ private define setup_dfa_callback(mode)
           dfa_rule($2, "rst_line");
        }
 
-   % Special Unicode characters 
+   % Special Unicode characters
    dfa_rule(" ", "Qtrailing_whitespace"); % no-break space
    dfa_rule("­", "Qtrailing_whitespace"); % soft hyphen
 
    % render non-ASCII chars as normal to fix a bug with high-bit chars in UTF-8
    dfa_rule("[^ -~]+", "normal");
-   
+
    dfa_build_highlight_table(mode);
 }
 dfa_set_init_callback(&setup_dfa_callback, "rst");
@@ -912,16 +917,16 @@ static define rst_menu(menu)
 
 % Rst Mode
 % ========
-% 
+%
 % ::
 
 % set the comment string
 set_comment_info(mode, ".. ", "", 0);
 % "comment string" for line-block:
-set_comment_info("rst-line-block", "| ", "", 1|4); 
+set_comment_info("rst-line-block", "| ", "", 1|4);
 
 % Modify line_is_blank() from structured_text.sl
-% let section heading underlines separate paragraphs 
+% let section heading underlines separate paragraphs
 % (rst does not require a blank line after a section title)
 define line_is_blank()
 {
@@ -930,7 +935,7 @@ define line_is_blank()
       return 1;
    return is_heading_underline();
 }
-   
+
 
 public define rst_mode()
 {
