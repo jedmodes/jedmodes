@@ -52,6 +52,7 @@
 % 	      	    (use "List Unicode Blocks" for not so often needed blocks).
 % 2009-01-26  2.5.3 Better Fallback if Unicode Data files are missing
 % 2009-10-05  2.5.4 Insert to original buf after search with "find character".
+% 2009-12-08  2.5.5 Adapt to new require() syntax in Jed 0.99.19.
 %
 %
 % TODO: * apropos for character names and table names
@@ -102,16 +103,20 @@ append_to_hook("load_popup_hooks", &ct_load_popup_hook);
 % Requirements
 % ------------
 
-% from standard lib but not loaded by all emulations
-require("keydefs");   % symbolic constants for many function and arrow keys
-
 % from slsh library (should be also in the jed library path)
 autoload("glob", "glob");
 
 % modes from http://jedmodes.sf.net
-% require("view");      % readonly-keymap  No longer used
+#if (_jed_version > 9918)
+require(keydefs, "Global"); % from standard lib but not always loaded
+require("bufutils", "Global");
+require("sl_utils", "Global");
+#else
+require("keydefs");   % symbolic constants for many function and arrow keys
 require("bufutils");  % pop up buffer, rebind, close_buffer...
 require("sl_utils");  % small helpers
+#endif
+autoload("get_word", "txtutils");
 
 % Name
 % ----
@@ -895,7 +900,7 @@ static define ct_goto_listed_char()
 {
    variable buf = whatbuf();
    variable calling_buf = get_blocal_var("calling_buf", "");
-   
+
    push_spot();
    % Go to the number
    eol();  % alternative: if(bolp) go_left_1();

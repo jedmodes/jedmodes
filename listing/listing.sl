@@ -24,36 +24,31 @@
 %    	     	     set_buffer_hook("newline_indent_hook", &my_return_hook);
 %    	     	     can be used instead. (tip by Paul Boekholt)
 % 2006-10-05 3.0   * use the new (SLang2) "list" datatype,
-% 	     	     removed obsolete static functions get_tag() and 
+% 	     	     removed obsolete static functions get_tag() and
 % 	     	     delete_tagged_lines()
 % 2007-04-17 3.1   * removed the dired-style Key_BS binding (tag&up) as this
 % 	     	     overrides the default (page_up) of the basic "view" mode
 % 2007-04-19 3.1.1 * added a "Save Listing" entry to the mode menu
 % 2009-02-16 3.1.2 * code cleanup
-% 2009-11-20 3.1.3 * Care for the changed require() behaviour in Jed 0.99.19
+% 2009-12-08 3.1.3 * adapt to new require() syntax in Jed 0.99.19
 %
 % TODO:  * Shift-Click tags from point to Mousepoint
 %          may be also: right-drag tags lines
 
 
-% Requirements 
+% Requirements
 % ------------
+%
+% * S-Lang >= 2.0 (introduces the List_Type datatype)
+% * extensions from http://jedmodes.sf.net/
 
-% Since jed 0.99.19, require (now provided by slsh) loads into the 
-% the current non-anonymous namespace if no namespace arg is used.
-#if (_jed_version < 9919)
-privat define require(feature) {
-  require(feature, "Global");
-}
+#if (_jed_version > 9918)
+require("keydefs", "Global"); % from jed's standard library
+require("view", "Global"); % readonly-keymap depends on bufutils.sl
+#else
+require("keydefs");
+require("view");
 #endif
-
-% S-Lang >= 2.0 (introduces the List_Type datatype)
-
-% from jed's standard library
-require("keydefs"); % symbolic constants for many function and arrow keys
-
-% extensions from http://jedmodes.sf.net/
-require("view"); % readonly-keymap depends on bufutils.sl
 autoload("list_concat", "datutils");  % >= 2.1
 autoload("push_defaults", "sl_utils");
 
@@ -68,7 +63,7 @@ private variable mode = "listing";
 custom_variable("ListingSelectColor", color_number("menu_selection"));
 custom_variable("ListingMarkColor", color_number("region"));
 
-% this one is for communication between different calls to 
+% this one is for communication between different calls to
 % get_confirmation
 static variable Dont_Ask = 0;
 
@@ -87,7 +82,7 @@ static define null_fun() { }
 %   If an action (e.g. deleting) on tagged lines needs a user confirmation,
 %   the function in question can use get_confirmation(prompt) instead of
 %   get_y_or_n(prompt) to offer more choices. The keybindings are a subset
-%   from jed's replace command: 
+%   from jed's replace command:
 %        y: yes,   return 1
 %        n: no,    return 0
 %        !: all,   return 1, set Dont_Ask
@@ -108,7 +103,7 @@ static define get_confirmation() % (prompt, [default])
 {
    variable key, prompt, default;
    (prompt, default) = push_defaults( , "", _NARGS);
-   
+
    if (Dont_Ask == 1)
      return 1;
 
@@ -195,7 +190,7 @@ static define tag() % (how = 1)
    % already as we wish it
    if (how == (is_tagged > 0))
      return;
-   
+
    if (how) % tag
      list_append(tags, create_line_mark(ListingMarkColor), -1);
    else % untag
@@ -218,10 +213,10 @@ static define tag_all() % (how = 1)
      narrow();
    push_spot_bob();
    switch (how)
-     { case 0: 
+     { case 0:
         set_blocal_var({}, "Tags");
      }
-     { case 1:    
+     { case 1:
         variable tags = {};
         do
           list_append(tags, create_line_mark(ListingMarkColor), -1);
@@ -233,7 +228,7 @@ static define tag_all() % (how = 1)
           tag(how);
         while (down_1());
      }
-   
+
    pop_spot();
    if (on_region)
      widen();
@@ -298,7 +293,7 @@ public  define listing_map() % (scope, fun, [args])
    variable tag, tags = (get_blocal_var("Tags")), newtags = {}, result;
 
    scope -= not(length(tags)); % -> if (scope <= 0) use current line
-   
+
    % tag current line, if we are to use it
    if (scope <= 0)
      tags = {create_user_mark()};
@@ -322,7 +317,7 @@ public  define listing_map() % (scope, fun, [args])
 	  }
 	update(1);
 	% show("calling", fun, tag);
-	try 
+	try
 	  result = @fun(line_as_string(), __push_args(args));
 	catch UserBreakError:
 	  {
@@ -441,4 +436,3 @@ public define listing_mode()
    set_buffer_hook("update_hook", &listing_update_hook); % mark current line
    run_mode_hooks(mode+"_mode_hook");
 }
-

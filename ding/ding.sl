@@ -23,7 +23,7 @@
 % 	     	   request for a word the same way as no optional arg does,
 % 	     	   custom var Ding_Case_Search,
 % 	     	   failsave formatting.
-% 2009-11-20 2.5.5 Care for the changed require() behaviour in Jed 0.99.19
+% 2009-12-08 1.8.1 Adapt to new require() syntax in Jed 0.99.19
 %
 % Usage
 % -----
@@ -57,22 +57,20 @@
 %   or the ones from the "magic dic" http://magic-dic.homeunix.net/ )
 %
 % * the grep command (with support for the -w argument, e.g. GNU grep)
-
-% Since jed 0.99.19, require (now provided by slsh) loads into the 
-% the current non-anonymous namespace if no namespace arg is used.
-#if (_jed_version < 9919)
-privat define require(feature) {
-  require(feature, "Global");
-}
-#endif
-
-% standard mode not loaded by default
-require("keydefs"); % symbolic constants for many function and arrow keys
-
-% extensions from http://jedmodes.sf.net/
-require("view");     % readonly-keymap
-require("sl_utils"); % basic stuff
+% 
+% * extensions from http://jedmodes.sf.net/
+%
+#if (_jed_version > 9918)
+require("keydefs", "Global");  % standard mode not loaded by default
+require("view", "Global");     % readonly-keymap
+require("sl_utils", "Global"); % basic stuff
+require("bufutils", "Global");
+#else
+require("keydefs");
+require("view");
+require("sl_utils");
 require("bufutils");
+#endif
 autoload("get_word", "txtutils");
 autoload("bget_word", "txtutils");
 autoload("get_buffer", "txtutils");
@@ -232,7 +230,7 @@ static define format_output()
 	% variable wc = array_map(Int_Type, &strlen, a);
 	% % variable wc = array_map(Int_Type, &string_wc, a);
 	% a = a[array_sort(wc[*, source_lang]), *];
-	
+
 	% Replace the | (alternative-bars) with newlines
 	%  tricky, as we need this independently for the two sides
 	sep = sprintf(" %s ", sep);
@@ -256,7 +254,7 @@ static define format_output()
 	insert_table(a, "n", sep);
      }
    catch AnyError:
-     { 
+     {
 	insert(str);
 	% show(e);
 	throw e.error, e.message;
@@ -404,4 +402,3 @@ public  define ding_mode()
    run_mode_hooks(mode + "_mode_hook");
    message(help_string);
 }
-
