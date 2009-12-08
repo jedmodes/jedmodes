@@ -50,7 +50,7 @@
 % 2.3.1 2009-01-26 don't hightlight whitespace in first (diff's ±) column
 % 2.3.2 2009-09-04 prepend buffer_dir to relative source file paths
 % 2.3.3 2009-10-05 fix autoloads (requires bufutils)
-% 2.3.4 2009-11-20 re for the changed require() behaviour in Jed 0.99.19
+% 2.3.4 2009-11-20 adapt to the changed require() behaviour in Jed 0.99.19
 %
 % Usage
 % -----
@@ -100,12 +100,13 @@
 
 % Jed >= 0.99.16     % custom_color()
 % S-Lang 2	     % "raw string literal"R
-#if (_jed_version < 9919)
-require("keydefs"); % standard mode, not loaded by default
+#if (_jed_version > 9918)
+require("keydefs", "Global"); % standard mode, not loaded by default
+require("treemode", "Global"); % bundled with diffmode
 #else
-require("keydefs", "Global");
+require("keydefs");
+require("treemode");
 #endif
-require("treemode"); % bundled with diffmode
 autoload("bufsubfile", "bufutils.sl");
 autoload("close_buffer", "bufutils");
 
