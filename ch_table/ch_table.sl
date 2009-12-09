@@ -108,7 +108,7 @@ autoload("glob", "glob");
 
 % modes from http://jedmodes.sf.net
 #if (_jed_version > 9918)
-require(keydefs, "Global"); % from standard lib but not always loaded
+require("keydefs", "Global"); % from standard lib but not always loaded
 require("bufutils", "Global");
 require("sl_utils", "Global");
 #else
