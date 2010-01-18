@@ -53,10 +53,10 @@
 % 2009-01-26  2.5.3 Better Fallback if Unicode Data files are missing
 % 2009-10-05  2.5.4 Insert to original buf after search with "find character".
 % 2009-12-08  2.5.5 Adapt to new require() syntax in Jed 0.99.19.
+% 2010-01-18  2.6   Make combining chars visible by NBSP as base char.
 %
 %
 % TODO: * apropos for character names and table names
-%       * make combining characters visible (tricky)
 %
 %
 % Functions and Functionality
@@ -225,6 +225,19 @@ private variable NamesList_File = path_concat(Chartable_Unicode_Data_Dir,
 private variable Blocks_File = path_concat(Chartable_Unicode_Data_Dir,
 				      "Blocks.txt");
 
+% Combining Unicode chars
+
+private variable Combining_Chars = [[0x0300:0x036F], [0x0483:0x0489], 
+				    [0x07EB:0x07F3], [0x135F	   ], 
+				    [0x1B6B:0x1B73], [0x1DC0:0x1DE6],
+				    [0x1DFE:0x1DFF], [0x20D0:0x20F0], 
+				    [0x2DE0:0x2DFF], [0x3099:0x309A], 
+				    [0xA66F:0xA672], [0xA67C:0xA67D],
+				    [0xFE20:0xFE26], [0x101FD      ], 
+				    [0x1D165:0x1D169], [0x1D16D:0x1D172], 
+				    [0x1D172:0x1D182], [0x1D185:0x1D18B], 
+				    [0x1D1AA:0x1D1AD], [0x1D242:0x1D244]
+				   ];
 
 % Functions
 % =========
@@ -272,12 +285,21 @@ static define string2int(s, base)
 % return current character (translating TAB, NL and ESC)
 private define ct_what_char()
 {
+   variable s;
    if (looking_at("\t"R))
       return '\t';
    if (looking_at("\n"R))
       return '\n';
    if (looking_at("\e"R))
       return '\e';
+   if (looking_at("\x{00A0}\t")) % NBSP without combining char
+      return what_char();
+   if (looking_at("\x{00A0}")) { % NBSP [+ combining char]
+      % go to the combining char (go_right|_left skip combining chars):
+      skip_chars("\x{00A0}");
+      bskip_chars("^\x{00A0}");
+      return what_char();
+   }
    return what_char();
 }
 
@@ -326,11 +348,9 @@ static define ct_update()
    %  left
    if (bolp)
       () = fsearch("\t");
-   % Workaround, as skip_chars("\t") skips lone combining chars too
-   while (looking_at_char('\t')) {
-      go_right_1(); % go_right skips combining chars!
-      bskip_chars("^\t");
-   }
+   % skip empty slots
+   while (looking_at_char('\t')) 
+      go_right_1();
    %  bottom
    push_spot();
    variable too_low = not(bol_fsearch_char('-'));
@@ -342,7 +362,7 @@ static define ct_update()
 
    % Get current char
    variable ch = ct_what_char();
-
+   show(ch, ct_what_char);
    % Update description
    push_spot();
    set_readonly(0);
@@ -500,8 +520,7 @@ static define ct_goto_char() % ([ch])
       ct_bob;
    loop(ch - StartChar) {
       skip_chars("^\t");
-      go_right_1(); % go_right skips combining chars!
-      bskip_chars("^\t");
+      go_right_1();
    }
    ct_update();
 }
@@ -527,19 +546,24 @@ static define insert_ch_table()
    loop(col)
       insert("-");
    % now construct/insert the table
-   for (i = StartChar - (StartChar mod CharsPerLine) ; i<=EndChar; i++)
-     {
-	if ((i) mod CharsPerLine == 0)
-	    vinsert("\n% *s", j, int2string(i, NumBase)); % first column with number
-	insert_char('\t');
-	% insert characters, symbolic notation for TAB, Newline and Escape
-	switch (i)
-	  { i < StartChar: ;}
-	  { case '\t': insert("\t"R);}
-	  { case '\n': insert("\n"R);}
-	  { case '\e': insert("\e"R);}
-	  { insert_char(i);}
-     }
+   for (i = StartChar - (StartChar mod CharsPerLine) ; i<=EndChar; i++) {
+      if ((i) mod CharsPerLine == 0)
+	 vinsert("\n% *s", j, int2string(i, NumBase)); % first column with number
+      insert_char('\t');
+      % insert characters, symbolic notation for TAB, Newline and Escape
+      switch (i)
+	{ i < StartChar: ;}
+	{ case '\t': insert("\t"R);}
+	{ case '\n': insert("\n"R);}
+	{ case '\e': insert("\e"R);}
+      % combining chars: Insert a NBSP as base char to make them visible
+	{ (wherefirst(Combining_Chars == i) != NULL): 
+	   insert_char(0x00A0); % NBSP: recommended base char
+	   insert_char(i);
+	   % TODO: add other combining chars
+	}
+	{ insert_char(i);}
+   }
    % separator
    newline();
    loop(col)
