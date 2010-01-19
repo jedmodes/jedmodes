@@ -54,6 +54,8 @@
 % 2009-10-05  2.5.4 Insert to original buf after search with "find character".
 % 2009-12-08  2.5.5 Adapt to new require() syntax in Jed 0.99.19.
 % 2010-01-18  2.6   Make combining chars visible by NBSP as base char.
+% 2010-01-19  2.6.1 Fix ct_describe_character() before "holes" in Unicode.
+% 	      	    Remove spurious debugging output
 %
 %
 % TODO: * apropos for character names and table names
@@ -307,7 +309,7 @@ private define ct_what_char()
 static define ct_describe_character(ch)
 {
    variable ch_nr = sprintf("%04X", ch);
-   variable ch_nr1 = sprintf("%04X", ch+1);
+   variable ch_nr1 = sprintf("%04X", ch)[[:0]];
 
    if (-1 == insert_file_region(NamesList_File, ch_nr, ch_nr1))
       vinsert("No description.\n\n" +
@@ -362,7 +364,6 @@ static define ct_update()
 
    % Get current char
    variable ch = ct_what_char();
-   show(ch, ct_what_char);
    % Update description
    push_spot();
    set_readonly(0);
