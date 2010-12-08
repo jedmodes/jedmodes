@@ -5,11 +5,11 @@
 %
 % Authors: Harri Pasanen <hpa@iki.fi>
 %          Brien Barton <brien_barton@hotmail.com>
-%          Guenter Milde <milde users.sourceforge.net> 
+%          Guenter Milde <milde users.sourceforge.net>
 %
 % The following keys have python specific bindings:
 % (assuming _Reserved_Key_Prefix == "^C")
-% 
+%
 %   Backspace   deletes to previous indent level
 %   : (colon)   dedents appropriately
 %   ^C#         comments region or current line
@@ -18,17 +18,17 @@
 %   ^C^C        executes the region, or the buffer if region not marked.
 %   ^C|         executes the region
 %
-% Use the python_mode_hook() for customization. 
+% Use the python_mode_hook() for customization.
 % See the online doc for python_mode() and python_mode_hook().
 %
-% Shortcomings: Does not highligt triple-quoted strings well: 
-%  
-%  * No hightlight for multi-line string literals with DFA syntax highlight.
+% Shortcomings: Does not highligt triple-quoted strings well:
+%
+%  * No highlight for multi-line string literals with DFA syntax highlight.
 %  * It works OK with """ (but NOT with ''') if DFA syntax highlight is off.
-% 
+%
 % Versions
 % --------
-% 
+%
 % 1.0 first public version (Harri Pasanen, Brien Barton)
 % 1.1 Major improvements, mostly done by Brien Barton:
 %      - execution of python code from JED
@@ -41,7 +41,7 @@
 % 1.3  - autoindent correction
 % 1.4  - Better indenting of function arguments and tuples
 %      - New keywords and builtins added (TJC)
-%      - An attempt to do pretty indenting of data structures and 
+%      - An attempt to do pretty indenting of data structures and
 %      	 parameter lists
 %      - Try to keep the lines under 80 columns and make formatting consistent
 % 1.5 (JED)
@@ -54,7 +54,7 @@
 %       - new function py_help (needs the pydoc module)
 %       - interactive python session with ishell
 %       - py_line_starts_block(), py_line_starts_subblock(), py_endblock_cmd():
-%         fix false positives with lines starting with e.g. "passport" 
+%         fix false positives with lines starting with e.g. "passport"
 %         (words that start with a keyword). (modified patch by Peter Bengtson
 %          and Jörg Sommer)
 %       - use indent_hook instead of binding the TAB key
@@ -71,10 +71,10 @@
 % 	    named namespace "pymode" (reduces namespace pollution),
 % 	    drop "py_" prefix of some static functions
 % 	    made some static functions inline code
-%	- many bugfixes after unit testing, e.g. 
+%	- many bugfixes after unit testing, e.g.
 %	    electric_colon - return 0 if colon is in a comment
 %	    dfa error flagging: allow imaginary numbers (1j or 1J)
-%	- added and updated documentation  
+%	- added and updated documentation
 % 	- leave the TAB value as is (so hard-tabs will not show as '^I' if
 % 	  indentation uses spaces)
 % 2.1.1 2007-01-18
@@ -82,14 +82,14 @@
 % 	- new function browse_pydoc_server()
 % 	- added browse_url() autoload and require("keydefs")
 % 	- replaced calculate_indent_col() with calculate_indent
-% 	- define in_literal_string() without narrow_to_region, as this 
+% 	- define in_literal_string() without narrow_to_region, as this
 % 	  does a "spurious" update.
 % 	- added True and False keywords
 % 	- py_indent_line() keeps point
 % 	- bugfix in reindent_block()
-% 2.1.2 2007-02-06 
+% 2.1.2 2007-02-06
 %       - use sprintf() instead of ""$ for `outbuf` string in py_exec()
-% 2.1.3 2007-05-14 
+% 2.1.3 2007-05-14
 %       - simplified browse_pydoc_server()
 %       - added info about DFA syntax highlight to pymode_hook doc
 % 2.1.4 2007-05-25 - add StopIteration keyword, formatting
@@ -101,12 +101,15 @@
 % 2.2   2008-12-12 - Special modes for Python help and Python output,
 % 		   - new mode-menu item "Fold by indentation",
 %                  - added autoload for view_mode() (report P. Bengtson)
+% 2.2.1 2010-12-08 - py_untab() restores point.
+%                  - Adapt py_browse_module_doc() to 2.6 doc paths.
+
 
 % TODO
 % ----
-% 
+%
 % Allow wrapping of continuation lines and in comments:
-% 
+%
 % "wrapok_hook"
 %     This hook may be used to enable automatic wrapping on a
 %     line-by-line basis.  Jed will call this hook prior to wrapping a
@@ -157,10 +160,10 @@ private variable mode = "python";
 %  level from the first indented code line. \var{Py_Indent_Level} is the
 %  default, used for the buffer-local indent-level, for a buffer
 %  without indented code lines (e.g. a new one).
-%  
+%
 %  The pre-set value of 4 spaces corresponds to the "Style Guide for Python
 %  Code" (http://www.python.org/dev/peps/pep-0008/)
-%  
+%
 %  The special value 0 means use hard tabs ("\\t") for indentation.
 %\example
 %  To have tab-indentation by default with visible tab-width of 3, write in
@@ -192,14 +195,14 @@ custom_variable("Python_Doc_Root", "/usr/share/doc/python/html/");
 %\usage{variable Python_Use_DFA = 0}
 %\description
 %  Choose the syntax highlight scheme.
-%  
+%
 %  Syntax highlight could use either a DFA syntax highlight scheme or the
 %  "traditional" one. Advantages are:
-%    
+%
 %  traditional: highlights muliti-line string literals (if enclosed in """)
-%    
-%  dfa: highlights some syntax errors (e.g. invalid number formats, 
-%       mix of Spaces and Tab in code indention, or quote with trailing 
+%
+%  dfa: highlights some syntax errors (e.g. invalid number formats,
+%       mix of Spaces and Tab in code indention, or quote with trailing
 %       whitespace at eol)
 %\seealso{python->set_highlight_scheme, enable_dfa_syntax_for_mode}
 %!%-
@@ -213,7 +216,7 @@ custom_variable("Python_Use_DFA", 0);
 %  If \sfun{python_mode_hook} is defined by the user, it will be called by
 %  \sfun{python_mode}. This provides a very flexible way for user
 %  customization. This can be used for e.g. setting of the TAB value, code
-%  indentation check or fix, buffer reformatting, or customizing the 
+%  indentation check or fix, buffer reformatting, or customizing the
 %  keybindings or syntax highlight scheme.
 %\example
 %  * Check the code indentation at startup:
@@ -224,7 +227,7 @@ custom_variable("Python_Use_DFA", 0);
 %    - untab: replace all hard tabs if indentation uses spaces
 %      This is more efficient than re-indenting to get rid of tabs.
 %      (Not only in code indentation but in the whole buffer.)
-%             
+%
 %      (Conversion of spaces to tabs is possible with
 %      a  \sfun{prefix_argument} and \sfun{py_untab}. However, this does not
 %      guarantee a non-mixed indentation, as spaces remain in places where the
@@ -247,7 +250,7 @@ custom_variable("Python_Use_DFA", 0);
 %#v-
 %    - auto: in case of mixed whitespace, reindent with global \var{Py_Indent_Level}
 %#v+
-%        define python_mode_hook() { 
+%        define python_mode_hook() {
 %           !if (python->check_indentation())
 %              python->reindent_buffer(Py_Indent_Level);
 %           % more customization...
@@ -258,8 +261,8 @@ custom_variable("Python_Use_DFA", 0);
 
 % Custom colours (pre-defined since Jed 0-99.18)
 % Make sure they have a different background as there is no foreground to see.
-custom_color("trailing_whitespace", get_color("menu"));     
-custom_color("tab",                 get_color("menu"));    
+custom_color("trailing_whitespace", get_color("menu"));
+custom_color("tab",                 get_color("menu"));
 
 % Functions
 % =========
@@ -268,37 +271,37 @@ custom_color("tab",                 get_color("menu"));
 % -----------------------------------
 
 % Skip literal string
-% 
+%
 % Skip literal string if point is at begin-quote.
 % Needed in the test if the point is in a long literal
 % string and hence in the test for continuation lines.
-% 
+%
 % Skips behind the literal string which is either
 %   one place after the end-quote, or
 %   end of buffer (unclosed long string), or
 %   end of line  (unclosed short string)
-%   
+%
 % There are 4 kinds of quotes: ''',  """, ', and " which might be nested
 % Return value:
 %   0      no end quote found
 %   1      skipped over short string (', ")
 %   3      skipped over long string (''', """)
-%   
+%
 % If the point is not at a begin-quote, move right one place
 % (to prevent e.g. an infinite `while' loop).
 static define skip_string()
 {
    variable quote, quotes = ["'''", "\"\"\"", "'", "\"", ""], quotelen,
      search_fun = [&ffind, &fsearch];
-   
+
    % determine starting quote
    foreach quote (quotes)
      if (looking_at(quote))
        break;
    quotelen = strlen(quote);
-   
+
    go_right_1();
-   
+
    % search for matching quote, check escaping
    while (@search_fun[quotelen > 1](quote))
      {
@@ -325,23 +328,23 @@ static define is_behind(line, col)
 }
 
 % Test if point is inside string literal
-% 
+%
 % parse_to_point() doesnot work, as Python allows long (i.e. line
 % spanning) strings.
 % Complicated, because there are 4 ways to mark literal strings:
-% single and triple quotes or double-quotes, (', ", ''', or """) which might 
+% single and triple quotes or double-quotes, (', ", ''', or """) which might
 % be nested. Therefore all string-literals before the point need to be
 % searched and skipped.
-% 
+%
 % The optional start_mark is used to shortcut the search. It must point to a
 % place known to be outside a string.
 static define in_literal_string() % [Mark_Type start_mark]
 {
    variable col = what_column(), line = what_line(), in_string = 0;
-   
+
    push_spot();
    EXIT_BLOCK { pop_spot(); }
-   
+
    % Scan for literal strings. If quotes are unbalanced, we are inside
    %
    %    % Alternative: Narrow the search space ...
@@ -375,7 +378,7 @@ static define in_literal_string() % [Mark_Type start_mark]
      }
    return 0;
 }
-  
+
 % Test if point is in a continuation line
 % (after line ending with \, inside long string literals, (), [], and {})
 % return zero or recommended indentation column
@@ -391,7 +394,7 @@ static define is_continuation_line()
      return 0;  % first line cannot be a continuation
    bol_skip_white();
    col = what_column();
-   
+
    % Check the various variants of continuation lines:
    %  explicit (previous line ending in \)
    eol(); go_left_1();
@@ -413,7 +416,7 @@ static define is_continuation_line()
 	switch (find_matching_delimiter(0))     % goto ), ], or }
 	  { case 0: return col + 1; }     		% unbalanced
 	  { case 1 and (what_line() > line):    % spans current line
-	     return col + 1; } 	       	      	
+	     return col + 1; }
 	  { case 1 and (what_line() == line):   % ends at current line
 	     bol_skip_white();
 	     return col + not(looking_at_char(delim)); }
@@ -422,13 +425,13 @@ static define is_continuation_line()
 }
 
 % Test if current line is an indented code line
-% 
+%
 % (use for detection, reindent,  fixing)
 % The point is left at the first non-white space
 static define is_indented_code_line()
 {
    bol_skip_white();
-   if (bolp())                % no indent 
+   if (bolp())                % no indent
      return 0;
    if (eolp())         	      % empty line
      return 0;
@@ -441,9 +444,9 @@ static define is_indented_code_line()
 
 
 %!%+
-%\function{get_indent_level}
+%\function{python->get_indent_level}
 %\synopsis{Determine the buffer-local indentation level}
-%\usage{get_indent_level()}
+%\usage{python->get_indent_level()}
 %\description
 %  Return the buffer local indent level setting (number of spaces or 0 for
 %  "use tabs"). The value is determined from
@@ -456,7 +459,7 @@ static define is_indented_code_line()
 static define get_indent_level()
 {
    variable name = "Py_Indent_Level", value = NULL;
-   
+
    % use cached value
    if (blocal_var_exists(name))
      return get_blocal_var(name);
@@ -508,7 +511,7 @@ static define get_indent_width()
 % Calling \sfun{py_indent_line} at this line (most simply by pressing Key_Tab),
 % will fix this line indentation.
 %\example
-%%  Check whitespace before saving. 
+%%  Check whitespace before saving.
 %%  In case of mixed whitespace, ask for fixing by re-indentation
 %#v+
 %   define python_save_buffer_hook(filename) {
@@ -529,7 +532,7 @@ static define check_indentation()
      pattern = "^ *\t";    % leading whitespace containing tab
    else                  % indent with tabs
      pattern = "^\t* ";    % leading whitespace containing space
-   
+
    bob();
    % check for 'wrong' character in code indentation whitespace
    while (re_fsearch(pattern))
@@ -553,7 +556,7 @@ static define check_indentation()
 % If a mix of tabs and spaces is found, the point is left at the first
 % non-white char in the offending line.
 %\example
-%  Check whitespace before saving. 
+%  Check whitespace before saving.
 %#v+
 %   define python_save_buffer_hook(filename) {
 %      !if ((what_mode(), pop) == "python")
@@ -619,13 +622,13 @@ static define line_starts_block()
 }
 
 % Parse last line(s) to estimate the correct indentation for the current line
-% 
+%
 % Used in py_indent_line, indent_line_hook (for indent_line() and
 % newline_and_indent(), and electric_colon()
 static define calculate_indent()
-{  
+{
    variable col, new_subblock, has_colon, indent_width = get_indent_width();
-   
+
    push_spot_bol();
    % Check for continuation line
    col = is_continuation_line();
@@ -642,7 +645,7 @@ static define calculate_indent()
    has_colon = line_ends_with_colon();
    % bskip continuation lines
    while (is_continuation_line())
-     go_up_1();    % no infinite recursion: line 1 is no continuation line 
+     go_up_1();    % no infinite recursion: line 1 is no continuation line
    % get indentation
    bol_skip_white();
    col = what_column();
@@ -656,16 +659,16 @@ static define calculate_indent()
 }
 
 % Indent current line
-% 
+%
 % Change the indentation of the current line using given or calculated amount
-% of whitespace. 
+% of whitespace.
 % Tab- or space-use is determined by get_indent_level() (0 -> use tabs)
 public  define py_indent_line() % (width = calculate_indent())
 {
    !if (_NARGS)
      calculate_indent();
    variable width = ();
-   
+
    push_spot();
    bol_trim();
    if (get_indent_level())
@@ -684,7 +687,7 @@ public  define py_indent_line() % (width = calculate_indent())
 %\description
 %  Increase the indentation of the current line to the next
 %  indent level.
-%  
+%
 %  A \sfun{prefix_argument} can be used to repeat the action.
 %\seealso{py_shift_right, py_shift_left, set_prefix_argument}
 %!%-
@@ -731,7 +734,7 @@ static define py_shift_region_right()
 %\description
 %  Increase the indentation of the current line to the next indent level.
 %  (Similar to a simulated tabbing).
-%  
+%
 %  The buffer local spacing of the indent levels is determined with
 %  \sfun{python->get_indent_width}.
 %
@@ -764,18 +767,18 @@ static define py_shift_line_left()
    bol_skip_white();
    variable level = (what_column()-2+indent_width)/indent_width - steps;
    vmessage("old-indent=%d, old-level=%d, new-level=%d, new-indent=%d",
-      what_column-1, (what_column-2+indent_width)/indent_width, 
+      what_column-1, (what_column-2+indent_width)/indent_width,
       level, level*indent_width);
 
    if (level < 0)
      {
-	if (eolp) 
+	if (eolp)
 	  return trim(); % empty line, trim and return
 	else
-	  throw RunTimeError, 
+	  throw RunTimeError,
 	  sprintf("Line is indented less than %d level(s)", steps);
      }
-   
+
    py_indent_line(level * indent_width);
 }
 
@@ -810,7 +813,7 @@ static define py_shift_region_left()
 %\description
 %  Decrease the indentation of the current line or (visible) region
 %  to the previous indent level. (Similar to a simulated tabbing).
-%  
+%
 %  The buffer local spacing of the indent levels is determined with
 %  \sfun{python->get_indent_width}.
 %
@@ -828,7 +831,7 @@ static define py_shift_region_left()
 %  depending on the outcome of \sfun{is_visible_mark}.
 %\seealso{py_shift_right, set_prefix_argument}
 %!%-
-public define py_shift_left() 
+public define py_shift_left()
 {
    push_spot();
    if (is_visible_mark()) {
@@ -847,7 +850,7 @@ public define py_shift_left()
 %  Replace all hard tabs ("\t") by one to eight spaces such that the total
 %  number of characters up to and including the replacement is a multiple of
 %  eight (this is also Python's TAB replacement rule).
-%  
+%
 %  With prefix argument, convert spaces to tabs and set \var{TAB} to the
 %  buffer local Py_Indent_Level.
 %\notes
@@ -858,7 +861,7 @@ public define py_shift_left()
 public  define py_untab()
 {
    variable indent, convert_to_tabs = prefix_argument(0);
-   
+   push_spot();
    mark_buffer();
    if (convert_to_tabs)
      {
@@ -867,9 +870,9 @@ public  define py_untab()
      }
    else
      TAB = 8;
-   
+
    untab();
-   
+
    if (convert_to_tabs)
      {
         vmessage("Converted spaces to tabs.");
@@ -880,6 +883,7 @@ public  define py_untab()
         vmessage("Converted all tabs to spaces.");
         define_blocal_var("Py_Indent_Level", TAB);
      }
+   pop_spot();
 }
 
 %!%+
@@ -888,7 +892,7 @@ public  define py_untab()
 %\usage{Void python->reindent_buffer(indent_level=get_indent_level())}
 %\description
 %  Normalize indentation based on the current relative indentation and
-%  \var{indent_width}.  
+%  \var{indent_width}.
 %\notes
 %  In many computer languages (like C and SLang), indentation is redundant
 %  (just a matter of style) and may therefore be completely automatized.
@@ -911,7 +915,7 @@ static define reindent_buffer() % (indent_level=get_indent_level())
    variable col, offset, comment,
      indent_width = get_indent_width(),
      indent_levels = {1}; % list of distinct start columns
-   
+
    if (indent_width == 0) % convert to tabs and TAB == 0
      {
 	TAB = 8;
@@ -931,7 +935,7 @@ static define reindent_buffer() % (indent_level=get_indent_level())
 	if (is_continuation_line())
 	  {
 	     % get deviation from last non-continuation line
-	     offset = col - indent_levels[0];  
+	     offset = col - indent_levels[0];
 	     bol_trim();
 	     % no problem, if the new indent is negative:
 	     %   indent of continuation lines is redundant and
@@ -940,15 +944,15 @@ static define reindent_buffer() % (indent_level=get_indent_level())
 	     continue;
 	  }
 	% indent
-	if (col > indent_levels[0])            
+	if (col > indent_levels[0])
 	  list_insert(indent_levels, col);
 	else
 	  % no change or dedent
-	  while (col < indent_levels[0]) 	
+	  while (col < indent_levels[0])
 	    list_delete(indent_levels, 0);
 	% Test if indent value is wrong (dedent to non-previous level)
 	if ((col != indent_levels[0]) and not comment)
-	  throw RunTimeError, 
+	  throw RunTimeError,
 	  "Inconsistent indention: unindent to non-matching level";
 	% now re-indent
 	bol_trim();
@@ -957,10 +961,10 @@ static define reindent_buffer() % (indent_level=get_indent_level())
 }
 
 % reindent the current block or all blocks that overlap with a visible region
-% 
+%
 % no provision for indent-level specification, as this would lead to
 % inconsistent indents (you can of course still
-%    define_blocal_var("Py_Indent_Level", <value>) 
+%    define_blocal_var("Py_Indent_Level", <value>)
 % before the call to python->reindent_block
 static define reindent_block()
 {
@@ -969,9 +973,9 @@ static define reindent_block()
      () = check_region(0);
    eol(); % this way the current line is also found by the bsearch
    push_spot();
-   if (is_visible_mark) % and go to beg of region  
-     pop_mark_1();     
-   
+   if (is_visible_mark) % and go to beg of region
+     pop_mark_1();
+
    % mark the start of current code block
    do
      !if (re_bsearch("^[^ \t]"))
@@ -983,7 +987,7 @@ static define reindent_block()
    do
      !if (re_fsearch("^[^ \t]"))
        {  % code block ends at eob if no non-indented code line is found
-	  eob();  
+	  eob();
 	  break;
        }
    while (andelse{is_continuation_line()}{down_1()});
@@ -1002,22 +1006,22 @@ static define reindent_block()
 %\description
 %  Normalize indentation based on the current relative indentation.
 %  Asks for the new indent level (0 for indenting with tabs).
-%  
+%
 %  Calls \sfun{python->reindent_buffer} or, if a visible region is defined,
 %  \sfun{python->reindent_block}.
 %\seealso{py_indent_line, py_untab}
 %!%-
 public  define py_reindent()
 {
-   variable new_indent 
-     = integer(read_mini("Reindent with indent-level (0 for tabs)", 
+   variable new_indent
+     = integer(read_mini("Reindent with indent-level (0 for tabs)",
 			 string(python->get_indent_level), ""));
    if (is_visible_mark)
      reindent_block(new_indent);
    else
      reindent_buffer(new_indent);
 }
-   
+
 
 % "Magic" keys
 % ------------
@@ -1030,10 +1034,10 @@ static define py_backspace_key()
    bol_skip_white();
    variable first_non_white = what_column();
    pop_spot();
-   
-   if (first_non_white == what_column() and not bolp()) 
+
+   if (first_non_white == what_column() and not bolp())
      py_shift_line_left();
-   else 
+   else
      call("backward_delete_char_untabify");
 }
 
@@ -1080,7 +1084,7 @@ static define parse_error_message()
    return file, line;
 }
 
-% Search the current buffer backwards for a Python error message, 
+% Search the current buffer backwards for a Python error message,
 % open the source file and goto line
 static define goto_error_source()
 {
@@ -1125,11 +1129,11 @@ public  define py_exec() % (cmd="python")
    variable buf = whatbuf(), py_source = buffer_filename();
    variable outbuf = sprintf("*%s output*", cmd);
    variable exception_file, line, start_line = 1;
-   
+
    % remove old output buffer
    if (bufferp(outbuf))
      delbuf(outbuf);
-   
+
    if (is_visible_mark())
      {
 		check_region(0);
@@ -1144,23 +1148,25 @@ public  define py_exec() % (cmd="python")
 		%   }
 		exchange_point_and_mark();
      }
-   
+
    shell_cmd_on_region_or_buffer(cmd, outbuf);
-   
+
    % no output? we are done
    if (buf == whatbuf())
      return;
-     
-   %  Check for error message
+
+   python_output_mode();
+
+   % Check for error message
    eob();
    do {
       (exception_file, line) = parse_error_message();
    }
    while (exception_file != py_source and line != 0);
-      
+
    pop2buf(buf);
-   
-   %  Move to line in source that generated the error
+
+   % Move to line in source that generated the error
    if (exception_file == py_source)
      {
 	goto_line(line + start_line - 1);
@@ -1173,7 +1179,7 @@ static define python_output_filter(str)
    % Remove the "poor man's bold" in python helptexts
    str = str_re_replace_all(str, ".", "");
    % Append a newline to the prompt if output goes to separate buffer
-   if (str == ">>> " 
+   if (str == ">>> "
        and get_blocal_var("Ishell_Handle").output_placement == "o")
       str += "\n";
    return str;
@@ -1195,7 +1201,7 @@ public define python_shell()
 define py_help_on_word()
 {
    variable tag = "0-9A-Z_a-z";
-   
+
    push_spot();
    skip_white();
    bskip_chars(tag);
@@ -1224,26 +1230,26 @@ static define get_import_lines()
 {
    variable tag, import_lines="", case_search_before=CASE_SEARCH;
    CASE_SEARCH = 1;  % python keywords are case sensitive
-   foreach tag (["import", "from"])
-     {
-	push_spot_bob();
-	while (bol_fsearch(tag))
-	  {
-	     !if (ffind("import"))
-	       {
-		  eol();
-		  continue;
-	       }
-	     if (in_literal_string)
-	       continue;
-	     do % get line and continuation lines
-	       {
-		  import_lines += line_as_string()+"\n";
-	       }
-	     while (bskip_white(), blooking_at("\\") and down_1());
-	  }
-	pop_spot();
-     }
+   foreach tag (["import", "from"]) {
+      push_spot_bob();
+      while (bol_fsearch(tag)) {
+	 if (ffind("__future__")) {
+	    eol();
+	    continue;
+	 }
+	 !if (ffind("import")) {
+	    eol();
+	    continue;
+	 }
+	 if (in_literal_string)
+	    continue;
+	 do { % get line and continuation lines
+	    import_lines += line_as_string()+"\n";
+	 }
+	 while (bskip_white(), blooking_at("\\") and down_1());
+      }
+      pop_spot();
+   }
    CASE_SEARCH = case_search_before;
    return import_lines;
 }
@@ -1278,9 +1284,9 @@ public define py_help() %(topic=NULL)
    !if (_NARGS)
      read_mini("Python Help for: ", "", "");
    variable topic = ();
-   
+
    variable str, module, object_list, help_cmd;
-   
+
    % % if interactive session is open, use it:
    % if (is_substr(get_mode_name(), "ishell"))
    %   {
@@ -1288,7 +1294,7 @@ public define py_help() %(topic=NULL)
    % 	send_process(handle.id, sprintf("help(%s)\n", topic));
    % 	return;
    %   }
-   
+
    % % prepend imported module + "." to names in a line like
    % %    from module import name, name2, name3
    % push_spot_bob();
@@ -1310,18 +1316,18 @@ public define py_help() %(topic=NULL)
    % 	  topic = module + "." + topic;
    %   }
    % pop_spot();
-   
-   help_cmd = sprintf("python -c \"%shelp('%s')\"",
+
+   help_cmd = sprintf("python -c '%shelp('%s')'",
 	  get_import_lines(), topic);
    popup_buffer("*python-help*");
    set_readonly(0);
    erase_buffer();
-   
+
    set_prefix_argument(1);      % insert output at point
    % show(help_cmd);
    flush("Calling: " + help_cmd);
    do_shell_cmd(help_cmd);
-   
+
    fit_window(get_blocal("is_popup", 0));
    python_help_mode();
 }
@@ -1342,14 +1348,14 @@ static define python_help_for_word_hook(word)
 public define py_browse_module_doc() % (module=NULL)
 {
    variable module = push_defaults( , _NARGS);
-   variable lib_doc_dir = path_concat(Python_Doc_Root, "lib");
+   variable lib_doc_dir = path_concat(Python_Doc_Root, "library");
    if (module == NULL)
      module = read_mini("Browse doc for module (empty for index):", "", "");
    if (module == "")
      module = "modindex.html";
    else
-     module = sprintf("module-%s.html", module);
-   
+     module = sprintf("%s.html", module);
+
    browse_url("file:" + path_concat(lib_doc_dir, module));
 }
 
@@ -1397,7 +1403,7 @@ set_syntax_flags(mode, 0);			% keywords ARE case-sensitive
 () = define_keywords_n(mode, "ImportErrorLookupErrorMemoryErrorSyntaxError"
    + "SystemError", 11, 1);
 () = define_keywords_n(mode, "RuntimeErrorUnicodeError", 12, 1);
-() = define_keywords_n(mode, "ConflictErrorOverflowErrorStandardError" 
+() = define_keywords_n(mode, "ConflictErrorOverflowErrorStandardError"
    + "StopIteration", 13, 1);
 () = define_keywords_n(mode, "AssertionErrorAttributeErrorReferenceError",
    14, 1);
@@ -1420,20 +1426,20 @@ private define setup_dfa_callback(mode)
 {
    % dfa_enable_highlight_cache("pymode.dfa", mode);
    $1 = mode; % used by dfa_rule()
-   
+
    % Strings
    %% "normal" string literals
-   dfa_rule("\"[^\"]*\"", "string");	 
+   dfa_rule("\"[^\"]*\"", "string");
    dfa_rule("'[^']*'", "string");
    %% "long" string literals
    dfa_rule("\"\"\".+\"\"\"", "Qstring");
    dfa_rule("'''.+'''", "Qstring");
    %% string delimiters of multi-line string
-   dfa_rule("\"\"\"|'''", "string");          
+   dfa_rule("\"\"\"|'''", "string");
    % Comments
-   dfa_rule("#.*", "comment");		 
+   dfa_rule("#.*", "comment");
    % Keywords (identifier)
-   dfa_rule("[A-Za-z_][A-Za-z_0-9]*", "Knormal"); 
+   dfa_rule("[A-Za-z_][A-Za-z_0-9]*", "Knormal");
    % Delimiters and operators
    dfa_rule("[\(\[{}\]\),:\.\"`'=;]"R, "delimiter");
    dfa_rule("[\+\-\*/%<>&\|\^~]"R, "operator");  % 1 char
@@ -1447,7 +1453,7 @@ private define setup_dfa_callback(mode)
    dfa_rule("0[xX][0-9a-fA-F]+[lL]?", "number");	% hex int
    dfa_rule("[1-9][0-9]*\.?[0-9]*([Ee][\+\-]?[0-9]+)?[jJ]?"R, "number"); % float/complex n.[n]
    dfa_rule("0?\.[0-9]+([Ee][\+\-]?[0-9]+)?[jJ]?"R, "number"); % float/complex n.[n]
-   %% Flag badly formed numeric literals or identifiers.  
+   %% Flag badly formed numeric literals or identifiers.
    %% This is more effective if you change the error colors so they stand out.
    dfa_rule("[1-9][0-9]*[lL]?[0-9A-Za-z\.]+"R, "error");	% bad decimal
    dfa_rule("0[0-7]+[lL]?[0-9A-Za-z\.]+"R, "error"); % bad octal
@@ -1457,12 +1463,12 @@ private define setup_dfa_callback(mode)
    % Whitespace
    dfa_rule(" ", "normal");  % normal whitespace
    dfa_rule("\t", "tab");
-   %% Flag mix of Spaces and Tab in code indention 
+   %% Flag mix of Spaces and Tab in code indention
    dfa_rule("^ +\t+[^ \t#]", "menu_selection"); % distinctive background colour
    dfa_rule("^\t+ +[^ \t#]", "menu_selection"); % distinctive background colour
    % Render non-ASCII chars as normal to fix a bug with high-bit chars in UTF-8
    dfa_rule("[^ -~]+", "normal");
-   
+
    dfa_build_highlight_table(mode);
 }
 dfa_set_init_callback(&setup_dfa_callback, "python");
@@ -1483,24 +1489,24 @@ static define set_highlight_scheme()
 
 % Folding
 % -------
-% 
+%
 % by indention
 % ~~~~~~~~~~~~
-% 
+%
 % On 21.04.08, John E. Davis wrote:
-% > > Is there a possibility to autmatic fold any Python file, like many of 
+% > > Is there a possibility to autmatic fold any Python file, like many of
 % > > the Python-IDE's do ?
-% 
+%
 % > You might try using the set_selective_display function, which is bound
 % > to "Ctrl-X $" in emacs mode.  This will allow you to hide any lines
 % > indented beyond the column containing the cursor.
-% 
+%
 % TODO: also hide comments if "#" at bol but comment indented?
-% 
+%
 % by pcre pattern
 % ~~~~~~~~~~~~~~~
 % see pcre-fold.sl
-% 
+%
 % by rst-section
 % ~~~~~~~~~~~~~~
 % see rst-fold.sl
@@ -1539,7 +1545,7 @@ static define python_menu(menu)
    menu_append_item(menu, "Re&indent buffer|region", "py_reindent");
    menu_append_item(menu, "Reindent &block|region", "python->reindent_block");
    menu_append_item(menu, "&Untab buffer", "py_untab");
-   menu_append_item(menu, "&Toggle syntax highlight scheme", 
+   menu_append_item(menu, "&Toggle syntax highlight scheme",
 		    	  "python->set_highlight_scheme");
    menu_append_separator(menu);
    menu_append_item(menu, "&Fold by indentation", "set_selective_display");
@@ -1548,7 +1554,7 @@ static define python_menu(menu)
    menu_append_item(menu, "Python &Shell", "python_shell");
    menu_append_separator(menu);
    menu_append_item(menu, "Python &Help", "py_help");
-   menu_append_item(menu, "Python &Documentation Server", 
+   menu_append_item(menu, "Python &Documentation Server",
       			  "python->browse_pydoc_server");
    menu_append_item(menu, "Browse Python &Module Doc", "py_browse_module_doc");
 }
@@ -1578,6 +1584,7 @@ public define python_mode()
    set_mode(mode, 0x4); % flag value of 4 is generic language mode
    use_keymap(mode);
    use_syntax_table(mode);
+   C_BRA_NEWLINE = 0;
    set_buffer_hook("indent_hook", "py_indent_line");
    define_blocal_var("help_for_word_hook", "py_help_for_word_hook");
    mode_set_mode_info("run_buffer_hook", "py_exec");
