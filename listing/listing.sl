@@ -31,6 +31,7 @@
 % 2007-04-19 3.1.1 * added a "Save Listing" entry to the mode menu
 % 2009-02-16 3.1.2 * code cleanup
 % 2009-12-08 3.1.3 * adapt to new require() syntax in Jed 0.99.19
+% 2010-12-08       * list_concat() -> list_extend() (datutils 2.3)
 %
 % TODO:  * Shift-Click tags from point to Mousepoint
 %          may be also: right-drag tags lines
@@ -49,7 +50,7 @@ require("view", "Global"); % readonly-keymap depends on bufutils.sl
 require("keydefs");
 require("view");
 #endif
-autoload("list_concat", "datutils");  % >= 2.1
+autoload("list_extend", "datutils");  % >= 2.3
 autoload("push_defaults", "sl_utils");
 
 % --- name it
@@ -326,7 +327,7 @@ public  define listing_map() % (scope, fun, [args])
 	     !if (scope <= 0) % not current line
 	       {
 		  list_append(newtags, tag, -1);
-		  list_concat(newtags, tags);
+		  list_extend(newtags, tags);
 		  set_blocal_var(newtags, "Tags");
 	       }
 	     throw UserBreakError, "Quit";
