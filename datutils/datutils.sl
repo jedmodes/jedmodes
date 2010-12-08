@@ -29,6 +29,8 @@
 % 2.2.3 2009-10-05 fallback defs of __push_list(), __pop_list()
 % 		   deprecated push_list(), pop2list(),
 % 		   favour literal constructs for array<->list conversion
+% 2.3   2010-12-08 name list_concat() to list_extend() to avoid
+% 		   clash with intrinsic added in S-Lang 2.2.3 (report PB)
 
 _autoload(
    "push_defaults", "sl_utils",
@@ -495,22 +497,28 @@ define array2list(a)
 }
 
 %!%+
-%\function{list_concat}
-%\synopsis{Concatenate 2 lists}
-%\usage{list_concat(l1, l2)}
+%\function{list_extend}
+%\synopsis{Extend a list with the values of another one}
+%\usage{list_extend(l1, l2)}
 %\description
 %  Concatenate 2 lists by appending the elements of \var{l2} to \var{l1}.
 %#v+
 %  variable l1 = {1, 2, 3, 4};
-%  list_concat(l1, {5, 6, 7});
+%  list_extend(l1, {5, 6, 7});
 %  l1 == {1, 2, 3, 4, 5, 6, 7};
 %#v-
 %\notes
+%  Behaves similar to the .extend() method of Python lists.
+%  
 %  As this function uses a foreach loop, \var{l2} can also be an
 %  \var{Array_Type} object.
+%  
+%  This function was called list_concat() earlier. However, the 
+%  list_concat intrinsic introduced in S-Lang > 2.2.3 returns a new
+%  list instead of appending to the first argument.
 %\seealso{list_append, list_insert}
 %!%-
-define list_concat(l1, l2)
+define list_extend(l1, l2)
 {
    variable element;
    foreach element (l2)
@@ -530,7 +538,7 @@ define list_concat(l1, l2)
 %  list_inject(l1, {2.5, 2.6, 2.7}, 2);
 %  l1 == {1, 2, 2.5, 2.6, 2.7, 3, 4};
 %#v-
-%\seealso{list_concat, list_insert}
+%\seealso{list_extend, list_insert}
 %!%-
 define list_inject(l1, l2, i)
 {
