@@ -89,7 +89,8 @@
 % 		     as style-sheets are searched relative to the pwd.
 % 2.4.2 2009-01-27 * reset cwd after rst_export(),
 % 2.4.3 2009-10-05 * use reopen_file() in rst_view() (don't ask before reload)
-% 2.4.4 2009-12-09 are for the changed require() behaviour in Jed 0.99.19
+% 2.4.4 2009-12-09 * adapt to the changed require() behaviour in Jed 0.99.19
+% 2.5   2010-12-08 XHTML (html4_strict) and XeTeX export.
 % ===== ========== ============================================================
 %
 % TODO
@@ -174,6 +175,8 @@ private variable mode = "rst";
 %!%-
 custom_variable("Rst2Html_Cmd", "rst2html");
 
+custom_variable("Rst2Xhtml_Cmd", "rst2html_strict");
+
 %!%+
 %\variable{Rst2Latex_Cmd}
 %\synopsis{ReStructured Text to LaTeX converter}
@@ -191,6 +194,24 @@ custom_variable("Rst2Html_Cmd", "rst2html");
 %\seealso{rst_mode, Rst2Pdf_Cmd, Rst2Html_Cmd}
 %!%-
 custom_variable("Rst2Latex_Cmd", "rst2latex");
+
+%!%+
+%\variable{Rst2XeTeX_Cmd}
+%\synopsis{ReStructured Text to LaTeX converter}
+%\usage{String_Type Rst2XeTeX_Cmd = "rst2latex"}
+%\description
+% Shell command and options for the ReStructured Text to LaTeX converter.
+%
+% Command and options can be changed from the "Mode>Set Export Cmd >>>" menu
+% popup. However, these changes are only valid for the current jed session.
+% Permanent changes should be done by defining the variable in the jed.rc
+% file.
+%\notes
+% The default works if the executable `rst2latex` is installed in the
+% PATH (e.g. with the Debian package python-docutils.deb).
+%\seealso{rst_mode, Rst2Pdf_Cmd, Rst2Html_Cmd}
+%!%-
+custom_variable("Rst2XeTeX_Cmd", "rst2xetex");
 
 %!%+
 %\variable{Rst2Pdf_Cmd}
@@ -234,6 +255,7 @@ custom_variable("Rst_Documentation_Path",
 %\seealso{Rst_Pdf_Viewer, Rst2Html_Cmd, rst->rst_view, rst_to_html}
 %!%-
 custom_variable("Rst_Html_Viewer", "firefox");
+custom_variable("Rst_Xhtml_Viewer", Rst_Html_Viewer);
 
 %!%+
 %\variable{Rst_Pdf_Viewer}
@@ -272,7 +294,9 @@ private variable helpbuffer = "*rst export help*";
 % Pointer to the export command string for a given file extension
 static variable export_cmds = Assoc_Type[Ref_Type];
 export_cmds["html"] = &Rst2Html_Cmd;
+export_cmds["xhtml"] = &Rst2Xhtml_Cmd;
 export_cmds["tex"] = &Rst2Latex_Cmd;
+export_cmds["xetex"] = &Rst2XeTeX_Cmd;
 export_cmds["pdf"] = &Rst2Pdf_Cmd;
 
 % Markup strings ::
@@ -319,6 +343,10 @@ Markup_Tags["substitution"]       = [".. |", "|"];
 
 private define get_outfile(format)
 {
+   if (format == "xetex")
+      format = "tex";
+   % else if (format == "html")
+   %    format = "xhtml";
    variable outfile = path_sans_extname(whatbuf())+ "." + format;
    outfile = path_concat(buffer_dirname(), outfile);
    return outfile;
@@ -378,10 +406,21 @@ public  define rst_to_html()
    rst_export("html");
 }
 
+public  define rst_to_xhtml()
+{
+   rst_export("xhtml");
+}
+
 % export to LaTeX
 public  define rst_to_latex()
 {
    rst_export("tex");
+}
+
+% export to XeTeX
+public  define rst_to_xetex()
+{
+   rst_export("xetex");
 }
 
 % export to PDF
@@ -430,9 +469,10 @@ static define rst_view() % (format, outfile=get_outfile(format), viewer)
         return;
      }
 
-   % convert `outfile' to URL if `format' is html
-   if (format == "html")
-     outfile = "file:" + outfile;
+   % work around file loading bug in midori browser:
+   % (expecting "file://" + relative file name !)
+   if (viewer == "midori")
+     outfile = "file://" + outfile;
 
    if (getenv("DISPLAY") != NULL) % assume X-Windows running
        () = system(viewer + " " + outfile + " &");
@@ -446,11 +486,23 @@ public  define rst_view_html()
    rst_view("html");
 }
 
+public  define rst_view_xhtml()
+{
+   rst_view("xhtml");
+}
+
 % Find the LaTeX conversion of the current buffer
 public  define rst_view_latex() % (outfile=*.tex, viewer="")
 {
    rst_view("tex");
 }
+
+% Find the XeTeX conversion of the current buffer
+public  define rst_view_xetex() % (outfile=*.tex, viewer="")
+{
+   rst_view("xetex");
+}
+
 
 % View the pdf conversion of the current buffer with Rst_Pdf_Viewer
 public  define rst_view_pdf() % (outfile=*.pdf, viewer=Rst_Pdf_Viewer)
@@ -665,18 +717,18 @@ private define setup_dfa_callback(mode)
    dfa_rule("_`[^`]+`"R, "rst_target");
    dfa_rule("_${label}"R$, "rst_target");
    %  named crosslinks
-   dfa_rule("^\.\.[$blank]+_[^:]+:[$blank]"R$, "rst_target");
-   dfa_rule("^\.\.[$blank]+_[^:]+:$"R$, "rst_target");
+   dfa_rule("^[$blank]*\.\.[$blank]+_[^:]+:[$blank]"R$, "rst_target");
+   dfa_rule("^[$blank]*\.\.[$blank]+_[^:]+:$"R$, "rst_target");
    %  anonymous
    dfa_rule("^__[$blank]"$, "rst_target");
    %  footnotes and citations
-   dfa_rule("^\.\.[$blank]+\[([#\*]|#?$label)\]"R$, "rst_target");
+   dfa_rule("^[$blank]*\.\.[$blank]+\[([#\*]|#?$label)\]"R$, "rst_target");
    % substitution definitions
-   dfa_rule("^\.\.[$blank]+\|.*\|[$blank]+$label::"R$, "rst_directive");
+   dfa_rule("^[$blank]*\.\.[$blank]+\|.*\|[$blank]+$label::"R$, "rst_directive");
 
    % Comments
-   dfa_rule("^\.\.[$blank]"R$, "Pcomment");
-   dfa_rule("^\.\.$"R, "comment");
+   dfa_rule("^[$blank]*\.\.[$blank]"R$, "Pcomment");
+   dfa_rule("^[$blank]*\.\.$"R, "comment");
 
    % Directives
    dfa_rule("^\.\.[$blank][^ ]+[$blank]?::"R$, "rst_directive");
@@ -791,16 +843,20 @@ definekey_reserved("rst->markup(\"citation\")",                "tc", mode); % "&
 definekey_reserved("rst->markup(\"directive\")",               "td", mode); % "&Directive"
 definekey_reserved("rst->markup(\"substitution\")",            "ts", mode); % "&Substitution"
 % "&Export\")",                            %                   "", mode);
-definekey_reserved("rst_to_html",                              "eh", mode); % "&Html"
-definekey_reserved("rst_to_latex",                             "el", mode); % "&Latex"
-definekey_reserved("rst_to_pdf",                               "ep", mode); % "&Latex"
-definekey_reserved("rst->set_export_cmd(\"html\")",            "oh", mode); % "Set H&tml Export Options"
-definekey_reserved("rst->set_export_cmd(\"tex\")",             "ol", mode); % "Set Late&x Export Options"
-definekey_reserved("rst->set_export_cmd(\"pdf\")",             "op", mode); % "Set Late&x Export Options"
+definekey_reserved("rst_to_html",                              "eh", mode); % "&HTML"
+definekey_reserved("rst_to_latex",                             "el", mode); % "&LaTeX"
+definekey_reserved("rst_to_xetex",                             "ex", mode); % "&XeTeX"
+definekey_reserved("rst_to_pdf",                               "ep", mode); % "&PDF"
+% "Set Export &Cmd"
+definekey_reserved("rst->set_export_cmd(\"html\")",            "oh", mode); % "&HTML"
+definekey_reserved("rst->set_export_cmd(\"tex\")",             "ol", mode); % "&LaTeX"
+definekey_reserved("rst->set_export_cmd(\"xetex\")",           "ox", mode); % "&XeTeX"
+definekey_reserved("rst->set_export_cmd(\"pdf\")",             "op", mode); % "&PDF"
 % "&View\")",                              %                   "", mode);
-definekey_reserved("rst_view_html",                            "vh", mode); % "&Html"
-definekey_reserved("rst_view_latex",                           "vl", mode); % "&Latex"
-definekey_reserved("rst_view_pdf",                             "vp", mode); % "&Latex"
+definekey_reserved("rst_view_html",                            "vh", mode); % "&HTML"
+definekey_reserved("rst_view_latex",                           "vl", mode); % "&LaTeX"
+definekey_reserved("rst_view_xetex",                           "vx", mode); % "&XeTeX"
+definekey_reserved("rst_view_pdf",                             "vp", mode); % "&PDF"
 %                                                              "", mode);
 #ifexists list_routines
 definekey_reserved("list_routines",                            "n", mode); % &Navigator"
@@ -884,19 +940,25 @@ static define rst_menu(menu)
 #endif
    % Export to a target file
    popup = new_popup(menu, "&Export");
-   menu_append_item(popup, "&Html", "rst_to_html");
-   menu_append_item(popup, "&Latex", "rst_to_latex");
-   menu_append_item(popup, "&Pdf", "rst_to_pdf");
+   menu_append_item(popup, "X&html", "rst_to_xhtml");
+   menu_append_item(popup, "&HTML", "rst_to_html");
+   menu_append_item(popup, "&LaTeX", "rst_to_latex");
+   menu_append_item(popup, "&XeTeX", "rst_to_xetex");
+   menu_append_item(popup, "&PDF", "rst_to_pdf");
    % View target file
    popup = new_popup(menu, "&View");
-   menu_append_item(popup, "&Html", "rst_view_html");
-   menu_append_item(popup, "&Latex", "rst_view_latex");
-   menu_append_item(popup, "&Pdf", "rst_view_pdf");
+   menu_append_item(popup, "X&html", "rst_view_xhtml");
+   menu_append_item(popup, "&HTML", "rst_view_html");
+   menu_append_item(popup, "&LaTeX", "rst_view_latex");
+   menu_append_item(popup, "&XeTeX", "rst_view_xetex");
+   menu_append_item(popup, "&PDF", "rst_view_pdf");
    % Set export command
    popup = new_popup(menu, "Set Export &Cmd");
-   menu_append_item(popup, "&Html", &set_export_cmd, "html");
-   menu_append_item(popup, "&Latex", &set_export_cmd, "tex");
-   menu_append_item(popup, "&Pdf", &set_export_cmd, "pdf");
+   menu_append_item(popup, "X&html", &set_export_cmd, "xhtml");
+   menu_append_item(popup, "&HTML", &set_export_cmd, "html");
+   menu_append_item(popup, "&LaTeX", &set_export_cmd, "tex");
+   menu_append_item(popup, "&XeTeX", &set_export_cmd, "xetex");
+   menu_append_item(popup, "&PDF", &set_export_cmd, "pdf");
    % Help commands
    menu_append_separator(menu);
    popup = new_popup(menu, "&Help");
@@ -909,8 +971,10 @@ static define rst_menu(menu)
       path_concat(Rst_Documentation_Path, "ref/rst/directives.html"));
    menu_append_separator(popup);
 #endif
-   menu_append_item(popup, "Rst2&Html Help", &command_help, Rst2Html_Cmd);
-   menu_append_item(popup, "Rst2&Latex Help", &command_help, Rst2Latex_Cmd);
+   menu_append_item(popup, "rst2x&html Help", &command_help, Rst2Xhtml_Cmd);
+   menu_append_item(popup, "rst2&Html Help", &command_help, Rst2Html_Cmd);
+   menu_append_item(popup, "rst2&latex Help", &command_help, Rst2Latex_Cmd);
+   menu_append_item(popup, "rst2&xetex Help", &command_help, Rst2XeTeX_Cmd);
    % Default conversion and browse
    menu_append_item(menu, "&Run Buffer", "run_buffer");
 }
