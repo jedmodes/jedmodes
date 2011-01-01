@@ -1,64 +1,64 @@
 %%  CUA (Windows/Mac/CDE/KDE-like) bindings for Jed.
-%% 
-%%  Copyright (c) 2006 Reuben Thomas, Guenter Milde (milde users.sf.net)
+%%
+%%  Copyright © 2001 Reuben Thomas, 2003 Günter Milde (milde users.sf.net)
 %%  Released under the terms of the GNU General Public License (ver. 2 or later)
-%% 
+%%
 %%  Versions:
-%%  1   first version by G�nter Milde <milde users.sf.net>
-%%  1.1 05-2003    * triple (optional single) ESC-keypress aborts functions
-%%                 * fixed missing definition of Key_Ins
-%%                 * Key_Ctrl_Del calls cua_delete_word (was delete_word)
-%%                 * F3 bound to repeat_search (tip by Guido Gonzato)
-%%                 * removed definitions for F4...F10 (cua-compatible suggestions?)
-%%                 * ^Q exits without asking for confirmation
-%%  1.2 07-2003    * better support for older jed versions with
+%%  1                first version by GM
+%%  1.1   2003-05    triple (optional single) ESC-keypress aborts functions
+%%                   fixed missing definition of Key_Ins
+%%                   Key_Ctrl_Del calls cua_delete_word (was delete_word)
+%%                   F3 bound to repeat_search (tip by Guido Gonzato)
+%%                   removed definitions for F4...F10
+%%                   ^Q exits without asking for confirmation
+%%  1.2   07-2003    better support for older jed versions with
 %%                   if (_jed_version >= 9916) around new functions
-%%  1.3 2004-01-23 * Key_Del and Key_BS "region aware" (needs cuamisc >= 1.3)
-%%  1.4 2005-05-26 * Merge with the version of jed 0.99-17
+%%  1.3   2004-01-23 Key_Del and Key_BS "region aware" (needs cuamisc >= 1.3)
+%%  1.4   2005-05-26 Merge with the version of jed 0.99-17
 %%  1.4.1  	     bugfix: check for XWINDOWS before loading cuamouse.sl
-%%  1.5 2005-06-07 * load backwards compatibility code from compat17-16.sl
+%%  1.5   2005-06-07 load backwards compatibility code from compat17-16.sl
 %%  		     and compat16-15.sl (if needed)
 %%  1.5.1 2005-11-02 bugfix: bind ESC to "back_menu" in menu map
 %%  1.5.2 2006-01-17 more adaptions to the version of jed 0.99-17
 %%  1.6   2006-06-16 remove the (optional) File>Print menu entry, so that
-%%  	  	     the user can decide whether to use apsmode.sl (with its 
+%%  	  	     the user can decide whether to use apsmode.sl (with its
 %%  	  	     Print menu popup or print.sl)
 %%  1.6.1 2007-09-03 bind eol() instead of eol_cmd() to Key_End, as eol_cmd
 %%  	  	     deletes trailing white which confuses moving and editing
 %%  	  	     and might not be desired.
 %%  1.6.2 2007-10-18 optional extensions with #if ( )
 %%  1.6.3 2007-10-23 use cua_replace_cmd() (needs cuamisc.sl >= 1.6.3)
-%%  	  	     
-%%                   
+%%  1.6.4 2011-01-01 Fix assignment of forward/backward_paragraph().
+%%
+%%
 %%  USAGE:
-%% 
+%%
 %%  put somewhere in your path and uncomment the line
 %%  %  () = evalfile ("cua");            % CUA-like key bindings
 %%  in your .jedrc/jed.rc file
-%% 
+%%
 %%  ESC-Key: unfortunately, some function keys return "\e\e<something>"
-%%  as keystring. To have a single ESC-press aborting, add in jed.rc 
+%%  as keystring. To have a single ESC-press aborting, add in jed.rc
 %%  either
-%%  
+%%
 %%     #ifdef XWINDOWS
 %%     x_set_keysym(0xFF1B, 0, Key_Esc);   % one-press-escape
 %%     #endif
-%%  
+%%
 %%  to get the one-press escape for xjed, or the experimental
-%%     
+%%
 %%     cua_one_press_escape();
-%%     
+%%
 %%  **Attention**, except for xjed, this is an experimental
 %%  feature that can cause problems with functions that use getkey(),
 %%  (e.g. isearch(), showkey(), wmark.sl (before jed 99.16), ...)
-%% 
+%%
 %%  Enhancements (optional helper modes from http://jedmodes.sf.net/):
 %%   x-keydefs.sl: even more symbolic constants for function and arrow keys
 %%   cuamouse.sl: cua-like mouse bindings
 %%   cuamark.sl:  cua-like marking/copy/paste using yp_yank.sl (a ring of
 %%                kill-buffers)
 %%   numbuf.sl:   fast switch between buffers via ALT + Number
-%%   print.sl:    printing
 %%   ch_table.sl: popup_buffer with character table (special chars)
 
 % --- Requirements ------------------------------------------------------
@@ -79,6 +79,12 @@ require("wmark");     % cua-like marking, standard version
 #endif
 require("recent");    % save a list of recent files
 
+
+% Announce
+% --------
+provide("cua");
+_Jed_Emulation = "cua";
+
 % --- Variables --------------------------------------------------------
 set_status_line(" %b  mode: %m %n  (%p)   %t ", 1);
 menu_set_menu_bar_prefix ("Global", " ");
@@ -92,7 +98,7 @@ Help_File = "cua.hlp";
 _Reserved_Key_Prefix = "^E";  % Extended functionality :-)
 
 % ESC key
-% unfortunately, some keys return strings starting with "\e\e", 
+% unfortunately, some keys return strings starting with "\e\e",
 % see USAGE above for workaround
 variable Key_Esc = "\e\e\e";
 setkey ("cua_escape_cmd", Key_Esc);              % Triple-Esc -> abort
@@ -101,7 +107,7 @@ definekey("back_menu", Key_Esc, "menu"); % close (sub-)menus
 % Function keys
 setkey("menu_select_menu(\"Global.&Help\")",   Key_F1);
 if (is_defined("context_help")) % from jedmodes.sf.net/mode/hyperhelp/
-  setkey("context_help",                       Key_Shift_F1); 
+  setkey("context_help",                       Key_Shift_F1);
 setkey("cua_save_buffer",                      Key_F2);
 setkey("save_buffer_as",                       Key_Shift_F2);
 setkey("cua_repeat_search",                    Key_F3);
@@ -121,8 +127,8 @@ setkey("beg_of_buffer",                    Key_Ctrl_Home);
 setkey("eob; recenter(window_info('r'));", Key_Ctrl_End);
 setkey("bskip_word",                       Key_Ctrl_Left);
 setkey("skip_word",                        Key_Ctrl_Right);
-setkey("forward_paragraph",                Key_Ctrl_Up);
-setkey("backward_paragraph",               Key_Ctrl_Down);
+setkey("backward_paragraph",               Key_Ctrl_Up);
+setkey("forward_paragraph",                Key_Ctrl_Down);
 %setkey("pop_mark(0)",                     Key_Ctrl_Up);
 %setkey("push_mark",                       Key_Ctrl_Down);  % define region
 
@@ -184,7 +190,7 @@ setkey("kill_rect",		"^RX");  % delete and copy to rect-buffer
 setkey("open_rect",		"^R ");  % ^R Space: insert whitespace
 setkey("blank_rect",		"^RY");  % delete (replace with spaces)
 setkey("blank_rect",		"^R" + Key_Del);
-setkey("cua_save_buffer",	"^S");   % Save 
+setkey("cua_save_buffer",	"^S");   % Save
 % 				 ^T      % still free
 setkey("yp_yank",              	"^V");   % insert/paste
 setkey("delbuf(whatbuf)",     	"^W");
@@ -209,7 +215,3 @@ private define cua_load_popup_hook (menubar)
 		     "Toggle &Case Search", "toggle_case_search");
 }
 append_to_hook ("load_popup_hooks", &cua_load_popup_hook);
-
-% signal the success in loading the cua emulation:
-_Jed_Emulation = "cua";
-
