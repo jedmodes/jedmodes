@@ -404,7 +404,7 @@ public define email_split_quoted_paragraph ()
    trim;
    insert ();
    email_reformat ();
-   go_up(2) ();
+   go_up (2);
 }
 
 % Remove quote levels beyond a user defined number
