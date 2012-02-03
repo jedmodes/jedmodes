@@ -1,19 +1,15 @@
 % server.sl
 % Run JED as editing server
 % 
-% $Id: server.sl,v 1.5 2006/09/30 07:48:48 paul Exp paul $
-% Keywords: processes, mail, Emacs
+% $Id: server.sl,v 1.6 2012/02/03 17:06:03 paul Exp $
 % 
-% Copyright (c) 2003-2006 Paul Boekholt
+% Copyright (c) 2003-2012 Paul Boekholt
 % Released under the terms of the GNU GPL (version 2 or later).
 % 
-% This mode should work with the Emacs tools emacsclient and emacsserver.
-% Emacsserver is a subprocess listening to a socket. Emacsclient sends a
-% request to the socket and then waits for the server to say "done".
-% See § 2.1 of the Mail-User-HOWTO.
+% Use JED as an editing server.  This should be used with Emacs'
+% emacsclient program.
 % 
 % To install add the following lines to .jedrc:  
-% variable Server_Pgm="/path/to/emacsserver";
 % require ("server");
 % server_start();
 % setkey("server_done", "^X#");
@@ -23,65 +19,144 @@
 %  notify the first client when finished.
 % -Don't try to open two files from one emacsclient.
 
+#ifnexists _jed_version
+% slsh replacement for the emacsserver program, which is no longer
+% in Emacs. This is based on Emacs' emacsserver.c and server.el.
 
-provide("server");
-require("pcre");
-implements("server");
-custom_variable ("Server_Pgm", "/usr/share/emacs/lib/emacsserver");
-static variable server_process = -1, server_input;
+require("select");
+require("socket");
+require("custom");
 
-variable pattern = "^Client: ([0-9]+) (?:-nowait )?(?:\\+([0-9]+)(?::([0-9]+))?)? *([^ ]+) *$";
-variable cpattern = pcre_compile(pattern);
+custom_variable("server_name", "server");
+custom_variable("server_socket_dir", sprintf("/tmp/emacs%d", geteuid()));
 
-% This emulates a kill_buffer_after_hook
-try
+variable socket_filename=path_concat(server_socket_dir, server_name);
+if (-1 == remove(socket_filename) && errno != ENOENT) 
 {
-   typedef struct { client } Client_Type;
+   throw RunTimeError, errno_string(errno);
 }
-catch DuplicateDefinitionError;
 
-define destroy_client(Client)
+private define ensure_safe_dir(dir)
+{
+   % Try to make the server_socket_dir and ensure it's safe
+   % This will not make parent dirs
+   variable st;
+   if (-1 == mkdir(dir, 0700) && errno != EEXIST)
+     {
+	throw RunTimeError, errno_string(errno);
+     }
+   st = stat_file(dir);
+   if (st == NULL) throw IOError, "unable to stat socket dir";
+   ifnot (stat_is("dir", st.st_mode)) throw RunTimeError, "socket dir is not a directory";
+   if (st.st_uid != geteuid() || st.st_mode & (S_IRWXG | S_IRWXO))
+     {
+	throw RunTimeError, "socket dir is not safe";
+     }
+}
+
+ensure_safe_dir(server_socket_dir);
+
+variable s = socket(PF_UNIX, SOCK_STREAM, 0);
+bind(s, socket_filename);
+listen(s, 5);
+
+variable openfiles = {};
+define handle_input(iread)
+{
+   variable fd, line, code, infd, command, of, i, infile, fno;
+   foreach fd (iread)
+     {
+	if (fd == 0)
+	  {
+	     ()=fgets(&line, stdin);
+	     if (3 != sscanf(line, "%s %d %[^\n]", &code, &infd, &command)) throw RunTimeError, "could not parse server output";
+	     i = 0;
+	     foreach of (openfiles)
+	       {
+		  if (of.fno == infd)
+		    {
+		       ()=fputs(command + "\n", of.file);
+		       ifnot (strncmp (code, "Close:", 6)) 
+			 {
+			    list_delete(openfiles, i);
+			 }
+		       break;
+		    }
+		  i++;
+	       }
+	  }
+	else
+	  {
+	     % client sends list of filenames
+	     infd = accept(s);
+	     fno = _fileno(infd);
+	     infile = fdopen(infd, "r+");
+	     list_append(openfiles, struct { fno = fno, file = infile, fd = infd } );
+	     ()=fgets(&line, infile);
+	     ()=printf("Client: %d %s\n", _fileno(infd), line);
+	  }
+     }
+}
+
+variable ss;
+variable in_fd=fileno(stdin);
+if (in_fd == NULL) throw IOError, "could not find descriptor for stdin";
+
+forever
+{
+   ss=select([in_fd, s], NULL, NULL, -1);
+   switch(ss.nready)
+     {
+      case 0 or case -1: throw IOError;
+     }
+     {
+	handle_input(ss.iread);
+     }
+}
+#else
+provide("server");
+require("datutils", "utils");
+private variable server_process = -1;
+
+private define destroy_client(Client)
 {
    send_process(server_process, sprintf("Close: %s Done\n", Client.client));
 }
 
-__add_destroy(Client_Type, &destroy_client);
-
-% This is needed because it's not possible to switch buffers in a subprocess
-% output handler.
-variable client_buf;
-define before_key_hook();
-define before_key_hook(fun)
-{
-   remove_from_hook ("_jed_before_key_hooks", &before_key_hook);
-   sw2buf(client_buf);
-}
-
 % Execute an emacsclient request. Emacsserver output looks like
-% Client: number [-nowait] {[+line[:column]] file} ...
+% Client: number -dir dir {[-position +line[:column]] -file file} ...
 % I can deal with lines and columns, but not with multiple files.
-define server_parse_output (pid, output)
+private define server_parse_output (pid, output)
 {
-   !if(pcre_exec(cpattern, output))
-     throw RunTimeError, "I don't understand that";
-   variable buf = whatbuf();
-   () = find_file(pcre_nth_substr(cpattern, output, 4));
-   variable Client = @Client_Type;
-   Client.client = pcre_nth_substr(cpattern, output, 1);
+   variable arg, l = utils->array2list(strchop(output, ' ', 0));
+   variable dir=NULL, file=NULL, client=NULL, line=NULL, column=NULL;
+   while(length(l))
+     {
+	arg = list_pop(l);
+	switch(arg)
+	  {
+	   case "-dir": dir = list_pop(l);
+	  }
+	  {
+	   case "-file": file = list_pop(l);
+	  }
+	  {
+	   case "Client:": client = list_pop(l);
+	  }
+	  {
+	   case "-position":
+	     arg = list_pop(l);
+	     ()=sscanf(arg, "+%d:%d", &line, &column);
+	  }
+     }
+   if (dir == NULL or file == NULL or client == NULL) return;
+   ()=find_file(path_concat(dir, file));
+   variable Client = struct { client = client };
+   __add_destroy(Client, &destroy_client);
    define_blocal_var("client", Client);
-   if (pcre_nth_match(cpattern, 2) != NULL)
-     goto_line(atoi(pcre_nth_substr(cpattern, output, 2)));
-   if (pcre_nth_match(cpattern, 3) != NULL)
-     ()=goto_column_best_try(atoi(pcre_nth_substr(cpattern, output, 3)));
+   if (line != NULL) goto_line(line);
+   if (column != NULL) ()=goto_column_best_try(column);
    runhooks("server_visit_hook");
-   client_buf=whatbuf();
-   variable client_keymap=what_keymap();
-   update(1);
-   setbuf(buf);
-   % Set the client buffer's keymap in the " *server*" buffer.
-   % The first keyboard command will be interpreted there.
-   use_keymap(client_keymap);
-   add_to_hook ("_jed_before_key_hooks", &before_key_hook);
 }
 
 % Tell the emacsclient I'm finished
@@ -97,7 +172,7 @@ public define server_done()
 {
    if (blocal_var_exists("client"))
      {
-	save_buffer;
+	save_buffer();
 	delbuf(whatbuf);
      }
    else
@@ -114,28 +189,15 @@ public define server_done()
 %  send your editing commands to this JED. To use the server, set up the
 %  program \var{emacsclient} in the \var{Emacs} distribution as your standard
 %  "editor".
-%\example
-%  In .muttrc:
-%#v+
-% set editor="emacsclient %s || jed %s"  
-%#v-
-%  when you edit a message, Mutt will give control to emacsclient, you'll
-%  see
-%#v+
-%  "waiting for Emacs..."
-%#v-
-%  now suspend Mutt/emacsclient, and bring JED to the foregeround.  Edit your
-%  message and call \var{server_done} when finished.  Bring Mutt back to the
-%  foreground, emacsclient will return and you should be back in Mutt.
 %\seealso{server_done}
 %!%-
 public define server_start()
 {
-   variable buf = whatbuf;
    setbuf(" *server*");
-   server_process = open_process (Server_Pgm, 0);
+   server_process = open_process ("slsh", __FILE__, 1);
    set_process (server_process, "output", &server_parse_output);
+   set_process_flags(server_process, 0x01);
    process_query_at_exit(server_process, 0);
-   setbuf(buf);
    flush("done");
 }
+#endif
