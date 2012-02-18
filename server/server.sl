@@ -1,7 +1,7 @@
 % server.sl
 % Run JED as editing server
 % 
-% $Id: server.sl,v 1.6 2012/02/03 17:06:03 paul Exp $
+% $Id: server.sl,v 1.7 2012/02/18 09:02:23 paul Exp paul $
 % 
 % Copyright (c) 2003-2012 Paul Boekholt
 % Released under the terms of the GNU GPL (version 2 or later).
@@ -25,10 +25,10 @@
 
 require("select");
 require("socket");
-require("custom");
 
-custom_variable("server_name", "server");
-custom_variable("server_socket_dir", sprintf("/tmp/emacs%d", geteuid()));
+variable server_name, server_socket_dir;
+ifnot(__is_initialized(&server_name)) server_name="server";
+ifnot(__is_initialized(&server_socket_dir)) server_socket_dir = sprintf("/tmp/emacs%d", geteuid());
 
 variable socket_filename=path_concat(server_socket_dir, server_name);
 if (-1 == remove(socket_filename) && errno != ENOENT) 
