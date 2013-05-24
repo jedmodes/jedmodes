@@ -91,6 +91,8 @@
 % 2.4.3 2009-10-05 * use reopen_file() in rst_view() (don't ask before reload)
 % 2.4.4 2009-12-09 * adapt to the changed require() behaviour in Jed 0.99.19
 % 2.5   2010-12-08 XHTML (html4_strict) and XeTeX export.
+% 2.6   2013-05-24 * pseudoxml export,
+% 		   * fix get_outfile().
 % ===== ========== ============================================================
 %
 % TODO
@@ -231,6 +233,9 @@ custom_variable("Rst2XeTeX_Cmd", "rst2xetex");
 %!%-
 custom_variable("Rst2Pdf_Cmd", "py.rest --topdf");
 
+custom_variable("Rst2XML_Cmd", "rst2xml --indent --newlines");
+custom_variable("Rst2pseudoXML_Cmd", "rst2pseudoxml --traceback");
+
 %!%+
 %\variable{Rst_Documentation_Path}
 %\synopsis{Base URL of the Docutils Project Documentation}
@@ -295,6 +300,8 @@ private variable helpbuffer = "*rst export help*";
 static variable export_cmds = Assoc_Type[Ref_Type];
 export_cmds["html"] = &Rst2Html_Cmd;
 export_cmds["xhtml"] = &Rst2Xhtml_Cmd;
+export_cmds["xml"] = &Rst2XML_Cmd;
+export_cmds["pseudoxml"] = &Rst2pseudoXML_Cmd;
 export_cmds["tex"] = &Rst2Latex_Cmd;
 export_cmds["xetex"] = &Rst2XeTeX_Cmd;
 export_cmds["pdf"] = &Rst2Pdf_Cmd;
@@ -345,9 +352,9 @@ private define get_outfile(format)
 {
    if (format == "xetex")
       format = "tex";
-   % else if (format == "html")
-   %    format = "xhtml";
-   variable outfile = path_sans_extname(whatbuf())+ "." + format;
+   else if (format == "xhtml")
+      format = "html";
+   variable outfile = path_sans_extname(buffer_filename())+ "." + format;
    outfile = path_concat(buffer_dirname(), outfile);
    return outfile;
 }
@@ -409,6 +416,15 @@ public  define rst_to_html()
 public  define rst_to_xhtml()
 {
    rst_export("xhtml");
+}
+
+public  define rst_to_xml()
+{
+   rst_export("xml");
+}
+public  define rst_to_pseudoxml()
+{
+   rst_export("pseudoxml");
 }
 
 % export to LaTeX
@@ -489,6 +505,15 @@ public  define rst_view_html()
 public  define rst_view_xhtml()
 {
    rst_view("xhtml");
+}
+
+public  define rst_view_xml()
+{
+   rst_view("xml");
+}
+public  define rst_view_pseudoxml()
+{
+   rst_view("pseudoxml");
 }
 
 % Find the LaTeX conversion of the current buffer
@@ -942,6 +967,8 @@ static define rst_menu(menu)
    popup = new_popup(menu, "&Export");
    menu_append_item(popup, "X&html", "rst_to_xhtml");
    menu_append_item(popup, "&HTML", "rst_to_html");
+   menu_append_item(popup, "X&ML", "rst_to_xml");
+   menu_append_item(popup, "p&seudoXML", "rst_to_pseudoxml");
    menu_append_item(popup, "&LaTeX", "rst_to_latex");
    menu_append_item(popup, "&XeTeX", "rst_to_xetex");
    menu_append_item(popup, "&PDF", "rst_to_pdf");
@@ -949,6 +976,8 @@ static define rst_menu(menu)
    popup = new_popup(menu, "&View");
    menu_append_item(popup, "X&html", "rst_view_xhtml");
    menu_append_item(popup, "&HTML", "rst_view_html");
+   menu_append_item(popup, "X&ML", "rst_view_xml");
+   menu_append_item(popup, "p&seudoXML", "rst_view_pseudoxml");
    menu_append_item(popup, "&LaTeX", "rst_view_latex");
    menu_append_item(popup, "&XeTeX", "rst_view_xetex");
    menu_append_item(popup, "&PDF", "rst_view_pdf");
