@@ -1,8 +1,8 @@
 % svn.sl: Utilities for SVN and CVS access from jed.
 % -*- mode: slang -*-
 %
-% :Date:      $Date: 2008/02/19 13:26:01 $
-% :Version:   $Revision: 1.24 $
+% :Date:      $Date: $
+% :Version:   $Revision: $
 % :Copyright: © 2003,2006 Juho Snellman
 %               2007      Günter Milde
 %
@@ -182,8 +182,8 @@
 % 	     * BUGFIX: "subtract file" removed the local copy with SVN!
 % 2009-10-05 * Moved reopen_file() to bufutils.sl.
 % 2009-10-05 * fixed autoloads
-% [2015-09-15  removed SVK support,
-% 	     * update check for SVN.
+% 2015-09-15 * removed SVK support,
+% 	     * update test for SVN.
 %
 %
 % TODO
