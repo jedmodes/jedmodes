@@ -103,6 +103,7 @@
 %                  - added autoload for view_mode() (report P. Bengtson)
 % 2.2.1 2010-12-08 - py_untab() restores point.
 %                  - Adapt py_browse_module_doc() to 2.6 doc paths.
+% 2.2.1 2015-09-25 - fix quoting in python_help()
 
 
 % TODO
@@ -129,6 +130,7 @@ require("keydefs");  % symbolic constants for many function and arrow keys
 
 % utilities from http://jedmodes.sf.net/
 autoload("browse_url", "browse_url");
+autoload("buffer_dirname", "bufutils");
 autoload("fit_window", "bufutils");
 autoload("popup_buffer", "bufutils");
 autoload("untab_buffer", "bufutils");
@@ -1245,12 +1247,18 @@ static define get_import_lines()
 	    continue;
 	 do { % get line and continuation lines
 	    import_lines += line_as_string()+"\n";
+	    go_down_1();
 	 }
-	 while (bskip_white(), blooking_at("\\") and down_1());
+	 while (is_continuation_line());
+	 % while (bskip_white(), blooking_at("\\") and down_1());
       }
       pop_spot();
    }
    CASE_SEARCH = case_search_before;
+   !if (import_lines == "") {
+      import_lines = sprintf("import sys; sys.path.insert(0, \"%s\")\n",
+			     buffer_dirname()) + import_lines;
+   }
    return import_lines;
 }
 
@@ -1317,8 +1325,9 @@ public define py_help() %(topic=NULL)
    %   }
    % pop_spot();
 
-   help_cmd = sprintf("python -c '%shelp('%s')'",
+   help_cmd = sprintf("python -c '%shelp(\"%s\")'",
 	  get_import_lines(), topic);
+   % show(help_cmd);
    popup_buffer("*python-help*");
    set_readonly(0);
    erase_buffer();
@@ -1352,9 +1361,9 @@ public define py_browse_module_doc() % (module=NULL)
    if (module == NULL)
      module = read_mini("Browse doc for module (empty for index):", "", "");
    if (module == "")
-     module = "modindex.html";
+     module = "index.html";
    else
-     module = sprintf("%s.html", module);
+     module = sprintf("%s.html", strlow(module));
 
    browse_url("file:" + path_concat(lib_doc_dir, module));
 }
@@ -1366,10 +1375,10 @@ public define py_browse_module_doc() % (module=NULL)
 create_syntax_table(mode);
 define_syntax("#", "", '%', mode);		% comments
 define_syntax("([{", ")]}", '(', mode);		% delimiters
-define_syntax('\'', '\'', mode);			% quoted strings
+define_syntax('\'', '\'', mode);		% quoted strings
 define_syntax('"', '"', mode);			% quoted strings
-define_syntax('\'', '\'', mode);			% quoted characters
-define_syntax('\\', '\\', mode);			% continuations
+define_syntax('\'', '\'', mode);		% quoted characters
+define_syntax('\\', '\\', mode);		% continuations
 define_syntax("0-9a-zA-Z_", 'w', mode);		% words
 define_syntax("-+0-9a-fA-FjJlLxX.", '0', mode);	% Numbers
 define_syntax(",;.:", ',', mode);		% punctuation
