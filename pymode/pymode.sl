@@ -103,7 +103,8 @@
 %                  - added autoload for view_mode() (report P. Bengtson)
 % 2.2.1 2010-12-08 - py_untab() restores point.
 %                  - Adapt py_browse_module_doc() to 2.6 doc paths.
-% 2.2.1 2015-09-25 - fix quoting in python_help()
+% 2.2.1 2015-09-25 - Fix quoting in python_help().
+% 2.2.2 2015-09-28 - Add autoload for push_defaults().
 
 
 % TODO
@@ -141,6 +142,7 @@ autoload("ishell_send_input", "ishell");
 autoload("ishell_set_output_placement", "ishell");
 autoload("shell_cmd_on_region_or_buffer", "ishell");
 autoload("get_blocal", "sl_utils");
+autoload("push_defaults", "sl_utils");
 autoload("string_get_match", "strutils");
 autoload("str_re_replace_all", "strutils");
 autoload("get_word", "txtutils");
