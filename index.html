@@ -1,0 +1,113 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="chrome=1">
+    <title>Jedmodes by jedmodes</title>
+
+    <link rel="stylesheet" href="stylesheets/styles.css">
+    <link rel="stylesheet" href="stylesheets/github-light.css">
+    <script src="javascripts/scale.fix.js"></script>
+    <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+    <!--[if lt IE 9]>
+    <script src="//html5shiv.googlecode.com/svn/trunk/html5.js"></script>
+    <![endif]-->
+  </head>
+  <body>
+    <div class="wrapper">
+      <header>
+        <h1 class="header">Jedmodes</h1>
+        <p class="header">A collection of S-Lang scripts (modes) contributed by JED users. </p>
+
+        <ul>
+          <li class="download"><a class="buttons" href="https://github.com/jedmodes/jedmodes/zipball/master">Download ZIP</a></li>
+          <li class="download"><a class="buttons" href="https://github.com/jedmodes/jedmodes/tarball/master">Download TAR</a></li>
+          <li><a class="buttons github" href="https://github.com/jedmodes/jedmodes">View On GitHub</a></li>
+        </ul>
+
+        <p class="header">This project is maintained by <a class="header name" href="https://github.com/jedmodes">jedmodes</a></p>
+
+
+      </header>
+      <section>
+        <h1>
+<a id="jedmodes-readme" class="anchor" href="#jedmodes-readme" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Jedmodes README</h1>
+
+<p>This are the source files of the CVS repository of the Jed Modes Repository,
+a collection of S-Lang scripts (modes) contributed by Jed users.</p>
+
+<p>Some of the modes are experimental (while others work stable for their 
+authors for ages), so <strong>USE AT YOUR OWN RISK</strong>.</p>
+
+<h2>
+<a id="copyright" class="anchor" href="#copyright" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Copyright</h2>
+
+<p>The modes at Jedmodes are <code>free software</code>__.</p>
+
+<p>If not stated otherwise in the individual file, all modes at Jedmodes are
+copyrighted by their respective creator and released under the 
+<em>GNU General Public License</em> (<code>GPL</code>_) </p>
+
+<p>__ <a href="http://www.gnu.org/philosophy/free-sw.html">http://www.gnu.org/philosophy/free-sw.html</a></p>
+
+<h2>
+<a id="no-warranty" class="anchor" href="#no-warranty" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>No Warranty</h2>
+
+<p>The modes are distributed in the hope that they will be useful, but
+WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
+or FITNESS FOR A PARTICULAR PURPOSE.  See the <code>GPL</code>_
+for more details.</p>
+
+<p>.. _GPL:  <a href="http://www.gnu.org/copyleft/gpl.html">http://www.gnu.org/copyleft/gpl.html</a></p>
+
+<h2>
+<a id="usage" class="anchor" href="#usage" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Usage</h2>
+
+<ul>
+<li><p>Place the files you want to use in the search path for jed library files
+(cf. Help&gt;Describe_Function get_jed_library_path)</p></li>
+<li><p>See the individual modes for detailled usage instructions.</p></li>
+</ul>
+
+<p>The <code>libdir</code>_ and <code>make_ini</code>_ modes provide an jed extension framework. </p>
+
+<ul>
+<li>
+<p>The functions <code>add_libdir(dir, initialize=1)</code> and 
+<code>append_libdir(dir, initialize=1)</code> register a library dir for use by Jed</p>
+
+<ul>
+<li>Prepend|Append <code>path</code> to the library path</li>
+<li>Set <code>Color_Scheme_Path</code>, <code>Jed_Doc_Files</code>,
+and <code>Jed_Highlight_Cache_Path</code>
+</li>
+<li>Evaluate (if existent) the file <code>ini.sl</code> in this directory
+to enable initialization (autoloads etc.). This is customizable by the
+optional second argument.</li>
+</ul>
+</li>
+<li><p>The functions in <code>make_ini</code>_ can be used to create such an ini.sl file.
+They can also preparse SLang files and create dfa syntax tables.</p></li>
+</ul>
+
+<p>.. _libdir: <a href="http://jedmodes.sourceforge.net/mode/libdir/">http://jedmodes.sourceforge.net/mode/libdir/</a>
+.. _make_ini: <a href="http://jedmodes.sourceforge.net/mode/make_ini/">http://jedmodes.sourceforge.net/mode/make_ini/</a></p>
+
+<h2>
+<a id="contact" class="anchor" href="#contact" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Contact</h2>
+
+<p>Mail hints, bug reports, praise and ideas to <a href="mailto:jed-users@jedsoft.org">jed-users@jedsoft.org</a> or
+direcly to the mode's authors.</p>
+
+<p>Günter Milde</p>
+
+<p>last change 2009-01-05</p>
+      </section>
+      <footer>
+        <p><small>Hosted on <a href="https://pages.github.com">GitHub Pages</a> using the Dinky theme</small></p>
+      </footer>
+    </div>
+    <!--[if !IE]><script>fixScale(document);</script><![endif]-->
+		
+  </body>
+</html>
